@@ -1,0 +1,55 @@
+﻿@model Hedron.Models.RoomViewModel
+
+@{
+    ViewData["Title"] = "Details";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Details</h2>
+
+<div>
+    <h4>@Html.DisplayFor(model => model.Name)</h4>
+    <hr />
+    <dl class="dl-horizontal">
+        <dt>
+            @Html.DisplayNameFor(model => model.Prototype)
+        </dt>
+        <dd>
+            @Html.DisplayFor(model => model.Prototype)
+        </dd>
+        <dt>
+            @Html.DisplayNameFor(model => model.ParentName)
+        </dt>
+        <dd>
+            @Html.DisplayFor(model => model.ParentName)
+        </dd>
+        <dt>
+            @Html.DisplayNameFor(model => model.Tier)
+        </dt>
+        <dd>
+            @Html.DisplayFor(model => model.Tier)
+        </dd>
+        <dt>
+            @Html.DisplayNameFor(model => model.Name)
+        </dt>
+        <dd>
+            @Html.DisplayFor(model => model.Name)
+        </dd>
+        <dt>
+            @Html.DisplayNameFor(model => model.Description)
+        </dt>
+        <dd>
+            @Html.DisplayFor(model => model.Description)
+        </dd>
+    </dl>
+    <hr />
+    <h4>Entities</h4>
+    <div>
+        @{ await Html.RenderPartialAsync("Partial/_entityList", Model.Entities); }
+    </div>
+    <hr />
+</div>
+<div>
+    @Html.ActionLink("Edit", "Edit", new { id = Model.Prototype }) |
+    <a asp-action="Index">Back to List</a>
+</div>

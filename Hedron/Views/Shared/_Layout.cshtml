@@ -15,6 +15,10 @@
               asp-fallback-test-class="sr-only" asp-fallback-test-property="position" asp-fallback-test-value="absolute" />
         <link rel="stylesheet" href="~/css/site.min.css" asp-append-version="true" />
     </environment>
+
+    <script>
+        @RenderSection("Ajax", required: false)
+    </script>
 </head>
 <body>
     <nav class="navbar navbar-inverse navbar-fixed-top">
@@ -31,8 +35,11 @@
             <div class="navbar-collapse collapse">
                 <ul class="nav navbar-nav">
                     <li><a asp-area="" asp-controller="Home" asp-action="Index">Home</a></li>
-                    <li><a asp-area="" asp-controller="Home" asp-action="About">About</a></li>
-                    <li><a asp-area="" asp-controller="Home" asp-action="Contact">Contact</a></li>
+                    <li><a asp-area="" asp-controller="Area" asp-action="Index">Areas</a></li>
+                    <li><a asp-area="" asp-controller="Room" asp-action="Index">Rooms</a></li>
+                    <li><a asp-area="" asp-controller="Mob" asp-action="Index">Mobs</a></li>
+                    <li><a asp-area="" asp-controller="ItemStatic" asp-action="Index">Statics</a></li>
+                    <li><a asp-area="" asp-controller="ItemWeapon" asp-action="Index">Weapons</a></li>
                 </ul>
             </div>
         </div>

@@ -1,0 +1,43 @@
+﻿@model IEnumerable<Hedron.Models.RoomViewModel>
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<table class="table" id="tableRoomList">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.Prototype)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Name)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Description)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var room in Model)
+        {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => room.Prototype)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => room.Name)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => room.Description)
+                </td>
+                <td>
+                    <a asp-controller="Room" asp-action="Edit" asp-route-id="@room.Prototype">Edit</a> |
+                    <a asp-controller="Room" asp-action="Details" asp-route-id="@room.Prototype">Details</a> |
+                    <a asp-controller="Room" asp-action="Delete" asp-route-id="@room.Prototype">Delete</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

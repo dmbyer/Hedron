@@ -1,0 +1,76 @@
+﻿@model Hedron.Models.AreaViewModel
+
+@{
+    ViewData["Title"] = "Edit";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Edit</h2>
+
+<h4>@Html.DisplayFor(model => model.Name)</h4>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <form asp-action="Edit">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="form-group">
+                <label asp-for="Prototype" class="control-label"></label>
+                <input asp-for="Prototype" class="form-control" value="@Model.Prototype" readonly="readonly"/>
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Name" class="control-label"></label>
+                <input asp-for="Name" class="form-control" value="@Model.Name" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Tier" class="control-label"></label>
+                <input asp-for="Tier" class="form-control" value="@Model.Tier" />
+                <span asp-validation-for="Tier" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Save" class="btn btn-default" />
+            </div>
+        </form>
+    </div>
+</div>
+<div>
+    <h4>Rooms</h4>
+    <a href="#" onclick="addRoom()">Add</a>
+    <div id="divRoomList">
+        @{ await Html.RenderPartialAsync("Partial/_roomList", Model.Rooms); }
+    </div>
+    <hr />
+</div>
+
+<div>
+    <a asp-action="Index">Back to List</a>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+
+
+@section Ajax {
+    function addRoom() {
+        let request = new XMLHttpRequest();
+
+        request.open('POST', '/Area/AddRoom', true);
+
+        request.setRequestHeader("XSRF-TOKEN", document.getElementsByName('__RequestVerificationToken')[0].value);
+        request.setRequestHeader("Content-Type", "application/json");
+        request.responseType = "document";
+        console.log(document.getElementsByName('__RequestVerificationToken')[0].value);
+
+        request.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+
+                document.getElementById('divRoomList').innerHTML = this.responseXML.body.innerHTML;
+                console.log(this.responseXML.documentElement.outerHTML);
+            }
+        };
+
+        request.send(@Model.Prototype);
+    }
+}

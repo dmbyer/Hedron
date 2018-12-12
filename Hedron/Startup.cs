@@ -33,6 +33,7 @@ namespace Hedron
 
 
 			services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+			services.AddAntiforgery(options => options.HeaderName = "XSRF-TOKEN");
 		}
 
 		// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -57,6 +58,20 @@ namespace Hedron
 				routes.MapRoute(
 					name: "default",
 					template: "{controller=Home}/{action=Index}/{id?}");
+			});
+
+			app.UseMvc(routes =>
+			{
+				routes.MapRoute(
+					name: "Area Index",
+					template: "Area/{controller=Area}/{action=Index}/{id?}");
+			});
+
+			app.UseMvc(routes =>
+			{
+				routes.MapRoute(
+					name: "Room Index",
+					template: "Room/{controller=Room}/{action=Index}/{id?}");
 			});
 		}
 	}
