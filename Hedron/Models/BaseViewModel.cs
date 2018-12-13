@@ -31,10 +31,5 @@ namespace Hedron.Models
 				return _type;
 			}
 		}
-
-		public BaseViewModel()
-		{
-			_type = nameof(CacheableObject);
-		}
 	}
 }

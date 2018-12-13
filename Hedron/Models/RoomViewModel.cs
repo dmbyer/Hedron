@@ -14,11 +14,6 @@ namespace Hedron.Models
 
 		public List<BaseEntityViewModel> Entities { get; set; }
 
-		public RoomViewModel()
-		{
-			_type = nameof(Room);
-		}
-
 		public static RoomViewModel RoomToViewModel(Room room)
 		{
 			if (room == null)

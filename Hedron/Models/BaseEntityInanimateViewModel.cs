@@ -14,10 +14,5 @@ namespace Hedron.Models
 		public Flags.ItemRarity Rarity { get; set; }
 
 		public Flags.ItemSlot Slot { get; set; }
-
-		public BaseEntityInanimateViewModel()
-		{
-			_type = nameof(EntityInanimate);
-		}
 	}
 }

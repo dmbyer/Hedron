@@ -19,10 +19,5 @@ namespace Hedron.Models
 		public int MaxDamage { get; set; }// = Constants.DEFAULT_DAMAGE * 2;
 
 		public Affect Affects { get; set; }// = new Affect();
-
-		public ItemWeaponViewModel()
-		{
-			_type = nameof(ItemWeapon);
-		}
 	}
 }

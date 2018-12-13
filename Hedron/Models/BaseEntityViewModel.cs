@@ -16,11 +16,6 @@ namespace Hedron.Models
 		[Display(Name = "Long Description")]
 		public string LongDescription { get; set; }
 
-		public BaseEntityViewModel()
-		{
-			_type = nameof(Entity);
-		}
-
 		public static BaseEntityViewModel EntityToViewModel(Entity entity)
 		{
 			if (entity == null)
@@ -28,6 +23,7 @@ namespace Hedron.Models
 
 			return new BaseEntityViewModel()
 			{
+				_type = entity.GetType().Name,
 				Prototype = (uint)entity.Prototype,
 				ParentName = DataAccess.Get<Room>(entity.Parent, CacheType.Prototype).Name,
 				Name = entity.Name,

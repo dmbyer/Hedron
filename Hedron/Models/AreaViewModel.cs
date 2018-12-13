@@ -9,10 +9,5 @@ namespace Hedron.Models
 	public class AreaViewModel : BaseViewModel
 	{
 		public List<RoomViewModel> Rooms { get; set; }
-
-		public AreaViewModel()
-		{
-			_type = nameof(Area);
-		}
 	}
 }

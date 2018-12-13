@@ -21,13 +21,19 @@ namespace Hedron.Controllers.Data
 
 			foreach (var room in listRooms)
 			{
+
+				var entities = DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype)
+					.OrderBy(e => e.Prototype)
+					.ToList();
+
 				vModel.Add(new RoomViewModel()
 				{
 					Prototype = (uint)room.Prototype,
 					ParentName = DataAccess.Get<Area>(room.Parent, CacheType.Prototype).Name,
 					Name = room.Name,
 					Description = room.Description.ToTruncatedSubString(80, true),
-					Tier = room.Tier.Level
+					Tier = room.Tier.Level,
+					Entities = BaseEntityViewModel.EntityToViewModel(entities)
 				});
 			}
 
@@ -38,12 +44,13 @@ namespace Hedron.Controllers.Data
 		public ActionResult Details(int id)
 		{
 			var room = DataAccess.Get<Room>((uint)id, CacheType.Prototype);
-			var entities = DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype)
-				.OrderBy(e => e.Prototype)
-				.ToList();
 
 			if (room == null)
 				return NotFound();
+
+			var entities = DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype)
+				.OrderBy(e => e.Prototype)
+				.ToList();
 
 			var vModel = new RoomViewModel()
 			{
@@ -98,12 +105,17 @@ namespace Hedron.Controllers.Data
 			if (room == null)
 				return NotFound();
 
+			var entities = DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype)
+				.OrderBy(e => e.Prototype)
+				.ToList();
+
 			var vModel = new RoomViewModel()
 			{
 				Name = room.Name,
 				Prototype = (uint)room.Prototype,
 				Tier = room.Tier.Level,
-				Description = room.Description
+				Description = room.Description,
+				Entities = BaseEntityViewModel.EntityToViewModel(entities)
 			};
 
 			return View("~/Views/Data/Room/Edit.cshtml", vModel);
@@ -172,6 +184,38 @@ namespace Hedron.Controllers.Data
 			var success = DataAccess.Remove<Room>((uint)id, CacheType.Prototype);
 
 			return RedirectToAction("Index");
+		}
+
+		// POST: Room/AddItemStatic
+		[HttpPost, ActionName("AddItemStatic")]
+		[ValidateAntiForgeryToken]
+		public ActionResult AddItemStatic([FromBody]int parentRoom)
+		{
+			var newItem = ItemStatic.NewPrototype();
+			var room = DataAccess.Get<Room>((uint)parentRoom, CacheType.Prototype);
+
+			room.AddEntity(newItem.Prototype, newItem);
+
+			var entities = BaseEntityViewModel.EntityToViewModel(
+				DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype));
+
+			return PartialView("Partial/_entityList", entities);
+		}
+
+		// POST: Room/AddMob
+		[HttpPost, ActionName("AddMob")]
+		[ValidateAntiForgeryToken]
+		public ActionResult AddMob([FromBody]int parentRoom)
+		{
+			var newMob = Mob.NewPrototype();
+			var room = DataAccess.Get<Room>((uint)parentRoom, CacheType.Prototype);
+
+			room.AddEntity(newMob.Prototype, newMob);
+
+			var entities = BaseEntityViewModel.EntityToViewModel(
+				DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype));
+
+			return PartialView("Partial/_entityList", entities);
 		}
 	}
 }

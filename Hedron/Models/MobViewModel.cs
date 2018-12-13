@@ -24,10 +24,5 @@ namespace Hedron.Models
 		public Aspects BaseAspects { get; set; }
 		
 		public Qualities BaseQualities { get; set; }
-
-		public MobViewModel()
-		{
-			_type = nameof(Mob);
-		}
 	}
 }

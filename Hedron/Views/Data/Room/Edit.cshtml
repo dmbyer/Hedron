@@ -39,6 +39,14 @@
         </form>
     </div>
 </div>
+<div>
+    <h4>Entities</h4>
+    Add: <a href="#" onclick="addEntity('AddItemStatic')">Static Item</a> | <a href="#" onclick="addEntity('AddMob')">Mob</a>
+    <div id="divEntityList">
+        @{ await Html.RenderPartialAsync("Partial/_entityList", Model.Entities); }
+    </div>
+    <hr />
+</div>
 
 <div>
     <a asp-action="Index">Back to List</a>
@@ -46,4 +54,28 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+
+
+@section Ajax {
+    function addEntity(entityActionType) {
+        let request = new XMLHttpRequest();
+
+        request.open('POST', '/Room/' + entityActionType, true);
+
+        request.setRequestHeader("XSRF-TOKEN", document.getElementsByName('__RequestVerificationToken')[0].value);
+        request.setRequestHeader("Content-Type", "application/json");
+        request.responseType = "document";
+        console.log(document.getElementsByName('__RequestVerificationToken')[0].value);
+
+        request.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+
+                document.getElementById('divEntityList').innerHTML = this.responseXML.body.innerHTML;
+                console.log(this.responseXML.documentElement.outerHTML);
+            }
+        };
+
+        request.send(@Model.Prototype);
+    }
 }

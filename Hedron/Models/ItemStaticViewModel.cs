@@ -10,9 +10,7 @@ namespace Hedron.Models
 {
 	public class ItemStaticViewModel : BaseEntityInanimateViewModel
 	{		
-		public ItemStaticViewModel()
-		{
-			_type = nameof(ItemStatic);
-		}
+		
+
 	}
 }
