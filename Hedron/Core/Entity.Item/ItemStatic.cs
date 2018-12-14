@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Hedron.System;
 using Hedron.Data;
+using Hedron.Core.Behavior;
 
 namespace Hedron.Core
 {
@@ -13,8 +14,8 @@ namespace Hedron.Core
 		// Constructors
 		public ItemStatic() : base()
 		{
-			Behavior = Flags.ItemBehavior.NoBehavior;
-			Slot = Flags.ItemSlot.None;
+			Behavior = new ItemBehavior();
+			Slot = ItemSlot.None;
 		}
 
 		/// <summary>

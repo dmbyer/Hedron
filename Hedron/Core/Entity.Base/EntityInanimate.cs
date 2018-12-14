@@ -3,8 +3,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using Hedron.System;
+using Hedron.Core.Behavior;
 using Hedron.Data;
+using Hedron.System;
 using Newtonsoft.Json;
 
 namespace Hedron.Core
@@ -14,9 +15,9 @@ namespace Hedron.Core
 	/// </summary>
 	abstract public partial class EntityInanimate : Entity, ICopyableObject<EntityInanimate>
 	{
-		public Flags.ItemBehavior Behavior { get; set; } = Flags.ItemBehavior.NoBehavior;
-		public Flags.ItemRarity   Rarity   { get; set; } = Flags.ItemRarity.Common;
-		public Flags.ItemSlot     Slot     { get; set; } = Flags.ItemSlot.None;
+		public ItemBehavior Behavior { get; set; } = new ItemBehavior();
+		public ItemRarity   Rarity   { get; set; } = ItemRarity.Common;
+		public ItemSlot     Slot     { get; set; } = ItemSlot.None;
 
 		public EntityInanimate() : base()
 		{
@@ -35,7 +36,7 @@ namespace Hedron.Core
 
 			base.CopyTo(item);
 
-			item.Behavior = Behavior;
+			Behavior.CopyTo(item.Behavior);
 			item.Slot = Slot;
 			item.Rarity = Rarity;
 		}

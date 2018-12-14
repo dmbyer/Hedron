@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Hedron.Core;
 
 namespace Hedron.System
 {
@@ -58,39 +59,39 @@ namespace Hedron.System
 			/// </summary>
 			/// <param name="slot">The slot to check</param>
 			/// <returns>The number of maximum equipped items</returns>
-			public static int AT(Flags.ItemSlot slot)
+			public static int AT(ItemSlot slot)
 			{
 				switch (slot)
 				{
-					case Flags.ItemSlot.None:
+					case ItemSlot.None:
 						return 0;
-					case Flags.ItemSlot.Light:
+					case ItemSlot.Light:
 						return 1;
-					case Flags.ItemSlot.Orbit:
+					case ItemSlot.Orbit:
 						return 4;
-					case Flags.ItemSlot.Head:
+					case ItemSlot.Head:
 						return 1;
-					case Flags.ItemSlot.Neck:
+					case ItemSlot.Neck:
 						return 2;
-					case Flags.ItemSlot.Torso:
+					case ItemSlot.Torso:
 						return 1;
-					case Flags.ItemSlot.Arms:
+					case ItemSlot.Arms:
 						return 1;
-					case Flags.ItemSlot.Hands:
+					case ItemSlot.Hands:
 						return 1;
-					case Flags.ItemSlot.Waist:
+					case ItemSlot.Waist:
 						return 1;
-					case Flags.ItemSlot.Legs:
+					case ItemSlot.Legs:
 						return 1;
-					case Flags.ItemSlot.Feet:
+					case ItemSlot.Feet:
 						return 1;
-					case Flags.ItemSlot.Finger:
+					case ItemSlot.Finger:
 						return 2;
-					case Flags.ItemSlot.OneHandedWeapon:
+					case ItemSlot.OneHandedWeapon:
 						return 2;
-					case Flags.ItemSlot.TwoHandedWeapon:
+					case ItemSlot.TwoHandedWeapon:
 						return 1;
-					case Flags.ItemSlot.Shield:
+					case ItemSlot.Shield:
 						return 1;
 					default:
 						return 0;

@@ -5,6 +5,7 @@ using Hedron.Data;
 using Hedron.Core.Damage;
 using Hedron.System;
 using Newtonsoft.Json;
+using Hedron.Core.Behavior;
 using Hedron.Core.Property;
 
 namespace Hedron.Core
@@ -40,9 +41,12 @@ namespace Hedron.Core
 		/// </summary>
 		private ItemWeapon() : base()
 		{
-			Behavior = Flags.ItemBehavior.Equippable
-				| Flags.ItemBehavior.Obtainable
-				| Flags.ItemBehavior.Storable;
+			Behavior = new ItemBehavior()
+			{
+				Obtainable = true,
+				Storable = true,
+				RandomDrop = true
+			};
 		}
 		
 		/// <summary>
@@ -50,10 +54,10 @@ namespace Hedron.Core
 		/// </summary>
 		/// <param name="slot">The weapon slot</param>
 		/// <remarks>This constructor ensures a weapon will be created as either one or two handed</remarks>
-		public ItemWeapon(Flags.ItemSlot slot = Flags.ItemSlot.OneHandedWeapon) : this()
+		public ItemWeapon(ItemSlot slot = ItemSlot.OneHandedWeapon) : this()
 		{
-			if (slot != Flags.ItemSlot.OneHandedWeapon && slot != Flags.ItemSlot.TwoHandedWeapon)
-				Slot = Flags.ItemSlot.OneHandedWeapon;
+			if (slot != ItemSlot.OneHandedWeapon && slot != ItemSlot.TwoHandedWeapon)
+				Slot = ItemSlot.OneHandedWeapon;
 			else
 				Slot = slot;
 		}

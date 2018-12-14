@@ -104,7 +104,7 @@ namespace Hedron.Core
 		/// </summary>
 		/// <param name="slot">The slot to check for equipped items</param>
 		/// <returns>A list of equipped items</returns>
-		public List<EntityInanimate> EquippedAt(Flags.ItemSlot slot)
+		public List<EntityInanimate> EquippedAt(ItemSlot slot)
 		{
 			List<EntityInanimate> equippedItems = new List<EntityInanimate>();
 

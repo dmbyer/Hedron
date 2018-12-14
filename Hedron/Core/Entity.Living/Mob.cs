@@ -3,15 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Hedron.System;
+using Hedron.Core.Behavior;
 using Hedron.Data;
+using Hedron.System;
 
 namespace Hedron.Core
 {
     public sealed partial class Mob : EntityAnimate
 	{
 		// Public members
-		public Flags.MobBehavior	Behavior		{ get; set; }	= Flags.MobBehavior.NoBehavior;
+		public MobBehavior Behavior { get; set; } = new MobBehavior();
 
 		// Constructors
 		public Mob() : base()
@@ -111,6 +112,21 @@ namespace Hedron.Core
 			Logger.Info(nameof(Mob), nameof(Spawn), "Finished spawning mob.");
 
 			return newMob.Instance;
+		}
+
+		/// <summary>
+		/// Copies this item's properties to another item.
+		/// </summary>
+		/// <param name="mob">The item to copy to.</param>
+		/// <remarks>Doesn't copy IDs or cache type.</remarks>
+		public void CopyTo(Mob mob)
+		{
+			if (mob == null)
+				return;
+
+			base.CopyTo(mob);
+
+			Behavior.CopyTo(mob.Behavior);
 		}
 
 		protected override void OnCacheObjectRemoved(object source, CacheObjectRemovedEventArgs args)

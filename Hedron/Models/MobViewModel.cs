@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Core;
+using Hedron.Core.Behavior;
 using Hedron.Core.Property;
 using Hedron.System;
 
@@ -17,7 +18,7 @@ namespace Hedron.Models
 		[Display(Name = "Equipment")]
 		public Inventory WornEquipment { get; set; }
 
-		public Flags.MobBehavior Behavior { get; set; }
+		public MobBehavior Behavior { get; set; }
 		
 		public Attributes BaseAttributes { get; set; }
 		

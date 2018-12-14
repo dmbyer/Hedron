@@ -41,7 +41,7 @@ namespace Hedron.Commands
 
 				// Initialize item slot column
 				var slots = new List<string>();
-				foreach (var slot in Enum.GetValues(typeof(Flags.ItemSlot)))
+				foreach (var slot in Enum.GetValues(typeof(ItemSlot)))
 					slots.Add(slot.ToString());
 
 				// Determine width of item slot column
@@ -54,9 +54,9 @@ namespace Hedron.Commands
 				maxSlotTextWidth += 3;
 
 				// Initialize equipment list table
-				var mappedEquipment = new Dictionary<Flags.ItemSlot, List<string>>();
-				foreach (var slot in Enum.GetValues(typeof(Flags.ItemSlot)))
-					mappedEquipment.Add((Flags.ItemSlot)slot, new List<string>());
+				var mappedEquipment = new Dictionary<ItemSlot, List<string>>();
+				foreach (var slot in Enum.GetValues(typeof(ItemSlot)))
+					mappedEquipment.Add((ItemSlot)slot, new List<string>());
 
 				// Build out descriptions for worn equipment
 				foreach (var slot in mappedEquipment)
@@ -373,7 +373,7 @@ namespace Hedron.Commands
 				foreach (var item in inventoryEntities)
 				{
 					// Skip items that can't be worn
-					if (item.Slot != Flags.ItemSlot.None && item.Behavior.HasFlag(Flags.ItemBehavior.Equippable))
+					if (item.Slot != ItemSlot.None && item.Slot != ItemSlot.None)
 					{
 						// Get the items equipped at the current item's designated slot
 						var itemsEquippedAt = entity.EquippedAt(item.Slot);
@@ -400,7 +400,7 @@ namespace Hedron.Commands
 				if (itemMatched != null)
 				{
 					// Only equip wearable items
-					if (itemMatched.Slot == Flags.ItemSlot.None || !itemMatched.Behavior.HasFlag(Flags.ItemBehavior.Equippable))
+					if (itemMatched.Slot == ItemSlot.None)
 					{
 						entity.IOHandler?.QueueOutput("You cannot equip that.");
 						return CommandResult.CMD_R_FAIL;
@@ -450,19 +450,19 @@ namespace Hedron.Commands
 				{
 					switch (item.Slot)
 					{
-						case Flags.ItemSlot.Light:
+						case ItemSlot.Light:
 							wearOutput = string.Format("You equip {0} as your lightsource.", item.ShortDescription);
 							break;
-						case Flags.ItemSlot.Orbit:
+						case ItemSlot.Orbit:
 							wearOutput = string.Format("You release {0} in your orbit.", item.ShortDescription);
 							break;
-						case Flags.ItemSlot.OneHandedWeapon:
+						case ItemSlot.OneHandedWeapon:
 							wearOutput = string.Format("You equip {0} as your weapon.", item.ShortDescription);
 							break;
-						case Flags.ItemSlot.TwoHandedWeapon:
+						case ItemSlot.TwoHandedWeapon:
 							wearOutput = string.Format("You equip {0} as your weapon.", item.ShortDescription);
 							break;
-						case Flags.ItemSlot.Shield:
+						case ItemSlot.Shield:
 							wearOutput = string.Format("You equip {0} as your shield.", item.ShortDescription);
 							break;
 						default:
