@@ -11,6 +11,21 @@ namespace Hedron.Core
 {
 	public partial class ItemStatic : EntityInanimate
 	{
+		/// <summary>
+		/// Guarantees an ItemStatic slot will always be None
+		/// </summary>
+		public override ItemSlot Slot
+		{
+			get
+			{
+				return _slot;
+			}
+			set
+			{
+				_slot = ItemSlot.None;
+			}
+		}
+
 		// Constructors
 		public ItemStatic() : base()
 		{

@@ -15,9 +15,22 @@ namespace Hedron.Core
 	/// </summary>
 	abstract public partial class EntityInanimate : Entity, ICopyableObject<EntityInanimate>
 	{
+		protected ItemSlot _slot;
+
 		public ItemBehavior Behavior { get; set; } = new ItemBehavior();
 		public ItemRarity   Rarity   { get; set; } = ItemRarity.Common;
-		public ItemSlot     Slot     { get; set; } = ItemSlot.None;
+
+		public virtual ItemSlot Slot
+		{
+			get
+			{
+				return _slot;
+			}
+			set
+			{
+				_slot = value;
+			}
+		}
 
 		public EntityInanimate() : base()
 		{

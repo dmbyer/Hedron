@@ -31,9 +31,6 @@
             <th>
                 @Html.DisplayNameFor(model => model.LongDescription)
             </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Behavior)
-            </th>
             <th></th>
         </tr>
     </thead>
@@ -57,9 +54,6 @@
             </td>
             <td>
                 @Html.DisplayFor(modelItem => item.LongDescription)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Behavior)
             </td>
             <td>
                 @Html.ActionLink("Edit", "Edit", new { id=item.Prototype }) |

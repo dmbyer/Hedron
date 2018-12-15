@@ -31,9 +31,8 @@ namespace Hedron.Controllers.Data
 					Name = item.Name,
 					ShortDescription = item.ShortDescription.ToTruncatedSubString(30, true),
 					LongDescription = item.LongDescription.ToTruncatedSubString(80, true),
-					Behavior = item.Behavior,
-					Rarity = item.Rarity,
-					Slot = item.Slot
+					Behavior = ItemBehaviorViewModel.ToViewModel(item.Behavior),
+					Rarity = item.Rarity
 				});
 			}
 
@@ -55,9 +54,8 @@ namespace Hedron.Controllers.Data
 				Name = item.Name,
 				ShortDescription = item.ShortDescription,
 				LongDescription = item.LongDescription,
-				Behavior = item.Behavior,
-				Rarity = item.Rarity,
-				Slot = item.Slot
+				Behavior = ItemBehaviorViewModel.ToViewModel(item.Behavior),
+				Rarity = item.Rarity
 			};
 
 			return View("~/Views/Data/ItemStatic/Details.cshtml", vModel);
@@ -72,7 +70,7 @@ namespace Hedron.Controllers.Data
 		// POST: ItemStatic/Create
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public ActionResult Create([Bind("Name,ShortDescription,LongDescription,Tier")] ItemStaticViewModel itemStaticViewModel)
+		public ActionResult Create([Bind("Name,ShortDescription,LongDescription,Tier,Behavior,Rarity")] ItemStaticViewModel itemStaticViewModel)
 		{
 			if (ModelState.IsValid)
 			{
@@ -84,9 +82,8 @@ namespace Hedron.Controllers.Data
 					item.Name = itemStaticViewModel.Name;
 					item.ShortDescription = itemStaticViewModel.ShortDescription;
 					item.LongDescription = itemStaticViewModel.LongDescription;
-					item.Behavior = itemStaticViewModel.Behavior;
+					item.Behavior = ItemBehaviorViewModel.ToItemBehavior(itemStaticViewModel.Behavior);
 					item.Rarity = itemStaticViewModel.Rarity;
-					item.Slot = itemStaticViewModel.Slot;
 
 					DataPersistence.SaveObject(item);
 				}
@@ -114,9 +111,8 @@ namespace Hedron.Controllers.Data
 				Name = item.Name,
 				ShortDescription = item.ShortDescription,
 				LongDescription = item.LongDescription,
-				Behavior = item.Behavior,
-				Rarity = item.Rarity,
-				Slot = item.Slot
+				Behavior = ItemBehaviorViewModel.ToViewModel(item.Behavior),
+				Rarity = item.Rarity
 			};
 
 			return View("~/Views/Data/ItemStatic/Edit.cshtml", vModel);
@@ -125,7 +121,7 @@ namespace Hedron.Controllers.Data
 		// POST: ItemStatic/Edit/5
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public ActionResult Edit(int id, [Bind("Prototype,Name,ShortDescription,LongDescription,Tier")] ItemStaticViewModel itemStaticViewModel)
+		public ActionResult Edit(int id, [Bind("Prototype,Name,ShortDescription,LongDescription,Tier,Behavior,Rarity")] ItemStaticViewModel itemStaticViewModel)
 		{
 			if (id != itemStaticViewModel.Prototype)
 				return NotFound();
@@ -140,9 +136,8 @@ namespace Hedron.Controllers.Data
 					item.Name = itemStaticViewModel.Name;
 					item.ShortDescription = itemStaticViewModel.ShortDescription;
 					item.LongDescription = itemStaticViewModel.LongDescription;
-					item.Behavior = itemStaticViewModel.Behavior;
+					item.Behavior = ItemBehaviorViewModel.ToItemBehavior(itemStaticViewModel.Behavior);
 					item.Rarity = itemStaticViewModel.Rarity;
-					item.Slot = itemStaticViewModel.Slot;
 
 					DataPersistence.SaveObject(item);
 				}
@@ -173,9 +168,8 @@ namespace Hedron.Controllers.Data
 				Name = item.Name,
 				ShortDescription = item.ShortDescription,
 				LongDescription = item.LongDescription,
-				Behavior = item.Behavior,
-				Rarity = item.Rarity,
-				Slot = item.Slot
+				Behavior = ItemBehaviorViewModel.ToViewModel(item.Behavior),
+				Rarity = item.Rarity
 			};
 
 			return View("~/Views/Data/ItemStatic/Delete.cshtml", vModel);

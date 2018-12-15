@@ -34,9 +34,24 @@
                 <span asp-validation-for="MaxDamage" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="Behavior" class="control-label"></label>
-                <input asp-for="Behavior" class="form-control" />
-                <span asp-validation-for="Behavior" class="text-danger"></span>
+                <label asp-for="Behavior.Obtainable" class="control-label"></label>
+                <input asp-for="Behavior.Obtainable" class="form-control" />
+                <span asp-validation-for="Behavior.Obtainable" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Behavior.Storable" class="control-label"></label>
+                <input asp-for="Behavior.Storable" class="form-control" />
+                <span asp-validation-for="Behavior.Storable" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Behavior.RandomDrop" class="control-label"></label>
+                <input asp-for="Behavior.RandomDrop" class="form-control" />
+                <span asp-validation-for="Behavior.RandomDrop" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Behavior.Bound" class="control-label"></label>
+                <input asp-for="Behavior.Bound" class="form-control" />
+                <span asp-validation-for="Behavior.Bound" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <label asp-for="Rarity" class="control-label"></label>

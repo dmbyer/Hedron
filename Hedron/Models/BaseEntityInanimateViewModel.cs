@@ -10,7 +10,7 @@ namespace Hedron.Models
 {
 	public class BaseEntityInanimateViewModel : BaseEntityViewModel
 	{
-		public ItemBehavior Behavior { get; set; }
+		public ItemBehaviorViewModel Behavior { get; set; }
 
 		public ItemRarity Rarity { get; set; }
 

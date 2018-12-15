@@ -13,6 +13,24 @@ namespace Hedron.Core
 	public class ItemWeapon : EntityInanimate
 	{
 		/// <summary>
+		/// Guarantees an ItemWeapon slot will always be OneHandedWeapon if set to anything other than a weapon slot
+		/// </summary>
+		public override ItemSlot Slot
+		{
+			get
+			{
+				return _slot;
+			}
+			set
+			{
+				if (value != ItemSlot.OneHandedWeapon && value != ItemSlot.TwoHandedWeapon)
+					Slot = ItemSlot.OneHandedWeapon;
+				else
+					Slot = value;
+			}
+		}
+
+		/// <summary>
 		/// Damage properties
 		/// </summary>
 		[JsonProperty]
