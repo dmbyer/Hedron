@@ -7,7 +7,7 @@ namespace Hedron.Core.Damage
 {
 	public class DamageProperties : ICopyableObject<DamageProperties>
 	{
-		public DamageType    DamageType    { get; set; }
+		public DamageType DamageType { get; set; }
 		public ElementalType ElementalType { get; set; }
 
 		public DamageProperties()
