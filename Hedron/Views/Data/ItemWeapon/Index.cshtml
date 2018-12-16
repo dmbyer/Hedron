@@ -14,27 +14,6 @@
     <thead>
         <tr>
             <th>
-                @Html.DisplayNameFor(model => model.ShortDescription)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.LongDescription)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.MinDamage)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.MaxDamage)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Behavior)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Rarity)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Slot)
-            </th>
-            <th>
                 @Html.DisplayNameFor(model => model.Prototype)
             </th>
             <th>
@@ -46,33 +25,21 @@
             <th>
                 @Html.DisplayNameFor(model => model.Name)
             </th>
+            <th>
+                @Html.DisplayNameFor(model => model.ShortDescription)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Rarity)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Slot)
+            </th>
             <th></th>
         </tr>
     </thead>
     <tbody>
 @foreach (var item in Model) {
         <tr>
-            <td>
-                @Html.DisplayFor(modelItem => item.ShortDescription)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.LongDescription)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.MinDamage)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.MaxDamage)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Behavior)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Rarity)
-            </td>
-            <td>
-                @Html.DisplayFor(modelItem => item.Slot)
-            </td>
             <td>
                 @Html.DisplayFor(modelItem => item.Prototype)
             </td>
@@ -86,9 +53,18 @@
                 @Html.DisplayFor(modelItem => item.Name)
             </td>
             <td>
-                @Html.ActionLink("Edit", "Edit", new { id=item.Prototype }) |
-                @Html.ActionLink("Details", "Details", new { id=item.Prototype }) |
-                @Html.ActionLink("Delete", "Delete", new { id=item.Prototype })
+                @Html.DisplayFor(modelItem => item.ShortDescription)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Rarity)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Slot)
+            </td>
+            <td>
+                @Html.ActionLink("Edit", "Edit", new { id = item.Prototype }) |
+                @Html.ActionLink("Details", "Details", new { id = item.Prototype }) |
+                @Html.ActionLink("Delete", "Delete", new { id = item.Prototype })
             </td>
         </tr>
 }

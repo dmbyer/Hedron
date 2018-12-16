@@ -1,4 +1,5 @@
-﻿@model Hedron.Models.ItemWeaponViewModel
+﻿@using  Hedron.Core
+@model Hedron.Models.ItemWeaponViewModel
 
 @{
     ViewData["Title"] = "Edit";
@@ -13,6 +14,26 @@
     <div class="col-md-4">
         <form asp-action="Edit">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="form-group">
+                <label asp-for="Prototype" class="control-label"></label>
+                <input asp-for="Prototype" class="form-control" value="@Model.Prototype" readonly="readonly" />
+                <span asp-validation-for="Prototype" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Parent" class="control-label"></label>
+                <input asp-for="Parent" class="form-control" />
+                <span asp-validation-for="Parent" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Tier" class="control-label"></label>
+                <input asp-for="Tier" class="form-control" />
+                <span asp-validation-for="Tier" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Name" class="control-label"></label>
+                <input asp-for="Name" class="form-control" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
             <div class="form-group">
                 <label asp-for="ShortDescription" class="control-label"></label>
                 <input asp-for="ShortDescription" class="form-control" />
@@ -55,33 +76,68 @@
             </div>
             <div class="form-group">
                 <label asp-for="Rarity" class="control-label"></label>
-                <input asp-for="Rarity" class="form-control" />
+                <select asp-for="Rarity" asp-items="Html.GetEnumSelectList<ItemRarity>()" class="form-control"></select>
                 <span asp-validation-for="Rarity" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <label asp-for="Slot" class="control-label"></label>
-                <input asp-for="Slot" class="form-control" />
+                <select asp-for="Slot" asp-items="Html.GetEnumSelectList<ItemSlot>()" class="form-control"></select>
                 <span asp-validation-for="Slot" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="Prototype" class="control-label"></label>
-                <input asp-for="Prototype" class="form-control" />
-                <span asp-validation-for="Prototype" class="text-danger"></span>
+                <label asp-for="DamageType.Blunt" class="control-label"></label>
+                <input asp-for="DamageType.Blunt" class="form-control" />
+                <span asp-validation-for="DamageType.Blunt" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="Parent" class="control-label"></label>
-                <input asp-for="Parent" class="form-control" />
-                <span asp-validation-for="Parent" class="text-danger"></span>
+                <label asp-for="DamageType.Slash" class="control-label"></label>
+                <input asp-for="DamageType.Slash" class="form-control" />
+                <span asp-validation-for="DamageType.Slash" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="Tier" class="control-label"></label>
-                <input asp-for="Tier" class="form-control" />
-                <span asp-validation-for="Tier" class="text-danger"></span>
+                <label asp-for="DamageType.Pierce" class="control-label"></label>
+                <input asp-for="DamageType.Pierce" class="form-control" />
+                <span asp-validation-for="DamageType.Pierce" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="Name" class="control-label"></label>
-                <input asp-for="Name" class="form-control" />
-                <span asp-validation-for="Name" class="text-danger"></span>
+                <label asp-for="DamageType.Magic" class="control-label"></label>
+                <input asp-for="DamageType.Magic" class="form-control" />
+                <span asp-validation-for="DamageType.Magic" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="DamageType.Spirit" class="control-label"></label>
+                <input asp-for="DamageType.Spirit" class="form-control" />
+                <span asp-validation-for="DamageType.Spirit" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="ElementalType.Acid" class="control-label"></label>
+                <input asp-for="ElementalType.Acid" class="form-control" />
+                <span asp-validation-for="ElementalType.Acid" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="ElementalType.Air" class="control-label"></label>
+                <input asp-for="ElementalType.Air" class="form-control" />
+                <span asp-validation-for="ElementalType.Air" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="ElementalType.Earth" class="control-label"></label>
+                <input asp-for="ElementalType.Earth" class="form-control" />
+                <span asp-validation-for="ElementalType.Earth" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="ElementalType.Fire" class="control-label"></label>
+                <input asp-for="ElementalType.Fire" class="form-control" />
+                <span asp-validation-for="ElementalType.Fire" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="ElementalType.Ice" class="control-label"></label>
+                <input asp-for="ElementalType.Ice" class="form-control" />
+                <span asp-validation-for="ElementalType.Ice" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="ElementalType.Water" class="control-label"></label>
+                <input asp-for="ElementalType.Water" class="form-control" />
+                <span asp-validation-for="ElementalType.Water" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <input type="submit" value="Save" class="btn btn-default" />

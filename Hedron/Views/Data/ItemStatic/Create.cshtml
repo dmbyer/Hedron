@@ -1,4 +1,5 @@
-﻿@model Hedron.Models.ItemStaticViewModel
+﻿@using  Hedron.Core
+@model Hedron.Models.ItemStaticViewModel
 
 @{
     ViewData["Title"] = "Create";
@@ -40,7 +41,7 @@
             </div>
             <div class="form-group">
                 <label asp-for="Rarity" class="control-label"></label>
-                <input asp-for="Rarity" class="form-control" />
+                <select asp-for="Rarity" asp-items="Html.GetEnumSelectList<ItemRarity>()" class="form-control"></select>
                 <span asp-validation-for="Rarity" class="text-danger"></span>
             </div>
             <div class="form-group">

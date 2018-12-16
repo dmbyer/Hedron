@@ -80,6 +80,10 @@ namespace Hedron.Core
 			// Write static items
 			foreach (var istatic in DataAccess.GetAll<ItemStatic>(CacheType.Prototype))
 				DataPersistence.SaveObject(istatic);
+
+			// Write weapons
+			foreach (var iweapon in DataAccess.GetAll<ItemWeapon>(CacheType.Prototype))
+				DataPersistence.SaveObject(iweapon);
 		}
 
 		/// <summary>
@@ -121,6 +125,7 @@ namespace Hedron.Core
 			var inventories = new string[0];
 			var mobs = new string[0];
 			var itemStatics = new string[0];
+			var itemWeapons = new string[0];
 
 			if (Directory.Exists(basePath + typeof(Area).ToString()))
 				areas = Directory.GetFiles(basePath + typeof(Area).ToString(), @"*.json");
@@ -136,6 +141,9 @@ namespace Hedron.Core
 
 			if (Directory.Exists(basePath + typeof(ItemStatic).ToString()))
 				itemStatics = Directory.GetFiles(basePath + typeof(ItemStatic).ToString(), @"*.json");
+
+			if (Directory.Exists(basePath + typeof(ItemWeapon).ToString()))
+				itemWeapons = Directory.GetFiles(basePath + typeof(ItemWeapon).ToString(), @"*.json");
 
 			// Load world
 			if (world.Length > 0)
@@ -229,6 +237,16 @@ namespace Hedron.Core
 
 				// Add to cache
 				DataAccess.Add<ItemStatic>(newItem, CacheType.Prototype, newItem.Prototype, false);
+			}
+
+			// Load weapons
+			foreach (var weapon in itemWeapons)
+			{
+				var newWeapon = new ItemWeapon();
+				DataPersistence.LoadObject(weapon, out newWeapon);
+
+				// Add to cache
+				DataAccess.Add<ItemWeapon>(newWeapon, CacheType.Prototype, newWeapon.Prototype, false);
 			}
 
 			// Add entities to rooms

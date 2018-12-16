@@ -12,7 +12,9 @@ namespace Hedron.Models
 {
 	public class ItemWeaponViewModel : BaseEntityInanimateViewModel
 	{
-		public DamageProperties DamageType { get; set; }
+		public DamageTypeViewModel DamageType { get; set; }
+
+		public ElementalTypeViewModel ElementalType { get; set; }
 
 		public int MinDamage { get; set; }// = Constants.DEFAULT_DAMAGE;
 

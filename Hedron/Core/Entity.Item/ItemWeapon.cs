@@ -24,9 +24,9 @@ namespace Hedron.Core
 			set
 			{
 				if (value != ItemSlot.OneHandedWeapon && value != ItemSlot.TwoHandedWeapon)
-					Slot = ItemSlot.OneHandedWeapon;
+					_slot = ItemSlot.OneHandedWeapon;
 				else
-					Slot = value;
+					_slot = value;
 			}
 		}
 
@@ -34,7 +34,7 @@ namespace Hedron.Core
 		/// Damage properties
 		/// </summary>
 		[JsonProperty]
-		public DamageProperties DamageType { get; set; }
+		public DamageProperties Damage { get; set; }
 
 		/// <summary>
 		/// Min weapon damage
@@ -57,7 +57,7 @@ namespace Hedron.Core
 		/// <summary>
 		/// Base constructor
 		/// </summary>
-		private ItemWeapon() : base()
+		public ItemWeapon() : base()
 		{
 			Behavior = new ItemBehavior()
 			{
@@ -65,6 +65,10 @@ namespace Hedron.Core
 				Storable = true,
 				RandomDrop = true
 			};
+
+			Damage = new DamageProperties();
+
+			Slot = ItemSlot.OneHandedWeapon;
 		}
 		
 		/// <summary>
@@ -72,7 +76,7 @@ namespace Hedron.Core
 		/// </summary>
 		/// <param name="slot">The weapon slot</param>
 		/// <remarks>This constructor ensures a weapon will be created as either one or two handed</remarks>
-		public ItemWeapon(ItemSlot slot = ItemSlot.OneHandedWeapon) : this()
+		public ItemWeapon(ItemSlot slot) : this()
 		{
 			if (slot != ItemSlot.OneHandedWeapon && slot != ItemSlot.TwoHandedWeapon)
 				Slot = ItemSlot.OneHandedWeapon;

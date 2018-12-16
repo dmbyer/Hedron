@@ -13,7 +13,6 @@ namespace Hedron.Core.Damage
 		public bool Pierce    { get; set; }
 		public bool Blunt     { get; set; }
 		public bool Magic     { get; set; }
-		public bool Elemental { get; set; }
 		public bool Spirit    { get; set; }
 
 		/// <summary>
@@ -26,7 +25,6 @@ namespace Hedron.Core.Damage
 			damageType.Pierce = Pierce;
 			damageType.Blunt = Blunt;
 			damageType.Magic = Magic;
-			damageType.Elemental = Elemental;
 			damageType.Spirit = Spirit;
 		}
 	}

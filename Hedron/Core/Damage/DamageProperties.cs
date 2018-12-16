@@ -10,9 +10,16 @@ namespace Hedron.Core.Damage
 		public DamageType    DamageType    { get; set; }
 		public ElementalType ElementalType { get; set; }
 
+		public DamageProperties()
+		{
+			DamageType = new DamageType();
+			ElementalType = new ElementalType();
+		}
+
 		public void CopyTo(DamageProperties damageProperties)
 		{
-			
+			DamageType.CopyTo(damageProperties.DamageType);
+			ElementalType.CopyTo(damageProperties.ElementalType);
 		}
 	}
 }

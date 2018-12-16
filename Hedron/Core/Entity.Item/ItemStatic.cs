@@ -9,7 +9,7 @@ using Hedron.Core.Behavior;
 
 namespace Hedron.Core
 {
-	public partial class ItemStatic : EntityInanimate
+	public class ItemStatic : EntityInanimate
 	{
 		/// <summary>
 		/// Guarantees an ItemStatic slot will always be None
