@@ -25,7 +25,7 @@ namespace Hedron.Models
 			{
 				_type = entity.GetType().Name,
 				Prototype = (uint)entity.Prototype,
-				ParentName = DataAccess.Get<Room>(entity.Parent, CacheType.Prototype).Name,
+				// ParentName = DataAccess.Get<Room>(entity.Parent, CacheType.Prototype).Name,
 				Name = entity.Name,
 				Tier = entity.Tier.Level,
 				ShortDescription = entity.ShortDescription,

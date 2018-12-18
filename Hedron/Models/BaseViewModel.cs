@@ -21,8 +21,8 @@ namespace Hedron.Models
 
 		public string Name { get; set; }
 
-		[Display(Name = "Parent Name")]
-		public string ParentName { get; set; }
+		// [Display(Name = "Parent Name")]
+		// public string ParentName { get; set; }
 
 		public string Type
 		{

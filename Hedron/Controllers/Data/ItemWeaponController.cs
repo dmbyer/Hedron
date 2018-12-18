@@ -89,7 +89,7 @@ namespace Hedron.Controllers.Data
 				{
 					var weapon = ItemWeapon.NewPrototype();
 
-					weapon.Parent = itemWeaponViewModel.Parent;
+					// weapon.Parent = itemWeaponViewModel.Parent;
 					weapon.Tier.Level = itemWeaponViewModel.Tier;
 					weapon.Name = itemWeaponViewModel.Name;
 					weapon.ShortDescription = itemWeaponViewModel.ShortDescription;
@@ -124,7 +124,7 @@ namespace Hedron.Controllers.Data
 			var vModel = new ItemWeaponViewModel()
 			{
 				Prototype = (uint)weapon.Prototype,
-				Parent = weapon.Parent,
+				// Parent = weapon.Parent,
 				Tier = weapon.Tier.Level,
 				Name = weapon.Name,
 				ShortDescription = weapon.ShortDescription,
@@ -157,7 +157,7 @@ namespace Hedron.Controllers.Data
 				{
 					var weapon = DataAccess.Get<ItemWeapon>((uint)id, CacheType.Prototype);
 
-					weapon.Parent = itemWeaponViewModel.Parent;
+					// weapon.Parent = itemWeaponViewModel.Parent;
 					weapon.Tier.Level = itemWeaponViewModel.Tier;
 					weapon.Name = itemWeaponViewModel.Name;
 					weapon.ShortDescription = itemWeaponViewModel.ShortDescription;
@@ -195,7 +195,7 @@ namespace Hedron.Controllers.Data
 			var vModel = new ItemWeaponViewModel()
 			{
 				Prototype = (uint)weapon.Prototype,
-				Parent = weapon.Parent,
+				// Parent = weapon.Parent,
 				Tier = weapon.Tier.Level,
 				Name = weapon.Name,
 				ShortDescription = weapon.ShortDescription,

@@ -61,17 +61,6 @@ namespace Hedron.Core
 		}
 
 		/// <summary>
-		/// Creates a new room. Must be added to cache.
-		/// </summary>
-		/// <param name="areaID">The ID of the parent area</param>
-		/// <param name="tier">The tier level</param>
-		public Room(uint areaID, int tier = Constants.MIN_TIER) : this()
-        {
-			Parent = areaID;
-			Tier.Level = tier;
-		}
-
-		/// <summary>
 		/// Points an exit to another room.
 		/// </summary>
 		/// <param name="exit">The direction to set</param>
@@ -176,10 +165,7 @@ namespace Hedron.Core
 			var players = GetAllEntities<Player>();
 
 			foreach (var player in players)
-			{
 				_entityList.Remove(player);
-				DataAccess.Get<Player>(player, CacheType).Parent = null;
-			}
 
 			DataAccess.RemoveMany(_entityList, args.CacheType);
 		}

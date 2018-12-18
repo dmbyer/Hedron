@@ -43,7 +43,7 @@ namespace Hedron.Core
 			{
 				_entityList.Add((uint)id);
 				entity.CacheObjectRemoved += OnCacheObjectRemoved;
-				entity.Parent = entity.CacheType == CacheType.Instance ? Instance : Prototype;
+				// entity.Parent = entity.CacheType == CacheType.Instance ? Instance : Prototype;
 
 				// Persist this and the entity to disk since the data structures have changed
 				if (CacheType == CacheType.Prototype && updatePersistence)
@@ -91,7 +91,7 @@ namespace Hedron.Core
 			if (entity != null)
 			{
 				entity.CacheObjectRemoved -= OnCacheObjectRemoved;
-				entity.Parent = null;
+				// entity.Parent = null;
 
 				// Always persist target entity to disk since the data structure has changed
 				if (CacheType == CacheType.Prototype)
@@ -134,6 +134,52 @@ namespace Hedron.Core
 			}
 
 			return entities;
+		}
+
+		/// <summary>
+		/// Gets the container parent from the instance cache
+		/// </summary>
+		/// <typeparam name="T">The parent container type</typeparam>
+		/// <param name="childInstanceID">The instance ID of the child entity</param>
+		/// <returns>The instanced parent object</returns>
+		public static T GetInstanceParent<T>(uint? childInstanceID) where T: EntityContainer
+		{
+			if (childInstanceID == null)
+				return default(T);
+
+			var entities = DataAccess.GetAll<T>(CacheType.Instance);
+
+			foreach (var entity in entities)
+			{
+				if (entity.GetAllEntities().Contains((uint)childInstanceID))
+					return entity;
+			}
+
+			return default(T);
+		}
+
+		/// <summary>
+		/// Gets all container parents from the prototype cache
+		/// </summary>
+		/// <typeparam name="T">The parent container type</typeparam>
+		/// <param name="childPrototypeID">The prototype ID of the child entity</param>
+		/// <returns>A list of prototype parent objects</returns>
+		public static List<T> GetAllPrototypeParents<T>(uint? childPrototypeID) where T : EntityContainer
+		{
+			var parents = new List<T>();
+
+			if (childPrototypeID == null)
+				return parents;
+
+			var entities = DataAccess.GetAll<T>(CacheType.Prototype);
+
+			foreach (var entity in entities)
+			{
+				if (entity.GetAllEntities().Contains((uint)childPrototypeID))
+					parents.Add(entity);
+			}
+
+			return parents;
 		}
 
 		/// <summary>

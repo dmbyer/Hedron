@@ -165,23 +165,6 @@ namespace Hedron.Core
 				return default(World);
 			}
 
-			// Load areas
-			foreach (var area in areas)
-			{
-				// Add area prototype
-				var newArea = new Area();
-				DataPersistence.LoadObject(area, out newArea);
-
-				// Clear all room IDs so they can be added post-load
-				newArea.RemoveAllEntities(false);
-
-				// Add to cache
-				DataAccess.Add<Area>(newArea, CacheType.Prototype, newArea.Prototype, false);
-
-				// Add area to world
-				newWorld.AddEntity(newArea.Prototype, newArea, false);
-			}
-
 			// Load rooms
 			foreach (var room in rooms)
 			{
@@ -197,9 +180,33 @@ namespace Hedron.Core
 
 				// Add to cache
 				DataAccess.Add<Room>(newRoom, CacheType.Prototype, newRoom.Prototype, false);
+			}
 
-				// Add room to parent area
-				DataAccess.Get<Area>(newRoom.Parent, CacheType.Prototype)?.AddEntity(newRoom.Prototype, newRoom, false);
+			// Load areas
+			foreach (var area in areas)
+			{
+				// Add area prototype
+				var newArea = new Area();
+				DataPersistence.LoadObject(area, out newArea);
+
+				// Add to cache
+				DataAccess.Add<Area>(newArea, CacheType.Prototype, newArea.Prototype, false);
+
+				// Create temporary list of all rooms to add to area
+				var roomsToAdd = newArea.GetAllEntities<Room>();
+
+				// Clear all room IDs so they can be added and attached to event handling
+				newArea.RemoveAllEntities(false);
+
+				// Add area to world
+				newWorld.AddEntity(newArea.Prototype, newArea, false);
+
+				// Add rooms to area
+				foreach (var room in roomsToAdd)
+				{
+					var addRoom = DataAccess.Get<Room>(room, CacheType.Prototype);
+					newArea.AddEntity(addRoom.Prototype, addRoom, false);
+				}
 			}
 
 			// Load inventories
@@ -325,7 +332,7 @@ namespace Hedron.Core
 
 			// Set remaining properties
 			newWorld.Prototype = Prototype;
-			newWorld.Parent = null;
+			// newWorld.Parent = null;
 			CopyTo(newWorld);
 
 			// Spawn contained rooms

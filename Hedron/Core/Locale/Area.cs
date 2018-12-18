@@ -89,7 +89,7 @@ namespace Hedron.Core
 
 			// Set remaining properties
 			newArea.Prototype = Prototype;
-			newArea.Parent = parent;
+			// newArea.Parent = parent;
 			CopyTo(newArea);
 
 			// Spawn contained rooms

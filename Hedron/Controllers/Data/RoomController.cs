@@ -29,7 +29,7 @@ namespace Hedron.Controllers.Data
 				vModel.Add(new RoomViewModel()
 				{
 					Prototype = (uint)room.Prototype,
-					ParentName = DataAccess.Get<Area>(room.Parent, CacheType.Prototype).Name,
+					ParentName = EntityContainer.GetAllPrototypeParents<Area>(room.Prototype).FirstOrDefault()?.Name ?? "none",
 					Name = room.Name,
 					Description = room.Description.ToTruncatedSubString(80, true),
 					Tier = room.Tier.Level,
@@ -55,7 +55,7 @@ namespace Hedron.Controllers.Data
 			var vModel = new RoomViewModel()
 			{
 				Prototype = (uint)room.Prototype,
-				ParentName = DataAccess.Get<Area>(room.Parent, CacheType.Prototype).Name,
+				ParentName = EntityContainer.GetAllPrototypeParents<Area>(room.Prototype).FirstOrDefault()?.Name ?? "none",
 				Name = room.Name,
 				Tier = room.Tier.Level,
 				Description = room.Description,
@@ -164,7 +164,7 @@ namespace Hedron.Controllers.Data
 			var vModel = new RoomViewModel()
 			{
 				Name = room.Name,
-				ParentName = DataAccess.Get<Area>(room.Parent, CacheType.Prototype).Name,
+				ParentName = EntityContainer.GetAllPrototypeParents<Area>(room.Prototype).FirstOrDefault()?.Name ?? "none",
 				Prototype = (uint)room.Prototype,
 				Tier = room.Tier.Level,
 				Description = room.Description

@@ -14,6 +14,8 @@ namespace Hedron.Models
 
 		public List<BaseEntityViewModel> Entities { get; set; }
 
+		public string ParentName { get; set; }
+
 		public static RoomViewModel RoomToViewModel(Room room)
 		{
 			if (room == null)
@@ -22,7 +24,7 @@ namespace Hedron.Models
 			return new RoomViewModel()
 			{
 				Prototype = (uint)room.Prototype,
-				ParentName = DataAccess.Get<Area>(room.Parent, CacheType.Prototype).Name,
+				ParentName = EntityContainer.GetAllPrototypeParents<Area>(room.Prototype).FirstOrDefault()?.Name ?? "none",
 				Name = room.Name,
 				Tier = room.Tier.Level,
 				Description = room.Description,

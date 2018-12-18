@@ -78,14 +78,16 @@ namespace Hedron.Commands
 			// Player-only command to view current room.
 			if (!Guard.IsPlayer(entity)) { return PlayerOnlyCommand(); }
 
-			Room room = DataAccess.Get<Room>(entity.Parent, CacheType.Instance);
+			Room room = EntityContainer.GetInstanceParent<Room>(entity.Instance);
 
 			if (room != null)
 			{
+				var area = EntityContainer.GetInstanceParent<Area>(room.Instance);
+
 				entity.IOHandler.QueueOutput("");
 
 				entity.IOHandler.QueueOutput(((Player)entity).Configuration.DisplayAreaName
-					? $"{DataAccess.Get<Area>(room.Parent, CacheType.Prototype).Name} > {room.Name}"
+					? $"{area.Name} > {room.Name}"
 					: room.Name);
 
 				entity.IOHandler.QueueOutput(room.Description);
@@ -134,7 +136,7 @@ namespace Hedron.Commands
 				return CommandResult.CMD_R_FAIL;
 			}
 
-			Room sourceRoom = DataAccess.Get<Room>(entity.Parent, CacheType.Instance);
+			Room sourceRoom = EntityContainer.GetInstanceParent<Room>(entity.Instance);
 
 			// Don't move entity if it's not already in a room
 			if (sourceRoom != null && entity != null)
@@ -169,9 +171,8 @@ namespace Hedron.Commands
 
 				if (destRoom != null)
 				{
-					destRoom.RemoveEntity(entity.Instance, entity);
+					sourceRoom.RemoveEntity(entity.Instance, entity);
 					destRoom.AddEntity(entity.Instance, entity);
-					entity.Parent = destRoom.Instance;
 					Look("", entity);
 					return CommandResult.CMD_R_SUCCESS;
 				}
@@ -185,10 +186,12 @@ namespace Hedron.Commands
 						if (player.Configuration.Autodig)
 						{
 							destRoom = Room.NewPrototype();
-							destRoom.Spawn(false, sourceRoom.Parent);
+							var sourceArea = EntityContainer.GetInstanceParent<Area>(sourceRoom.Instance);
+
+							destRoom.Spawn(false, sourceArea.Instance);
 
 							sourceRoom = DataAccess.Get<Room>(sourceRoom.Prototype, CacheType.Prototype);
-							DataAccess.Get<Area>(sourceRoom.Parent, CacheType.Prototype).AddEntity(destRoom.Prototype, destRoom);
+							DataAccess.Get<Area>(sourceArea.Prototype, CacheType.Prototype).AddEntity(destRoom.Prototype, destRoom);
 
 							RoomExits.ConnectRoomExits(sourceRoom, destRoom, direction, true);
 
@@ -251,11 +254,10 @@ namespace Hedron.Commands
 				if (targetRoom != null)
 				{
 					// Move entity
-					var sourceRoom = DataAccess.Get<Room>(entity.Parent, CacheType.Instance);
+					var sourceRoom = EntityContainer.GetInstanceParent<Room>(entity.Instance);
 
-					sourceRoom?.RemoveEntity(entity.Parent, entity);
+					sourceRoom?.RemoveEntity(entity.Instance, entity);
 					targetRoom.AddEntity(entity.Instance, entity);
-					entity.Parent = targetRoom.Instance;
 
 					Look("", entity);
 					return CommandResult.CMD_R_SUCCESS;

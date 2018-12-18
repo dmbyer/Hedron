@@ -39,7 +39,7 @@ namespace Hedron.Data
 		/// <summary>
 		/// Parent ID of the object.
 		/// </summary>
-		public uint? Parent { get; set; }
+		// public uint? Parent { get; set; }
 
 		/// <summary>
 		/// The Cache Type of the object.

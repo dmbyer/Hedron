@@ -105,7 +105,7 @@ namespace Hedron.Commands
 			}
 
 			// Search room for a match
-			var room = DataAccess.Get<Room>(entity.Parent, CacheType.Instance);
+			var room = EntityContainer.GetInstanceParent<Room>(entity.Instance);
 			var roomEntities = DataAccess.GetMany<EntityInanimate>(room?.GetAllEntities(), CacheType.Instance);
 
 			if (roomEntities.Count == 0)
@@ -179,14 +179,14 @@ namespace Hedron.Commands
 				return CommandResult.CMD_R_ERRSYNTAX;
 			}
 
-			if (DataAccess.Get<Room>(entity.Parent, CacheType.Instance) == null)
+			if (EntityContainer.GetInstanceParent<Room>(entity.Instance) == null)
 			{
 				entity.IOHandler?.QueueOutput("There is nowhere to drop it to.");
 				return CommandResult.CMD_R_FAIL;
 			}
 
 			// Search inventory for a match
-			var room = DataAccess.Get<Room>(entity.Parent, CacheType.Instance);
+			var room = EntityContainer.GetInstanceParent<Room>(entity.Instance);
 			var inventoryEntities = DataAccess.GetMany<EntityInanimate>(entity.Inventory?.GetAllEntities(), CacheType.Instance);
 
 			if (inventoryEntities.Count == 0)

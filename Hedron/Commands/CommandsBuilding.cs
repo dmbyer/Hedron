@@ -73,7 +73,7 @@ namespace Hedron.Commands
 			// Player-only command to get/set prompt.
 			if (!Guard.IsPlayer(entity)) { return PlayerOnlyCommand(); }
 
-			var parentRoom = DataAccess.Get<Room>(entity.Parent, CacheType.Instance);
+			var parentRoom = EntityContainer.GetInstanceParent<Room>(entity.Instance);
 
 			if (parentRoom == null)
 			{
