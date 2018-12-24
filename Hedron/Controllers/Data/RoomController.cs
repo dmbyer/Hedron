@@ -33,6 +33,7 @@ namespace Hedron.Controllers.Data
 					Name = room.Name,
 					Description = room.Description.ToTruncatedSubString(80, true),
 					Tier = room.Tier.Level,
+					Exits = room.Exits,
 					Entities = BaseEntityViewModel.EntityToViewModel(entities)
 				});
 			}
@@ -59,6 +60,7 @@ namespace Hedron.Controllers.Data
 				Name = room.Name,
 				Tier = room.Tier.Level,
 				Description = room.Description,
+				Exits = room.Exits,
 				Entities = BaseEntityViewModel.EntityToViewModel(entities)
 			};
 
@@ -161,13 +163,19 @@ namespace Hedron.Controllers.Data
 			if (room == null)
 				return NotFound();
 
+			var entities = DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype)
+				.OrderBy(e => e.Prototype)
+				.ToList();
+
 			var vModel = new RoomViewModel()
 			{
 				Name = room.Name,
 				ParentName = EntityContainer.GetAllPrototypeParents<Area>(room.Prototype).FirstOrDefault()?.Name ?? "none",
 				Prototype = (uint)room.Prototype,
 				Tier = room.Tier.Level,
-				Description = room.Description
+				Description = room.Description,
+				Exits = room.Exits,
+				Entities = BaseEntityViewModel.EntityToViewModel(entities)
 			};
 
 			return View("~/Views/Data/Room/Delete.cshtml", vModel);
@@ -194,7 +202,27 @@ namespace Hedron.Controllers.Data
 			var newItem = ItemStatic.NewPrototype();
 			var room = DataAccess.Get<Room>((uint)parentRoom, CacheType.Prototype);
 
+			newItem.Tier.Level = room.Tier.Level;
+
 			room.AddEntity(newItem.Prototype, newItem);
+
+			var entities = BaseEntityViewModel.EntityToViewModel(
+				DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype));
+
+			return PartialView("Partial/_entityList", entities);
+		}
+
+		// POST: Room/AddWeapon
+		[HttpPost, ActionName("AddWeapon")]
+		[ValidateAntiForgeryToken]
+		public ActionResult AddWeapon([FromBody]int parentRoom)
+		{
+			var newWeapon = ItemWeapon.NewPrototype();
+			var room = DataAccess.Get<Room>((uint)parentRoom, CacheType.Prototype);
+
+			newWeapon.Tier.Level = room.Tier.Level;
+
+			room.AddEntity(newWeapon.Prototype, newWeapon);
 
 			var entities = BaseEntityViewModel.EntityToViewModel(
 				DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype));
@@ -216,6 +244,38 @@ namespace Hedron.Controllers.Data
 				DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype));
 
 			return PartialView("Partial/_entityList", entities);
+		}
+
+		// POST: Room/Update
+		[HttpPost, ActionName("Update")]
+		[ValidateAntiForgeryToken]
+		public ActionResult Update([FromBody]RoomUpdateViewModel roomJson)
+		{
+			var room = DataAccess.Get<Room>(roomJson.Prototype, CacheType.Prototype);
+
+			if (room == null)
+				return NotFound();
+
+			room.Name = roomJson.Name;
+
+			// ConnectRoomExits also updates data persistence
+
+			// TODO: Update opposing exits to null before linking new exits
+			RoomExits.ConnectRoomExits(DataAccess.Get<Room>(room.Exits.North, CacheType.Prototype), null, Constants.EXIT.SOUTH, true, true);
+			RoomExits.ConnectRoomExits(DataAccess.Get<Room>(room.Exits.East, CacheType.Prototype), null, Constants.EXIT.WEST, true, true);
+			RoomExits.ConnectRoomExits(DataAccess.Get<Room>(room.Exits.South, CacheType.Prototype), null, Constants.EXIT.NORTH, true, true);
+			RoomExits.ConnectRoomExits(DataAccess.Get<Room>(room.Exits.West, CacheType.Prototype), null, Constants.EXIT.EAST, true, true);
+			RoomExits.ConnectRoomExits(DataAccess.Get<Room>(room.Exits.Up, CacheType.Prototype), null, Constants.EXIT.DOWN, true, true);
+			RoomExits.ConnectRoomExits(DataAccess.Get<Room>(room.Exits.Down, CacheType.Prototype), null, Constants.EXIT.UP, true, true);
+
+			RoomExits.ConnectRoomExits(room, DataAccess.Get<Room>(roomJson.North, CacheType.Prototype), Constants.EXIT.NORTH, true, true);
+			RoomExits.ConnectRoomExits(room, DataAccess.Get<Room>(roomJson.East, CacheType.Prototype), Constants.EXIT.EAST, true, true);
+			RoomExits.ConnectRoomExits(room, DataAccess.Get<Room>(roomJson.South, CacheType.Prototype), Constants.EXIT.SOUTH, true, true);
+			RoomExits.ConnectRoomExits(room, DataAccess.Get<Room>(roomJson.West, CacheType.Prototype), Constants.EXIT.WEST, true, true);
+			RoomExits.ConnectRoomExits(room, DataAccess.Get<Room>(roomJson.Up, CacheType.Prototype), Constants.EXIT.UP, true, true);
+			RoomExits.ConnectRoomExits(room, DataAccess.Get<Room>(roomJson.Down, CacheType.Prototype), Constants.EXIT.DOWN, true, true);
+
+			return Json(RoomViewModel.RoomToViewModel(room, 100));
 		}
 	}
 }

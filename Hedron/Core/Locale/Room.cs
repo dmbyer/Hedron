@@ -88,6 +88,10 @@ namespace Hedron.Core
                     Exits.Down = room;
                     return;
             }
+
+			// Update persistence since data structure has changed
+			if (CacheType == CacheType.Prototype)
+				DataPersistence.SaveObject(this);
 		}
 
 		/// <summary>

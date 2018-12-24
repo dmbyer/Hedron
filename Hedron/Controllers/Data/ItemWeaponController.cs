@@ -97,6 +97,8 @@ namespace Hedron.Controllers.Data
 					weapon.MinDamage = itemWeaponViewModel.MinDamage;
 					weapon.MaxDamage = itemWeaponViewModel.MaxDamage;
 					weapon.Behavior = ItemBehaviorViewModel.ToItemBehavior(itemWeaponViewModel.Behavior);
+					weapon.Behavior.Obtainable = true;
+					weapon.Behavior.Storable = true;
 					weapon.Rarity = itemWeaponViewModel.Rarity;
 					weapon.Damage.DamageType = DamageTypeViewModel.ToDamageType(itemWeaponViewModel.DamageType);
 					weapon.Damage.ElementalType = ElementalTypeViewModel.ToElementalType(itemWeaponViewModel.ElementalType);
@@ -165,6 +167,8 @@ namespace Hedron.Controllers.Data
 					weapon.MinDamage = itemWeaponViewModel.MinDamage;
 					weapon.MaxDamage = itemWeaponViewModel.MaxDamage;
 					weapon.Behavior = ItemBehaviorViewModel.ToItemBehavior(itemWeaponViewModel.Behavior);
+					weapon.Behavior.Obtainable = true;
+					weapon.Behavior.Storable = true;
 					weapon.Rarity = itemWeaponViewModel.Rarity;
 					weapon.Damage.DamageType = DamageTypeViewModel.ToDamageType(itemWeaponViewModel.DamageType);
 					weapon.Damage.ElementalType = ElementalTypeViewModel.ToElementalType(itemWeaponViewModel.ElementalType);

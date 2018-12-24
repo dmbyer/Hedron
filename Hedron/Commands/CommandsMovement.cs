@@ -193,7 +193,7 @@ namespace Hedron.Commands
 							sourceRoom = DataAccess.Get<Room>(sourceRoom.Prototype, CacheType.Prototype);
 							DataAccess.Get<Area>(sourceArea.Prototype, CacheType.Prototype).AddEntity(destRoom.Prototype, destRoom);
 
-							RoomExits.ConnectRoomExits(sourceRoom, destRoom, direction, true);
+							RoomExits.ConnectRoomExits(sourceRoom, destRoom, direction, true, true);
 
 							// Immediately save changes
 							DataPersistence.SaveObject(DataAccess.Get<Room>(sourceRoom.Prototype, CacheType.Prototype));

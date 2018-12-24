@@ -4,9 +4,10 @@
     ViewData["Title"] = "Index";
 }
 
-<table class="table" id="tableRoomList">
+<table class="w3-table w3-card w3-margin-bottom w3-border w3-bordered w3-pale-blue" id="tableRoomList">
     <thead>
-        <tr>
+        <tr class="w3-lime">
+            <th width="10px"></th>
             <th>
                 @Html.DisplayNameFor(model => model.Prototype)
             </th>
@@ -16,28 +17,119 @@
             <th>
                 @Html.DisplayNameFor(model => model.Description)
             </th>
-            <th></th>
+            <th class="w3-right-align">
+                <div class="w3-float-tooltip">
+                    <a href="#" onclick="refresh()"><i class="material-icons w3-hover-blue-gray" style="vertical-align:-8px">settings_backup_restore</i></a>
+                <span class="w3-float-tooltiptext">Refresh</span>
+                </div>
+            </th>
         </tr>
     </thead>
     <tbody>
         @foreach (var room in Model)
         {
-            <tr>
-                <td>
-                    @Html.DisplayFor(modelItem => room.Prototype)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => room.Name)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => room.Description)
-                </td>
-                <td>
-                    <a asp-controller="Room" asp-action="Edit" asp-route-id="@room.Prototype">Edit</a> |
-                    <a asp-controller="Room" asp-action="Details" asp-route-id="@room.Prototype">Details</a> |
-                    <a asp-controller="Room" asp-action="Delete" asp-route-id="@room.Prototype">Delete</a>
-                </td>
-            </tr>
+            await Html.RenderPartialAsync("Partial/_roomSingleRowWithForm", room);
         }
     </tbody>
 </table>
+
+<script>
+    let expanded = -1;
+
+    function expandRoom(id) {
+        if (expanded === id) {
+            // Collapse this row and unset currently expanded room
+            collapseRoom(id);
+            expanded = -1;
+        }
+        else {
+            if (expanded != -1) {
+                // Collapse currently expanded row
+                collapseRoom(expanded);
+            }
+
+            expanded = id;
+            updateRow(id);
+        }
+
+    }
+
+    function collapseRoom(id) {
+        document.getElementById('chevron-' + id).innerHTML = 'chevron_right';
+        document.getElementById('room-' + id).classList.replace('w3-pale-yellow', 'w3-white');
+        document.getElementById('room-edit-' + id).style.display = 'none';
+    }
+
+    function updateRow(id) {
+        let chev = document.getElementById('chevron-' + id);
+        if (chev.innerHTML === 'chevron_right')
+            chev.innerHTML = 'expand_more';
+        else
+            chev.innerHTML = 'chevron_right';
+
+        let editTD = document.getElementById('room-edit-' + id);
+        if (editTD.style.display === 'table-row')
+            editTD.style.display = 'none';
+        else
+            editTD.style.display = 'table-row';
+
+        let header = document.getElementById('room-' + id);
+        header.classList.replace('w3-white', 'w3-pale-yellow');
+    }
+
+    function saveRoom(id) {
+        
+        let request = new XMLHttpRequest();
+
+        request.open('POST', '/Room/Update', true);
+
+        request.setRequestHeader("XSRF-TOKEN", document.getElementsByName('__RequestVerificationToken')[0].value);
+        request.setRequestHeader("Content-Type", "application/json");
+        request.responseType = "json";
+
+        request.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                refresh();
+                expandRoom(id);
+            }
+        };
+
+        console.log(id);
+        console.log(document.getElementById('form-name-' + id).value);
+        console.log(document.getElementById('form-north-' + id).value);
+        console.log(document.getElementById('form-east-' + id).value);
+        console.log(document.getElementById('form-south-' + id).value);
+        console.log(document.getElementById('form-west-' + id).value);
+        console.log(document.getElementById('form-up-' + id).value);
+        console.log(document.getElementById('form-down-' + id).value);
+
+        let name = document.getElementById('form-name-' + id).value;
+        let north = document.getElementById('form-north-' + id).value;
+        let east = document.getElementById('form-east-' + id).value;
+        let south = document.getElementById('form-south-' + id).value;
+        let west = document.getElementById('form-west-' + id).value;
+        let up = document.getElementById('form-up-' + id).value;
+        let down = document.getElementById('form-down-' + id).value;
+
+        let payload =
+        {
+            'Prototype': id,
+            'Name': name,
+            'North': north,
+            'East': east,
+            'South': south,
+            'West': west,
+            'Up': up,
+            'Down': down
+        };
+
+        request.send(JSON.stringify(payload));
+    }
+
+    function roomChanged(id) {
+        let save = document.getElementById('save-' + id);
+        if (save.style.display === 'none') {
+            save.style.display = 'inline-block';
+        }
+    }
+</script>

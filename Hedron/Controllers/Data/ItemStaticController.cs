@@ -31,7 +31,6 @@ namespace Hedron.Controllers.Data
 					Name = item.Name,
 					ShortDescription = item.ShortDescription.ToTruncatedSubString(30, true),
 					LongDescription = item.LongDescription.ToTruncatedSubString(80, true),
-					Behavior = ItemBehaviorViewModel.ToViewModel(item.Behavior),
 					Rarity = item.Rarity
 				});
 			}
@@ -54,7 +53,6 @@ namespace Hedron.Controllers.Data
 				Name = item.Name,
 				ShortDescription = item.ShortDescription,
 				LongDescription = item.LongDescription,
-				Behavior = ItemBehaviorViewModel.ToViewModel(item.Behavior),
 				Rarity = item.Rarity
 			};
 
@@ -82,7 +80,6 @@ namespace Hedron.Controllers.Data
 					item.Name = itemStaticViewModel.Name;
 					item.ShortDescription = itemStaticViewModel.ShortDescription;
 					item.LongDescription = itemStaticViewModel.LongDescription;
-					item.Behavior = ItemBehaviorViewModel.ToItemBehavior(itemStaticViewModel.Behavior);
 					item.Rarity = itemStaticViewModel.Rarity;
 
 					DataPersistence.SaveObject(item);
@@ -111,7 +108,6 @@ namespace Hedron.Controllers.Data
 				Name = item.Name,
 				ShortDescription = item.ShortDescription,
 				LongDescription = item.LongDescription,
-				Behavior = ItemBehaviorViewModel.ToViewModel(item.Behavior),
 				Rarity = item.Rarity
 			};
 
@@ -136,7 +132,6 @@ namespace Hedron.Controllers.Data
 					item.Name = itemStaticViewModel.Name;
 					item.ShortDescription = itemStaticViewModel.ShortDescription;
 					item.LongDescription = itemStaticViewModel.LongDescription;
-					item.Behavior = ItemBehaviorViewModel.ToItemBehavior(itemStaticViewModel.Behavior);
 					item.Rarity = itemStaticViewModel.Rarity;
 
 					DataPersistence.SaveObject(item);
@@ -168,7 +163,6 @@ namespace Hedron.Controllers.Data
 				Name = item.Name,
 				ShortDescription = item.ShortDescription,
 				LongDescription = item.LongDescription,
-				Behavior = ItemBehaviorViewModel.ToViewModel(item.Behavior),
 				Rarity = item.Rarity
 			};
 

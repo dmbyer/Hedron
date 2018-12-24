@@ -5,59 +5,117 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<h2>Edit</h2>
-
-<h4>@Html.DisplayFor(model => model.Name)</h4>
-<hr />
-<div class="row">
-    <div class="col-md-4">
-        <form asp-action="Edit">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <div class="form-group">
-                <label asp-for="Prototype" class="control-label"></label>
-                <input asp-for="Prototype" class="form-control" />
-                <span asp-validation-for="Prototype" class="text-danger"></span>
+<div class="w3-card w3-third w3-margin-top w3-margin-right w3-khaki">
+    <div class="w3-container w3-cell-row">
+        <div class="w3-cell" style="width:95%">
+            <h2>Editing: @Model.Name</h2>
+        </div>
+        <div class="w3-float-tooltip w3-cell">
+            <a asp-controller="Mob" asp-route-id="@Model.Prototype" asp-action="Delete"><i class="material-icons w3-hover-blue-gray">delete</i></a>
+            <span class="w3-float-tooltiptext">Delete</span>
+        </div>
+    </div>
+    <div class="w3-container w3-sand">
+        <form asp-action="Edit" autocomplete="off">
+            <div asp-validation-summary="ModelOnly" class="w3-red"></div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Prototype"></label>
+                <div>
+                    <input asp-for="Prototype" value="@Model.Prototype" readonly="readonly" class="w3-light-gray" />
+                    <span asp-validation-for="Prototype" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Parent" class="control-label"></label>
-                <input asp-for="Parent" class="form-control" />
-                <span asp-validation-for="Parent" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Parent"></label>
+                <div>
+                    <input asp-for="Parent" value="@Model.Parent" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Parent" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Tier" class="control-label"></label>
-                <input asp-for="Tier" class="form-control" />
-                <span asp-validation-for="Tier" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Tier"></label>
+                <div>
+                    <input asp-for="Tier" value="@Model.Tier" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Tier" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Name" class="control-label"></label>
-                <input asp-for="Name" class="form-control" />
-                <span asp-validation-for="Name" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Name"></label>
+                <div>
+                    <input asp-for="Name" value="@Model.Name" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Name" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="ShortDescription" class="control-label"></label>
-                <input asp-for="ShortDescription" class="form-control" />
-                <span asp-validation-for="ShortDescription" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="ShortDescription"></label>
+                <div>
+                    <input asp-for="ShortDescription" value="@Model.ShortDescription" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="ShortDescription" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="LongDescription" class="control-label"></label>
-                <input asp-for="LongDescription" class="form-control" />
-                <span asp-validation-for="LongDescription" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="LongDescription"></label>
+                <div>
+                    <textarea asp-for="LongDescription" class="w3-animate-input" style="width:50%" rows="5" cols="1">@Model.LongDescription</textarea>
+                    <span asp-validation-for="LongDescription" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Behavior" class="control-label"></label>
-                <input asp-for="Behavior" class="form-control" />
-                <span asp-validation-for="Behavior" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Behavior.Aggressive"></label>
+                <div>
+                    <input asp-for="Behavior.Aggressive" value="@Model.Behavior.Aggressive" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Behavior.Aggressive" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <input type="submit" value="Save" class="btn btn-default" />
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Behavior.AutoEquip"></label>
+                <div>
+                    <input asp-for="Behavior.AutoEquip" value="@Model.Behavior.AutoEquip" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Behavior.AutoEquip" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Behavior.AutoPillage"></label>
+                <div>
+                    <input asp-for="Behavior.AutoPillage" value="@Model.Behavior.AutoPillage" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Behavior.AutoPillage" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Behavior.Scavenge"></label>
+                <div>
+                    <input asp-for="Behavior.Scavenge" value="@Model.Behavior.Scavenge" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Behavior.Scavenge" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Behavior.ShopKeeper"></label>
+                <div>
+                    <input asp-for="Behavior.ShopKeeper" value="@Model.Behavior.ShopKeeper" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Behavior.ShopKeeper" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Behavior.Wander"></label>
+                <div>
+                    <input asp-for="Behavior.Wander" value="@Model.Behavior.Wander" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Behavior.Wander" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-padding-32 w3-margin-left w3-margin-right">
+                <input type="submit" value="Save" class="w3-button w3-blue-gray w3-hover-black" />
             </div>
         </form>
     </div>
+    <div class="w3-container w3-sand">
+        <div class="w3-topbar w3-margin-left w3-margin-right">
+            <div class="w3-section">
+                <a asp-action="Index"><i class="material-icons">arrow_back</i></a>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div>
-    <a asp-action="Index">Back to List</a>
-</div>
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}

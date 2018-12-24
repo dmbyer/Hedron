@@ -66,15 +66,18 @@ public sealed class RoomExits
 	/// <param name="hoistToInstance">If the rooms are in the Prototype cache, setting this will lift changes to Instance.</param>
 	/// <remarks>Either room may be null, and the appropriate exit will be set to null. The
 	/// destRoom uses the opposite exit of sourceExit. Rooms must be of the same cache type.</remarks>
-	public static void ConnectRoomExits(Room sourceRoom, Room destRoom, Constants.EXIT sourceExit, bool hoistToInstance = true)
+	public static void ConnectRoomExits(Room sourceRoom, Room destRoom, Constants.EXIT sourceExit, bool hoistToInstance, bool twoWay)
 	{
 		if (sourceRoom == null && destRoom == null)
 			return;
 
-		if (sourceRoom.CacheType != destRoom.CacheType)
-			return;
+		if (sourceRoom != null && destRoom != null)
+			if (sourceRoom?.CacheType != destRoom?.CacheType)
+				return;
 
 		CacheType cacheType = sourceRoom == null ? destRoom.CacheType : sourceRoom.CacheType;
+
+		var exitsToFix = new List<uint?>();
 
 		if (sourceRoom != null && destRoom == null)
 		{
@@ -105,6 +108,16 @@ public sealed class RoomExits
 				instanceListToFix.Add((uint)room.Instance);
 
 			LinkInstancedRoomExits(instanceListToFix);
+		}
+
+		// Update data persistence since the structure has changed
+		if (cacheType == CacheType.Prototype)
+		{
+			if (sourceRoom != null)
+				DataPersistence.SaveObject(sourceRoom);
+
+			if (destRoom != null)
+				DataPersistence.SaveObject(destRoom);
 		}
 	}
 

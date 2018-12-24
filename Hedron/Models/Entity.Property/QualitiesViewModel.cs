@@ -31,5 +31,24 @@ namespace Hedron.Models
 
 			return qualitiesModel;
 		}
+
+		/// <summary>
+		/// Converts QualitiesViewModel to Qualities
+		/// </summary>
+		/// <param name="qualities">The QualitiesViewModel to convert</param>
+		/// <returns>The qualities</returns>
+		public static Qualities ToQualities(QualitiesViewModel qualities)
+		{
+			if (qualities == null)
+				return null;
+
+			Qualities attributes = new Qualities
+			{
+				CriticalDamage = qualities.CriticalDamage,
+				CriticalHit = qualities.CriticalHit,
+			};
+
+			return attributes;
+		}
 	}
 }

@@ -30,10 +30,10 @@ namespace Hedron.Controllers.Data
 					LongDescription = mob.LongDescription.ToTruncatedSubString(80, true),
 					Inventory = mob.Inventory,
 					WornEquipment = mob.WornEquipment,
-					Behavior = mob.Behavior,
-					BaseAspects = mob.BaseAspects,
-					BaseAttributes = mob.BaseAttributes,
-					BaseQualities = mob.BaseQualities
+					Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
+					BaseAspects = AspectsViewModel.ToViewModel(mob.BaseAspects),
+					BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
+					BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
 				});
 			}
 
@@ -57,10 +57,10 @@ namespace Hedron.Controllers.Data
 				LongDescription = mob.LongDescription,
 				Inventory = mob.Inventory,
 				WornEquipment = mob.WornEquipment,
-				Behavior = mob.Behavior,
-				BaseAspects = mob.BaseAspects,
-				BaseAttributes = mob.BaseAttributes,
-				BaseQualities = mob.BaseQualities
+				Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
+				BaseAspects = AspectsViewModel.ToViewModel(mob.BaseAspects),
+				BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
+				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
 			};
 
 			return View("~/Views/Data/Mob/Details.cshtml", vModel);
@@ -87,10 +87,10 @@ namespace Hedron.Controllers.Data
 					mob.Name = mobViewModel.Name;
 					mob.ShortDescription = mobViewModel.ShortDescription;
 					mob.LongDescription = mobViewModel.LongDescription;
-					mob.Behavior = mobViewModel.Behavior;
-					mob.BaseAspects = mobViewModel.BaseAspects;
-					mob.BaseAttributes = mobViewModel.BaseAttributes;
-					mob.BaseQualities = mobViewModel.BaseQualities;
+					mob.Behavior = MobBehaviorViewModel.ToMobBehavior(mobViewModel.Behavior);
+					mob.BaseAspects = AspectsViewModel.ToAspects(mobViewModel.BaseAspects);
+					mob.BaseAttributes = AttributesViewModel.ToAttributes(mobViewModel.BaseAttributes);
+					mob.BaseQualities = QualitiesViewModel.ToQualities(mobViewModel.BaseQualities);
 
 					DataPersistence.SaveObject(mob);
 				}
@@ -118,10 +118,12 @@ namespace Hedron.Controllers.Data
 				Name = mob.Name,
 				ShortDescription = mob.ShortDescription,
 				LongDescription = mob.LongDescription,
-				Behavior = mob.Behavior,
-				BaseAspects = mob.BaseAspects,
-				BaseAttributes = mob.BaseAttributes,
-				BaseQualities = mob.BaseQualities
+				Inventory = mob.Inventory,
+				WornEquipment = mob.WornEquipment,
+				Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
+				BaseAspects = AspectsViewModel.ToViewModel(mob.BaseAspects),
+				BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
+				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
 			};
 
 			return View("~/Views/Data/Mob/Edit.cshtml", vModel);
@@ -145,10 +147,10 @@ namespace Hedron.Controllers.Data
 					mob.Name = mobViewModel.Name;
 					mob.ShortDescription = mobViewModel.ShortDescription;
 					mob.LongDescription = mobViewModel.LongDescription;
-					mob.Behavior = mobViewModel.Behavior;
-					mob.BaseAspects = mobViewModel.BaseAspects;
-					mob.BaseAttributes = mobViewModel.BaseAttributes;
-					mob.BaseQualities = mobViewModel.BaseQualities;
+					mob.Behavior = MobBehaviorViewModel.ToMobBehavior(mobViewModel.Behavior);
+					mob.BaseAspects = AspectsViewModel.ToAspects(mobViewModel.BaseAspects);
+					mob.BaseAttributes = AttributesViewModel.ToAttributes(mobViewModel.BaseAttributes);
+					mob.BaseQualities = QualitiesViewModel.ToQualities(mobViewModel.BaseQualities);
 
 					DataPersistence.SaveObject(mob);
 				}
@@ -179,10 +181,12 @@ namespace Hedron.Controllers.Data
 				Name = mob.Name,
 				ShortDescription = mob.ShortDescription,
 				LongDescription = mob.LongDescription,
-				Behavior = mob.Behavior,
-				BaseAspects = mob.BaseAspects,
-				BaseAttributes = mob.BaseAttributes,
-				BaseQualities = mob.BaseQualities
+				Inventory = mob.Inventory,
+				WornEquipment = mob.WornEquipment,
+				Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
+				BaseAspects = AspectsViewModel.ToViewModel(mob.BaseAspects),
+				BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
+				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
 			};
 
 			return View("~/Views/Data/Mob/Delete.cshtml", vModel);

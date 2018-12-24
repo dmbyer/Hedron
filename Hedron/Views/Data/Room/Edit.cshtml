@@ -5,59 +5,81 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<h2>Edit</h2>
-
-<h4>@Html.DisplayFor(model => model.Name)</h4>
-<hr />
-<div class="row">
-    <div class="col-md-4">
-        <form asp-action="Edit">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <div class="form-group">
-                <label asp-for="Prototype" class="control-label"></label>
-                <input asp-for="Prototype" class="form-control" value="@Model.Prototype" readonly="readonly" />
-                <span asp-validation-for="Prototype" class="text-danger"></span>
+<div class="w3-card w3-third w3-margin-top w3-margin-right w3-khaki">
+    <div class="w3-container w3-cell-row">
+        <div class="w3-cell" style="width:95%">
+            <h2>Editing: @Model.Name</h2>
+        </div>
+        <div class="w3-float-tooltip w3-cell">
+            <a asp-controller="Room" asp-route-id="@Model.Prototype" asp-action="Delete"><i class="material-icons w3-hover-blue-gray">delete</i></a>
+            <span class="w3-float-tooltiptext">Delete</span>
+        </div>
+    </div>
+    <div class="w3-container w3-sand">
+        <form asp-action="Edit" autocomplete="off">
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Prototype"></label>
+                <div>
+                    <input asp-for="Prototype" value="@Model.Prototype" readonly="readonly" class="w3-light-gray" />
+                    <span asp-validation-for="Prototype" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Name" class="control-label"></label>
-                <input asp-for="Name" class="form-control" value="@Model.Name" />
-                <span asp-validation-for="Name" class="text-danger"></span>
+            <div asp-validation-summary="ModelOnly" class="w3-red"></div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Tier"></label>
+                <div>
+                    <input asp-for="Tier" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Tier" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Tier" class="control-label"></label>
-                <input asp-for="Tier" class="form-control" value="@Model.Tier" />
-                <span asp-validation-for="Tier" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Name"></label>
+                <div>
+                    <input asp-for="Name" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Name" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Description" class="control-label"></label>
-                <textarea asp-for="Description" class="form-control" rows="5" cols="1">@Model.Description</textarea>
-                <span asp-validation-for="Description" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Description"></label>
+                <div>
+                    <textarea asp-for="Description" class="w3-animate-input" style="width:50%" rows="5" cols="1">@Model.Description</textarea>
+                    <span asp-validation-for="Description" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <input type="submit" value="Save" class="btn btn-default" />
+            <div class="w3-padding-32 w3-margin-left w3-margin-right">
+                <input type="submit" value="Save" class="w3-button w3-blue-gray w3-hover-black" />
             </div>
         </form>
     </div>
+    <div class="w3-container w3-sand">
+        <div class="w3-topbar w3-margin-left w3-margin-right">
+            <div class="w3-section">
+                <a asp-action="Index"><i class="material-icons">arrow_back</i></a>
+            </div>
+        </div>
+    </div>
 </div>
-<div>
-    <h4>Entities</h4>
-    Add: <a href="#" onclick="addEntity('AddItemStatic')">Static Item</a> | <a href="#" onclick="addEntity('AddMob')">Mob</a>
-    <div id="divEntityList">
+<div class="w3-card w3-rest w3-margin-top">
+    <header class="w3-container w3-khaki">
+        <h2>Entities</h2>
+    </header>
+    <div class="w3-container w3-sand">
+        <div class="w3-container w3-section w3-large">
+            <a href="#" onclick="addEntity('AddItemStatic')"><i class="material-icons" style="vertical-align:-6px">add</i>Static</a>
+            <a href="#" onclick="addEntity('AddWeapon')"><i class="material-icons" style="vertical-align:-6px">add</i>Weapon</a>
+            <a href="#" onclick="addEntity('AddMob')"><i class="material-icons" style="vertical-align:-6px">add</i>Mob</a>
+        </div>
+    </div>
+    <div id="divEntityList" class="w3-container w3-sand">
         @{ await Html.RenderPartialAsync("Partial/_entityList", Model.Entities); }
     </div>
-    <hr />
-</div>
-
-<div>
-    <a asp-action="Index">Back to List</a>
 </div>
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
 }
 
-
-@section Ajax {
+<script>
     function addEntity(entityActionType) {
         let request = new XMLHttpRequest();
 
@@ -66,16 +88,13 @@
         request.setRequestHeader("XSRF-TOKEN", document.getElementsByName('__RequestVerificationToken')[0].value);
         request.setRequestHeader("Content-Type", "application/json");
         request.responseType = "document";
-        console.log(document.getElementsByName('__RequestVerificationToken')[0].value);
 
         request.onreadystatechange = function() {
             if (this.readyState == 4 && this.status == 200) {
-
                 document.getElementById('divEntityList').innerHTML = this.responseXML.body.innerHTML;
-                console.log(this.responseXML.documentElement.outerHTML);
             }
         };
 
         request.send(@Model.Prototype);
     }
-}
+</script>

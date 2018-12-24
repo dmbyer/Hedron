@@ -5,41 +5,63 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<h2>Delete</h2>
-
-<h3>Are you sure you want to delete this?</h3>
-<div>
-    <h4>@Html.DisplayFor(model => model.Name)</h4>
-    <hr />
-    <dl class="dl-horizontal">
-        <dt>
-            @Html.DisplayNameFor(model => model.Prototype)
-        </dt>
-        <dd>
-            @Html.DisplayFor(model => model.Prototype)
-        </dd>
-        <dt>
-            @Html.DisplayNameFor(model => model.Tier)
-        </dt>
-        <dd>
-            @Html.DisplayFor(model => model.Tier)
-        </dd>
-        <dt>
-            @Html.DisplayNameFor(model => model.Name)
-        </dt>
-        <dd>
-            @Html.DisplayFor(model => model.Name)
-        </dd>
-        <dt>
-            Rooms:
-        </dt>
-        <dd>
-            @Html.DisplayFor(model => model.Rooms.Count)
-        </dd>
-    </dl>
-    
-    <form asp-action="Delete">
-        <input type="submit" value="Delete" class="btn btn-default" /> |
-        <a asp-action="Index">Back to List</a>
-    </form>
+<div class="w3-card w3-third w3-margin-top w3-margin-right w3-khaki">
+    <div class="w3-container w3-cell-row">
+        <div class="w3-cell" style="width:95%">
+            <h2>Delete</h2>
+        </div>
+        <div class="w3-float-tooltip w3-cell">
+            <a asp-controller="Area" asp-route-id="@Model.Prototype" asp-action="Edit"><i class="material-icons w3-hover-blue-gray">mode_edit</i></a>
+            <span class="w3-float-tooltiptext">Edit</span>
+        </div>
+    </div>
+    <div class="w3-container w3-sand">
+        <table class="w3-table w3-section">
+            <tr>
+                <td>
+                    @Html.DisplayNameFor(model => model.Prototype)
+                </td>
+                <td>
+                    @Html.DisplayFor(model => model.Prototype)
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    @Html.DisplayNameFor(model => model.Tier)
+                </td>
+                <td>
+                    @Html.DisplayFor(model => model.Tier)
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    @Html.DisplayNameFor(model => model.Name)
+                </td>
+                <td>
+                    @Html.DisplayFor(model => model.Name)
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Rooms:
+                </td>
+                <td>
+                    @Html.DisplayFor(model => model.Rooms.Count)
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="w3-padding-32 w3-margin-left w3-margin-right">
+        <h3>Are you sure you want to delete this?</h3>
+        <form asp-action="Delete">
+            <input type="submit" value="Delete" class="w3-button w3-blue-gray w3-hover-black" />
+        </form>
+    </div>
+    <div class="w3-container w3-sand">
+        <div class="w3-margin-left w3-margin-right">
+            <div class="w3-section">
+                <a asp-action="Index"><i class="material-icons">arrow_back</i></a>
+            </div>
+        </div>
+    </div>
 </div>

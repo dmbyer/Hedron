@@ -6,149 +6,187 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<h2>Edit</h2>
-
-<h4>@Html.DisplayFor(model => model.Name)</h4>
-<hr />
-<div class="row">
-    <div class="col-md-4">
-        <form asp-action="Edit">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <div class="form-group">
-                <label asp-for="Prototype" class="control-label"></label>
-                <input asp-for="Prototype" class="form-control" value="@Model.Prototype" readonly="readonly" />
-                <span asp-validation-for="Prototype" class="text-danger"></span>
+<div class="w3-card w3-third w3-margin-top w3-margin-right w3-khaki">
+    <div class="w3-container w3-cell-row">
+        <div class="w3-cell" style="width:95%">
+            <h2>Editing: @Model.Name</h2>
+        </div>
+        <div class="w3-float-tooltip w3-cell">
+            <a asp-controller="ItemWeapon" asp-route-id="@Model.Prototype" asp-action="Delete"><i class="material-icons w3-hover-blue-gray">delete</i></a>
+            <span class="w3-float-tooltiptext">Delete</span>
+        </div>
+    </div>
+    <div class="w3-container w3-sand">
+        <form asp-action="Edit" autocomplete="off">
+            <div asp-validation-summary="ModelOnly" class="w3-red"></div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Prototype"></label>
+                <div>
+                    <input asp-for="Prototype" value="@Model.Prototype" readonly="readonly" class="w3-light-gray" />
+                    <span asp-validation-for="Prototype" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Parent" class="control-label"></label>
-                <input asp-for="Parent" class="form-control" />
-                <span asp-validation-for="Parent" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Tier"></label>
+                <div>
+                    <input asp-for="Tier" value="@Model.Tier" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Tier" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Tier" class="control-label"></label>
-                <input asp-for="Tier" class="form-control" />
-                <span asp-validation-for="Tier" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Name"></label>
+                <div>
+                    <input asp-for="Name" value="@Model.Name" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Name" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Name" class="control-label"></label>
-                <input asp-for="Name" class="form-control" />
-                <span asp-validation-for="Name" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="ShortDescription"></label>
+                <div>
+                    <input asp-for="ShortDescription" value="@Model.ShortDescription" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="ShortDescription" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="ShortDescription" class="control-label"></label>
-                <input asp-for="ShortDescription" class="form-control" />
-                <span asp-validation-for="ShortDescription" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="LongDescription"></label>
+                <div>
+                    <textarea asp-for="LongDescription" class="w3-animate-input" style="width:50%" rows="5" cols="1">@Model.LongDescription</textarea>
+                    <span asp-validation-for="LongDescription" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="LongDescription" class="control-label"></label>
-                <input asp-for="LongDescription" class="form-control" />
-                <span asp-validation-for="LongDescription" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="MinDamage"></label>
+                <div>
+                    <input asp-for="MinDamage" value="@Model.MinDamage" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="MinDamage" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="MinDamage" class="control-label"></label>
-                <input asp-for="MinDamage" class="form-control" />
-                <span asp-validation-for="MinDamage" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="MaxDamage"></label>
+                <div>
+                    <input asp-for="MaxDamage" value="@Model.MaxDamage" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="MaxDamage" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="MaxDamage" class="control-label"></label>
-                <input asp-for="MaxDamage" class="form-control" />
-                <span asp-validation-for="MaxDamage" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Behavior.RandomDrop"></label>
+                <div>
+                    <input asp-for="Behavior.RandomDrop" value="@Model.Behavior.RandomDrop" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Behavior.RandomDrop" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Behavior.Obtainable" class="control-label"></label>
-                <input asp-for="Behavior.Obtainable" class="form-control" />
-                <span asp-validation-for="Behavior.Obtainable" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Behavior.Bound"></label>
+                <div>
+                    <input asp-for="Behavior.Bound" value="@Model.Behavior.Bound" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="Behavior.Bound" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Behavior.Storable" class="control-label"></label>
-                <input asp-for="Behavior.Storable" class="form-control" />
-                <span asp-validation-for="Behavior.Storable" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Rarity"></label>
+                <div>
+                    <select asp-for="Rarity" asp-items="Html.GetEnumSelectList<ItemRarity>()" class="form-control"></select>
+                    <span asp-validation-for="Rarity" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Behavior.RandomDrop" class="control-label"></label>
-                <input asp-for="Behavior.RandomDrop" class="form-control" />
-                <span asp-validation-for="Behavior.RandomDrop" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Slot"></label>
+                <div>
+                    <select asp-for="Slot" asp-items="Html.GetEnumSelectList<ItemSlot>()" class="form-control"></select>
+                    <span asp-validation-for="Slot" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Behavior.Bound" class="control-label"></label>
-                <input asp-for="Behavior.Bound" class="form-control" />
-                <span asp-validation-for="Behavior.Bound" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="DamageType.Blunt"></label>
+                <div>
+                    <input asp-for="DamageType.Blunt" value="@Model.DamageType.Blunt" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="DamageType.Blunt" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Rarity" class="control-label"></label>
-                <select asp-for="Rarity" asp-items="Html.GetEnumSelectList<ItemRarity>()" class="form-control"></select>
-                <span asp-validation-for="Rarity" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="DamageType.Magic"></label>
+                <div>
+                    <input asp-for="DamageType.Magic" value="@Model.DamageType.Magic" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="DamageType.Magic" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Slot" class="control-label"></label>
-                <select asp-for="Slot" asp-items="Html.GetEnumSelectList<ItemSlot>()" class="form-control"></select>
-                <span asp-validation-for="Slot" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="DamageType.Pierce"></label>
+                <div>
+                    <input asp-for="DamageType.Pierce" value="@Model.DamageType.Pierce" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="DamageType.Pierce" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="DamageType.Blunt" class="control-label"></label>
-                <input asp-for="DamageType.Blunt" class="form-control" />
-                <span asp-validation-for="DamageType.Blunt" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="DamageType.Slash"></label>
+                <div>
+                    <input asp-for="DamageType.Slash" value="@Model.DamageType.Slash" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="DamageType.Slash" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="DamageType.Slash" class="control-label"></label>
-                <input asp-for="DamageType.Slash" class="form-control" />
-                <span asp-validation-for="DamageType.Slash" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="DamageType.Spirit"></label>
+                <div>
+                    <input asp-for="DamageType.Spirit" value="@Model.DamageType.Spirit" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="DamageType.Spirit" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="DamageType.Pierce" class="control-label"></label>
-                <input asp-for="DamageType.Pierce" class="form-control" />
-                <span asp-validation-for="DamageType.Pierce" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="ElementalType.Acid"></label>
+                <div>
+                    <input asp-for="ElementalType.Acid" value="@Model.ElementalType.Acid" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="ElementalType.Acid" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="DamageType.Magic" class="control-label"></label>
-                <input asp-for="DamageType.Magic" class="form-control" />
-                <span asp-validation-for="DamageType.Magic" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="ElementalType.Air"></label>
+                <div>
+                    <input asp-for="ElementalType.Air" value="@Model.ElementalType.Air" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="ElementalType.Air" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="DamageType.Spirit" class="control-label"></label>
-                <input asp-for="DamageType.Spirit" class="form-control" />
-                <span asp-validation-for="DamageType.Spirit" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="ElementalType.Earth"></label>
+                <div>
+                    <input asp-for="ElementalType.Earth" value="@Model.ElementalType.Earth" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="ElementalType.Earth" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="ElementalType.Acid" class="control-label"></label>
-                <input asp-for="ElementalType.Acid" class="form-control" />
-                <span asp-validation-for="ElementalType.Acid" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="ElementalType.Fire"></label>
+                <div>
+                    <input asp-for="ElementalType.Fire" value="@Model.ElementalType.Fire" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="ElementalType.Fire" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="ElementalType.Air" class="control-label"></label>
-                <input asp-for="ElementalType.Air" class="form-control" />
-                <span asp-validation-for="ElementalType.Air" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="ElementalType.Ice"></label>
+                <div>
+                    <input asp-for="ElementalType.Ice" value="@Model.ElementalType.Ice" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="ElementalType.Ice" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="ElementalType.Earth" class="control-label"></label>
-                <input asp-for="ElementalType.Earth" class="form-control" />
-                <span asp-validation-for="ElementalType.Earth" class="text-danger"></span>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="ElementalType.Water"></label>
+                <div>
+                    <input asp-for="ElementalType.Water" value="@Model.ElementalType.Water" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="ElementalType.Water" class="w3-red"></span>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="ElementalType.Fire" class="control-label"></label>
-                <input asp-for="ElementalType.Fire" class="form-control" />
-                <span asp-validation-for="ElementalType.Fire" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="ElementalType.Ice" class="control-label"></label>
-                <input asp-for="ElementalType.Ice" class="form-control" />
-                <span asp-validation-for="ElementalType.Ice" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="ElementalType.Water" class="control-label"></label>
-                <input asp-for="ElementalType.Water" class="form-control" />
-                <span asp-validation-for="ElementalType.Water" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <input type="submit" value="Save" class="btn btn-default" />
+            <div class="w3-padding-32 w3-margin-left w3-margin-right">
+                <input type="submit" value="Save" class="w3-button w3-blue-gray w3-hover-black" />
             </div>
         </form>
     </div>
+    <div class="w3-container w3-sand">
+        <div class="w3-topbar w3-margin-left w3-margin-right">
+            <div class="w3-section">
+                <a asp-action="Index"><i class="material-icons">arrow_back</i></a>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div>
-    <a asp-action="Index">Back to List</a>
-</div>
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}

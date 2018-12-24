@@ -5,57 +5,83 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<h2>Details</h2>
-
-<div>
-    <h4>@Html.DisplayFor(model => model.Name)</h4>
-    <hr />
-    <dl class="dl-horizontal">
-        <dt>
-            @Html.DisplayNameFor(model => model.Prototype)
-        </dt>
-        <dd>
-            @Html.DisplayFor(model => model.Prototype)
-        </dd>
-        <dt>
-            @Html.DisplayNameFor(model => model.ParentName)
-        </dt>
-        <dd>
-            @Html.DisplayFor(model => model.ParentName)
-        </dd>
-        <dt>
-            @Html.DisplayNameFor(model => model.Tier)
-        </dt>
-        <dd>
-            @Html.DisplayFor(model => model.Tier)
-        </dd>
-        <dt>
-            @Html.DisplayNameFor(model => model.Name)
-        </dt>
-        <dd>
-            @Html.DisplayFor(model => model.Name)
-        </dd>
-        <dt>
-            Entities:
-        </dt>
-        <dd>
-            @Html.DisplayFor(model => model.Entities.Count)
-        </dd>
-        <dt>
-            @Html.DisplayNameFor(model => model.Description)
-        </dt>
-        <dd>
-            @Html.DisplayFor(model => model.Description)
-        </dd>
-    </dl>
-    <hr />
-    <h4>Entities</h4>
-    <div>
+<div class="w3-card w3-third w3-margin-top w3-margin-right w3-khaki">
+    <div class="w3-container w3-cell-row">
+        <div class="w3-cell" style="width:95%">
+            <h2>Details</h2>
+        </div>
+        <div class="w3-float-tooltip w3-cell">
+            <a asp-controller="Room" asp-route-id="@Model.Prototype" asp-action="Edit"><i class="material-icons w3-hover-blue-gray">mode_edit</i></a>
+            <span class="w3-float-tooltiptext">Edit</span>
+        </div>
+    </div>
+    <div class="w3-container w3-sand">
+        <table class="w3-table w3-section">
+            <tr>
+                <td>
+                    @Html.DisplayNameFor(model => model.Prototype)
+                </td>
+                <td>
+                    @Html.DisplayFor(model => model.Prototype)
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    @Html.DisplayNameFor(model => model.ParentName)
+                </td>
+                <td>
+                    @Html.DisplayFor(model => model.ParentName)
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    @Html.DisplayNameFor(model => model.Tier)
+                </td>
+                <td>
+                    @Html.DisplayFor(model => model.Tier)
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    @Html.DisplayNameFor(model => model.Name)
+                </td>
+                <td>
+                    @Html.DisplayFor(model => model.Name)
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Entities:
+                </td>
+                <td>
+                    @Html.DisplayFor(model => model.Entities.Count)
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    @Html.DisplayNameFor(model => model.Description):
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    @Model.Description
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="w3-container w3-sand">
+        <div class="w3-topbar w3-margin-left w3-margin-right">
+            <div class="w3-section">
+                <a asp-action="Index"><i class="material-icons">arrow_back</i></a>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="w3-card w3-rest w3-margin-top w3-sand">
+    <header class="w3-container w3-khaki">
+        <h2>Entities</h2>
+    </header>
+    <div id="divRoomList" class="w3-container w3-margin-top w3-sand">
         @{ await Html.RenderPartialAsync("Partial/_entityList", Model.Entities); }
     </div>
-    <hr />
-</div>
-<div>
-    @Html.ActionLink("Edit", "Edit", new { id = Model.Prototype }) |
-    <a asp-action="Index">Back to List</a>
 </div>

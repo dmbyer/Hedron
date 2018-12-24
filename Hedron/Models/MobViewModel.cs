@@ -18,12 +18,12 @@ namespace Hedron.Models
 		[Display(Name = "Equipment")]
 		public Inventory WornEquipment { get; set; }
 
-		public MobBehavior Behavior { get; set; }
+		public MobBehaviorViewModel Behavior { get; set; }
 		
-		public Attributes BaseAttributes { get; set; }
+		public AttributesViewModel BaseAttributes { get; set; }
 		
-		public Aspects BaseAspects { get; set; }
+		public AspectsViewModel BaseAspects { get; set; }
 		
-		public Qualities BaseQualities { get; set; }
+		public QualitiesViewModel BaseQualities { get; set; }
 	}
 }

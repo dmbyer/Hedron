@@ -4,9 +4,10 @@
     ViewData["Title"] = "Index";
 }
 
-<table class="table" id="tableRoomList">
+<table class="w3-table w3-card w3-margin-bottom w3-border w3-bordered w3-pale-blue" id="tableEntityList">
     <thead>
-        <tr>
+        <tr class="w3-lime">
+            <th width="10px"></th>
             <th>
                 @Html.DisplayNameFor(model => model.Prototype)
             </th>
@@ -19,13 +20,16 @@
             <th>
                 @Html.DisplayNameFor(model => model.ShortDescription)
             </th>
-            <th></th>
+            <th class="w3-right-align"></th>
         </tr>
     </thead>
     <tbody>
         @foreach (var entity in Model)
         {
-        <tr>
+        <tr id="room-@entity.Prototype" class="w3-white">
+            <td>
+                <i class="material-icons w3-hover-blue-gray w3-float-tooltip" style="vertical-align:-8px" onclick="expandEntity(@entity.Prototype)" id="chevron-@entity.Prototype">chevron_right</i>
+            </td>
             <td>
                 @Html.DisplayFor(modelItem => entity.Prototype)
             </td>
@@ -38,12 +42,26 @@
             <td>
                 @Html.DisplayFor(modelItem => entity.ShortDescription)
             </td>
-            <td>
-                <a asp-controller="@entity.Type" asp-action="Edit" asp-route-id="@entity.Prototype">Edit</a> |
-                <a asp-controller="@entity.Type" asp-action="Details" asp-route-id="@entity.Prototype">Details</a> |
-                <a asp-controller="@entity.Type" asp-action="Delete" asp-route-id="@entity.Prototype">Delete</a>
+            <td class="w3-right-align">
+                <div class="w3-float-tooltip">
+                    <a asp-controller="@entity.Type" asp-route-id="@entity.Prototype" asp-action="Edit"><i class="material-icons w3-hover-blue-gray" style="vertical-align:-8px">mode_edit</i></a>
+                    <span class="w3-float-tooltiptext">Edit</span>
+                </div>
+                <div class="w3-float-tooltip">
+                    <a asp-controller="@entity.Type" asp-route-id="@entity.Prototype" asp-action="Details"><i class="material-icons w3-hover-blue-gray w3-float-tooltip" style="vertical-align:-8px">more_horiz</i></a>
+                    <span class="w3-float-tooltiptext">Details</span>
+                </div>
+                <div class="w3-float-tooltip">
+                    <a asp-controller="@entity.Type" asp-route-id="@entity.Prototype" asp-action="Delete"><i class="material-icons w3-hover-blue-gray w3-float-tooltip" style="vertical-align:-8px">delete</i></a>
+                    <span class="w3-float-tooltiptext">Delete</span>
+                </div>
             </td>
         </tr>
+            <tr class="w3-animate-bottom w3-light-gray" style="display:none" id="room-edit-@entity.Prototype">
+                <td colspan="5">
+                    test
+                </td>
+            </tr>
         }
     </tbody>
 </table>

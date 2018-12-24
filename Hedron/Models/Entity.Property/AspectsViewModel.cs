@@ -55,5 +55,28 @@ namespace Hedron.Models
 
 			return aspectsModel;
 		}
+
+		/// <summary>
+		/// Converts AspectsViewModel to Aspects
+		/// </summary>
+		/// <param name="aspectViewModel">The AspectsViewModel to convert</param>
+		/// <returns>The aspects</returns>
+		public static Aspects ToAspects(AspectsViewModel aspectViewModel)
+		{
+			if (aspectViewModel == null)
+				return null;
+
+			Aspects aspects = new Aspects
+			{
+				CurrentEnergy = aspectViewModel.CurrentEnergy,
+				CurrentHitPoints = aspectViewModel.CurrentHitPoints,
+				CurrentStamina = aspectViewModel.CurrentStamina,
+				MaxEnergy = aspectViewModel.MaxEnergy,
+				MaxHitPoints = aspectViewModel.MaxHitPoints,
+				MaxStamina = aspectViewModel.MaxStamina,
+			};
+
+			return aspects;
+		}
 	}
 }

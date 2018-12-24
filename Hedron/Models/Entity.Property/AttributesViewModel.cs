@@ -55,5 +55,28 @@ namespace Hedron.Models
 
 			return aspectsModel;
 		}
+
+		/// <summary>
+		/// Converts AttributesViewModel to Attributes
+		/// </summary>
+		/// <param name="attributesViewModel">The AttributesViewModel to convert</param>
+		/// <returns>The attributes</returns>
+		public static Attributes ToAttributes(AttributesViewModel attributesViewModel)
+		{
+			if (attributesViewModel == null)
+				return null;
+
+			Attributes attributes = new Attributes
+			{
+				Essence = attributesViewModel.Essence,
+				Finesse = attributesViewModel.Finesse,
+				Intellect = attributesViewModel.Intellect,
+				Might = attributesViewModel.Might,
+				Spirit = attributesViewModel.Spirit,
+				Will = attributesViewModel.Will
+			};
+
+			return attributes;
+		}
 	}
 }

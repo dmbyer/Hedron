@@ -32,5 +32,28 @@ namespace Hedron.Models
 
 			return behaviorModel;
 		}
+
+		/// <summary>
+		/// Converts MobBehaviorViewModel to MobBehavior
+		/// </summary>
+		/// <param name="behaviorModel">The behavior to convert</param>
+		/// <returns>The behavior</returns>
+		public static MobBehavior ToMobBehavior(MobBehaviorViewModel behaviorModel)
+		{
+			if (behaviorModel == null)
+				return null;
+
+			MobBehavior behavior = new MobBehavior
+			{
+				Aggressive = behaviorModel.Aggressive,
+				AutoPillage = behaviorModel.AutoPillage,
+				AutoEquip = behaviorModel.AutoEquip,
+				Scavenge = behaviorModel.Scavenge,
+				ShopKeeper = behaviorModel.ShopKeeper,
+				Wander = behaviorModel.Wander
+			};
+
+			return behavior;
+		}
 	}
 }

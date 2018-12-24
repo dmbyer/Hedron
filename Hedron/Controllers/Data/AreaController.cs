@@ -28,7 +28,7 @@ namespace Hedron.Controllers.Data
 					Prototype = (uint)area.Prototype,
 					Name = area.Name,
 					Tier = area.Tier.Level,
-					Rooms = RoomViewModel.RoomToViewModel(DataAccess.GetMany<Room>(area.GetAllEntities(), CacheType.Prototype))
+					Rooms = RoomViewModel.RoomToViewModel(DataAccess.GetMany<Room>(area.GetAllEntities(), CacheType.Prototype), 100)
 				});
 			}
 
@@ -48,7 +48,7 @@ namespace Hedron.Controllers.Data
 				Prototype = (uint)area.Prototype,
 				Name = area.Name,
 				Tier = area.Tier.Level,
-				Rooms = RoomViewModel.RoomToViewModel(DataAccess.GetMany<Room>(area.GetAllEntities(), CacheType.Prototype))
+				Rooms = RoomViewModel.RoomToViewModel(DataAccess.GetMany<Room>(area.GetAllEntities(), CacheType.Prototype), 100)
 			};
 
             return View("~/Views/Data/Area/Details.cshtml", vModel);
@@ -99,7 +99,7 @@ namespace Hedron.Controllers.Data
 				Name = area.Name,
 				Prototype = (uint)area.Prototype,
 				Tier = area.Tier.Level,
-				Rooms = RoomViewModel.RoomToViewModel(DataAccess.GetMany<Room>(area.GetAllEntities(), CacheType.Prototype))
+				Rooms = RoomViewModel.RoomToViewModel(DataAccess.GetMany<Room>(area.GetAllEntities(), CacheType.Prototype), 100)
 			};
 
 			return View("~/Views/Data/Area/Edit.cshtml", vModel);
@@ -148,7 +148,8 @@ namespace Hedron.Controllers.Data
 			{
 				Name = area.Name,
 				Prototype = (uint)area.Prototype,
-				Tier = area.Tier.Level
+				Tier = area.Tier.Level,
+				Rooms = RoomViewModel.RoomToViewModel(DataAccess.GetMany<Room>(area.GetAllEntities(), CacheType.Prototype), 100)
 			};
 
 			return View("~/Views/Data/Area/Delete.cshtml", vModel);
@@ -177,7 +178,18 @@ namespace Hedron.Controllers.Data
 
 			area.AddEntity(newRoom.Prototype, newRoom);
 
-			var rooms = RoomViewModel.RoomToViewModel(DataAccess.GetMany<Room>(area.GetAllEntities(), CacheType.Prototype));
+			var rooms = RoomViewModel.RoomToViewModel(DataAccess.GetMany<Room>(area.GetAllEntities(), CacheType.Prototype), 100);
+
+			return PartialView("Partial/_roomList", rooms);
+		}
+
+		// POST: Area/RefreshRoomList
+		[HttpPost, ActionName("RefreshRoomList")]
+		[ValidateAntiForgeryToken]
+		public ActionResult RefreshRoomList([FromBody]int parentArea)
+		{
+			var area = DataAccess.Get<Area>((uint)parentArea, CacheType.Prototype);
+			var rooms = RoomViewModel.RoomToViewModel(DataAccess.GetMany<Room>(area.GetAllEntities(), CacheType.Prototype), 100);
 
 			return PartialView("Partial/_roomList", rooms);
 		}

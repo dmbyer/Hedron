@@ -6,53 +6,74 @@
     <title>@ViewData["Title"] - Hedron</title>
 
     <environment include="Development">
-        <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.css" />
-        <link rel="stylesheet" href="~/css/site.css" />
+        <link rel="stylesheet" href="~/css/w3.css" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     </environment>
     <environment exclude="Development">
-        <link rel="stylesheet" href="https://ajax.aspnetcdn.com/ajax/bootstrap/3.3.7/css/bootstrap.min.css"
-              asp-fallback-href="~/lib/bootstrap/dist/css/bootstrap.min.css"
+        <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css"
+              asp-fallback-href="~/css/w3.css"
               asp-fallback-test-class="sr-only" asp-fallback-test-property="position" asp-fallback-test-value="absolute" />
-        <link rel="stylesheet" href="~/css/site.min.css" asp-append-version="true" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
     </environment>
 
     <script>
         @RenderSection("Ajax", required: false)
     </script>
+    <style>
+        .w3-roboto, h1, h2, h3, h4, h5, h6 {
+            font-family: Roboto, sans-serif;
+        }
+        html, body, div {
+            font-family: "Open Sans", Roboto, sans-serif;
+        }
+        .w3-float-tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .w3-float-tooltip .w3-float-tooltiptext {
+            visibility: hidden;
+            width: 60px;
+            background-color: black;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 0;
+            position: absolute;
+            z-index: 1;
+            bottom: 100%;
+            left: 50%;
+            margin-left: -30px;
+            /* Fade in tooltip - takes 1 second to go from 0% to 100% opac: */
+            opacity: 0;
+            transition: opacity 1s;
+        }
+        .w3-float-tooltip:hover .w3-float-tooltiptext {
+            visibility: visible;
+            opacity: 0.75;
+        }
+        div, button, tr, td, nav, a, text, textarea {
+            transition: background-color 0.75s ease;
+        }
+    </style>
 </head>
-<body>
-    <nav class="navbar navbar-inverse navbar-fixed-top">
-        <div class="container">
-            <div class="navbar-header">
-                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
-                    <span class="sr-only">Toggle navigation</span>
-                    <span class="icon-bar"></span>
-                    <span class="icon-bar"></span>
-                    <span class="icon-bar"></span>
-                </button>
-                <a asp-area="" asp-controller="Home" asp-action="Index" class="navbar-brand">Hedron</a>
-            </div>
-            <div class="navbar-collapse collapse">
-                <ul class="nav navbar-nav">
-                    <li><a asp-area="" asp-controller="Home" asp-action="Index">Home</a></li>
-                    <li><a asp-area="" asp-controller="Area" asp-action="Index">Areas</a></li>
-                    <li><a asp-area="" asp-controller="Room" asp-action="Index">Rooms</a></li>
-                    <li><a asp-area="" asp-controller="Mob" asp-action="Index">Mobs</a></li>
-                    <li><a asp-area="" asp-controller="ItemStatic" asp-action="Index">Statics</a></li>
-                    <li><a asp-area="" asp-controller="ItemWeapon" asp-action="Index">Weapons</a></li>
-                </ul>
-            </div>
-        </div>
+<body class="w3-light-gray">
+    <nav class="w3-bar w3-black w3-roboto w3-xlarge w3-card">
+        <a asp-area="" asp-controller="Home" asp-action="Index" class="w3-bar-item w3-button w3-hover-light-green">Home</a>
+        <a asp-area="" asp-controller="Area" asp-action="Index" class="w3-bar-item w3-button w3-hover-light-green">Areas</a>
+        <a asp-area="" asp-controller="Room" asp-action="Index" class="w3-bar-item w3-button w3-hover-light-green">Rooms</a>
+        <a asp-area="" asp-controller="Mob" asp-action="Index" class="w3-bar-item w3-button w3-hover-light-green">Mobs</a>
+        <a asp-area="" asp-controller="ItemStatic" asp-action="Index" class="w3-bar-item w3-button w3-hover-light-green">Statics</a>
+        <a asp-area="" asp-controller="ItemWeapon" asp-action="Index" class="w3-bar-item w3-button w3-hover-light-green">Weapons</a>
     </nav>
 
     <partial name="_CookieConsentPartial" />
 
-    <div class="container body-content">
+    <div class="w3-container w3-margin">
         @RenderBody()
-        <hr />
-        <footer>
-            <p>&copy; 2018 - Hedron</p>
-        </footer>
     </div>
 
     <environment include="Development">

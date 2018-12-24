@@ -1,0 +1,85 @@
+﻿@model Hedron.Models.RoomViewModel
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<tr id="room-@Model.Prototype" class="w3-white">
+    <td>
+        <form id="form-@Model.Prototype" asp-action="Edit" autocomplete="off"></form>
+        <i class="material-icons w3-hover-blue-gray w3-float-tooltip" style="vertical-align:-8px" onclick="expandRoom(@Model.Prototype)" id="chevron-@Model.Prototype">chevron_right</i>
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => Model.Prototype)
+    </td>
+    <td>
+        <input form="form-@Model.Prototype" onchange="roomChanged(@Model.Prototype)" id="form-name-@Model.Prototype" type="text" value="@Html.DisplayFor(modelItem => Model.Name)" class="w3-border-0 w3-leftbar w3-border-white w3-hover-border-light-blue" /> 
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => Model.Description)
+    </td>
+    <td class="w3-right-align">
+        <div class="w3-float-tooltip" id="save-@Model.Prototype" style="display:none">
+            <a href="#" onclick="saveRoom(@Model.Prototype)"><i class="material-icons w3-hover-blue-gray" style="vertical-align:-8px">save</i></a>
+            <span class="w3-float-tooltiptext">Save</span>
+        </div>
+        <div class="w3-float-tooltip">
+            <a asp-controller="Room" asp-route-id="@Model.Prototype" asp-action="Edit"><i class="material-icons w3-hover-blue-gray" style="vertical-align:-8px">mode_edit</i></a>
+            <span class="w3-float-tooltiptext">Edit</span>
+        </div>
+        <div class="w3-float-tooltip">
+            <a asp-controller="Room" asp-route-id="@Model.Prototype" asp-action="Details"><i class="material-icons w3-hover-blue-gray w3-float-tooltip" style="vertical-align:-8px">more_horiz</i></a>
+            <span class="w3-float-tooltiptext">Details</span>
+        </div>
+        <div class="w3-float-tooltip">
+            <a asp-controller="Room" asp-route-id="@Model.Prototype" asp-action="Delete"><i class="material-icons w3-hover-blue-gray w3-float-tooltip" style="vertical-align:-8px">delete</i></a>
+            <span class="w3-float-tooltiptext">Delete</span>
+        </div>
+    </td>
+</tr>
+<tr class="w3-animate-bottom w3-light-gray" id="room-edit-@Model.Prototype" style="display:none">
+    <td colspan="5">
+        <table>
+            <tr>
+                <td>
+                    North:
+                </td>
+                <td>
+                    <input form="form-@Model.Prototype" onchange="roomChanged(@Model.Prototype)" id="form-north-@Model.Prototype" type="text" value="@Html.DisplayFor(modelItem => Model.Exits.North)" class="w3-border-0 w3-leftbar w3-border-white w3-hover-border-light-blue" />
+                </td>
+                <td>
+                    East:
+                </td>
+                <td>
+                    <input form="form-@Model.Prototype" onchange="roomChanged(@Model.Prototype)" id="form-east-@Model.Prototype" type="text" value="@Html.DisplayFor(modelItem => Model.Exits.East)" class="w3-border-0 w3-leftbar w3-border-white w3-hover-border-light-blue" />
+                </td>
+                <td>
+                    South:
+                </td>
+                <td>
+                    <input form="form-@Model.Prototype" onchange="roomChanged(@Model.Prototype)" id="form-south-@Model.Prototype" type="text" value="@Html.DisplayFor(modelItem => Model.Exits.South)" class="w3-border-0 w3-leftbar w3-border-white w3-hover-border-light-blue" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    West:
+                </td>
+                <td>
+                    <input form="form-@Model.Prototype" onchange="roomChanged(@Model.Prototype)" id="form-west-@Model.Prototype" type="text" value="@Html.DisplayFor(modelItem => Model.Exits.West)" class="w3-border-0 w3-leftbar w3-border-white w3-hover-border-light-blue" />
+                </td>
+                <td>
+                    Up: 
+                </td>
+                <td>
+                    <input form="form-@Model.Prototype" onchange="roomChanged(@Model.Prototype)" id="form-up-@Model.Prototype" type="text" value="@Html.DisplayFor(modelItem => Model.Exits.Up)" class="w3-border-0 w3-leftbar w3-border-white w3-hover-border-light-blue" />
+                </td>
+                <td>
+                    Down: 
+                </td>
+                <td>
+                    <input form="form-@Model.Prototype" onchange="roomChanged(@Model.Prototype)" id="form-down-@Model.Prototype" type="text" value="@Html.DisplayFor(modelItem => Model.Exits.Down)" class="w3-border-0 w3-leftbar w3-border-white w3-hover-border-light-blue" />
+                </td>
+            </tr>
+        </table>
+    </td>
+</tr>
