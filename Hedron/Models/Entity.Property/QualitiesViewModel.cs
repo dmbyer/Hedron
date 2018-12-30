@@ -18,6 +18,21 @@ namespace Hedron.Models
 		/// </summary>
 		public float? CriticalDamage { get; set; }
 
+		/// <summary>
+		/// Attack rating
+		/// </summary>
+		public float? AttackRating { get; set; }
+
+		/// <summary>
+		/// Armor rating
+		/// </summary>
+		public float? ArmorRating { get; set; }
+
+		/// <summary>
+		/// Converts Qualities to QualitiesViewModel
+		/// </summary>
+		/// <param name="qualities">The Qualities to convert</param>
+		/// <returns>The view model</returns>
 		public static QualitiesViewModel ToViewModel(Qualities qualities)
 		{
 			if (qualities == null)
@@ -26,7 +41,9 @@ namespace Hedron.Models
 			QualitiesViewModel qualitiesModel = new QualitiesViewModel
 			{
 				CriticalHit = qualities.CriticalHit,
-				CriticalDamage = qualities.CriticalDamage
+				CriticalDamage = qualities.CriticalDamage,
+				AttackRating = qualities.AttackRating,
+				ArmorRating = qualities.ArmorRating
 			};
 
 			return qualitiesModel;
@@ -46,6 +63,8 @@ namespace Hedron.Models
 			{
 				CriticalDamage = qualities.CriticalDamage,
 				CriticalHit = qualities.CriticalHit,
+				AttackRating = qualities.AttackRating,
+				ArmorRating = qualities.ArmorRating
 			};
 
 			return attributes;

@@ -154,6 +154,7 @@ namespace Hedron
 				// TODO: "Tick" to update game world (only tick once every WORLD_TICK_TIME
 				// TODO: Implement synchronous event handling
 				// Send player output again
+				Combat.CombatHandler.ProcessAllEntityCombatRound();
 
 				// Process pending socket closures and remove players from world
 				if (PendingPlayerConnectionClosures.Count > 0)
@@ -168,8 +169,8 @@ namespace Hedron
 					PendingPlayerConnectionClosures.Clear();
 				}
 
-				// Sleep 1 ms
-				Thread.Sleep(1);
+				// Sleep 5 ms
+				Thread.Sleep(5);
 
 			} while (!shutdown);
 

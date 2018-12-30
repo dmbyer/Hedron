@@ -55,7 +55,11 @@ namespace Hedron.Commands
 
 		// Building commands
 		CMD_AUTODIG,
+		CMD_ELIST,
 		CMD_SET,
+
+		// Combat commands
+		CMD_KILL,
 
 		// Server commands
 		CMD_SHUTDOWN
@@ -102,6 +106,7 @@ namespace Hedron.Commands
 			"GET",
 			"GOTO",
 			"INVENTORY",
+			"KILL",
 			"LOOK",
 			"PROMPT",
 			"REMOVE",
@@ -117,6 +122,7 @@ namespace Hedron.Commands
 			"AUTODIG",
 			"CONFIG",
 			"HELP",
+			"ELIST",
 			"QUIT",
 			"SAVE",
 			"SET",
@@ -158,7 +164,11 @@ namespace Hedron.Commands
 
 			// Building commands
 			{"AUTODIG",   Command.CMD_AUTODIG },
+			{"ELIST",     Command.CMD_ELIST },
 			{"SET",       Command.CMD_SET },
+
+			// Combat commands
+			{"KILL",      Command.CMD_KILL },
 
 
 			// Server commands
@@ -218,9 +228,13 @@ namespace Hedron.Commands
 				case Command.CMD_BLANK_LINE: return BlankLine(argument, entity);
 				case Command.CMD_PROMPT:     return Prompt(argument, entity);
 
-				// General commands
+				// Building commands
 				case Command.CMD_AUTODIG:    return Autodig(argument, entity);
+				case Command.CMD_ELIST:      return EList(argument, entity);
 				case Command.CMD_SET:        return Set(argument, entity);
+
+				// Combat commands
+				case Command.CMD_KILL:       return Kill(argument, entity);
 
 				// Server commands
 				// TODO: Implement method to validate shutdown command

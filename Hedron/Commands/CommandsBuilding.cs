@@ -56,6 +56,38 @@ namespace Hedron.Commands
 		}
 
 		/// <summary>
+		/// Lists entities
+		/// </summary>
+		private static CommandResult EList(string argument, EntityAnimate entity)
+		{
+			try
+			{
+				Guard.ThrowIfNull(entity, nameof(entity));
+			}
+			catch (ArgumentNullException ex)
+			{
+				Logger.Error(nameof(CommandHandler), nameof(Prompt), ex.Message);
+				return CommandResult.CMD_R_FAIL;
+			}
+
+			// Player-only command to list mobs.
+			if (!Guard.IsPlayer(entity)) { return PlayerOnlyCommand(); }
+
+			var arg = ParseFirstArgument(argument).ToUpper();
+
+			switch(arg)
+			{
+				case "ALL":
+					break;
+				default:
+					break;
+			}
+
+			entity.IOHandler.QueueOutput("Command not yet implemented.");
+			return CommandResult.CMD_R_SUCCESS;
+		}
+
+		/// <summary>
 		/// Sets properties of things for building
 		/// </summary>
 		private static CommandResult Set(string argument, EntityAnimate entity)

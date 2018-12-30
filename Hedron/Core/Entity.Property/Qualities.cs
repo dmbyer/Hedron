@@ -21,6 +21,16 @@ namespace Hedron.Core.Property
 		public float? CriticalDamage { get; set; }
 
 		/// <summary>
+		/// The attack rating
+		/// </summary>
+		public float? AttackRating { get; set; }
+
+		/// <summary>
+		/// The armor rating
+		/// </summary>
+		public float? ArmorRating { get; set; }
+
+		/// <summary>
 		/// Returns a default set of qualities
 		/// </summary>
 		/// <returns>A new EntityQualities with default values</returns>
@@ -29,7 +39,9 @@ namespace Hedron.Core.Property
 			return new Qualities()
 			{
 				CriticalHit    = Constants.DEFAULT_CRITICAL,
-				CriticalDamage = Constants.DEFAULT_CRITICAL
+				CriticalDamage = Constants.DEFAULT_CRITICAL,
+				AttackRating   = Constants.DEFAULT_ATTACK,
+				ArmorRating    = Constants.DEFAULT_DEFENSE
 			};
 		}
 

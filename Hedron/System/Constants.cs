@@ -29,10 +29,12 @@ namespace Hedron.System
 		}
 
 		// Default starting values
-		public const int    DEFAULT_ASPECT        = 10;
-		public const int    DEFAULT_ATTRIBUTE     = 10;
-		public const int    DEFAULT_CRITICAL      =  0;
-		public const int    DEFAULT_DAMAGE        =  5;
+		public const int    DEFAULT_ASPECT        = 100;
+		public const int    DEFAULT_ATTRIBUTE     =  10;
+		public const int    DEFAULT_CRITICAL      =   0;
+		public const int    DEFAULT_DAMAGE        =   5;
+		public const int    DEFAULT_ATTACK        =  10;
+		public const int    DEFAULT_DEFENSE       =  10;
 
 		// Affects
 		public const int   LIFESPAN_PERMANENT     = -1;

@@ -18,23 +18,24 @@ namespace Hedron.Network
 		/// <summary>
 		/// Valid input states
 		/// </summary>
-		public enum State
+		public enum GameState
 		{
 			NameSelection,
-			LoggedIn
+			Active,
+			Combat
 		}
 
 		/// <summary>
 		/// The current input state for the player
 		/// </summary>
-		public State InputState { get; set; }
+		public GameState State { get; set; }
 
 		/// <summary>
 		/// Constructor; sets default state to NameSelection
 		/// </summary>
 		public StateHandler()
 		{
-			InputState = State.NameSelection;
+			State = GameState.NameSelection;
 		}
 
 		/// <summary>
@@ -48,17 +49,19 @@ namespace Hedron.Network
 			if (entity == null)
 				return CommandResult.CMD_R_FAIL;
 
-			switch (InputState)
+			switch (State)
 			{
-				case State.NameSelection:
+				case GameState.NameSelection:
 					CommandResult result = HandleNameSelection(input, entity);
 
 					if (result == CommandResult.CMD_R_SUCCESS)
-						InputState = State.LoggedIn;
+						State = GameState.Active;
 
 					return result;
-				case State.LoggedIn:
+				case GameState.Active:
 					return CommandHandler.ProcessCommand(input, entity);
+				case GameState.Combat:
+					return HandleCombatInput(input, entity);
 				default:
 					return CommandResult.CMD_R_FAIL;
 			}
@@ -85,6 +88,17 @@ namespace Hedron.Network
 				entity.IOHandler.QueueOutput("\nPlease enter your player name: ");
 				return CommandResult.CMD_R_ERRSYNTAX;
 			}
+		}
+
+		/// <summary>
+		/// Handles Combat state
+		/// </summary>
+		/// <returns>The result of the handled input</returns>
+		private CommandResult HandleCombatInput(string input, EntityAnimate entity)
+		{
+			entity.IOHandler?.QueueOutput("You must stop fighting first.");
+
+			return CommandResult.CMD_R_FAIL;
 		}
 	}
 }

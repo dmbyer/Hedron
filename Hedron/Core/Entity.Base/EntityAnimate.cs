@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using Hedron.System;
 using Hedron.Data;
 using Hedron.Core.Property;
+using Hedron.Network;
 using Newtonsoft.Json;
 
 namespace Hedron.Core
@@ -15,6 +16,10 @@ namespace Hedron.Core
 	/// </summary>
 	abstract public partial class EntityAnimate : Entity
 	{
+		// State
+		[JsonIgnore]
+		public StateHandler StateHandler { get; set; } = new StateHandler();
+
 		/// <summary>
 		/// Affect dictionary
 		/// </summary>
@@ -48,7 +53,7 @@ namespace Hedron.Core
 		/// </summary>
 		public EntityAnimate() : base()
 		{
-
+			StateHandler.State = StateHandler.GameState.Active;
 		}
 
 		/// <summary>
@@ -104,13 +109,14 @@ namespace Hedron.Core
 		/// </summary>
 		/// <param name="slot">The slot to check for equipped items</param>
 		/// <returns>A list of equipped items</returns>
-		public List<EntityInanimate> EquippedAt(ItemSlot slot)
+		public List<EntityInanimate> EquippedAt(params ItemSlot[] slot)
 		{
 			List<EntityInanimate> equippedItems = new List<EntityInanimate>();
 
-			foreach (var item in DataAccess.GetMany<EntityInanimate>(WornEquipment.GetAllEntities(), CacheType.Instance))
-				if (item.Slot == slot)
-					equippedItems.Add(item);
+			foreach (var itemSlot in slot)
+				foreach (var item in DataAccess.GetMany<EntityInanimate>(WornEquipment.GetAllEntities(), CacheType.Instance))
+					if (item.Slot == itemSlot)
+						equippedItems.Add(item);
 
 			return equippedItems;
 		}

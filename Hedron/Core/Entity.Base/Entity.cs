@@ -12,7 +12,7 @@ namespace Hedron.Core
 	/// <summary>
 	/// Base entity class for common attributes
 	/// </summary>
-	abstract public partial class Entity : CacheableObject, ISpawnableObject, ICopyableObject<Entity>
+	abstract public partial class Entity : CacheableObject, ISpawnableObject, ICopyableObject<Entity>, IEntity
 	{
 		// Public Fields
 		public string    Name             { get; set; } = "[name]";

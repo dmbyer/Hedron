@@ -22,7 +22,7 @@ namespace Hedron.System
 		/// <param name="entities">The list of instanced entities to count</param>
 		/// <param name="descriptionType">The description type to match on</param>
 		/// <returns>A map of unique entities and their count, sich as [[Entity][2]]</returns>
-		private static Dictionary<string, int> MapEntityDescriptionQuantites<T>(List<T> entities, MapStringTypes descriptionType) where T: Entity
+		private static Dictionary<string, int> MapEntityDescriptionQuantites<T>(List<T> entities, MapStringTypes descriptionType) where T: IEntity
 		{
 			var mappedObjects = new Dictionary<string, int>();
 
@@ -73,7 +73,7 @@ namespace Hedron.System
 		/// <param name="entities">The list of entities to parse</param>
 		/// <param name="descriptionType">The type of description to parse</param>
 		/// <returns>A map of the quantity and description, such as [["a short sword"][2]]</returns>
-		public static Dictionary<string, int>ParseEntityQuantitiesAsMap<T>(List<T> entities, MapStringTypes descriptionType) where T: Entity
+		public static Dictionary<string, int>ParseEntityQuantitiesAsMap<T>(List<T> entities, MapStringTypes descriptionType) where T: IEntity
 		{
 			return MapEntityDescriptionQuantites(entities, descriptionType);
 		}
@@ -84,7 +84,7 @@ namespace Hedron.System
 		/// <param name="entities">The list of entities to parse</param>
 		/// <param name="descriptionType">The type of description to parse</param>
 		/// <returns>A list of strings of the quantity and description, such as "[2] a short sword"</returns>
-		public static List<string> ParseEntityQuantitiesAsStrings<T>(List<T> entities, MapStringTypes descriptionType) where T : Entity
+		public static List<string> ParseEntityQuantitiesAsStrings<T>(List<T> entities, MapStringTypes descriptionType) where T : IEntity
 		{
 			// Dictionary of mapped objects sorted by highest to lowest quantity, then alphabetically
 			var mappedObjects = MapEntityDescriptionQuantites(entities, descriptionType);

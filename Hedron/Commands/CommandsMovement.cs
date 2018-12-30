@@ -97,6 +97,7 @@ namespace Hedron.Commands
 				var roomAllEntities = room.GetAllEntities();
 
 				var items = DataAccess.GetMany<EntityInanimate>(roomAllEntities, CacheType.Instance);
+				var containers = DataAccess.GetMany<EntityContainer>(roomAllEntities, CacheType.Instance).Cast<IEntity>().ToList();
 				var mobs = DataAccess.GetMany<Mob>(roomAllEntities, CacheType.Instance);
 				var players = DataAccess.GetMany<Player>(roomAllEntities, CacheType.Instance);
 
@@ -113,6 +114,10 @@ namespace Hedron.Commands
 				// Print items
 				entity.IOHandler.QueueOutput(string.Join(", ",
 					EntityQuantityMapper.ParseEntityQuantitiesAsStrings(items, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
+
+				// Print containers
+				entity.IOHandler.QueueOutput(string.Join(", ",
+					EntityQuantityMapper.ParseEntityQuantitiesAsStrings(containers, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
 			}
 			else
 			{
