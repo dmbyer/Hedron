@@ -52,6 +52,7 @@ namespace Hedron.Commands
 		// General commands
 		CMD_BLANK_LINE,
 		CMD_PROMPT,
+		CMD_STATS,
 
 		// Building commands
 		CMD_AUTODIG,
@@ -112,6 +113,7 @@ namespace Hedron.Commands
 			"LOOK",
 			"PROMPT",
 			"REMOVE",
+			"STATS",
 			"WEAR"
 		};
 
@@ -163,6 +165,7 @@ namespace Hedron.Commands
 			// General commands
 			{"\n",        Command.CMD_BLANK_LINE },
 			{"PROMPT",    Command.CMD_PROMPT },
+			{"STATS",     Command.CMD_STATS },
 
 			// Building commands
 			{"AUTODIG",   Command.CMD_AUTODIG },
@@ -230,6 +233,7 @@ namespace Hedron.Commands
 				// General commands
 				case Command.CMD_BLANK_LINE: return BlankLine(argument, entity);
 				case Command.CMD_PROMPT:     return Prompt(argument, entity);
+				case Command.CMD_STATS:      return Stats(argument, entity);
 
 				// Building commands
 				case Command.CMD_AUTODIG:    return Autodig(argument, entity);
