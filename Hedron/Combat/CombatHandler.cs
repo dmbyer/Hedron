@@ -126,7 +126,9 @@ namespace Hedron.Combat
 				return;
 
 			var rand = new Random();
-			var weaponDamage = rand.Next(source.Tier.Level, source.Tier.Level * 2);
+			var weaponDamage = source.GetType() == typeof(Player)
+				? rand.Next(source.Tier.Level + (int)source.BaseAttributes.Might / 2, (source.Tier.Level + (int)source.BaseAttributes.Might / 2) * 2)
+				: rand.Next(source.Tier.Level, source.Tier.Level * 2);
 			var weapons = source.EquippedAt(ItemSlot.OneHandedWeapon, ItemSlot.TwoHandedWeapon);
 
 			if (weapons.Count != 0)
@@ -138,7 +140,7 @@ namespace Hedron.Combat
 
 			// var attack = source.BaseQualities.AttackRating;
 			var defense = target.BaseQualities.ArmorRating;
-			var damage = weaponDamage * weaponDamage / (weaponDamage > 0 || defense > 0 ? (weaponDamage + defense) : 1);
+			int damage = (int)(weaponDamage * weaponDamage / (weaponDamage > 0 || defense > 0 ? (weaponDamage + defense) : 1));
 
 			if (damage < 1)
 				damage = 1;
@@ -146,9 +148,9 @@ namespace Hedron.Combat
 			var crit = rand.Next(1, 101) <= source.BaseQualities.CriticalHit ? true : false;
 
 			if (crit)
-				damage = damage + (damage * source.BaseQualities.CriticalDamage / 100);
+				damage = (int)(damage + (damage * source.BaseQualities.CriticalDamage / 100));
 
-			target.BaseAspects.CurrentHitPoints -= (int)damage;
+			target.BaseAspects.CurrentHitPoints -= damage;
 
 			source.IOHandler?.QueueOutput($"You hit {target.ShortDescription} for {damage.ToString()} damage.");
 			target.IOHandler?.QueueOutput($"{source.ShortDescription} hits you for {damage.ToString()}.");
