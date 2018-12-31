@@ -59,6 +59,7 @@ namespace Hedron.Commands
 		CMD_SET,
 
 		// Combat commands
+		CMD_FLEE,
 		CMD_KILL,
 
 		// Server commands
@@ -103,6 +104,7 @@ namespace Hedron.Commands
 		{
 			"DROP",
 			"EQUIPMENT",
+			"FLEE",
 			"GET",
 			"GOTO",
 			"INVENTORY",
@@ -168,6 +170,7 @@ namespace Hedron.Commands
 			{"SET",       Command.CMD_SET },
 
 			// Combat commands
+			{"FLEE",      Command.CMD_FLEE },
 			{"KILL",      Command.CMD_KILL },
 
 
@@ -234,6 +237,7 @@ namespace Hedron.Commands
 				case Command.CMD_SET:        return Set(argument, entity);
 
 				// Combat commands
+				case Command.CMD_FLEE:       return Flee(argument, entity);
 				case Command.CMD_KILL:       return Kill(argument, entity);
 
 				// Server commands

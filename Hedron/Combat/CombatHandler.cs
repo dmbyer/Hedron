@@ -93,6 +93,10 @@ namespace Hedron.Combat
 		/// </summary>
 		public static void ProcessAllEntityCombatRound()
 		{
+			// Skip if nothing is in combat
+			if (CombatTargets.Count == 0)
+				return;
+
 			// Process attacks for players first
 			var players = DataAccess.GetMany<Player>(CombatTargets.Keys.Cast<uint>().ToList(), CacheType.Instance);
 			foreach (var p in players)

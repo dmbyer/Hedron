@@ -12,7 +12,34 @@ namespace Hedron.Commands
 	public static partial class CommandHandler
 	{
 		/// <summary>
-		/// Sends a blank line
+		/// Runs from combat
+		/// </summary>
+		private static CommandResult Flee(string argument, EntityAnimate entity)
+		{
+			try
+			{
+				Guard.ThrowIfNull(entity, nameof(entity));
+			}
+			catch (ArgumentNullException ex)
+			{
+				Logger.Error(nameof(CommandHandler), nameof(Prompt), ex.Message);
+				return CommandResult.CMD_R_FAIL;
+			}
+			
+			if (entity.StateHandler.State != Network.StateHandler.GameState.Combat)
+			{
+				entity.IOHandler?.QueueOutput("You have nothing to flee from.");
+				return CommandResult.CMD_R_FAIL;
+			}
+
+			CombatHandler.Exit(entity.Instance);
+
+			entity.IOHandler?.QueueOutput("You run from combat.");
+			return CommandResult.CMD_R_SUCCESS;
+		}
+
+		/// <summary>
+		/// Initiates combat
 		/// </summary>
 		private static CommandResult Kill(string argument, EntityAnimate entity)
 		{

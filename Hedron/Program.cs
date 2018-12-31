@@ -62,6 +62,7 @@ namespace Hedron
 
 			// Declare tick timer
 			// ...
+			var combatTimer = DateTime.UtcNow;
 
 			// List of TcpClients
 			List<TcpClient> clients = new List<TcpClient>();
@@ -154,7 +155,11 @@ namespace Hedron
 				// TODO: "Tick" to update game world (only tick once every WORLD_TICK_TIME
 				// TODO: Implement synchronous event handling
 				// Send player output again
-				Combat.CombatHandler.ProcessAllEntityCombatRound();
+				if ((DateTime.UtcNow - combatTimer).TotalSeconds >= 1)
+				{
+					combatTimer = DateTime.UtcNow;
+					Combat.CombatHandler.ProcessAllEntityCombatRound();
+				}
 
 				// Process pending socket closures and remove players from world
 				if (PendingPlayerConnectionClosures.Count > 0)
