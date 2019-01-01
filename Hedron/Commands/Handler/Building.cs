@@ -23,11 +23,13 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Prompt), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 
 			// Player-only command to get/set prompt.
-			if (!Guard.IsPlayer(entity)) { return PlayerOnlyCommand(); }
+			if (!Guard.IsPlayer(entity)) { return CommandResult.PlayerOnly(); }
+
+			var output = new OutputBuilder();
 
 			Player player = (Player)entity;
 
@@ -37,22 +39,21 @@ namespace Hedron.Commands
 			{
 				case "ON":
 					player.Configuration.Autodig = true;
-					player.IOHandler.QueueOutput("You will now automatically dig when moving.");
+					output.Append("You will now automatically dig when moving.");
 					break;
 				case "OFF":
 					player.Configuration.Autodig = false;
-					player.IOHandler.QueueOutput("You will no longer automatically dig when moving.");
+					output.Append("You will no longer automatically dig when moving.");
 					break;
 				case "":
 					string configState = player.Configuration.Autodig == true ? "on" : "off";
-					player.IOHandler.QueueOutput($"Autodig is set to {configState}.");
+					output.Append($"Autodig is set to {configState}.");
 					break;
 				default:
-					player.IOHandler.QueueOutput("Invalid syntax. Use autodig on/off.");
-					return CommandResult.CMD_R_ERRSYNTAX;
+					return CommandResult.InvalidSyntax(nameof(Autodig), new List<string> { "on", "off" });
 			}
 
-			return CommandResult.CMD_R_SUCCESS;
+			return CommandResult.Success(output.Output);
 		}
 
 		/// <summary>
@@ -67,24 +68,13 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Prompt), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 
 			// Player-only command to list mobs.
-			if (!Guard.IsPlayer(entity)) { return PlayerOnlyCommand(); }
-
-			var arg = ParseFirstArgument(argument).ToUpper();
-
-			switch(arg)
-			{
-				case "ALL":
-					break;
-				default:
-					break;
-			}
-
-			entity.IOHandler.QueueOutput("Command not yet implemented.");
-			return CommandResult.CMD_R_SUCCESS;
+			if (!Guard.IsPlayer(entity)) { return CommandResult.PlayerOnly(); }
+			
+			return CommandResult.NotImplemented(nameof(EList));
 		}
 
 		/// <summary>
@@ -99,18 +89,20 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Prompt), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 
+			var output = new OutputBuilder();
+
 			// Player-only command to get/set prompt.
-			if (!Guard.IsPlayer(entity)) { return PlayerOnlyCommand(); }
+			if (!Guard.IsPlayer(entity)) { return CommandResult.PlayerOnly(); }
 
 			var parentRoom = EntityContainer.GetInstanceParent<Room>(entity.Instance);
 
 			if (parentRoom == null)
 			{
-				entity.IOHandler.QueueOutput("You must be in a room to use this command.");
-				return CommandResult.CMD_R_FAIL;
+				output.Append("You must be in a room to use this command.");
+				return CommandResult.Failure(output.Output);
 			}
 
 			var arg = ParseFirstArgument(argument).ToUpper();
@@ -121,27 +113,26 @@ namespace Hedron.Commands
 				case "NAME":
 					parentRoom.Name = txt;
 					if (txt != "")
-						entity.IOHandler.QueueOutput($"The room name has been set to {txt}.");
+						output.Append($"The room name has been set to {txt}.");
 					else
-						entity.IOHandler.QueueOutput("The room name has been cleared.");
+						output.Append("The room name has been cleared.");
 					break;
 				case "DESC":
 					parentRoom.Description = txt;
 					if (txt != "")
-						entity.IOHandler.QueueOutput("The room description has been set.");
+						output.Append("The room description has been set.");
 					else
-						entity.IOHandler.QueueOutput("The room description has been cleared.");
+						output.Append("The room description has been cleared.");
 					break;
 				default:
-					entity.IOHandler.QueueOutput("Invalid syntax. Use set <name/desc> <new text>.");
-					return CommandResult.CMD_R_ERRSYNTAX;
+					return CommandResult.InvalidSyntax(nameof(Set), new List<string> { "name", "desc" }, new List<string> { "new text" });
 			}
 
 			// Update prototype and persist changes
 			parentRoom.CopyTo(DataAccess.Get<Room>(parentRoom.Prototype, CacheType.Prototype));
 			DataPersistence.SaveObject(DataAccess.Get<Room>(parentRoom.Prototype, CacheType.Prototype));
 
-			return CommandResult.CMD_R_SUCCESS;
+			return CommandResult.Success(output.Output);
 		}
 	}
 }

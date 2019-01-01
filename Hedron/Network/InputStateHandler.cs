@@ -47,14 +47,14 @@ namespace Hedron.Network
 		public CommandResult ProcessInput(string input, EntityAnimate entity)
 		{
 			if (entity == null)
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 
 			switch (State)
 			{
 				case GameState.NameSelection:
 					CommandResult result = HandleNameSelection(input, entity);
 
-					if (result == CommandResult.CMD_R_SUCCESS)
+					if (result.ResultCode == ResultCode.SUCCESS)
 						State = GameState.Active;
 
 					return result;
@@ -63,7 +63,7 @@ namespace Hedron.Network
 				case GameState.Combat:
 					return HandleCombatInput(input, entity);
 				default:
-					return CommandResult.CMD_R_FAIL;
+					return CommandResult.Failure("Invalid entity state.");
 			}
 		}
 
@@ -76,17 +76,18 @@ namespace Hedron.Network
 			if (InputValidation.ValidPlayerName(input))
 			{
 				entity.Name = input;
-				entity.IOHandler.QueueOutput(string.Format("Welcome to HedronMUD, {0}!", entity.Name));
+				var output = new OutputBuilder($"Welcome to HedronMUD, {entity.Name}!");
 
 				var startingRooms = DataAccess.GetInstancesOfPrototype<Room>(DataAccess.Get<World>(0, CacheType.Instance).StartingLocation);
-				CommandHandler.InvokeCommand(Command.CMD_GOTO, startingRooms.Count > 0 ? startingRooms[0].Instance.ToString() : "0", entity);
-				return CommandResult.CMD_R_SUCCESS;
+				output.Append(CommandHandler.InvokeCommand(Command.CMD_GOTO, startingRooms.Count > 0 ? startingRooms[0].Instance.ToString() : "0", entity).ResultMessage);
+				return CommandResult.Success(output.Output);
 			}
 			else
 			{
-				entity.IOHandler.QueueOutput("Please enter a valid player name containing only letters and between 3-12 characters.");
-				entity.IOHandler.QueueOutput("\nPlease enter your player name: ");
-				return CommandResult.CMD_R_ERRSYNTAX;
+				var output = new OutputBuilder("Please enter a valid player name containing only letters and between 3-12 characters.");
+				
+				output.Append("\nPlease enter your player name: ");
+				return CommandResult.InvalidSyntax(output.Output);
 			}
 		}
 
@@ -96,9 +97,7 @@ namespace Hedron.Network
 		/// <returns>The result of the handled input</returns>
 		private CommandResult HandleCombatInput(string input, EntityAnimate entity)
 		{
-			entity.IOHandler?.QueueOutput("You must stop fighting first.");
-
-			return CommandResult.CMD_R_FAIL;
+			return CommandResult.Failure("You must stop fighting first.");
 		}
 	}
 }

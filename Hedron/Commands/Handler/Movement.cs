@@ -72,11 +72,13 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Look), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 
 			// Player-only command to view current room.
-			if (!Guard.IsPlayer(entity)) { return PlayerOnlyCommand(); }
+			if (!Guard.IsPlayer(entity)) { return CommandResult.PlayerOnly(); }
+
+			var output = new OutputBuilder();
 
 			Room room = EntityContainer.GetInstanceParent<Room>(entity.Instance);
 
@@ -84,15 +86,15 @@ namespace Hedron.Commands
 			{
 				var area = EntityContainer.GetInstanceParent<Area>(room.Instance);
 
-				entity.IOHandler.QueueOutput("");
+				output.Append("");
 
-				entity.IOHandler.QueueOutput(((Player)entity).Configuration.DisplayAreaName
+				output.Append(((Player)entity).Configuration.DisplayAreaName
 					? $"{area.Name} > {room.Name}"
 					: room.Name);
 
-				entity.IOHandler.QueueOutput(room.Description);
+				output.Append(room.Description);
 
-				entity.IOHandler.QueueOutput("Exits: " + ParseExits(room));
+				output.Append("Exits: " + ParseExits(room));
 
 				var roomAllEntities = room.GetAllEntities();
 
@@ -105,25 +107,25 @@ namespace Hedron.Commands
 
 				// Print players
 				foreach (var desc in EntityQuantityMapper.ParseEntityQuantitiesAsStrings(players, EntityQuantityMapper.MapStringTypes.ShortDescription))
-					entity.IOHandler.QueueOutput(desc);
+					output.Append(desc);
 
 				// Print mobs
-				entity.IOHandler.QueueOutput(string.Join(", ",
+				output.Append(string.Join(", ",
 					EntityQuantityMapper.ParseEntityQuantitiesAsStrings(mobs, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
 
 				// Print items
-				entity.IOHandler.QueueOutput(string.Join(", ",
+				output.Append(string.Join(", ",
 					EntityQuantityMapper.ParseEntityQuantitiesAsStrings(items, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
 
 				// Print containers
-				entity.IOHandler.QueueOutput(string.Join(", ",
+				output.Append(string.Join(", ",
 					EntityQuantityMapper.ParseEntityQuantitiesAsStrings(containers, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
 			}
 			else
 			{
-				entity.IOHandler.QueueOutput("You are in the void...");
+				output.Append("You are in the void...");
 			}
-			return CommandResult.CMD_R_SUCCESS;
+			return CommandResult.Success(output.Output);
 		}
 
 		/// <summary>
@@ -138,8 +140,10 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(EntityMove), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
+
+			var output = new OutputBuilder();
 
 			Room sourceRoom = EntityContainer.GetInstanceParent<Room>(entity.Instance);
 
@@ -170,16 +174,16 @@ namespace Hedron.Commands
 						destRoom = DataAccess.Get<Room>(exits.Down, CacheType.Instance);
 						break;
 					default:
-						entity.IOHandler?.QueueOutput("You cannot go that way.");
-						return CommandResult.CMD_R_SUCCESS;
+						output.Append("You cannot go that way.");
+						return CommandResult.Failure(output.Output);
 				}
 
 				if (destRoom != null)
 				{
 					sourceRoom.RemoveEntity(entity.Instance, entity);
 					destRoom.AddEntity(entity.Instance, entity);
-					Look("", entity);
-					return CommandResult.CMD_R_SUCCESS;
+					output.Append(Look("", entity).ResultMessage);
+					return CommandResult.Success(output.Output);
 				}
 				else
 				{
@@ -204,21 +208,22 @@ namespace Hedron.Commands
 							DataPersistence.SaveObject(DataAccess.Get<Room>(sourceRoom.Prototype, CacheType.Prototype));
 							DataPersistence.SaveObject(destRoom);
 
-							entity.IOHandler.QueueOutput($"You dig {direction.ToString().ToLower()}.");
+							output.Append($"You dig {direction.ToString().ToLower()}.");
+							output.Append(EntityMove(argument, entity, direction).ResultMessage);
 
 							// Now move the entity to the new room
-							return EntityMove(argument, entity, direction);
+							return CommandResult.Success(output.Output);
 						}
 					}
 
-					entity.IOHandler?.QueueOutput("You cannot go that way.");
-					return CommandResult.CMD_R_SUCCESS;
+					output.Append("You cannot go that way.");
+					return CommandResult.Failure(output.Output);
 				}
 			}
 
 			// Return failure if entity was not already in a room or there was no entity to move
-			entity.IOHandler?.QueueOutput("You cannot go that way.");
-			return CommandResult.CMD_R_FAIL;
+			output.Append("You cannot go that way.");
+			return CommandResult.Failure(output.Output);
 		}
 
 		/// <summary>
@@ -233,8 +238,10 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Goto), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
+
+			var output = new OutputBuilder();
 
 			if (argument.Length > 0 && entity != null)
 			{
@@ -246,8 +253,7 @@ namespace Hedron.Commands
 				}
 				catch (FormatException)
 				{
-					entity.IOHandler?.QueueOutput("Invalid syntax. Use:\ngoto <room number>");
-					return CommandResult.CMD_R_ERRSYNTAX;
+					return CommandResult.InvalidSyntax(nameof(Goto), new List<string> { "room number"});
 				}
 				catch (OverflowException)
 				{
@@ -264,19 +270,18 @@ namespace Hedron.Commands
 					sourceRoom?.RemoveEntity(entity.Instance, entity);
 					targetRoom.AddEntity(entity.Instance, entity);
 
-					Look("", entity);
-					return CommandResult.CMD_R_SUCCESS;
+					output.Append(Look("", entity).ResultMessage);
+					return CommandResult.Success(output.Output);
 				}
 				else
 				{
-					entity.IOHandler?.QueueOutput("Invalid room.");
-					return CommandResult.CMD_R_FAIL;
+					output.Append("Invalid room.");
+					return CommandResult.Failure(output.Output);
 				}
 			}
 			else
 			{
-				entity.IOHandler?.QueueOutput("Invalid syntax. Use:\ngoto <room number>");
-				return CommandResult.CMD_R_ERRSYNTAX;
+				return CommandResult.InvalidSyntax(nameof(Goto), new List<string> { "room number" });
 			}
 		}
 	}

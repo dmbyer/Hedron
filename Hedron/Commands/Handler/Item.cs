@@ -23,16 +23,16 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Equipment), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 
-			// Player-only command to view current room.
-			if (!Guard.IsPlayer(entity)) { return PlayerOnlyCommand(); }
+			var output = new OutputBuilder("Equipment: ");
 
-			entity.IOHandler.QueueOutput("Equipment: ");
+			// Player-only command to view current room.
+			if (!Guard.IsPlayer(entity)) { return CommandResult.PlayerOnly(); }
 
 			if (entity.Inventory.Count == 0)
-				entity.IOHandler.QueueOutput("You aren't wearing anything.");
+				output.Append("You aren't wearing anything.");
 			else
 			{
 				// Get all items being worn, sorted alphabetically
@@ -73,12 +73,12 @@ namespace Hedron.Commands
 				{
 					foreach (var item in slot.Value)
 					{
-						entity.IOHandler.QueueOutput(
+						output.Append(
 							string.Format("{0," + maxSlotTextWidth + "}: {1}", slot.Key.ToString(), item));
 					}
 				}
 			}
-			return CommandResult.CMD_R_SUCCESS;
+			return CommandResult.Success(output.Output);
 		}
 
 		/// <summary>
@@ -93,15 +93,14 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Get), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 
 			var nameToGet = ParseFirstArgument(argument).ToUpper();
 
 			if (nameToGet == "")
 			{
-				entity.IOHandler?.QueueOutput("What would you like to get?");
-				return CommandResult.CMD_R_ERRSYNTAX;
+				return new CommandResult(ResultCode.ERR_SYNTAX, "What would you like to get?");
 			}
 
 			// Search room for a match
@@ -111,11 +110,14 @@ namespace Hedron.Commands
 			if (roomEntities.Count == 0)
 			{
 				// There are no items in the room to pick up
-				entity.IOHandler?.QueueOutput(nameToGet == "ALL" ? "There is nothing to pick up." : "You don't see that.");
-				return CommandResult.CMD_R_FAIL;
+				if (nameToGet == "ALL")
+					return new CommandResult(ResultCode.SUCCESS, "There is nothing to pick up.");
+				else
+					return new CommandResult(ResultCode.FAIL, "You don't see that.");
 			}
 
 			List<EntityInanimate> matchedItems;
+			var output = new OutputBuilder();
 
 			if (nameToGet == "ALL")
 				matchedItems = roomEntities;
@@ -128,10 +130,7 @@ namespace Hedron.Commands
 			}
 
 			if (matchedItems.Count == 0)
-			{
-				entity.IOHandler?.QueueOutput("You don't see that.");
-				return CommandResult.CMD_R_FAIL;
-			}
+				return new CommandResult(ResultCode.FAIL, "You don't see that.");
 
 			foreach (var item in matchedItems)
 			{
@@ -141,19 +140,17 @@ namespace Hedron.Commands
 
 			if (matchedItems.Count == 1)
 			{
-				entity.IOHandler?.QueueOutput("You pick up " + matchedItems[0].ShortDescription + ".");
+				output.Append("You pick up " + matchedItems[0].ShortDescription + ".");
 			}
 			else
 			{
-				List<string> outputFormatted = new List<string>();
-				EntityQuantityMapper.ParseEntityQuantitiesAsStrings(matchedItems, EntityQuantityMapper.MapStringTypes.ShortDescription)
-					.ForEach(x => outputFormatted.Add("   " + x));
+				var itemsPicked = EntityQuantityMapper.ParseEntityQuantitiesAsStrings(matchedItems, EntityQuantityMapper.MapStringTypes.ShortDescription);
 
-				entity.IOHandler?.QueueOutput("You pick up:");
-				entity.IOHandler?.QueueOutput(string.Join("\n", outputFormatted));
+				output.Append("You pick up:");
+				output.Append(TextFormatter.NewTableFromList(itemsPicked, 1, 4, 0));
 			}
 
-			return CommandResult.CMD_R_SUCCESS;
+			return CommandResult.Success(output.Output);
 		}
 
 		/// <summary>
@@ -168,22 +165,16 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Drop), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 
 			var nameToDrop = ParseFirstArgument(argument).ToUpper();
 
 			if (nameToDrop == "")
-			{
-				entity.IOHandler?.QueueOutput("What would you like to drop?");
-				return CommandResult.CMD_R_ERRSYNTAX;
-			}
+				return new CommandResult(ResultCode.ERR_SYNTAX, "What would you like to drop?");
 
 			if (EntityContainer.GetInstanceParent<Room>(entity.Instance) == null)
-			{
-				entity.IOHandler?.QueueOutput("There is nowhere to drop it to.");
-				return CommandResult.CMD_R_FAIL;
-			}
+				return CommandResult.Failure("There is nowhere to drop it to.");
 
 			// Search inventory for a match
 			var room = EntityContainer.GetInstanceParent<Room>(entity.Instance);
@@ -191,11 +182,14 @@ namespace Hedron.Commands
 
 			if (inventoryEntities.Count == 0)
 			{
-				entity.IOHandler?.QueueOutput(nameToDrop == "ALL" ? "You don't have anything to drop." : "You don't have that.");
-				return CommandResult.CMD_R_FAIL;
+				if (nameToDrop == "ALL")
+					return CommandResult.Failure("You don't have anything to drop.");
+				else
+					return new CommandResult(ResultCode.ERR_SYNTAX, "You don't have that.");
 			}
 
 			List<EntityInanimate> matchedItems;
+			var output = new OutputBuilder();
 
 			if (nameToDrop == "ALL")
 				matchedItems = inventoryEntities;
@@ -208,10 +202,7 @@ namespace Hedron.Commands
 			}
 
 			if (matchedItems.Count == 0)
-			{
-				entity.IOHandler?.QueueOutput("You don't have that.");
-				return CommandResult.CMD_R_FAIL;
-			}
+				return CommandResult.Failure("You don't have that.");
 
 			foreach (var item in matchedItems)
 			{
@@ -221,19 +212,17 @@ namespace Hedron.Commands
 
 			if (matchedItems.Count == 1)
 			{
-				entity.IOHandler?.QueueOutput("You drop " + matchedItems[0].ShortDescription + ".");
+				output.Append("You drop " + matchedItems[0].ShortDescription + ".");
 			}
 			else
 			{
-				List<string> outputFormatted = new List<string>();
-				EntityQuantityMapper.ParseEntityQuantitiesAsStrings(matchedItems, EntityQuantityMapper.MapStringTypes.ShortDescription)
-					.ForEach(x => outputFormatted.Add("   " + x));
+				var droppedItems = EntityQuantityMapper.ParseEntityQuantitiesAsStrings(matchedItems, EntityQuantityMapper.MapStringTypes.ShortDescription);
 
-				entity.IOHandler?.QueueOutput("You drop:");
-				entity.IOHandler?.QueueOutput(string.Join("\n", outputFormatted));
+				output.Append("You drop:");
+				output.Append(TextFormatter.NewTableFromList(droppedItems, 1, 4, 0));
 			}
 
-			return CommandResult.CMD_R_SUCCESS;
+			return CommandResult.Success(output.Output);
 		}
 
 		/// <summary>
@@ -248,25 +237,24 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Inventory), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 
 			// Player-only command to view current room.
-			if (!Guard.IsPlayer(entity)) { return PlayerOnlyCommand(); }
+			if (!Guard.IsPlayer(entity)) { return CommandResult.PlayerOnly(); }
 
-			entity.IOHandler.QueueOutput("Inventory: ");
+			var output = new OutputBuilder("Inventory: ");
 
 			if (entity.Inventory.Count == 0)
-				entity.IOHandler.QueueOutput("You aren't carrying anything.");
+				output.Append("You aren't carrying anything.");
 			else
 			{
 				var entities = DataAccess.GetMany<EntityInanimate>(entity.Inventory.GetAllEntities(), CacheType.Instance);
 				var itemDescriptions = EntityQuantityMapper.ParseEntityQuantitiesAsStrings(entities, EntityQuantityMapper.MapStringTypes.ShortDescription);
-				foreach (var item in itemDescriptions)
-					entity.IOHandler.QueueOutput("   " + item);
+				output.Append(TextFormatter.NewTableFromList(itemDescriptions, 1, 4, 0));
 			}
 
-			return CommandResult.CMD_R_SUCCESS;
+			return CommandResult.Success(output.Output);
 		}
 
 		/// <summary>
@@ -281,24 +269,23 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Remove), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 
 			var nameToRemove = ParseFirstArgument(argument).ToUpper();
 
 			if (nameToRemove == "")
-			{
-				entity.IOHandler?.QueueOutput("What would you like to remove?");
-				return CommandResult.CMD_R_ERRSYNTAX;
-			}
+				return new CommandResult(ResultCode.ERR_SYNTAX, "What would you like to remove?");
 
 			// Search equipment for a match
 			var equipmentEntities = DataAccess.GetMany<EntityInanimate>(entity.WornEquipment?.GetAllEntities(), CacheType.Instance);
 
 			if (equipmentEntities.Count == 0)
 			{
-				entity.IOHandler?.QueueOutput(nameToRemove == "ALL" ? "You aren't wearing anything." : "You don't have that equipped.");
-				return CommandResult.CMD_R_FAIL;
+				if (nameToRemove == "ALL")
+					return CommandResult.Failure("You aren't wearing anything.");
+				else
+					return new CommandResult(ResultCode.ERR_SYNTAX, "You don't have that equipped.");
 			}
 
 			List<EntityInanimate> matchedItems;
@@ -314,19 +301,18 @@ namespace Hedron.Commands
 			}
 
 			if (matchedItems.Count == 0)
-			{
-				entity.IOHandler?.QueueOutput("You don't have that equipped.");
-				return CommandResult.CMD_R_FAIL;
-			}
+				return new CommandResult(ResultCode.ERR_SYNTAX, "You don't have that equipped.");
+
+			var output = new OutputBuilder();
 
 			foreach (var item in matchedItems)
 			{
 				entity.WornEquipment.RemoveEntity(item.Instance, item);
 				entity.Inventory.AddEntity(item.Instance, item);
-				entity.IOHandler?.QueueOutput(string.Format("You remove {0} and place it in your pack.", item.Slot.ToString()));
+				output.Append($"You remove {item.ShortDescription} and place it in your pack.");
 			}
 
-			return CommandResult.CMD_R_SUCCESS;
+			return CommandResult.Success(output.Output);
 		}
 
 		/// <summary>
@@ -341,26 +327,26 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Wear), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 
 			var nameToWear = ParseFirstArgument(argument).ToUpper();
 
 			if (nameToWear == "")
-			{
-				entity.IOHandler?.QueueOutput("What would you like to wear?");
-				return CommandResult.CMD_R_ERRSYNTAX;
-			}
+				return new CommandResult(ResultCode.ERR_SYNTAX, "What would you like to wear?");
 
 			// Search inventory for a match
 			var inventoryEntities = DataAccess.GetMany<EntityInanimate>(entity.Inventory?.GetAllEntities(), CacheType.Instance);
 
 			if (inventoryEntities.Count == 0)
 			{
-				entity.IOHandler?.QueueOutput(nameToWear == "ALL" ? "You don't have anything to wear." : "You don't have that.");
-				return CommandResult.CMD_R_FAIL;
+				if (nameToWear == "ALL")
+					return CommandResult.Failure("You don't have anything to wear.");
+				else
+					return new CommandResult(ResultCode.ERR_SYNTAX, "You don't have that.");
 			}
 
+			var output = new OutputBuilder();
 			List<EntityInanimate> itemsMarkedAsWorn = new List<EntityInanimate>();
 
 			if (nameToWear == "ALL")
@@ -401,10 +387,7 @@ namespace Hedron.Commands
 				{
 					// Only equip wearable items
 					if (itemMatched.Slot == ItemSlot.None)
-					{
-						entity.IOHandler?.QueueOutput("You cannot equip that.");
-						return CommandResult.CMD_R_FAIL;
-					}
+						return CommandResult.Failure("You cann't equip that.");
 
 					// Get currently equipped items in the matched item's slot
 					var equippedItemsInSlot = DataAccess.GetMany<EntityInanimate>(entity.WornEquipment.GetAllEntities(), CacheType.Instance)
@@ -416,8 +399,7 @@ namespace Hedron.Commands
 						var itemToRemove = equippedItemsInSlot.OrderBy(item => item.Name).ThenBy(item => item.ShortDescription).First();
 						entity.WornEquipment.RemoveEntity(itemToRemove.Instance, itemToRemove);
 						entity.Inventory.AddEntity(itemToRemove.Instance, itemToRemove);
-						entity.IOHandler?.QueueOutput(
-							string.Format("You remove {0} and put it in your pack.", itemToRemove.ShortDescription));
+						output.Append($"You remove {itemToRemove.ShortDescription} and put it in your pack.");
 					}
 
 					// Equip the item
@@ -428,8 +410,7 @@ namespace Hedron.Commands
 				else
 				{
 					// The item requested to be removed was not found
-					entity.IOHandler.QueueOutput("You don't have that.");
-					return CommandResult.CMD_R_FAIL;
+					return CommandResult.Failure("You don't have that.");
 				}
 			}
 
@@ -439,41 +420,37 @@ namespace Hedron.Commands
 			// Parse output based on items worn
 			if (itemsMarkedAsWorn.Count == 0)
 			{
-				entity.IOHandler?.QueueOutput("There is nothing more for you to wear.");
+				output.Append("There is nothing more for you to wear.");
 			}
 			else
 			{
-				// The output for items being worn
-				string wearOutput = "";
-
 				foreach (var item in itemsMarkedAsWorn)
 				{
 					switch (item.Slot)
 					{
 						case ItemSlot.Light:
-							wearOutput = string.Format("You equip {0} as your lightsource.", item.ShortDescription);
+							output.Append($"You equip {item.ShortDescription} as your lightsource.");
 							break;
 						case ItemSlot.Orbit:
-							wearOutput = string.Format("You release {0} in your orbit.", item.ShortDescription);
+							output.Append($"You release {item.ShortDescription} in your orbit.");
 							break;
 						case ItemSlot.OneHandedWeapon:
-							wearOutput = string.Format("You equip {0} as your weapon.", item.ShortDescription);
+							output.Append($"You equip {item.ShortDescription} as your weapon.");
 							break;
 						case ItemSlot.TwoHandedWeapon:
-							wearOutput = string.Format("You equip {0} as your weapon.", item.ShortDescription);
+							output.Append($"You equip {item.ShortDescription} as your weapon.");
 							break;
 						case ItemSlot.Shield:
-							wearOutput = string.Format("You equip {0} as your shield.", item.ShortDescription);
+							output.Append($"You equip {item.ShortDescription} as your shield.");
 							break;
 						default:
-							wearOutput = string.Format("You wear {0} upon your {1}.", item.ShortDescription, item.Slot.ToString().ToLower());
+							output.Append($"You wear {item.ShortDescription} upon your {item.Slot.ToString().ToLower()}.");
 							break;
 					}
-					entity.IOHandler?.QueueOutput(wearOutput);
 				}
 			}
 
-			return CommandResult.CMD_R_SUCCESS;
+			return CommandResult.Success(output.Output);
 		}
 	}
 }

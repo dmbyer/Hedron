@@ -23,19 +23,17 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Prompt), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 			
 			if (entity.StateHandler.State != Network.StateHandler.GameState.Combat)
 			{
-				entity.IOHandler?.QueueOutput("You have nothing to flee from.");
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.Failure("You have nothing to flee from.");
 			}
 
 			CombatHandler.Exit(entity.Instance);
-
-			entity.IOHandler?.QueueOutput("You run from combat.");
-			return CommandResult.CMD_R_SUCCESS;
+			
+			return CommandResult.Success("You run from combat.");
 		}
 
 		/// <summary>
@@ -50,18 +48,17 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Prompt), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 
 			if (entity.StateHandler.State == Network.StateHandler.GameState.Combat)
 			{
-				entity.IOHandler?.QueueOutput("You are already in combat!");
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.Failure("You are already in combat!");
 			}
 			else if (entity.StateHandler.State != Network.StateHandler.GameState.Active)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Kill), $"Unexpected entity state: {entity.StateHandler.State}.");
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.Failure($"Unexpected entity state: {entity.StateHandler.State}.");
 			}
 
 			var room = EntityContainer.GetInstanceParent<Room>(entity.Instance);
@@ -84,11 +81,12 @@ namespace Hedron.Commands
 			}
 			else
 			{
-				entity.IOHandler?.QueueOutput("There is no such target.");
-				return CommandResult.CMD_R_INVALID_ENTITY;
+				return CommandResult.Failure("There is no such target.");
 			}
+
+			var targetName = DataAccess.Get<EntityAnimate>(targetID, CacheType.Instance).ShortDescription;
 			
-			return CommandResult.CMD_R_SUCCESS;
+			return CommandResult.Success($"You attack {targetName}!");
 		}
 	}
 }

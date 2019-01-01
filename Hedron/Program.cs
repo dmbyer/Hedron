@@ -80,7 +80,6 @@ namespace Hedron
 			server.Start();
 
 			// TODO: Implement shutdown timer (use World.Instance?) -- Shutdown command should allow timer argument
-			bool shutdown = false;
 			do
 			{
 				// Accept pending clients
@@ -101,7 +100,7 @@ namespace Hedron
 				foreach (var player in DataAccess.GetAll<Player>(CacheType.Instance))
 				{
 					var inputResult = player.IOHandler.RetrieveInput();
-					var commandResult = CommandResult.CMD_R_FAIL;
+					CommandResult commandResult = null;
 
 					if (inputResult.StatusCode == Constants.IO_READ.PENDINGREAD)
 						continue;
@@ -112,38 +111,36 @@ namespace Hedron
 						case Constants.IO_READ.SUCCESSREAD:
 							// Process player input on successful read
 							commandResult = player.StateHandler.ProcessInput(inputResult.Data, player);
+
+							// Handle command result and push appropriate output
+							switch (commandResult.ResultCode)
+							{
+								case ResultCode.FAIL:
+									Logger.Info(nameof(StateHandler), nameof(StateHandler.ProcessInput), commandResult.ResultMessage);
+									break;
+								case ResultCode.SUCCESS:
+									break;
+								case ResultCode.ERR_SYNTAX:
+									break;
+								case ResultCode.INVALID_ENTITY:
+									break;
+								case ResultCode.NOT_FOUND:
+									break;
+								case ResultCode.QUIT:
+									// Disconnect player if they have quit
+									PendingPlayerConnectionClosures.Add(player);
+									break;
+							}
+
+							// Send command result to player
+							player.IOHandler.QueueOutput(commandResult.ResultMessage);
+
 							break;
 						case Constants.IO_READ.SENDEXCEED:
 							// Disconnect player if they have exceeded their sent data
+							Logger.Info(nameof(Main), nameof(GameLoop), $"{player.Name} [{player.Prototype}]: Reached send exceed.");
 							PendingPlayerConnectionClosures.Add(player);
 							continue;
-					}
-
-					// Handle command result and push appropriate output
-					switch (commandResult)
-					{
-						case CommandResult.CMD_R_FAIL:
-							Logger.Error(nameof(Main), "switch (commandResult)", player.Name + ": CMD_R_FAIL: " + inputResult.Data);
-							break;
-						case CommandResult.CMD_R_SUCCESS:
-							break;
-						case CommandResult.CMD_R_ERRSYNTAX:
-							break;
-						case CommandResult.CMD_R_INVALID_ENTITY:
-							break;
-						case CommandResult.CMD_R_NOTFOUND:
-							player.IOHandler.QueueOutput("Invalid command.");
-							break;
-						case CommandResult.CMD_R_QUIT:
-							// Disconnect player if they have quit
-							Logger.Info(nameof(Main), "switch (commandResult)", player.Name + " quit.");
-							PendingPlayerConnectionClosures.Add(player);
-							break;
-						case CommandResult.CMD_R_SHUTDOWN:
-							// Shut down the server if requested
-							Logger.Info(nameof(Main), "switch (commandResult)", player.Name + " requested shutdown.");
-							shutdown = true;
-							break;
 					}
 
 					player.IOHandler.QueueOutput("\n" + player.GetParsedPrompt());
@@ -177,7 +174,7 @@ namespace Hedron
 				// Sleep 5 ms
 				Thread.Sleep(5);
 
-			} while (!shutdown);
+			} while (!World.Shutdown);
 
 			// Time to shutdown!
 			foreach (var p in DataAccess.GetAll<Player>(CacheType.Instance))

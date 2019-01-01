@@ -23,15 +23,15 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Prompt), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 
 			// Player-only command to get/set prompt.
-			if (!Guard.IsPlayer(entity)) { return PlayerOnlyCommand(); }
+			if (!Guard.IsPlayer(entity)) { return CommandResult.PlayerOnly(); }
 
 			// Do nothing -- the player's prompt will automatically be returned
 
-			return CommandResult.CMD_R_SUCCESS;
+			return CommandResult.Success("");
 		}
 
 		/// <summary>
@@ -46,11 +46,11 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Prompt), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 
 			// Player-only command to get/set prompt.
-			if (!Guard.IsPlayer(entity)) { return PlayerOnlyCommand(); }
+			if (!Guard.IsPlayer(entity)) { return CommandResult.PlayerOnly(); }
 
 			// TODO: Rewrite to accommodate network input
 			/*
@@ -88,9 +88,8 @@ namespace Hedron.Commands
             entity.IOHandler.QueueOutput("Usage: prompt <action>\nValid actions are SET and CLEAR.");
             return CommandResult.CMD_R_ERRSYNTAX;
             */
-
-			entity.IOHandler.QueueOutput("Command not yet implemented.");
-			return CommandResult.CMD_R_SUCCESS;
+			
+			return CommandResult.NotImplemented(nameof(Prompt));
 		}
 
 		/// <summary>
@@ -105,11 +104,11 @@ namespace Hedron.Commands
 			catch (ArgumentNullException ex)
 			{
 				Logger.Error(nameof(CommandHandler), nameof(Prompt), ex.Message);
-				return CommandResult.CMD_R_FAIL;
+				return CommandResult.NullEntity();
 			}
 
 			// Player-only command to show stats.
-			if (!Guard.IsPlayer(entity)) { return PlayerOnlyCommand(); }
+			if (!Guard.IsPlayer(entity)) { return CommandResult.PlayerOnly(); }
 
 			var baseAspects = entity.BaseAspects;
 			var baseAttributes = entity.BaseAttributes;
@@ -119,10 +118,9 @@ namespace Hedron.Commands
 			var modAttributes = entity.GetModifiedAttributes();
 			var modQualities = entity.GetModifiedQualities();
 
-			var aspectsTable = TextFormatter.ToTable(2,
+			var aspectsTable = TextFormatter.ToTable(2, TextFormatter.DefaultIndent,
 				// HP row
 				TextFormatter.NewRow(
-					3,
 					"Hit Points:  ",
 					$"{baseAspects.CurrentHitPoints}",
 					"/",
@@ -131,7 +129,6 @@ namespace Hedron.Commands
 				),
 				// Stamina row
 				TextFormatter.NewRow(
-					3,
 					"Stamina:  ",
 					$"{baseAspects.CurrentStamina}",
 					"/",
@@ -140,7 +137,6 @@ namespace Hedron.Commands
 				),
 				// Energy row
 				TextFormatter.NewRow(
-					3,
 					"Energy:  ",
 					$"{baseAspects.CurrentEnergy}",
 					"/",
@@ -149,55 +145,48 @@ namespace Hedron.Commands
 				)
 			);
 
-			var attributesTable = TextFormatter.ToTable(2,
+			var attributesTable = TextFormatter.ToTable(2, TextFormatter.DefaultIndent,
 				// Essence row
 				TextFormatter.NewRow(
-					3,
 					"Essence:  ",
 					$"{baseAttributes.Essence}",
 					$"[{modAttributes.Essence}]"
 				),
 				// Finesse row
 				TextFormatter.NewRow(
-					3,
 					"Finesse:  ",
 					$"{baseAttributes.Finesse}",
 					$"[{modAttributes.Finesse}]"
 				),
 				// Intellect row
 				TextFormatter.NewRow(
-					3,
 					"Intellect:  ",
 					$"{baseAttributes.Intellect}",
 					$"[{modAttributes.Intellect}]"
 				),
 				// Might row
 				TextFormatter.NewRow(
-					3,
 					"Might:  ",
 					$"{baseAttributes.Might}",
 					$"[{modAttributes.Might}]"
 				),
 				// Spirit row
 				TextFormatter.NewRow(
-					3,
 					"Spirit:  ",
 					$"{baseAttributes.Spirit}",
 					$"[{modAttributes.Spirit}]"
 				),
 				// Will row
 				TextFormatter.NewRow(
-					3,
 					"Will:  ",
 					$"{baseAttributes.Will}",
 					$"[{modAttributes.Will}]"
 				)
 			);
 
-			var qualitiesTable = TextFormatter.ToTable(2,
+			var qualitiesTable = TextFormatter.ToTable(2, TextFormatter.DefaultIndent,
 				// Attack and Armor row
 				TextFormatter.NewRow(
-					3,
 					"Attack Rating:  ",
 					$"{baseQualities.AttackRating}",
 					$"[{modQualities.AttackRating}]",
@@ -207,7 +196,6 @@ namespace Hedron.Commands
 				),
 				// Critical Hit and Damage row
 				TextFormatter.NewRow(
-					3,
 					"Critical Hit:  ",
 					$"{baseQualities.CriticalHit}",
 					$"[{modQualities.CriticalHit}]",
@@ -217,12 +205,14 @@ namespace Hedron.Commands
 				)
 			);
 
-			entity.IOHandler.QueueOutput("Statistics:");
-			entity.IOHandler.QueueOutput(aspectsTable + "\n");
-			entity.IOHandler.QueueOutput(attributesTable + "\n");
-			entity.IOHandler.QueueOutput(qualitiesTable + "\n");
+			var output = new OutputBuilder(
+				"Statistics:\n" +
+				aspectsTable + "\n\n" +
+				attributesTable + "\n\n" +
+				qualitiesTable + "\n\n"
+				);
 
-			return CommandResult.CMD_R_SUCCESS;
+			return CommandResult.Success(output.Output);
 		}
 	}
 }

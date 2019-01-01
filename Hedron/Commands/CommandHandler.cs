@@ -63,22 +63,8 @@ namespace Hedron.Commands
 		CMD_FLEE,
 		CMD_KILL,
 
-		// Server commands
+		// System commands
 		CMD_SHUTDOWN
-    }
-	
-	/// <summary>
-	/// Enumeration of possible results from command execution
-	/// </summary>
-	public enum CommandResult
-    {
-        CMD_R_FAIL = -100,
-        CMD_R_NOTFOUND = -99,
-        CMD_R_ERRSYNTAX = -98,
-        CMD_R_INVALID_ENTITY = -97,
-        CMD_R_SHUTDOWN = -10,
-        CMD_R_QUIT = -9,
-        CMD_R_SUCCESS = 0
     }
 	#endregion
 	
@@ -176,8 +162,7 @@ namespace Hedron.Commands
 			{"FLEE",      Command.CMD_FLEE },
 			{"KILL",      Command.CMD_KILL },
 
-
-			// Server commands
+			// System commands
 			{"SHUTDOWN",  Command.CMD_SHUTDOWN }
 		};
 		#endregion
@@ -191,7 +176,11 @@ namespace Hedron.Commands
 		/// <returns>The result of the command</returns>
 		public static CommandResult ProcessCommand(string input, EntityAnimate entity)
         {
-            return InvokeCommand(ParseCommand(input, entity), ParseArgument(input), entity);
+			var command = ParseCommand(input, entity);
+			if (command == Command.CMD_NOTFOUND)
+				return CommandResult.NotFound(ParseFirstArgument(input).ToLower());
+			
+			return InvokeCommand(command, ParseArgument(input), entity);
         }
 
 		/// <summary>
@@ -244,13 +233,12 @@ namespace Hedron.Commands
 				case Command.CMD_FLEE:       return Flee(argument, entity);
 				case Command.CMD_KILL:       return Kill(argument, entity);
 
-				// Server commands
-				// TODO: Implement method to validate shutdown command
-				case Command.CMD_SHUTDOWN:  return CommandResult.CMD_R_SHUTDOWN;
+				// System commands
+				case Command.CMD_SHUTDOWN:   return Shutdown(argument, entity);
 
                 // Command not found
                 // Change this implementation to throw an exception?
-                default: return CommandResult.CMD_R_NOTFOUND;
+                default: return CommandResult.NotFound(nameof(eCmd));
             }
         }
 		#endregion
@@ -385,15 +373,6 @@ namespace Hedron.Commands
 				parsedexits = "[none]";
 
             return parsedexits;
-        }
-
-		/// <summary>
-		/// Indicates a command may only be processed by a player
-		/// </summary>
-		/// <returns>Invalid Entity command result</returns>
-        private static CommandResult PlayerOnlyCommand()
-        {
-            return CommandResult.CMD_R_INVALID_ENTITY;
         }
         #endregion 
     }

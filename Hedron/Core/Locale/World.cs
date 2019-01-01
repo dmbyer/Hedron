@@ -13,9 +13,13 @@ namespace Hedron.Core
     public class World : EntityContainer, ICopyableObject<World>, ISpawnableObject
 	{
 		[JsonIgnore]
-		public bool      IsLoading        { get; private set; }
-        public string    Name             { get; set; }
-		public uint?     StartingLocation { get; set; } = null;
+		public bool        IsLoading        { get; private set; }
+
+		[JsonIgnore]
+		public static bool Shutdown         { get; set; }
+
+        public string      Name             { get; set; }
+		public uint?       StartingLocation { get; set; } = null;
 
 		/// <summary>
 		/// Default constructor
