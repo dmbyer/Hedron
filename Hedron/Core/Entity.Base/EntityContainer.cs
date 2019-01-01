@@ -75,7 +75,7 @@ namespace Hedron.Core
 		}
 
 		/// <summary>
-		/// Removes a link to an entity in teh container and sets the entity's parent to null
+		/// Removes a link to an entity in the container and sets the entity's parent to null
 		/// </summary>
 		/// <param name="id">The ID of the entity to unlink</param>
 		/// <param name="entity">A reference to the entity to be removed for event subscription purposes</param>
@@ -220,7 +220,8 @@ namespace Hedron.Core
 		/// <param name="args">The generic event args</param>
 		override protected void OnObjectDestroyed(object source, CacheObjectRemovedEventArgs args)
 		{
-			DataAccess.RemoveMany(_entityList, args.CacheType);
+			if (args.CacheType == CacheType.Instance)
+				DataAccess.RemoveMany(_entityList, args.CacheType);
 		}
 	}
 }

@@ -171,7 +171,8 @@ namespace Hedron.Core
 			foreach (var player in players)
 				_entityList.Remove(player);
 
-			DataAccess.RemoveMany(_entityList, args.CacheType);
+			if (args.CacheType == CacheType.Instance)
+				DataAccess.RemoveMany(_entityList, args.CacheType);
 		}
 	}
 }
