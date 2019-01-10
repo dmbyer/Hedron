@@ -9,7 +9,7 @@ using Newtonsoft.Json;
 
 namespace Hedron.Core
 {
-    public partial class Area : EntityContainer, ICopyableObject<Area>, ISpawnableObject
+    public class Area : EntityContainer, ICopyableObject<Area>, ISpawnableObject
 	{
 		public Tier	     Tier		{ get; private set; } = new Tier();
 		public string    Name		{ get; set; }

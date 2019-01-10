@@ -74,6 +74,9 @@ namespace Hedron.Core.Property
 		/// <param name="attributes">The attributes object to copy to</param>
 		public void CopyTo(Attributes attributes)
 		{
+			if (attributes == null)
+				attributes = new Attributes();
+
 			attributes.Might = Might;
 			attributes.Finesse = Finesse;
 			attributes.Will = Will;
@@ -96,12 +99,12 @@ namespace Hedron.Core.Property
 		{
 			return new Attributes()
 			{
-				Might = a.Might * b,
-				Finesse = a.Finesse * b,
-				Will = a.Will * b,
-				Intellect = a.Intellect * b,
-				Spirit = a.Spirit * b,
-				Essence = a.Essence * b
+				Might = a?.Might ?? 1 * b ?? 1,
+				Finesse = a?.Finesse ?? 1 * b ?? 1,
+				Will = a?.Will ?? 1 * b ?? 1,
+				Intellect = a?.Intellect ?? 1 * b ?? 1,
+				Spirit = a?.Spirit ?? 1 * b ?? 1,
+				Essence = a?.Essence ?? 1 * b ?? 1
 			};
 		}
 
@@ -110,12 +113,12 @@ namespace Hedron.Core.Property
 		{
 			return new Attributes()
 			{
-				Might = a.Might * b.Might,
-				Finesse = a.Finesse * b.Finesse,
-				Will = a.Will * b.Will,
-				Intellect = a.Intellect * b.Intellect,
-				Spirit = a.Spirit * b.Spirit,
-				Essence = a.Essence * b.Essence
+				Might = a?.Might ?? 1 * b?.Might ?? 1,
+				Finesse = a?.Finesse ?? 1 * b?.Finesse ?? 1,
+				Will = a?.Will ?? 1 * b?.Will ?? 1,
+				Intellect = a?.Intellect ?? 1 * b?.Intellect ?? 1,
+				Spirit = a?.Spirit ?? 1 * b?.Spirit ?? 1,
+				Essence = a?.Essence ?? 1 * b?.Essence ?? 1
 			};
 		}
 
@@ -124,12 +127,12 @@ namespace Hedron.Core.Property
 		{
 			return new Attributes()
 			{
-				Might = a.Might / b,
-				Finesse = a.Finesse / b,
-				Will = a.Will / b,
-				Intellect = a.Intellect / b,
-				Spirit = a.Spirit / b,
-				Essence = a.Essence / b
+				Might = a?.Might ?? 1 / b ?? 1,
+				Finesse = a?.Finesse ?? 1 / b ?? 1,
+				Will = a?.Will ?? 1 / b ?? 1,
+				Intellect = a?.Intellect ?? 1 / b ?? 1,
+				Spirit = a?.Spirit ?? 1 / b ?? 1,
+				Essence = a?.Essence ?? 1 / b ?? 1
 			};
 		}
 
@@ -138,12 +141,12 @@ namespace Hedron.Core.Property
 		{
 			return new Attributes()
 			{
-				Might = a.Might / b.Might,
-				Finesse = a.Finesse / b.Finesse,
-				Will = a.Will / b.Will,
-				Intellect = a.Intellect / b.Intellect,
-				Spirit = a.Spirit / b.Spirit,
-				Essence = a.Essence / b.Essence
+				Might = a?.Might ?? 1 / b?.Might ?? 1,
+				Finesse = a?.Finesse ?? 1 / b?.Finesse ?? 1,
+				Will = a?.Will ?? 1 / b?.Will ?? 1,
+				Intellect = a?.Intellect ?? 1 / b?.Intellect ?? 1,
+				Spirit = a?.Spirit ?? 1 / b?.Spirit ?? 1,
+				Essence = a?.Essence ?? 1 / b?.Essence ?? 1
 			};
 		}
 
@@ -152,12 +155,12 @@ namespace Hedron.Core.Property
 		{
 			return new Attributes()
 			{
-				Might = a.Might + b,
-				Finesse = a.Finesse + b,
-				Will = a.Will + b,
-				Intellect = a.Intellect + b,
-				Spirit = a.Spirit + b,
-				Essence = a.Essence + b
+				Might = a?.Might ?? 0 + b ?? 0,
+				Finesse = a?.Finesse ?? 0 + b ?? 0,
+				Will = a?.Will ?? 0 + b ?? 0,
+				Intellect = a?.Intellect ?? 0 + b ?? 0,
+				Spirit = a?.Spirit ?? 0 + b ?? 0,
+				Essence = a?.Essence ?? 0 + b ?? 0
 			};
 		}
 
@@ -166,12 +169,12 @@ namespace Hedron.Core.Property
 		{
 			return new Attributes()
 			{
-				Might = a.Might + b.Might,
-				Finesse = a.Finesse + b.Finesse,
-				Will = a.Will + b.Will,
-				Intellect = a.Intellect + b.Intellect,
-				Spirit = a.Spirit + b.Spirit,
-				Essence = a.Essence + b.Essence
+				Might = a?.Might ?? 0 + b?.Might ?? 0,
+				Finesse = a?.Finesse ?? 0 + b?.Finesse ?? 0,
+				Will = a?.Will ?? 0 + b?.Will ?? 0,
+				Intellect = a?.Intellect ?? 0 + b?.Intellect ?? 0,
+				Spirit = a?.Spirit ?? 0 + b?.Spirit ?? 0,
+				Essence = a?.Essence ?? 0 + b?.Essence ?? 0
 			};
 		}
 

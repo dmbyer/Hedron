@@ -3,7 +3,7 @@ using Hedron.Core;
 
 namespace Hedron.System
 {
-    public static partial class Guard
+    public static class Guard
     {
 		public static void ThrowNotImplemented(string argumentName)
 		{
@@ -20,6 +20,12 @@ namespace Hedron.System
 		{
 			if (argumentValue < Constants.MIN_TIER || argumentValue > Constants.MAX_TIER)
 				throw new ArgumentOutOfRangeException(argumentName, argumentValue, "Tier level out of bounds.");
+		}
+
+		public static bool IsPlayer(object argumentValue)
+		{
+			if (argumentValue == null) { return false; }
+			else { return argumentValue.GetType() == typeof(Player); }
 		}
 	}
 }

@@ -31,28 +31,22 @@ namespace Hedron.Core
 		}
 
 		/// <summary>
-		/// Damage properties
+		/// Damage type
 		/// </summary>
 		[JsonProperty]
-		public DamageProperties Damage { get; set; }
+		public DamageType DamageType { get; set; }
 
 		/// <summary>
-		/// Min weapon damage
+		/// Minimum weapon damage
 		/// </summary>
 		[JsonProperty]
-		public int              MinDamage  { get; set; } = Constants.DEFAULT_DAMAGE;
+		public int        MinDamage  { get; set; } = Constants.DEFAULT_DAMAGE;
 
 		/// <summary>
-		/// Max weapon damage
+		/// Maximum weapon damage
 		/// </summary>
 		[JsonProperty]
-		public int              MaxDamage  { get; set; } = Constants.DEFAULT_DAMAGE * 2;
-
-		/// <summary>
-		/// Damage properties
-		/// </summary>
-		[JsonProperty]
-		public Affect           Affects    { get; set; } = new Affect();
+		public int        MaxDamage  { get; set; } = Constants.DEFAULT_DAMAGE * 2;
 
 		/// <summary>
 		/// Base constructor
@@ -65,8 +59,6 @@ namespace Hedron.Core
 				Storable = true,
 				RandomDrop = true
 			};
-
-			Damage = new DamageProperties();
 
 			Slot = ItemSlot.OneHandedWeapon;
 		}
@@ -151,11 +143,29 @@ namespace Hedron.Core
 
 			// Copy remaining properties
 			newWeapon.Prototype = Prototype;
+			newWeapon.DamageType = DamageType;
 			CopyTo(newWeapon);
 
 			Logger.Info(nameof(ItemWeapon), nameof(Spawn), "Finished spawning weapon.");
 
 			return newWeapon.Instance;
+		}
+
+		/// <summary>
+		/// Copies this weapon's properties to another weapon.
+		/// </summary>
+		/// <param name="item">The weapon to copy to.</param>
+		/// <remarks>Doesn't copy IDs or cache type.</remarks>
+		public virtual void CopyTo(ItemWeapon item)
+		{
+			if (item == null)
+				return;
+
+			base.CopyTo(item);
+
+			item.MinDamage = MinDamage;
+			item.MaxDamage = MaxDamage;
+			item.DamageType = DamageType;
 		}
 	}
 }

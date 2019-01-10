@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Hedron.Core;
 using Hedron.System;
+using Hedron.System.Exceptions;
 using Hedron.Data;
 
 namespace Hedron.Commands
@@ -31,13 +32,15 @@ namespace Hedron.Commands
 			// Player-only command to view current room.
 			if (!Guard.IsPlayer(entity)) { return CommandResult.PlayerOnly(); }
 
-			if (entity.Inventory.Count == 0)
+			// Get all items being worn, sorted alphabetically
+			var wornItems = entity.GetEquippedItems()
+				.OrderBy(item => item.Name)
+				.ToList();
+
+			if (wornItems.Count == 0)
 				output.Append("You aren't wearing anything.");
 			else
 			{
-				// Get all items being worn, sorted alphabetically
-				var wornItems = DataAccess.GetMany<EntityInanimate>(entity.WornEquipment.GetAllEntities(), CacheType.Instance)
-					.OrderBy(item => item.Name);
 
 				// Initialize item slot column
 				var slots = new List<string>();
@@ -99,9 +102,7 @@ namespace Hedron.Commands
 			var nameToGet = ParseFirstArgument(argument).ToUpper();
 
 			if (nameToGet == "")
-			{
 				return new CommandResult(ResultCode.ERR_SYNTAX, "What would you like to get?");
-			}
 
 			// Search room for a match
 			var room = EntityContainer.GetInstanceParent<Room>(entity.Instance);
@@ -120,7 +121,9 @@ namespace Hedron.Commands
 			var output = new OutputBuilder();
 
 			if (nameToGet == "ALL")
+			{
 				matchedItems = roomEntities;
+			}
 			else
 			{
 				matchedItems = new List<EntityInanimate>();
@@ -135,7 +138,7 @@ namespace Hedron.Commands
 			foreach (var item in matchedItems)
 			{
 				room.RemoveEntity(item.Instance, item);
-				entity.Inventory.AddEntity(item.Instance, item);
+				entity.AddInventoryItem(item.Instance);
 			}
 
 			if (matchedItems.Count == 1)
@@ -178,7 +181,7 @@ namespace Hedron.Commands
 
 			// Search inventory for a match
 			var room = EntityContainer.GetInstanceParent<Room>(entity.Instance);
-			var inventoryEntities = DataAccess.GetMany<EntityInanimate>(entity.Inventory?.GetAllEntities(), CacheType.Instance);
+			var inventoryEntities = entity.GetInventoryItems();
 
 			if (inventoryEntities.Count == 0)
 			{
@@ -192,7 +195,9 @@ namespace Hedron.Commands
 			var output = new OutputBuilder();
 
 			if (nameToDrop == "ALL")
+			{
 				matchedItems = inventoryEntities;
+			}
 			else
 			{
 				matchedItems = new List<EntityInanimate>();
@@ -206,7 +211,7 @@ namespace Hedron.Commands
 
 			foreach (var item in matchedItems)
 			{
-				entity.Inventory.RemoveEntity(item.Instance, item);
+				entity.RemoveInventoryItem(item.Instance);
 				room.AddEntity(item.Instance, item);
 			}
 
@@ -244,12 +249,14 @@ namespace Hedron.Commands
 			if (!Guard.IsPlayer(entity)) { return CommandResult.PlayerOnly(); }
 
 			var output = new OutputBuilder("Inventory: ");
+			var entities = entity.GetInventoryItems();
 
-			if (entity.Inventory.Count == 0)
+			if (entities.Count == 0)
+			{
 				output.Append("You aren't carrying anything.");
+			}
 			else
 			{
-				var entities = DataAccess.GetMany<EntityInanimate>(entity.Inventory.GetAllEntities(), CacheType.Instance);
 				var itemDescriptions = EntityQuantityMapper.ParseEntityQuantitiesAsStrings(entities, EntityQuantityMapper.MapStringTypes.ShortDescription);
 				output.Append(TextFormatter.NewTableFromList(itemDescriptions, 1, 4, 0));
 			}
@@ -278,7 +285,7 @@ namespace Hedron.Commands
 				return new CommandResult(ResultCode.ERR_SYNTAX, "What would you like to remove?");
 
 			// Search equipment for a match
-			var equipmentEntities = DataAccess.GetMany<EntityInanimate>(entity.WornEquipment?.GetAllEntities(), CacheType.Instance);
+			var equipmentEntities = entity.GetEquippedItems();
 
 			if (equipmentEntities.Count == 0)
 			{
@@ -307,8 +314,7 @@ namespace Hedron.Commands
 
 			foreach (var item in matchedItems)
 			{
-				entity.WornEquipment.RemoveEntity(item.Instance, item);
-				entity.Inventory.AddEntity(item.Instance, item);
+				entity.UnequipItem(item.Instance);
 				output.Append($"You remove {item.ShortDescription} and place it in your pack.");
 			}
 
@@ -336,7 +342,7 @@ namespace Hedron.Commands
 				return new CommandResult(ResultCode.ERR_SYNTAX, "What would you like to wear?");
 
 			// Search inventory for a match
-			var inventoryEntities = DataAccess.GetMany<EntityInanimate>(entity.Inventory?.GetAllEntities(), CacheType.Instance);
+			var inventoryEntities = entity.GetInventoryItems();
 
 			if (inventoryEntities.Count == 0)
 			{
@@ -358,54 +364,41 @@ namespace Hedron.Commands
 				// equip it.
 				foreach (var item in inventoryEntities)
 				{
-					// Skip items that can't be worn
-					if (item.Slot != ItemSlot.None && item.Slot != ItemSlot.None)
+					try
 					{
-						// Get the items equipped at the current item's designated slot
-						var itemsEquippedAt = entity.EquippedAt(item.Slot);
-
-						// If there's room, equip the item
-						if (itemsEquippedAt.Count < Constants.MAX_EQUIPPED.AT(item.Slot))
-						{
-							entity.WornEquipment.AddEntity(item.Instance, item);
-							itemsMarkedAsWorn.Add(item);
-							itemsToRemoveFromInventory.Add(item);
-						}
+						entity.EquipItemAt(item.Instance, item.Slot, false);
+						entity.RemoveInventoryItem(item.Instance);
+						itemsMarkedAsWorn.Add(item);
+					}
+					catch (SlotFullException)
+					{
+						continue;
 					}
 				}
-
-				// Remove items that were equipped from inventory
-				foreach (var item in itemsToRemoveFromInventory)
-					entity.Inventory.RemoveEntity(item.Instance, item);
 			}
 			else
 			{
 				// Find the given item in inventory and equip it, removing any currently equipped items as necessary
-				List<EntityInanimate> itemsToRemove = new List<EntityInanimate>();
+				List<EntityInanimate> itemsRemoved = new List<EntityInanimate>();
 				EntityInanimate itemMatched = inventoryEntities.FirstOrDefault(item => item.Name.ToUpper().StartsWith(nameToWear));
 				if (itemMatched != null)
 				{
-					// Only equip wearable items
-					if (itemMatched.Slot == ItemSlot.None)
-						return CommandResult.Failure("You cann't equip that.");
-
-					// Get currently equipped items in the matched item's slot
-					var equippedItemsInSlot = DataAccess.GetMany<EntityInanimate>(entity.WornEquipment.GetAllEntities(), CacheType.Instance)
-						.Where(item => item.Slot == itemMatched.Slot).ToList();
-
-					// Remove an item from the slot if the number of items equipped in it is already at max
-					if (equippedItemsInSlot.Count >= Constants.MAX_EQUIPPED.AT(itemMatched.Slot))
+					try
 					{
-						var itemToRemove = equippedItemsInSlot.OrderBy(item => item.Name).ThenBy(item => item.ShortDescription).First();
-						entity.WornEquipment.RemoveEntity(itemToRemove.Instance, itemToRemove);
-						entity.Inventory.AddEntity(itemToRemove.Instance, itemToRemove);
-						output.Append($"You remove {itemToRemove.ShortDescription} and put it in your pack.");
-					}
+						// Equip the item and swap already equipped items to inventory
+						itemsRemoved = entity.EquipItemAt(itemMatched.Instance, itemMatched.Slot, true);
 
-					// Equip the item
-					itemsMarkedAsWorn.Add(itemMatched);
-					entity.WornEquipment.AddEntity(itemMatched.Instance, itemMatched);
-					entity.Inventory.RemoveEntity(itemMatched.Instance, itemMatched);
+						entity.RemoveInventoryItem(itemMatched.Instance);
+						itemsMarkedAsWorn.Add(itemMatched);
+
+						foreach (var item in itemsRemoved)
+							output.Append($"You remove {item.ShortDescription} and put it in your pack.");
+					}
+					catch (InvalidSlotException)
+					{
+						// Only equip wearable items
+						return CommandResult.Failure("You can't equip that.");
+					}
 				}
 				else
 				{

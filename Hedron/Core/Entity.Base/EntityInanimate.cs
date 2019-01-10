@@ -13,7 +13,7 @@ namespace Hedron.Core
 	/// <summary>
 	/// For all inanimate entities (e.g. items)
 	/// </summary>
-	abstract public partial class EntityInanimate : Entity, ICopyableObject<EntityInanimate>
+	abstract public class EntityInanimate : Entity, ICopyableObject<EntityInanimate>
 	{
 		protected ItemSlot _slot;
 

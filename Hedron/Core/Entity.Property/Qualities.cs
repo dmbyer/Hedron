@@ -62,8 +62,13 @@ namespace Hedron.Core.Property
 		/// <param name="qualities">The qualities object to copy to</param>
 		public void CopyTo(Qualities qualities)
 		{
+			if (qualities == null)
+				qualities = new Qualities();
+
 			qualities.CriticalHit = CriticalHit;
 			qualities.CriticalDamage = CriticalDamage;
+			qualities.AttackRating = AttackRating;
+			qualities.ArmorRating = ArmorRating;
 		}
 
 		/// <summary>
@@ -80,8 +85,10 @@ namespace Hedron.Core.Property
 		{
 			return new Qualities()
 			{
-				CriticalHit = a.CriticalHit * b,
-				CriticalDamage = a.CriticalDamage * b
+				CriticalHit = NullableMath.Multiply(a?.CriticalHit, b),
+				CriticalDamage = NullableMath.Multiply(a?.CriticalDamage, b),
+				AttackRating = NullableMath.Multiply(a?.AttackRating, b),
+				ArmorRating = NullableMath.Multiply(a?.ArmorRating, b)
 			};
 		}
 
@@ -90,8 +97,10 @@ namespace Hedron.Core.Property
 		{
 			return new Qualities()
 			{
-				CriticalHit = a.CriticalHit * b.CriticalHit,
-				CriticalDamage = a.CriticalDamage * b.CriticalDamage
+				CriticalHit = NullableMath.Multiply(a?.CriticalHit, b?.CriticalHit),
+				CriticalDamage = NullableMath.Multiply(a?.CriticalDamage, b?.CriticalDamage),
+				AttackRating = NullableMath.Multiply(a?.AttackRating, b?.AttackRating),
+				ArmorRating = NullableMath.Multiply(a?.ArmorRating, b?.ArmorRating),
 			};
 		}
 
@@ -100,8 +109,10 @@ namespace Hedron.Core.Property
 		{
 			return new Qualities()
 			{
-				CriticalHit = a.CriticalHit / b,
-				CriticalDamage = a.CriticalDamage / b
+				CriticalHit = NullableMath.Divide(a?.CriticalHit, b),
+				CriticalDamage = NullableMath.Divide(a?.CriticalDamage, b),
+				AttackRating = NullableMath.Divide(a?.AttackRating, b),
+				ArmorRating = NullableMath.Divide(a?.ArmorRating, b),
 			};
 		}
 
@@ -110,8 +121,10 @@ namespace Hedron.Core.Property
 		{
 			return new Qualities()
 			{
-				CriticalHit = a.CriticalHit / b.CriticalHit,
-				CriticalDamage = a.CriticalDamage / b.CriticalDamage
+				CriticalHit = NullableMath.Divide(a?.CriticalHit, b?.CriticalHit),
+				CriticalDamage = NullableMath.Divide(a?.CriticalDamage, b?.CriticalDamage),
+				AttackRating = NullableMath.Divide(a?.AttackRating, b?.AttackRating),
+				ArmorRating = NullableMath.Divide(a?.ArmorRating, b?.ArmorRating),
 			};
 		}
 
@@ -120,8 +133,10 @@ namespace Hedron.Core.Property
 		{
 			return new Qualities()
 			{
-				CriticalHit = a.CriticalHit + b,
-				CriticalDamage = a.CriticalDamage + b
+				CriticalHit = NullableMath.Add(a?.CriticalHit, b),
+				CriticalDamage = NullableMath.Add(a?.CriticalDamage, b),
+				AttackRating = NullableMath.Add(a?.AttackRating, b),
+				ArmorRating = NullableMath.Add(a?.ArmorRating, b),
 			};
 		}
 
@@ -130,8 +145,10 @@ namespace Hedron.Core.Property
 		{
 			return new Qualities()
 			{
-				CriticalHit = a.CriticalHit + b.CriticalHit,
-				CriticalDamage = a.CriticalDamage + b.CriticalDamage
+				CriticalHit = NullableMath.Add(a?.CriticalHit, b?.CriticalHit),
+				CriticalDamage = NullableMath.Add(a?.CriticalDamage, b?.CriticalDamage),
+				AttackRating = NullableMath.Add(a?.AttackRating, b?.AttackRating),
+				ArmorRating = NullableMath.Add(a?.ArmorRating, b?.ArmorRating),
 			};
 		}
 

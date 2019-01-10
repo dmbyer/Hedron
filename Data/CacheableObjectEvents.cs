@@ -11,12 +11,12 @@ namespace Hedron.Data
 		/// <summary>
 		/// Eventhandler for child objects being removed from cache
 		/// </summary>
-		public event EventHandler<CacheObjectRemovedEventArgs> CacheObjectRemoved;
+		public event EventHandler<CacheObjectEventArgs> CacheObjectRemoved;
 
 		/// <summary>
 		/// Eventhandler for the object being destroyed from the cache
 		/// </summary>
-		public event EventHandler<CacheObjectRemovedEventArgs> ObjectDestroyed;
+		public event EventHandler<CacheObjectEventArgs> ObjectDestroyed;
 
 		/// <summary>
 		/// Removes item from the cache and raises the OnCacheObjectRemoved event. Only call from DataAccess.
@@ -26,10 +26,10 @@ namespace Hedron.Data
 		{
 			// New reference to handlers for future thread-safety
 			var oHandler = ObjectDestroyed;
-			oHandler?.Invoke(this, new CacheObjectRemovedEventArgs(id, cacheType));
+			oHandler?.Invoke(this, new CacheObjectEventArgs(id, cacheType));
 
 			var cHandler = CacheObjectRemoved;
-			cHandler?.Invoke(this, new CacheObjectRemovedEventArgs(id, cacheType));
+			cHandler?.Invoke(this, new CacheObjectEventArgs(id, cacheType));
 		}
 
 		/// <summary>
@@ -37,13 +37,13 @@ namespace Hedron.Data
 		/// </summary>
 		/// <param name="source">The object raising the event</param>
 		/// <param name="args">The args containing the ID of the entity to remove</param>
-		abstract protected void OnCacheObjectRemoved(object source, CacheObjectRemovedEventArgs args);
+		abstract protected void OnCacheObjectRemoved(object source, CacheObjectEventArgs args);
 
 		/// <summary>
 		/// Handles the ObjectDestroyed event. Only DataAccess should call this directly.
 		/// </summary>
 		/// <param name="source">The object raising the event</param>
 		/// <param name="args">The generic event args</param>
-		abstract protected void OnObjectDestroyed(object source, CacheObjectRemovedEventArgs args);
+		abstract protected void OnObjectDestroyed(object source, CacheObjectEventArgs args);
 	}
 }

@@ -1,4 +1,5 @@
 ﻿@using Hedron.Core
+@using Hedron.Core.Damage
 @model Hedron.Models.ItemWeaponViewModel
 
 @{
@@ -90,6 +91,13 @@
                     <span asp-validation-for="Slot" class="w3-red"></span>
                 </div>
             </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="DamageType"></label>
+                <div>
+                    <select asp-for="DamageType" asp-items="Html.GetEnumSelectList<DamageType>()" class="form-control"></select>
+                    <span asp-validation-for="DamageType" class="w3-red"></span>
+                </div>
+            </div>
             <div class="w3-padding-32 w3-margin-left w3-margin-right">
                 <input type="submit" value="Create" class="w3-button w3-blue-gray w3-hover-black" />
             </div>
@@ -99,75 +107,6 @@
                 <div class="w3-section">
                     <a asp-action="Index"><i class="material-icons">arrow_back</i></a>
                 </div>
-            </div>
-        </div>
-    </div>
-    <div class="w3-card w3-third w3-section w3-margin-right w3-sand">
-        <header class="w3-container w3-khaki">
-            <h2>Damage Type</h2>
-        </header>
-        <div class="w3-sand w3-margin-left w3-section">
-            <div class="w3-container w3-margin-top">
-                <input asp-for="DamageType.Blunt" style="width:10%" />
-                <label asp-for="DamageType.Blunt"></label>
-                <span asp-validation-for="DamageType.Blunt" class="w3-red"></span>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <input asp-for="DamageType.Magic" style="width:10%" />
-                <label asp-for="DamageType.Magic"></label>
-                <span asp-validation-for="DamageType.Magic" class="w3-red"></span>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <input asp-for="DamageType.Pierce" style="width:10%" />
-                <label asp-for="DamageType.Pierce"></label>
-                <span asp-validation-for="DamageType.Pierce" class="w3-red"></span>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <input asp-for="DamageType.Slash" style="width:10%" />
-                <label asp-for="DamageType.Slash"></label>
-                <span asp-validation-for="DamageType.Slash" class="w3-red"></span>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <input asp-for="DamageType.Spirit" style="width:10%" />
-                <label asp-for="DamageType.Spirit"></label>
-                <span asp-validation-for="DamageType.Spirit" class="w3-red"></span>
-            </div>
-        </div>
-    </div>
-    <div class="w3-card w3-third w3-sand">
-        <header class="w3-container w3-khaki">
-            <h2>Elemental Type</h2>
-        </header>
-        <div class="w3-sand w3-margin-left w3-section">
-            <div class="w3-container w3-margin-top">
-                <input asp-for="ElementalType.Acid" style="width:10%" />
-                <label asp-for="ElementalType.Acid"></label>
-                <span asp-validation-for="ElementalType.Acid" class="w3-red"></span>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <input asp-for="ElementalType.Air" style="width:10%" />
-                <label asp-for="ElementalType.Air"></label>
-                <span asp-validation-for="ElementalType.Air" class="w3-red"></span>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <input asp-for="ElementalType.Earth" style="width:10%" />
-                <label asp-for="ElementalType.Earth"></label>
-                <span asp-validation-for="ElementalType.Earth" class="w3-red"></span>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <input asp-for="ElementalType.Fire" style="width:10%" />
-                <label asp-for="ElementalType.Fire"></label>
-                <span asp-validation-for="ElementalType.Fire" class="w3-red"></span>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <input asp-for="ElementalType.Ice" style="width:10%" />
-                <label asp-for="ElementalType.Ice"></label>
-                <span asp-validation-for="ElementalType.Ice" class="w3-red"></span>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <input asp-for="ElementalType.Water" style="width:10%" />
-                <label asp-for="ElementalType.Water"></label>
-                <span asp-validation-for="ElementalType.Water" class="w3-red"></span>
             </div>
         </div>
     </div>

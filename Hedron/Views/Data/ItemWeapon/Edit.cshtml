@@ -1,4 +1,5 @@
 ﻿@using  Hedron.Core
+@using Hedron.Core.Damage
 @model Hedron.Models.ItemWeaponViewModel
 
 @{
@@ -97,80 +98,10 @@
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
-                <label asp-for="DamageType.Blunt"></label>
+                <label asp-for="DamageType"></label>
                 <div>
-                    <input asp-for="DamageType.Blunt" value="@Model.DamageType.Blunt" class="w3-animate-input" style="width:30%" />
-                    <span asp-validation-for="DamageType.Blunt" class="w3-red"></span>
-                </div>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <label asp-for="DamageType.Magic"></label>
-                <div>
-                    <input asp-for="DamageType.Magic" value="@Model.DamageType.Magic" class="w3-animate-input" style="width:30%" />
-                    <span asp-validation-for="DamageType.Magic" class="w3-red"></span>
-                </div>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <label asp-for="DamageType.Pierce"></label>
-                <div>
-                    <input asp-for="DamageType.Pierce" value="@Model.DamageType.Pierce" class="w3-animate-input" style="width:30%" />
-                    <span asp-validation-for="DamageType.Pierce" class="w3-red"></span>
-                </div>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <label asp-for="DamageType.Slash"></label>
-                <div>
-                    <input asp-for="DamageType.Slash" value="@Model.DamageType.Slash" class="w3-animate-input" style="width:30%" />
-                    <span asp-validation-for="DamageType.Slash" class="w3-red"></span>
-                </div>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <label asp-for="DamageType.Spirit"></label>
-                <div>
-                    <input asp-for="DamageType.Spirit" value="@Model.DamageType.Spirit" class="w3-animate-input" style="width:30%" />
-                    <span asp-validation-for="DamageType.Spirit" class="w3-red"></span>
-                </div>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <label asp-for="ElementalType.Acid"></label>
-                <div>
-                    <input asp-for="ElementalType.Acid" value="@Model.ElementalType.Acid" class="w3-animate-input" style="width:30%" />
-                    <span asp-validation-for="ElementalType.Acid" class="w3-red"></span>
-                </div>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <label asp-for="ElementalType.Air"></label>
-                <div>
-                    <input asp-for="ElementalType.Air" value="@Model.ElementalType.Air" class="w3-animate-input" style="width:30%" />
-                    <span asp-validation-for="ElementalType.Air" class="w3-red"></span>
-                </div>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <label asp-for="ElementalType.Earth"></label>
-                <div>
-                    <input asp-for="ElementalType.Earth" value="@Model.ElementalType.Earth" class="w3-animate-input" style="width:30%" />
-                    <span asp-validation-for="ElementalType.Earth" class="w3-red"></span>
-                </div>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <label asp-for="ElementalType.Fire"></label>
-                <div>
-                    <input asp-for="ElementalType.Fire" value="@Model.ElementalType.Fire" class="w3-animate-input" style="width:30%" />
-                    <span asp-validation-for="ElementalType.Fire" class="w3-red"></span>
-                </div>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <label asp-for="ElementalType.Ice"></label>
-                <div>
-                    <input asp-for="ElementalType.Ice" value="@Model.ElementalType.Ice" class="w3-animate-input" style="width:30%" />
-                    <span asp-validation-for="ElementalType.Ice" class="w3-red"></span>
-                </div>
-            </div>
-            <div class="w3-container w3-margin-top">
-                <label asp-for="ElementalType.Water"></label>
-                <div>
-                    <input asp-for="ElementalType.Water" value="@Model.ElementalType.Water" class="w3-animate-input" style="width:30%" />
-                    <span asp-validation-for="ElementalType.Water" class="w3-red"></span>
+                    <select asp-for="DamageType" asp-items="Html.GetEnumSelectList<DamageType>()" class="form-control"></select>
+                    <span asp-validation-for="DamageType" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-padding-32 w3-margin-left w3-margin-right">

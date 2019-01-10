@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 namespace Hedron.Core
 {
 
-    public partial class Room : EntityContainer, ICopyableObject<Room>, ISpawnableObject
+    public class Room : EntityContainer, ICopyableObject<Room>, ISpawnableObject
 	{
 		[JsonProperty]
 		public RoomExits Exits       { get; private set; } = new RoomExits();
@@ -163,7 +163,7 @@ namespace Hedron.Core
 		/// </summary>
 		/// <param name="source">The object raising the event</param>
 		/// <param name="args">The generic event args</param>
-		override protected void OnObjectDestroyed(object source, CacheObjectRemovedEventArgs args)
+		override protected void OnObjectDestroyed(object source, CacheObjectEventArgs args)
 		{
 			// Safely remove players without deleting/disconnecting them
 			var players = GetAllEntities<Player>();

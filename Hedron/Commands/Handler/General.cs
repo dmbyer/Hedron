@@ -110,37 +110,37 @@ namespace Hedron.Commands
 			// Player-only command to show stats.
 			if (!Guard.IsPlayer(entity)) { return CommandResult.PlayerOnly(); }
 
-			var baseAspects = entity.BaseAspects;
+			var baseAspects = entity.BaseMaxAspects;
 			var baseAttributes = entity.BaseAttributes;
 			var baseQualities = entity.BaseQualities;
 
-			var modAspects = entity.GetModifiedAspects();
-			var modAttributes = entity.GetModifiedAttributes();
-			var modQualities = entity.GetModifiedQualities();
+			var modAspects = entity.ModifiedAspects;
+			var modAttributes = entity.ModifiedAttributes;
+			var modQualities = entity.ModifiedQualities;
 
 			var aspectsTable = TextFormatter.ToTable(2, TextFormatter.DefaultIndent,
 				// HP row
 				TextFormatter.NewRow(
 					"Hit Points:  ",
-					$"{baseAspects.CurrentHitPoints}",
+					$"{entity.CurrentHitPoints}",
 					"/",
-					$"{baseAspects.MaxHitPoints}",
+					$"{baseAspects.HitPoints}",
 					""
 				),
 				// Stamina row
 				TextFormatter.NewRow(
 					"Stamina:  ",
-					$"{baseAspects.CurrentStamina}",
+					$"{entity.CurrentStamina}",
 					"/",
-					$"{baseAspects.MaxStamina}",
+					$"{baseAspects.Stamina}",
 					""
 				),
 				// Energy row
 				TextFormatter.NewRow(
 					"Energy:  ",
-					$"{baseAspects.CurrentEnergy}",
+					$"{entity.CurrentEnergy}",
 					"/",
-					$"{baseAspects.MaxEnergy}",
+					$"{baseAspects.Energy}",
 					""
 				)
 			);

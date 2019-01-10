@@ -9,7 +9,7 @@ using Hedron.System;
 
 namespace Hedron.Core
 {
-    public sealed partial class Mob : EntityAnimate
+    public sealed class Mob : EntityAnimate
 	{
 		// Public members
 		public MobBehavior Behavior { get; set; } = new MobBehavior();
@@ -129,7 +129,7 @@ namespace Hedron.Core
 			Behavior.CopyTo(mob.Behavior);
 		}
 
-		protected override void OnCacheObjectRemoved(object source, CacheObjectRemovedEventArgs args)
+		protected override void OnCacheObjectRemoved(object source, CacheObjectEventArgs args)
 		{
 			// Check if the object removed was the Inventory or WornEquipment. If so, create a new cached object respectively.
 			if (args.CacheType == CacheType.Instance)
@@ -150,7 +150,7 @@ namespace Hedron.Core
 			}
 		}
 
-		protected override void OnObjectDestroyed(object source, CacheObjectRemovedEventArgs args)
+		protected override void OnObjectDestroyed(object source, CacheObjectEventArgs args)
 		{
 			DataAccess.Remove<Inventory>(args.CacheType == CacheType.Instance ? Inventory.Instance : Inventory.Prototype, args.CacheType);
 			DataAccess.Remove<Inventory>(args.CacheType == CacheType.Instance ? WornEquipment.Instance : WornEquipment.Prototype, args.CacheType);

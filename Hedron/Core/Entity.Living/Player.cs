@@ -54,14 +54,14 @@ namespace Hedron
         {
             string parsed = string.Copy(Prompt);
 
-            parsed = parsed.Replace(Constants.Prompt.HP_CURRENT, BaseAspects.CurrentHitPoints.ToString());
-            parsed = parsed.Replace(Constants.Prompt.HP_MAX, BaseAspects.MaxHitPoints.ToString());
+            parsed = parsed.Replace(Constants.Prompt.HP_CURRENT, CurrentHitPoints.ToString());
+            parsed = parsed.Replace(Constants.Prompt.HP_MAX, ModifiedAspects.HitPoints.ToString());
 
-            parsed = parsed.Replace(Constants.Prompt.STAMINA_CURRENT, BaseAspects.CurrentStamina.ToString());
-            parsed = parsed.Replace(Constants.Prompt.STAMINA_MAX, BaseAspects.MaxStamina.ToString());
+            parsed = parsed.Replace(Constants.Prompt.STAMINA_CURRENT, CurrentStamina.ToString());
+            parsed = parsed.Replace(Constants.Prompt.STAMINA_MAX, ModifiedAspects.Stamina.ToString());
 
-            parsed = parsed.Replace(Constants.Prompt.ENERGY_CURRENT, BaseAspects.CurrentEnergy.ToString());
-            parsed = parsed.Replace(Constants.Prompt.ENERGY_MAX, BaseAspects.MaxEnergy.ToString());
+            parsed = parsed.Replace(Constants.Prompt.ENERGY_CURRENT, CurrentEnergy.ToString());
+            parsed = parsed.Replace(Constants.Prompt.ENERGY_MAX, ModifiedAspects.Energy.ToString());
 
             return parsed;
 		}
@@ -91,14 +91,24 @@ namespace Hedron
 		}
 
 
-		override protected void OnCacheObjectRemoved(object source, CacheObjectRemovedEventArgs args)
+		override protected void OnCacheObjectRemoved(object source, CacheObjectEventArgs args)
 		{
 
 		}
 
-		override protected void OnObjectDestroyed(object source, CacheObjectRemovedEventArgs args)
+		override protected void OnObjectDestroyed(object source, CacheObjectEventArgs args)
 		{
-			
+
+		}
+
+		/// <summary>
+		/// Drops a corpse with all items and restores player to full health.
+		/// </summary>
+		protected override void HandleDeath(object source, CacheObjectEventArgs args)
+		{
+			base.HandleDeath(source, args);
+			ModifyCurrentHealth((int)ModifiedAspects.HitPoints, false);
+			IOHandler.QueueOutput("You have been restored to full health!");
 		}
 	}
 }

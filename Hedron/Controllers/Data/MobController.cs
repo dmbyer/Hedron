@@ -28,10 +28,8 @@ namespace Hedron.Controllers.Data
 					Name = mob.Name,
 					ShortDescription = mob.ShortDescription.ToTruncatedSubString(30, true),
 					LongDescription = mob.LongDescription.ToTruncatedSubString(80, true),
-					Inventory = mob.Inventory,
-					WornEquipment = mob.WornEquipment,
 					Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
-					BaseAspects = AspectsViewModel.ToViewModel(mob.BaseAspects),
+					BaseAspects = AspectsViewModel.ToViewModel(mob.BaseMaxAspects),
 					BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
 					BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
 				});
@@ -55,10 +53,8 @@ namespace Hedron.Controllers.Data
 				Name = mob.Name,
 				ShortDescription = mob.ShortDescription,
 				LongDescription = mob.LongDescription,
-				Inventory = mob.Inventory,
-				WornEquipment = mob.WornEquipment,
 				Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
-				BaseAspects = AspectsViewModel.ToViewModel(mob.BaseAspects),
+				BaseAspects = AspectsViewModel.ToViewModel(mob.BaseMaxAspects),
 				BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
 				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
 			};
@@ -88,7 +84,7 @@ namespace Hedron.Controllers.Data
 					mob.ShortDescription = mobViewModel.ShortDescription;
 					mob.LongDescription = mobViewModel.LongDescription;
 					mob.Behavior = MobBehaviorViewModel.ToMobBehavior(mobViewModel.Behavior);
-					mob.BaseAspects = AspectsViewModel.ToAspects(mobViewModel.BaseAspects);
+					mob.BaseMaxAspects = AspectsViewModel.ToAspects(mobViewModel.BaseAspects);
 					mob.BaseAttributes = AttributesViewModel.ToAttributes(mobViewModel.BaseAttributes);
 					mob.BaseQualities = QualitiesViewModel.ToQualities(mobViewModel.BaseQualities);
 
@@ -118,10 +114,8 @@ namespace Hedron.Controllers.Data
 				Name = mob.Name,
 				ShortDescription = mob.ShortDescription,
 				LongDescription = mob.LongDescription,
-				Inventory = mob.Inventory,
-				WornEquipment = mob.WornEquipment,
 				Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
-				BaseAspects = AspectsViewModel.ToViewModel(mob.BaseAspects),
+				BaseAspects = AspectsViewModel.ToViewModel(mob.BaseMaxAspects),
 				BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
 				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
 			};
@@ -148,7 +142,7 @@ namespace Hedron.Controllers.Data
 					mob.ShortDescription = mobViewModel.ShortDescription;
 					mob.LongDescription = mobViewModel.LongDescription;
 					mob.Behavior = MobBehaviorViewModel.ToMobBehavior(mobViewModel.Behavior);
-					mob.BaseAspects = AspectsViewModel.ToAspects(mobViewModel.BaseAspects);
+					mob.BaseMaxAspects = AspectsViewModel.ToAspects(mobViewModel.BaseAspects);
 					mob.BaseAttributes = AttributesViewModel.ToAttributes(mobViewModel.BaseAttributes);
 					mob.BaseQualities = QualitiesViewModel.ToQualities(mobViewModel.BaseQualities);
 
@@ -181,10 +175,8 @@ namespace Hedron.Controllers.Data
 				Name = mob.Name,
 				ShortDescription = mob.ShortDescription,
 				LongDescription = mob.LongDescription,
-				Inventory = mob.Inventory,
-				WornEquipment = mob.WornEquipment,
 				Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
-				BaseAspects = AspectsViewModel.ToViewModel(mob.BaseAspects),
+				BaseAspects = AspectsViewModel.ToViewModel(mob.BaseMaxAspects),
 				BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
 				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
 			};

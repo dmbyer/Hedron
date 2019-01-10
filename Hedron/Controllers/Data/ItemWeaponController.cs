@@ -35,8 +35,7 @@ namespace Hedron.Controllers.Data
 					MaxDamage = weapon.MaxDamage,
 					Behavior = ItemBehaviorViewModel.ToViewModel(weapon.Behavior),
 					Rarity = weapon.Rarity,
-					DamageType = DamageTypeViewModel.ToViewModel(weapon.Damage.DamageType),
-					ElementalType = ElementalTypeViewModel.ToViewModel(weapon.Damage.ElementalType),
+					DamageType = weapon.DamageType,
 					Slot = weapon.Slot
 				});
 			}
@@ -63,8 +62,7 @@ namespace Hedron.Controllers.Data
 				MaxDamage = weapon.MaxDamage,
 				Behavior = ItemBehaviorViewModel.ToViewModel(weapon.Behavior),
 				Rarity = weapon.Rarity,
-				DamageType = DamageTypeViewModel.ToViewModel(weapon.Damage.DamageType),
-				ElementalType = ElementalTypeViewModel.ToViewModel(weapon.Damage.ElementalType),
+				DamageType = weapon.DamageType,
 				Slot = weapon.Slot
 			};
 
@@ -100,8 +98,7 @@ namespace Hedron.Controllers.Data
 					weapon.Behavior.Obtainable = true;
 					weapon.Behavior.Storable = true;
 					weapon.Rarity = itemWeaponViewModel.Rarity;
-					weapon.Damage.DamageType = DamageTypeViewModel.ToDamageType(itemWeaponViewModel.DamageType);
-					weapon.Damage.ElementalType = ElementalTypeViewModel.ToElementalType(itemWeaponViewModel.ElementalType);
+					weapon.DamageType = itemWeaponViewModel.DamageType;
 					weapon.Slot = itemWeaponViewModel.Slot;
 
 					DataPersistence.SaveObject(weapon);
@@ -135,8 +132,7 @@ namespace Hedron.Controllers.Data
 				MaxDamage = weapon.MaxDamage,
 				Behavior = ItemBehaviorViewModel.ToViewModel(weapon.Behavior),
 				Rarity = weapon.Rarity,
-				DamageType = DamageTypeViewModel.ToViewModel(weapon.Damage.DamageType),
-				ElementalType = ElementalTypeViewModel.ToViewModel(weapon.Damage.ElementalType),
+				DamageType = weapon.DamageType,
 				Slot = weapon.Slot
 			};
 
@@ -170,8 +166,7 @@ namespace Hedron.Controllers.Data
 					weapon.Behavior.Obtainable = true;
 					weapon.Behavior.Storable = true;
 					weapon.Rarity = itemWeaponViewModel.Rarity;
-					weapon.Damage.DamageType = DamageTypeViewModel.ToDamageType(itemWeaponViewModel.DamageType);
-					weapon.Damage.ElementalType = ElementalTypeViewModel.ToElementalType(itemWeaponViewModel.ElementalType);
+					weapon.DamageType = itemWeaponViewModel.DamageType;
 					weapon.Slot = itemWeaponViewModel.Slot;
 
 					DataPersistence.SaveObject(weapon);
@@ -208,8 +203,7 @@ namespace Hedron.Controllers.Data
 				MaxDamage = weapon.MaxDamage,
 				Behavior = ItemBehaviorViewModel.ToViewModel(weapon.Behavior),
 				Rarity = weapon.Rarity,
-				DamageType = DamageTypeViewModel.ToViewModel(weapon.Damage.DamageType),
-				ElementalType = ElementalTypeViewModel.ToViewModel(weapon.Damage.ElementalType),
+				DamageType = weapon.DamageType,
 				Slot = weapon.Slot
 			};
 

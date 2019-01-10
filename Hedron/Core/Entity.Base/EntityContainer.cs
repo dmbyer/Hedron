@@ -9,7 +9,7 @@ namespace Hedron.Core
 	/// <summary>
 	/// Container class for entities
 	/// </summary>
-	public class EntityContainer : CacheableObject
+	public class EntityContainer : EntityEvents
 	{
 		/// <summary>
 		/// The contained entities
@@ -43,7 +43,7 @@ namespace Hedron.Core
 			{
 				_entityList.Add((uint)id);
 				entity.CacheObjectRemoved += OnCacheObjectRemoved;
-				// entity.Parent = entity.CacheType == CacheType.Instance ? Instance : Prototype;
+				OnEntityAdded(new CacheObjectEventArgs((uint)id, CacheType));
 
 				// Persist this and the entity to disk since the data structures have changed
 				if (CacheType == CacheType.Prototype && updatePersistence)
@@ -60,7 +60,7 @@ namespace Hedron.Core
 		/// <param name="id">The cache ID of the entity to remove</param>
 		public void RemoveEntity(uint? id)
 		{
-			RemoveEntity(id, null, true);
+			RemoveEntity(id, DataAccess.Get<Entity>(id, CacheType), true);
 		}
 
 		/// <summary>
@@ -87,6 +87,7 @@ namespace Hedron.Core
 				return;
 
 			_entityList.Remove((uint)id);
+			OnEntityRemoved(new CacheObjectEventArgs((uint)id, CacheType));
 
 			if (entity != null)
 			{
@@ -101,6 +102,17 @@ namespace Hedron.Core
 			// Persist this entity to disk (if requested) since the data structure has changed
 			if (CacheType == CacheType.Prototype && updatePersistence)
 				DataPersistence.SaveObject(this);
+		}
+
+		/// <summary>
+		/// Gets a specific entity
+		/// </summary>
+		/// <typeparam name="T">The type of entity to retrieve</typeparam>
+		/// <param name="id">The ID of the entity to retrieve</param>
+		/// <returns>The entity, or null if the ID was not found</returns>
+		public T GetEntity<T>(uint? id) where T: CacheableObject
+		{
+			return DataAccess.Get<T>(id, CacheType);
 		}
 
 		/// <summary>
@@ -204,9 +216,10 @@ namespace Hedron.Core
 		/// </summary>
 		/// <param name="source">The object raising the event</param>
 		/// <param name="args">The args containing the ID of the entity to remove</param>
-		override protected void OnCacheObjectRemoved(object source, CacheObjectRemovedEventArgs args)
+		protected override void OnCacheObjectRemoved(object source, CacheObjectEventArgs args)
 		{
 			_entityList.Remove(args.ID);
+			OnEntityRemoved(new CacheObjectEventArgs(args.ID, CacheType));
 
 			// Persist this entity to disk since the data structure has changed
 			if (CacheType == CacheType.Prototype)
@@ -218,7 +231,7 @@ namespace Hedron.Core
 		/// </summary>
 		/// <param name="source">The object raising the event</param>
 		/// <param name="args">The generic event args</param>
-		override protected void OnObjectDestroyed(object source, CacheObjectRemovedEventArgs args)
+		protected override void OnObjectDestroyed(object source, CacheObjectEventArgs args)
 		{
 			if (args.CacheType == CacheType.Instance)
 				DataAccess.RemoveMany(_entityList, args.CacheType);

@@ -122,58 +122,57 @@ namespace Hedron.Combat
 		/// <param name="target">The target entity</param>
 		public static void ProcessEntityAutoAttack(int numAttacks, EntityAnimate source, EntityAnimate target)
 		{
-			if (numAttacks == 0 || source == null || target == null)
+			if (source == null || target == null)
 				return;
 
-			var rand = new Random();
-			var weaponDamage = source.GetType() == typeof(Player)
-				? rand.Next(source.Tier.Level + (int)source.BaseAttributes.Might / 2, (source.Tier.Level + (int)source.BaseAttributes.Might / 2) * 2)
-				: rand.Next(source.Tier.Level, source.Tier.Level * 2);
-			var weapons = source.EquippedAt(ItemSlot.OneHandedWeapon, ItemSlot.TwoHandedWeapon);
-
-			if (weapons.Count != 0)
+			for (var i = 0; i < numAttacks && numAttacks > 0; i++)
 			{
-				var weaponToUse = (ItemWeapon)weapons[rand.Next(weapons.Count)];
-				if (weaponToUse.MinDamage <= weaponToUse.MaxDamage && weaponToUse.MinDamage > 0)
-					weaponDamage = rand.Next(weaponToUse.MinDamage, weaponToUse.MaxDamage);
-			}
+				var rand = new Random();
+				var weaponDamage = source.GetType() == typeof(Player)
+					? rand.Next(source.Tier.Level + (int)source.ModifiedAttributes.Might / 2, (source.Tier.Level + (int)source.ModifiedAttributes.Might / 2) * 2)
+					: rand.Next(source.Tier.Level, source.Tier.Level * 2);
+				var weapons = source.GetItemsEquippedAt(ItemSlot.OneHandedWeapon, ItemSlot.TwoHandedWeapon);
 
-			// var attack = source.BaseQualities.AttackRating;
-			var defense = target.BaseQualities.ArmorRating;
-			int damage = (int)(weaponDamage * weaponDamage / (weaponDamage > 0 || defense > 0 ? (weaponDamage + defense) : 1));
-
-			if (damage < 1)
-				damage = 1;
-
-			var crit = rand.Next(1, 101) <= source.BaseQualities.CriticalHit ? true : false;
-
-			if (crit)
-				damage = (int)(damage + (damage * source.BaseQualities.CriticalDamage / 100));
-
-			target.BaseAspects.CurrentHitPoints -= damage;
-
-			source.IOHandler?.QueueOutput($"You hit {target.ShortDescription} for {damage.ToString()} damage.");
-			target.IOHandler?.QueueOutput($"{source.ShortDescription} hits you for {damage.ToString()}.");
-
-			// Handle target death
-			if (target.BaseAspects.CurrentHitPoints <= 0)
-			{
-				var corpse = Corpse.CreateCorpse(target.Instance);
-				var parentRoom = EntityContainer.GetInstanceParent<Room>(target.Instance);
-
-				parentRoom?.AddEntity(corpse.Instance, corpse);
-				Exit(target.Instance);
-
-				if (target.GetType() == typeof(Mob))
-					DataAccess.Remove<Mob>(target.Instance, CacheType.Instance);
-
-				if (target.GetType() == typeof(Player))
+				if (weapons.Count != 0)
 				{
-					target.IOHandler.QueueOutput("You have died!");
-					Commands.CommandHandler.InvokeCommand(Commands.Command.CMD_GOTO, DataAccess.GetAll<World>(CacheType.Instance)?[0].Instance.ToString(), target);
+					var weaponToUse = (ItemWeapon)weapons[rand.Next(weapons.Count)];
+					if (weaponToUse.MinDamage <= weaponToUse.MaxDamage && weaponToUse.MinDamage > 0)
+						weaponDamage = rand.Next(weaponToUse.MinDamage, weaponToUse.MaxDamage);
 				}
 
-				source.IOHandler?.QueueOutput($"You have slain {target.ShortDescription}!");
+				var defense = target.ModifiedQualities.ArmorRating;
+				int damage = (int)(weaponDamage * weaponDamage / (weaponDamage > 0 || defense > 0 ? (weaponDamage + defense) : 1));
+
+				if (damage < 1)
+					damage = 1;
+
+				var crit = rand.Next(1, 101) <= source.ModifiedQualities.CriticalHit ? true : false;
+
+				if (crit)
+					damage = (int)(damage + (damage * source.ModifiedQualities.CriticalDamage / 100));
+
+				var status = target.ModifyCurrentHealth(0 - damage, true);
+
+				source.IOHandler?.QueueOutput($"You hit {target.ShortDescription} for {damage.ToString()} damage.");
+				target.IOHandler?.QueueOutput($"{source.ShortDescription} hits you for {damage.ToString()}.");
+
+				// Handle target death
+				if (status.Died)
+				{
+					Exit(target.Instance);
+
+					if (target.GetType() == typeof(Mob))
+						DataAccess.Remove<Mob>(target.Instance, CacheType.Instance);
+
+					if (target.GetType() == typeof(Player))
+					{
+						target.IOHandler.QueueOutput("You have died!");
+						Commands.CommandHandler.InvokeCommand(Commands.Command.CMD_GOTO, DataAccess.GetAll<World>(CacheType.Instance)?[0].Instance.ToString(), target);
+					}
+
+					source.IOHandler?.QueueOutput($"You have slain {target.ShortDescription}!");
+					return;
+				}
 			}
 		}
 	}

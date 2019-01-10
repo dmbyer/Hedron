@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace Hedron.Data
 {
-	public class CacheObjectRemovedEventArgs : EventArgs
+	public class CacheObjectEventArgs : EventArgs
 	{
-		public CacheObjectRemovedEventArgs(uint id, CacheType cacheType)
+		public CacheObjectEventArgs(uint id, CacheType cacheType)
 		{
 			ID = id;
 			CacheType = cacheType;

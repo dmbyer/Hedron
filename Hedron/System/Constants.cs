@@ -36,9 +36,6 @@ namespace Hedron.System
 		public const int    DEFAULT_ATTACK        =  10;
 		public const int    DEFAULT_DEFENSE       =  10;
 
-		// Affects
-		public const int   LIFESPAN_PERMANENT     = -1;
-
 		// Tier levels
 		public const int    MIN_TIER              = 1;
 		public const int    MAX_TIER              = 6;

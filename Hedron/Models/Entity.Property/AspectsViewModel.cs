@@ -8,35 +8,21 @@ namespace Hedron.Models
 {
 	public class AspectsViewModel
 	{
-		/// <summary>
-		/// Current health
-		/// </summary>
-		public int? CurrentHitPoints { get; set; }
 
 		/// <summary>
 		/// Maximum health, affected by Might + Essence
 		/// </summary>
-		public int? MaxHitPoints { get; set; }
-
-		/// <summary>
-		/// Current stamina
-		/// </summary>
-		public int? CurrentStamina { get; set; }
+		public int? HitPoints { get; set; }
 
 		/// <summary>
 		/// Maximum stamina, affected by Finesse + Essence
 		/// </summary>
-		public int? MaxStamina { get; set; }
-
-		/// <summary>
-		/// Current energy
-		/// </summary>
-		public int? CurrentEnergy { get; set; }
+		public int? Stamina { get; set; }
 
 		/// <summary>
 		/// Maximum energy, affected by Will + Spirit + Essence
 		/// </summary>
-		public int? MaxEnergy { get; set; }
+		public int? Energy { get; set; }
 
 		public static AspectsViewModel ToViewModel(Aspects aspects)
 		{
@@ -45,12 +31,9 @@ namespace Hedron.Models
 
 			AspectsViewModel aspectsModel = new AspectsViewModel
 			{
-				CurrentHitPoints = aspects.CurrentHitPoints,
-				MaxHitPoints = aspects.MaxHitPoints,
-				CurrentStamina = aspects.CurrentStamina,
-				MaxStamina = aspects.MaxStamina,
-				CurrentEnergy = aspects.CurrentEnergy,
-				MaxEnergy = aspects.MaxEnergy
+				HitPoints = aspects.HitPoints,
+				Stamina = aspects.Stamina,
+				Energy = aspects.Energy
 			};
 
 			return aspectsModel;
@@ -68,12 +51,9 @@ namespace Hedron.Models
 
 			Aspects aspects = new Aspects
 			{
-				CurrentEnergy = aspectViewModel.CurrentEnergy,
-				CurrentHitPoints = aspectViewModel.CurrentHitPoints,
-				CurrentStamina = aspectViewModel.CurrentStamina,
-				MaxEnergy = aspectViewModel.MaxEnergy,
-				MaxHitPoints = aspectViewModel.MaxHitPoints,
-				MaxStamina = aspectViewModel.MaxStamina,
+				Energy = aspectViewModel.Energy,
+				HitPoints = aspectViewModel.HitPoints,
+				Stamina = aspectViewModel.Stamina,
 			};
 
 			return aspects;

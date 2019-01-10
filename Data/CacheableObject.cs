@@ -52,7 +52,7 @@ namespace Hedron.Data
 		/// </summary>
 		/// <param name="source">The object raising the event</param>
 		/// <param name="args">The args containing the ID of the entity to remove</param>
-		override protected void OnCacheObjectRemoved(object source, CacheObjectRemovedEventArgs args)
+		protected override void OnCacheObjectRemoved(object source, CacheObjectEventArgs args)
 		{
 
 		}
@@ -62,7 +62,7 @@ namespace Hedron.Data
 		/// </summary>
 		/// <param name="source">The object raising the event</param>
 		/// <param name="args">The generic event args</param>
-		override protected void OnObjectDestroyed(object source, CacheObjectRemovedEventArgs args)
+		protected override void OnObjectDestroyed(object source, CacheObjectEventArgs args)
 		{
 
 		}

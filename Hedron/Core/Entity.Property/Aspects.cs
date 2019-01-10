@@ -12,34 +12,19 @@ namespace Hedron.Core.Property
 	public class Aspects : ICopyableObject<Aspects>
 	{
 		/// <summary>
-		/// Current health
+		/// Health, affected by Might + Essence
 		/// </summary>
-		public int? CurrentHitPoints { get; set; }
+		public int? HitPoints { get; set; }
 
 		/// <summary>
-		/// Maximum health, affected by Might + Essence
+		/// Stamina, affected by Finesse + Essence
 		/// </summary>
-		public int? MaxHitPoints { get; set; }
+		public int? Stamina { get; set; }
 
 		/// <summary>
-		/// Current stamina
+		/// Energy, affected by Will + Spirit + Essence
 		/// </summary>
-		public int? CurrentStamina { get; set; }
-
-		/// <summary>
-		/// Maximum stamina, affected by Finesse + Essence
-		/// </summary>
-		public int? MaxStamina { get; set; }
-
-		/// <summary>
-		/// Current energy
-		/// </summary>
-		public int? CurrentEnergy { get; set; }
-
-		/// <summary>
-		/// Maximum energy, affected by Will + Spirit + Essence
-		/// </summary>
-		public int? MaxEnergy { get; set; }
+		public int? Energy { get; set; }
 
 		/// <summary>
 		/// Creates a default set of aspects
@@ -49,12 +34,9 @@ namespace Hedron.Core.Property
 		{
 			return new Aspects()
 			{
-				CurrentHitPoints = Constants.DEFAULT_ASPECT,
-				MaxHitPoints     = Constants.DEFAULT_ASPECT,
-				CurrentStamina   = Constants.DEFAULT_ASPECT,
-				MaxStamina       = Constants.DEFAULT_ASPECT,
-				CurrentEnergy    = Constants.DEFAULT_ASPECT,
-				MaxEnergy        = Constants.DEFAULT_ASPECT
+				HitPoints     = Constants.DEFAULT_ASPECT,
+				Stamina       = Constants.DEFAULT_ASPECT,
+				Energy        = Constants.DEFAULT_ASPECT
 			};
 		}
 
@@ -75,14 +57,12 @@ namespace Hedron.Core.Property
 		/// <param name="aspects">The aspects object to copy to</param>
 		public void CopyTo(Aspects aspects)
 		{
-			aspects.CurrentHitPoints = CurrentHitPoints;
-			aspects.MaxHitPoints = MaxHitPoints;
+			if (aspects == null)
+				aspects = new Aspects();
 
-			aspects.CurrentStamina = CurrentStamina;
-			aspects.MaxStamina = MaxStamina;
-
-			aspects.CurrentEnergy = CurrentEnergy;
-			aspects.MaxEnergy = MaxEnergy;
+			aspects.HitPoints = HitPoints;
+			aspects.Stamina = Stamina;
+			aspects.Energy = Energy;
 		}
 
 		/// <summary>
@@ -99,12 +79,9 @@ namespace Hedron.Core.Property
 		{
 			return new Aspects()
 			{
-				CurrentHitPoints = a.CurrentHitPoints * b,
-				MaxHitPoints = a.MaxHitPoints * b,
-				CurrentStamina = a.CurrentStamina * b,
-				MaxStamina = a.MaxStamina * b,
-				CurrentEnergy = a.CurrentEnergy * b,
-				MaxEnergy = a.MaxEnergy * b
+				HitPoints = a.HitPoints * b,
+				Stamina = a.Stamina * b,
+				Energy = a.Energy * b
 			};
 		}
 
@@ -113,12 +90,9 @@ namespace Hedron.Core.Property
 		{
 			return new Aspects()
 			{
-				CurrentHitPoints = a.CurrentHitPoints * b.CurrentHitPoints,
-				MaxHitPoints = a.MaxHitPoints * b.MaxHitPoints,
-				CurrentStamina = a.CurrentStamina * b.CurrentStamina,
-				MaxStamina = a.MaxStamina * b.MaxStamina,
-				CurrentEnergy = a.CurrentEnergy * b.CurrentEnergy,
-				MaxEnergy = a.MaxEnergy * b.MaxEnergy
+				HitPoints = a.HitPoints * b.HitPoints,
+				Stamina = a.Stamina * b.Stamina,
+				Energy = a.Energy * b.Energy
 			};
 		}
 
@@ -127,12 +101,9 @@ namespace Hedron.Core.Property
 		{
 			return new Aspects()
 			{
-				CurrentHitPoints = a.CurrentHitPoints / b,
-				MaxHitPoints = a.MaxHitPoints / b,
-				CurrentStamina = a.CurrentStamina / b,
-				MaxStamina = a.MaxStamina / b,
-				CurrentEnergy = a.CurrentEnergy / b,
-				MaxEnergy = a.MaxEnergy / b
+				HitPoints = a.HitPoints / b,
+				Stamina = a.Stamina / b,
+				Energy = a.Energy / b
 			};
 		}
 
@@ -141,12 +112,9 @@ namespace Hedron.Core.Property
 		{
 			return new Aspects()
 			{
-				CurrentHitPoints = a.CurrentHitPoints / b.CurrentHitPoints,
-				MaxHitPoints = a.MaxHitPoints / b.MaxHitPoints,
-				CurrentStamina = a.CurrentStamina / b.CurrentStamina,
-				MaxStamina = a.MaxStamina / b.MaxStamina,
-				CurrentEnergy = a.CurrentEnergy / b.CurrentEnergy,
-				MaxEnergy = a.MaxEnergy / b.MaxEnergy
+				HitPoints = a.HitPoints / b.HitPoints,
+				Stamina = a.Stamina / b.Stamina,
+				Energy = a.Energy / b.Energy
 			};
 		}
 
@@ -155,12 +123,9 @@ namespace Hedron.Core.Property
 		{
 			return new Aspects()
 			{
-				CurrentHitPoints = a.CurrentHitPoints + b,
-				MaxHitPoints = a.MaxHitPoints + b,
-				CurrentStamina = a.CurrentStamina + b,
-				MaxStamina = a.MaxStamina + b,
-				CurrentEnergy = a.CurrentEnergy + b,
-				MaxEnergy = a.MaxEnergy + b
+				HitPoints = a.HitPoints + b,
+				Stamina = a.Stamina + b,
+				Energy = a.Energy + b
 			};
 		}
 
@@ -169,12 +134,9 @@ namespace Hedron.Core.Property
 		{
 			return new Aspects()
 			{
-				CurrentHitPoints = a.CurrentHitPoints + b.CurrentHitPoints,
-				MaxHitPoints = a.MaxHitPoints + b.MaxHitPoints,
-				CurrentStamina = a.CurrentStamina + b.CurrentStamina,
-				MaxStamina = a.MaxStamina + b.MaxStamina,
-				CurrentEnergy = a.CurrentEnergy + b.CurrentEnergy,
-				MaxEnergy = a.MaxEnergy + b.MaxEnergy
+				HitPoints = a.HitPoints + b.HitPoints,
+				Stamina = a.Stamina + b.Stamina,
+				Energy = a.Energy + b.Energy
 			};
 		}
 

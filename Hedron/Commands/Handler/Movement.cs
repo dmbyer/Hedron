@@ -106,20 +106,24 @@ namespace Hedron.Commands
 				players.Remove((Player)entity);
 
 				// Print players
-				foreach (var desc in EntityQuantityMapper.ParseEntityQuantitiesAsStrings(players, EntityQuantityMapper.MapStringTypes.ShortDescription))
-					output.Append(desc);
+				if (players.Count > 0)
+					foreach (var desc in EntityQuantityMapper.ParseEntityQuantitiesAsStrings(players, EntityQuantityMapper.MapStringTypes.ShortDescription))
+						output.Append(desc);
 
 				// Print mobs
-				output.Append(string.Join(", ",
-					EntityQuantityMapper.ParseEntityQuantitiesAsStrings(mobs, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
+				if (mobs.Count > 0)
+					output.Append(string.Join(", ",
+						EntityQuantityMapper.ParseEntityQuantitiesAsStrings(mobs, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
 
 				// Print items
-				output.Append(string.Join(", ",
-					EntityQuantityMapper.ParseEntityQuantitiesAsStrings(items, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
+				if (items.Count > 0)
+					output.Append(string.Join(", ",
+						EntityQuantityMapper.ParseEntityQuantitiesAsStrings(items, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
 
 				// Print containers
-				output.Append(string.Join(", ",
-					EntityQuantityMapper.ParseEntityQuantitiesAsStrings(containers, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
+				if (containers.Count > 0)
+					output.Append(string.Join(", ",
+						EntityQuantityMapper.ParseEntityQuantitiesAsStrings(containers, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
 			}
 			else
 			{
