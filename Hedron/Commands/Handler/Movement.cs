@@ -84,46 +84,71 @@ namespace Hedron.Commands
 
 			if (room != null)
 			{
-				var area = EntityContainer.GetInstanceParent<Area>(room.Instance);
+				if (argument?.Length > 0)
+				{
+					var entities = DataAccess.GetMany<Entity>(room.GetAllEntities(), CacheType.Instance)
+						.Where(e => e?.Instance != entity.Instance)
+						.OrderBy(e => e?.Name);
 
-				output.Append("");
+					bool found = false;
 
-				output.Append(((Player)entity).Configuration.DisplayAreaName
-					? $"{area.Name} > {room.Name}"
-					: room.Name);
+					foreach (var ent in entities)
+					{
+						if (ent.Name.StartsWith(argument))
+						{
+							output.Append(ent.LongDescription);
+							found = true;
+							break;
+						}
+					}
 
-				output.Append(room.Description);
+					if (!found)
+						return CommandResult.Failure("You do not see that here.");
+				}
+				else
+				{
 
-				output.Append("Exits: " + ParseExits(room));
+					var area = EntityContainer.GetInstanceParent<Area>(room.Instance);
 
-				var roomAllEntities = room.GetAllEntities();
+					output.Append("");
 
-				var items = DataAccess.GetMany<EntityInanimate>(roomAllEntities, CacheType.Instance);
-				var containers = DataAccess.GetMany<EntityContainer>(roomAllEntities, CacheType.Instance).Cast<IEntity>().ToList();
-				var mobs = DataAccess.GetMany<Mob>(roomAllEntities, CacheType.Instance);
-				var players = DataAccess.GetMany<Player>(roomAllEntities, CacheType.Instance);
+					output.Append(((Player)entity).Configuration.DisplayAreaName
+						? $"{area.Name} > {room.Name}"
+						: room.Name);
 
-				players.Remove((Player)entity);
+					output.Append(room.Description);
 
-				// Print players
-				if (players.Count > 0)
-					foreach (var desc in EntityQuantityMapper.ParseEntityQuantitiesAsStrings(players, EntityQuantityMapper.MapStringTypes.ShortDescription))
-						output.Append(desc);
+					output.Append("Exits: " + ParseExits(room));
 
-				// Print mobs
-				if (mobs.Count > 0)
-					output.Append(string.Join(", ",
-						EntityQuantityMapper.ParseEntityQuantitiesAsStrings(mobs, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
+					var roomAllEntities = room.GetAllEntities();
 
-				// Print items
-				if (items.Count > 0)
-					output.Append(string.Join(", ",
-						EntityQuantityMapper.ParseEntityQuantitiesAsStrings(items, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
+					var items = DataAccess.GetMany<EntityInanimate>(roomAllEntities, CacheType.Instance);
+					var containers = DataAccess.GetMany<EntityContainer>(roomAllEntities, CacheType.Instance).Cast<IEntity>().ToList();
+					var mobs = DataAccess.GetMany<Mob>(roomAllEntities, CacheType.Instance);
+					var players = DataAccess.GetMany<Player>(roomAllEntities, CacheType.Instance);
 
-				// Print containers
-				if (containers.Count > 0)
-					output.Append(string.Join(", ",
-						EntityQuantityMapper.ParseEntityQuantitiesAsStrings(containers, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
+					players.Remove((Player)entity);
+
+					// Print players
+					if (players.Count > 0)
+						foreach (var desc in EntityQuantityMapper.ParseEntityQuantitiesAsStrings(players, EntityQuantityMapper.MapStringTypes.ShortDescription))
+							output.Append(desc);
+
+					// Print mobs
+					if (mobs.Count > 0)
+						output.Append(string.Join(", ",
+							EntityQuantityMapper.ParseEntityQuantitiesAsStrings(mobs, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
+
+					// Print items
+					if (items.Count > 0)
+						output.Append(string.Join(", ",
+							EntityQuantityMapper.ParseEntityQuantitiesAsStrings(items, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
+
+					// Print containers
+					if (containers.Count > 0)
+						output.Append(string.Join(", ",
+							EntityQuantityMapper.ParseEntityQuantitiesAsStrings(containers, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
+				}
 			}
 			else
 			{
