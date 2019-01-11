@@ -99,12 +99,12 @@ namespace Hedron.Core.Property
 		{
 			return new Attributes()
 			{
-				Might = a?.Might ?? 1 * b ?? 1,
-				Finesse = a?.Finesse ?? 1 * b ?? 1,
-				Will = a?.Will ?? 1 * b ?? 1,
-				Intellect = a?.Intellect ?? 1 * b ?? 1,
-				Spirit = a?.Spirit ?? 1 * b ?? 1,
-				Essence = a?.Essence ?? 1 * b ?? 1
+				Might = NullableMath.Multiply(a?.Might, b),
+				Finesse = NullableMath.Multiply(a?.Finesse, b),
+				Will = NullableMath.Multiply(a?.Will, b),
+				Intellect = NullableMath.Multiply(a?.Intellect, b),
+				Spirit = NullableMath.Multiply(a?.Spirit, b),
+				Essence = NullableMath.Multiply(a?.Essence, b)
 			};
 		}
 
@@ -113,12 +113,12 @@ namespace Hedron.Core.Property
 		{
 			return new Attributes()
 			{
-				Might = a?.Might ?? 1 * b?.Might ?? 1,
-				Finesse = a?.Finesse ?? 1 * b?.Finesse ?? 1,
-				Will = a?.Will ?? 1 * b?.Will ?? 1,
-				Intellect = a?.Intellect ?? 1 * b?.Intellect ?? 1,
-				Spirit = a?.Spirit ?? 1 * b?.Spirit ?? 1,
-				Essence = a?.Essence ?? 1 * b?.Essence ?? 1
+				Might = NullableMath.Multiply(a?.Might, b?.Might),
+				Finesse = NullableMath.Multiply(a?.Finesse, b?.Finesse),
+				Will = NullableMath.Multiply(a?.Will, b?.Will),
+				Intellect = NullableMath.Multiply(a?.Intellect, b?.Intellect),
+				Spirit = NullableMath.Multiply(a?.Spirit, b?.Spirit),
+				Essence = NullableMath.Multiply(a?.Essence, b?.Essence)
 			};
 		}
 
@@ -127,12 +127,12 @@ namespace Hedron.Core.Property
 		{
 			return new Attributes()
 			{
-				Might = a?.Might ?? 1 / b ?? 1,
-				Finesse = a?.Finesse ?? 1 / b ?? 1,
-				Will = a?.Will ?? 1 / b ?? 1,
-				Intellect = a?.Intellect ?? 1 / b ?? 1,
-				Spirit = a?.Spirit ?? 1 / b ?? 1,
-				Essence = a?.Essence ?? 1 / b ?? 1
+				Might = NullableMath.Divide(a?.Might, b),
+				Finesse = NullableMath.Divide(a?.Finesse, b),
+				Will = NullableMath.Divide(a?.Will, b),
+				Intellect = NullableMath.Divide(a?.Intellect, b),
+				Spirit = NullableMath.Divide(a?.Spirit, b),
+				Essence = NullableMath.Divide(a?.Essence, b)
 			};
 		}
 
@@ -141,12 +141,12 @@ namespace Hedron.Core.Property
 		{
 			return new Attributes()
 			{
-				Might = a?.Might ?? 1 / b?.Might ?? 1,
-				Finesse = a?.Finesse ?? 1 / b?.Finesse ?? 1,
-				Will = a?.Will ?? 1 / b?.Will ?? 1,
-				Intellect = a?.Intellect ?? 1 / b?.Intellect ?? 1,
-				Spirit = a?.Spirit ?? 1 / b?.Spirit ?? 1,
-				Essence = a?.Essence ?? 1 / b?.Essence ?? 1
+				Might = NullableMath.Divide(a?.Might, b?.Might),
+				Finesse = NullableMath.Divide(a?.Finesse, b?.Finesse),
+				Will = NullableMath.Divide(a?.Will, b?.Will),
+				Intellect = NullableMath.Divide(a?.Intellect, b?.Intellect),
+				Spirit = NullableMath.Divide(a?.Spirit, b?.Spirit),
+				Essence = NullableMath.Divide(a?.Essence, b?.Essence)
 			};
 		}
 
@@ -155,12 +155,12 @@ namespace Hedron.Core.Property
 		{
 			return new Attributes()
 			{
-				Might = a?.Might ?? 0 + b ?? 0,
-				Finesse = a?.Finesse ?? 0 + b ?? 0,
-				Will = a?.Will ?? 0 + b ?? 0,
-				Intellect = a?.Intellect ?? 0 + b ?? 0,
-				Spirit = a?.Spirit ?? 0 + b ?? 0,
-				Essence = a?.Essence ?? 0 + b ?? 0
+				Might = NullableMath.Add(a?.Might, b),
+				Finesse = NullableMath.Add(a?.Finesse, b),
+				Will = NullableMath.Add(a?.Will, b),
+				Intellect = NullableMath.Add(a?.Intellect, b),
+				Spirit = NullableMath.Add(a?.Spirit, b),
+				Essence = NullableMath.Add(a?.Essence, b)
 			};
 		}
 
@@ -169,12 +169,12 @@ namespace Hedron.Core.Property
 		{
 			return new Attributes()
 			{
-				Might = a?.Might ?? 0 + b?.Might ?? 0,
-				Finesse = a?.Finesse ?? 0 + b?.Finesse ?? 0,
-				Will = a?.Will ?? 0 + b?.Will ?? 0,
-				Intellect = a?.Intellect ?? 0 + b?.Intellect ?? 0,
-				Spirit = a?.Spirit ?? 0 + b?.Spirit ?? 0,
-				Essence = a?.Essence ?? 0 + b?.Essence ?? 0
+				Might = NullableMath.Add(a?.Might, b?.Might),
+				Finesse = NullableMath.Add(a?.Finesse, b?.Finesse),
+				Will = NullableMath.Add(a?.Will, b?.Will),
+				Intellect = NullableMath.Add(a?.Intellect, b?.Intellect),
+				Spirit = NullableMath.Add(a?.Spirit, b?.Spirit),
+				Essence = NullableMath.Add(a?.Essence, b?.Essence)
 			};
 		}
 

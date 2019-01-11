@@ -79,9 +79,9 @@ namespace Hedron.Core.Property
 		{
 			return new Aspects()
 			{
-				HitPoints = a.HitPoints * b,
-				Stamina = a.Stamina * b,
-				Energy = a.Energy * b
+				HitPoints = NullableMath.Multiply(a?.HitPoints, b),
+				Stamina = NullableMath.Multiply(a?.Stamina, b),
+				Energy = NullableMath.Multiply(a?.Energy, b)
 			};
 		}
 
@@ -90,9 +90,9 @@ namespace Hedron.Core.Property
 		{
 			return new Aspects()
 			{
-				HitPoints = a.HitPoints * b.HitPoints,
-				Stamina = a.Stamina * b.Stamina,
-				Energy = a.Energy * b.Energy
+				HitPoints = NullableMath.Multiply(a?.HitPoints, b?.HitPoints),
+				Stamina = NullableMath.Multiply(a?.Stamina, b?.Stamina),
+				Energy = NullableMath.Multiply(a?.Energy, b?.Energy)
 			};
 		}
 
@@ -101,9 +101,9 @@ namespace Hedron.Core.Property
 		{
 			return new Aspects()
 			{
-				HitPoints = a.HitPoints / b,
-				Stamina = a.Stamina / b,
-				Energy = a.Energy / b
+				HitPoints = NullableMath.Divide(a?.HitPoints, b),
+				Stamina = NullableMath.Divide(a?.Stamina, b),
+				Energy = NullableMath.Divide(a?.Energy, b)
 			};
 		}
 
@@ -112,9 +112,9 @@ namespace Hedron.Core.Property
 		{
 			return new Aspects()
 			{
-				HitPoints = a.HitPoints / b.HitPoints,
-				Stamina = a.Stamina / b.Stamina,
-				Energy = a.Energy / b.Energy
+				HitPoints = NullableMath.Divide(a?.HitPoints, b?.HitPoints),
+				Stamina = NullableMath.Divide(a?.Stamina, b?.Stamina),
+				Energy = NullableMath.Divide(a?.Energy, b?.Energy)
 			};
 		}
 
@@ -123,9 +123,9 @@ namespace Hedron.Core.Property
 		{
 			return new Aspects()
 			{
-				HitPoints = a.HitPoints + b,
-				Stamina = a.Stamina + b,
-				Energy = a.Energy + b
+				HitPoints = NullableMath.Add(a?.HitPoints, b),
+				Stamina = NullableMath.Add(a?.Stamina, b),
+				Energy = NullableMath.Add(a?.Energy, b)
 			};
 		}
 
@@ -134,9 +134,9 @@ namespace Hedron.Core.Property
 		{
 			return new Aspects()
 			{
-				HitPoints = a.HitPoints + b.HitPoints,
-				Stamina = a.Stamina + b.Stamina,
-				Energy = a.Energy + b.Energy
+				HitPoints = NullableMath.Add(a?.HitPoints, b?.HitPoints),
+				Stamina = NullableMath.Add(a?.Stamina, b?.Stamina),
+				Energy = NullableMath.Add(a?.Energy, b?.Energy)
 			};
 		}
 
