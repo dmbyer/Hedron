@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using Hedron.Core.Behavior;
+using Hedron.Core.Property;
 using Hedron.Data;
 using Hedron.System;
 using Newtonsoft.Json;
@@ -17,9 +18,16 @@ namespace Hedron.Core
 	{
 		protected ItemSlot _slot;
 
+		[JsonProperty]
 		public ItemBehavior Behavior { get; set; } = new ItemBehavior();
+
+		[JsonProperty]
 		public ItemRarity   Rarity   { get; set; } = ItemRarity.Common;
 
+		[JsonProperty]
+		public Material     Material { get; set; } = new Material();
+
+		[JsonProperty]
 		public virtual ItemSlot Slot
 		{
 			get

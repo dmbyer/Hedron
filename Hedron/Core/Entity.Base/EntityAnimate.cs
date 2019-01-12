@@ -15,7 +15,7 @@ namespace Hedron.Core
 	/// <summary>
 	/// For all living entities
 	/// </summary>
-	abstract public class EntityAnimate : Entity, IAspects, IAttributes, IQualities
+	abstract public class EntityAnimate : Entity, IPools, IAttributes, IQualities
 	{
 		/// <summary>
 		/// Eventhandler for entity death

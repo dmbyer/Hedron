@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace Hedron.Core.Property
 {
-	public interface IAspects
+	public interface IPools
 	{
 		/// <summary>
 		/// The base pools
