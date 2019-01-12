@@ -2,8 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Hedron.Core.Property;
 
-namespace Hedron.Core.Property
+namespace Hedron.Core.Materials
 {
 	public class Material
 	{

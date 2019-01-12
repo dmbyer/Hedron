@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Hedron.Core.Property
+namespace Hedron.Core.Materials
 {
 	public enum MaterialQuality
 	{

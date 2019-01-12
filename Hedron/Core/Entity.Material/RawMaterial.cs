@@ -2,14 +2,16 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Hedron.Core.Property;
 
-namespace Hedron.Core
+namespace Hedron.Core.Materials
 {
-	public class ItemRawMaterial : Material
+	/// <summary>
+	/// Raw material for crafting
+	/// </summary>
+	public class RawMaterial : Material
 	{
 		/// <summary>
-		/// The tier of the material
+		/// The tier of the raw material
 		/// </summary>
 		public Tier Tier { get; protected set; }
 	}
