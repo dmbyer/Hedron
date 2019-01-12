@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Hedron.System;
 
 namespace Hedron.Core.Materials
 {
@@ -14,5 +15,13 @@ namespace Hedron.Core.Materials
 		/// The tier of the raw material
 		/// </summary>
 		public Tier Tier { get; protected set; }
+
+		/// <summary>
+		/// Default constructor
+		/// </summary>
+		public RawMaterial()
+		{
+			Tier = new Tier(Constants.MIN_TIER);
+		}
 	}
 }

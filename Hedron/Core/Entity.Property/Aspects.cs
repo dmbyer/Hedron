@@ -15,6 +15,6 @@ namespace Hedron.Core.Property
         Shadow,
         Spirit,
         Tribe,
-		Virility
+		Virulence
 	}
 }
