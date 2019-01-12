@@ -6,7 +6,7 @@ using Hedron.Core.Property;
 
 namespace Hedron.Models
 {
-	public class AspectsViewModel
+	public class PoolsViewModel
 	{
 
 		/// <summary>
@@ -24,39 +24,39 @@ namespace Hedron.Models
 		/// </summary>
 		public int? Energy { get; set; }
 
-		public static AspectsViewModel ToViewModel(Aspects aspects)
+		public static PoolsViewModel ToViewModel(Pools pools)
 		{
-			if (aspects == null)
+			if (pools == null)
 				return null;
 
-			AspectsViewModel aspectsModel = new AspectsViewModel
+			PoolsViewModel poolsModel = new PoolsViewModel
 			{
-				HitPoints = aspects.HitPoints,
-				Stamina = aspects.Stamina,
-				Energy = aspects.Energy
+				HitPoints = pools.HitPoints,
+				Stamina = pools.Stamina,
+				Energy = pools.Energy
 			};
 
-			return aspectsModel;
+			return poolsModel;
 		}
 
 		/// <summary>
-		/// Converts AspectsViewModel to Aspects
+		/// Converts PoolsViewModel to Pools
 		/// </summary>
-		/// <param name="aspectViewModel">The AspectsViewModel to convert</param>
-		/// <returns>The aspects</returns>
-		public static Aspects ToAspects(AspectsViewModel aspectViewModel)
+		/// <param name="poolsViewModel">The PoolsViewModel to convert</param>
+		/// <returns>The pools</returns>
+		public static Pools ToPools(PoolsViewModel poolsViewModel)
 		{
-			if (aspectViewModel == null)
+			if (poolsViewModel == null)
 				return null;
 
-			Aspects aspects = new Aspects
+			Pools pools = new Pools
 			{
-				Energy = aspectViewModel.Energy,
-				HitPoints = aspectViewModel.HitPoints,
-				Stamina = aspectViewModel.Stamina,
+				Energy = poolsViewModel.Energy,
+				HitPoints = poolsViewModel.HitPoints,
+				Stamina = poolsViewModel.Stamina,
 			};
 
-			return aspects;
+			return pools;
 		}
 	}
 }

@@ -110,15 +110,15 @@ namespace Hedron.Commands
 			// Player-only command to show stats.
 			if (!Guard.IsPlayer(entity)) { return CommandResult.PlayerOnly(); }
 
-			var baseAspects = entity.BaseMaxAspects;
+			var baseAspects = entity.BaseMaxPools;
 			var baseAttributes = entity.BaseAttributes;
 			var baseQualities = entity.BaseQualities;
 
-			var modAspects = entity.ModifiedAspects;
+			var modAspects = entity.ModifiedPools;
 			var modAttributes = entity.ModifiedAttributes;
 			var modQualities = entity.ModifiedQualities;
 
-			var aspectsTable = TextFormatter.ToTable(2, TextFormatter.DefaultIndent,
+			var poolsTable = TextFormatter.ToTable(2, TextFormatter.DefaultIndent,
 				// HP row
 				TextFormatter.NewRow(
 					"Hit Points:  ",
@@ -207,7 +207,7 @@ namespace Hedron.Commands
 
 			var output = new OutputBuilder(
 				"Statistics:\n" +
-				aspectsTable + "\n\n" +
+				poolsTable + "\n\n" +
 				attributesTable + "\n\n" +
 				qualitiesTable + "\n\n"
 				);

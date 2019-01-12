@@ -53,10 +53,10 @@ namespace Hedron.Core
 		}
 
 		/// <summary>
-		/// The entity's base aspects
+		/// The entity's base pools
 		/// </summary>
 		[JsonProperty]
-		public Aspects BaseMaxAspects    { get; set; } = Aspects.Default();
+		public Pools BaseMaxPools    { get; set; } = Pools.Default();
 
 		/// <summary>
 		/// The entity's current hitpoints
@@ -66,7 +66,7 @@ namespace Hedron.Core
 		{
 			get
 			{
-				return (int)CurrentAspects.HitPoints;
+				return (int)CurrentPools.HitPoints;
 			}
 		}
 
@@ -78,7 +78,7 @@ namespace Hedron.Core
 		{
 			get
 			{
-				return (int)CurrentAspects.Stamina;
+				return (int)CurrentPools.Stamina;
 			}
 		}
 
@@ -90,33 +90,33 @@ namespace Hedron.Core
 		{
 			get
 			{
-				return (int)CurrentAspects.Energy;
+				return (int)CurrentPools.Energy;
 			}
 		}
 
 		/// <summary>
-		/// The entity's current aspects
+		/// The entity's current pools
 		/// </summary>
 		[JsonProperty]
-		protected Aspects CurrentAspects { get; set; } = Aspects.Default();
+		protected Pools CurrentPools { get; set; } = Pools.Default();
 
 		/// <summary>
-		/// The entity's modified aspects
+		/// The entity's modified pools
 		/// </summary>
 		[JsonIgnore]
-		public Aspects ModifiedAspects
+		public Pools ModifiedPools
 		{
 			get
 			{
-				var modAspects = new Aspects();
+				var modPools = new Pools();
 
 				foreach (var affect in Affects)
-					modAspects += affect.Aspects;
+					modPools += affect.Aspects;
 
 				foreach (var affect in DataAccess.GetMany<EntityInanimate>(WornEquipment.GetAllEntities(), CacheType).SelectMany(x => x.Affects))
-					modAspects += affect.Aspects;
+					modPools += affect.Aspects;
 
-				return BaseMaxAspects + modAspects;
+				return BaseMaxPools + modPools;
 			}
 		}
 
@@ -403,8 +403,8 @@ namespace Hedron.Core
 		{
 			if (allowBeyondLimit)
 			{
-				var hp = (int)(CurrentAspects.HitPoints += amount);
-				var died = CurrentAspects.HitPoints <= 0 ? true : false;
+				var hp = (int)(CurrentPools.HitPoints += amount);
+				var died = CurrentPools.HitPoints <= 0 ? true : false;
 
 				if (died && CacheType == CacheType.Instance)
 					OnDeath(new CacheObjectEventArgs((uint)Instance, CacheType.Instance));
@@ -415,19 +415,19 @@ namespace Hedron.Core
 			{
 				if (amount >= 0)
 				{
-					CurrentAspects.HitPoints = CurrentAspects.HitPoints + amount >= BaseMaxAspects.HitPoints
-						? BaseMaxAspects.HitPoints
-						: CurrentAspects.HitPoints + amount;
+					CurrentPools.HitPoints = CurrentPools.HitPoints + amount >= BaseMaxPools.HitPoints
+						? BaseMaxPools.HitPoints
+						: CurrentPools.HitPoints + amount;
 				}
 				else
 				{
-					CurrentAspects.HitPoints = CurrentAspects.HitPoints - amount <= 0
+					CurrentPools.HitPoints = CurrentPools.HitPoints - amount <= 0
 						? 1
-						: CurrentAspects.HitPoints - amount;
+						: CurrentPools.HitPoints - amount;
 				}
 			}
 
-			return ((int)CurrentAspects.HitPoints, false);
+			return ((int)CurrentPools.HitPoints, false);
 		}
 
 		/// <summary>
@@ -440,25 +440,25 @@ namespace Hedron.Core
 		{
 			if (allowBeyondLimit)
 			{
-				return (int)(CurrentAspects.Stamina += amount);
+				return (int)(CurrentPools.Stamina += amount);
 			}
 			else
 			{
 				if (amount >= 0)
 				{
-					CurrentAspects.Stamina = CurrentAspects.Stamina + amount >= BaseMaxAspects.Stamina
-						? BaseMaxAspects.Stamina
-						: CurrentAspects.Stamina + amount;
+					CurrentPools.Stamina = CurrentPools.Stamina + amount >= BaseMaxPools.Stamina
+						? BaseMaxPools.Stamina
+						: CurrentPools.Stamina + amount;
 				}
 				else
 				{
-					CurrentAspects.Stamina = CurrentAspects.Stamina - amount <= 0
+					CurrentPools.Stamina = CurrentPools.Stamina - amount <= 0
 						? 1
-						: CurrentAspects.Stamina - amount;
+						: CurrentPools.Stamina - amount;
 				}
 			}
 
-			return (int)CurrentAspects.Stamina;
+			return (int)CurrentPools.Stamina;
 		}
 
 		/// <summary>
@@ -471,25 +471,25 @@ namespace Hedron.Core
 		{
 			if (allowBeyondLimit)
 			{
-				return (int)(CurrentAspects.Energy += amount);
+				return (int)(CurrentPools.Energy += amount);
 			}
 			else
 			{
 				if (amount >= 0)
 				{
-					CurrentAspects.Energy = CurrentAspects.Energy + amount >= BaseMaxAspects.Energy
-						? BaseMaxAspects.Energy
-						: CurrentAspects.Energy + amount;
+					CurrentPools.Energy = CurrentPools.Energy + amount >= BaseMaxPools.Energy
+						? BaseMaxPools.Energy
+						: CurrentPools.Energy + amount;
 				}
 				else
 				{
-					CurrentAspects.Energy = CurrentAspects.Energy - amount <= 0
+					CurrentPools.Energy = CurrentPools.Energy - amount <= 0
 						? 1
-						: CurrentAspects.Energy - amount;
+						: CurrentPools.Energy - amount;
 				}
 			}
 
-			return (int)CurrentAspects.Energy;
+			return (int)CurrentPools.Energy;
 		}
 
 
@@ -560,14 +560,14 @@ namespace Hedron.Core
 			*/
 			if (source == WornEquipment)
 			{
-				if (CurrentAspects.HitPoints > BaseMaxAspects.HitPoints)
-					ModifyCurrentHealth(0 - (int)(CurrentAspects.HitPoints - BaseMaxAspects.HitPoints), false);
+				if (CurrentPools.HitPoints > BaseMaxPools.HitPoints)
+					ModifyCurrentHealth(0 - (int)(CurrentPools.HitPoints - BaseMaxPools.HitPoints), false);
 
-				if (CurrentAspects.Energy > BaseMaxAspects.Energy)
-					ModifyCurrentEnergy(0 - (int)(CurrentAspects.Energy - BaseMaxAspects.Energy), false);
+				if (CurrentPools.Energy > BaseMaxPools.Energy)
+					ModifyCurrentEnergy(0 - (int)(CurrentPools.Energy - BaseMaxPools.Energy), false);
 
-				if (CurrentAspects.Stamina > BaseMaxAspects.Stamina)
-					ModifyCurrentStamina(0 - (int)(CurrentAspects.Stamina - BaseMaxAspects.Stamina), false);
+				if (CurrentPools.Stamina > BaseMaxPools.Stamina)
+					ModifyCurrentStamina(0 - (int)(CurrentPools.Stamina - BaseMaxPools.Stamina), false);
 			}
 		}
 
@@ -627,7 +627,7 @@ namespace Hedron.Core
 
 			base.CopyTo(entityAnimate);
 
-			entityAnimate.BaseMaxAspects.CopyTo(BaseMaxAspects);
+			entityAnimate.BaseMaxPools.CopyTo(BaseMaxPools);
 			entityAnimate.BaseAttributes.CopyTo(BaseAttributes);
 			entityAnimate.BaseQualities.CopyTo(BaseQualities);
 		}

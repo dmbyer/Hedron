@@ -9,7 +9,7 @@ namespace Hedron.Core.Property
 	/// <summary>
 	/// The pools for health, stamina, and energy for an Entity
 	/// </summary>
-	public class Aspects : ICopyableObject<Aspects>
+	public class Pools : ICopyableObject<Pools>
 	{
 		/// <summary>
 		/// Health, affected by Might + Essence
@@ -27,57 +27,57 @@ namespace Hedron.Core.Property
 		public int? Energy { get; set; }
 
 		/// <summary>
-		/// Creates a default set of aspects
+		/// Creates a default set of pools
 		/// </summary>
-		/// <returns>A new EntityAspects with default values</returns>
-		public static Aspects Default()
+		/// <returns>A new EntityPools with default values</returns>
+		public static Pools Default()
 		{
-			return new Aspects()
+			return new Pools()
 			{
-				HitPoints     = Constants.DEFAULT_ASPECT,
-				Stamina       = Constants.DEFAULT_ASPECT,
-				Energy        = Constants.DEFAULT_ASPECT
+				HitPoints     = Constants.DEFAULT_POOL,
+				Stamina       = Constants.DEFAULT_POOL,
+				Energy        = Constants.DEFAULT_POOL
 			};
 		}
 
 		/// <summary>
-		/// Creates a default set of aspects of the given tier
+		/// Creates a default set of pools of the given tier
 		/// </summary>
-		/// <param name="tier">The tier of the aspects</param>
+		/// <param name="tier">The tier of the pools</param>
 		/// <returns>A new EntityAspects of the given tier</returns>
-		public static Aspects Default(Tier tier)
+		public static Pools Default(Tier tier)
 		{
 			return Default() * tier;
 
 		}
 
 		/// <summary>
-		///  Copies aspects to another aspects object
+		///  Copies pools to another pools object
 		/// </summary>
-		/// <param name="aspects">The aspects object to copy to</param>
-		public void CopyTo(Aspects aspects)
+		/// <param name="pools">The pools object to copy to</param>
+		public void CopyTo(Pools pools)
 		{
-			if (aspects == null)
-				aspects = new Aspects();
+			if (pools == null)
+				pools = new Pools();
 
-			aspects.HitPoints = HitPoints;
-			aspects.Stamina = Stamina;
-			aspects.Energy = Energy;
+			pools.HitPoints = HitPoints;
+			pools.Stamina = Stamina;
+			pools.Energy = Energy;
 		}
 
 		/// <summary>
-		///  Copies aspects to another aspects object
+		///  Copies pools to another pools object
 		/// </summary>
-		/// <param name="aspects">The aspects object to copy to</param>
-		public void CopyTo(out Aspects aspects)
+		/// <param name="pools">The pools object to copy to</param>
+		public void CopyTo(out Pools pools)
 		{
-			CopyTo(aspects = new Aspects());
+			CopyTo(pools = new Pools());
 		}
 
 		// overload operator *
-		public static Aspects operator *(Aspects a, int? b)
+		public static Pools operator *(Pools a, int? b)
 		{
-			return new Aspects()
+			return new Pools()
 			{
 				HitPoints = NullableMath.Multiply(a?.HitPoints, b),
 				Stamina = NullableMath.Multiply(a?.Stamina, b),
@@ -86,9 +86,9 @@ namespace Hedron.Core.Property
 		}
 
 		// overload operator *
-		public static Aspects operator *(Aspects a, Aspects b)
+		public static Pools operator *(Pools a, Pools b)
 		{
-			return new Aspects()
+			return new Pools()
 			{
 				HitPoints = NullableMath.Multiply(a?.HitPoints, b?.HitPoints),
 				Stamina = NullableMath.Multiply(a?.Stamina, b?.Stamina),
@@ -97,9 +97,9 @@ namespace Hedron.Core.Property
 		}
 
 		// overload operator /
-		public static Aspects operator /(Aspects a, int? b)
+		public static Pools operator /(Pools a, int? b)
 		{
-			return new Aspects()
+			return new Pools()
 			{
 				HitPoints = NullableMath.Divide(a?.HitPoints, b),
 				Stamina = NullableMath.Divide(a?.Stamina, b),
@@ -108,9 +108,9 @@ namespace Hedron.Core.Property
 		}
 
 		// overload operator /
-		public static Aspects operator /(Aspects a, Aspects b)
+		public static Pools operator /(Pools a, Pools b)
 		{
-			return new Aspects()
+			return new Pools()
 			{
 				HitPoints = NullableMath.Divide(a?.HitPoints, b?.HitPoints),
 				Stamina = NullableMath.Divide(a?.Stamina, b?.Stamina),
@@ -119,9 +119,9 @@ namespace Hedron.Core.Property
 		}
 
 		// overload operator +
-		public static Aspects operator +(Aspects a, int? b)
+		public static Pools operator +(Pools a, int? b)
 		{
-			return new Aspects()
+			return new Pools()
 			{
 				HitPoints = NullableMath.Add(a?.HitPoints, b),
 				Stamina = NullableMath.Add(a?.Stamina, b),
@@ -130,9 +130,9 @@ namespace Hedron.Core.Property
 		}
 
 		// overload operator +
-		public static Aspects operator +(Aspects a, Aspects b)
+		public static Pools operator +(Pools a, Pools b)
 		{
-			return new Aspects()
+			return new Pools()
 			{
 				HitPoints = NullableMath.Add(a?.HitPoints, b?.HitPoints),
 				Stamina = NullableMath.Add(a?.Stamina, b?.Stamina),
@@ -141,19 +141,19 @@ namespace Hedron.Core.Property
 		}
 
 		// overload operator -
-		public static Aspects operator -(Aspects a, int? b)
+		public static Pools operator -(Pools a, int? b)
 		{
 			return a + (-b);
 		}
 
 		// overload operator -
-		public static Aspects operator -(Aspects a, Aspects b)
+		public static Pools operator -(Pools a, Pools b)
 		{
 			return a + (-b);
 		}
 
 		// overload operator -
-		public static Aspects operator -(Aspects a)
+		public static Pools operator -(Pools a)
 		{
 			return a * -1;
 		}

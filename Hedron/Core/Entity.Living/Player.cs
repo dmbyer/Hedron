@@ -55,13 +55,13 @@ namespace Hedron
             string parsed = string.Copy(Prompt);
 
             parsed = parsed.Replace(Constants.Prompt.HP_CURRENT, CurrentHitPoints.ToString());
-            parsed = parsed.Replace(Constants.Prompt.HP_MAX, ModifiedAspects.HitPoints.ToString());
+            parsed = parsed.Replace(Constants.Prompt.HP_MAX, ModifiedPools.HitPoints.ToString());
 
             parsed = parsed.Replace(Constants.Prompt.STAMINA_CURRENT, CurrentStamina.ToString());
-            parsed = parsed.Replace(Constants.Prompt.STAMINA_MAX, ModifiedAspects.Stamina.ToString());
+            parsed = parsed.Replace(Constants.Prompt.STAMINA_MAX, ModifiedPools.Stamina.ToString());
 
             parsed = parsed.Replace(Constants.Prompt.ENERGY_CURRENT, CurrentEnergy.ToString());
-            parsed = parsed.Replace(Constants.Prompt.ENERGY_MAX, ModifiedAspects.Energy.ToString());
+            parsed = parsed.Replace(Constants.Prompt.ENERGY_MAX, ModifiedPools.Energy.ToString());
 
             return parsed;
 		}
@@ -107,7 +107,7 @@ namespace Hedron
 		protected override void HandleDeath(object source, CacheObjectEventArgs args)
 		{
 			base.HandleDeath(source, args);
-			ModifyCurrentHealth((int)ModifiedAspects.HitPoints, false);
+			ModifyCurrentHealth((int)ModifiedPools.HitPoints, false);
 			IOHandler.QueueOutput("You have been restored to full health!");
 		}
 	}

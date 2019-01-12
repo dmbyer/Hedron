@@ -29,7 +29,7 @@ namespace Hedron.System
 		}
 
 		// Default starting values
-		public const int    DEFAULT_ASPECT        = 100;
+		public const int    DEFAULT_POOL          = 100;
 		public const int    DEFAULT_ATTRIBUTE     =  10;
 		public const int    DEFAULT_CRITICAL      =   0;
 		public const int    DEFAULT_DAMAGE        =   5;

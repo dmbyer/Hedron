@@ -19,7 +19,7 @@ namespace Hedron.Core.Property
 		/// Aspects modifier
 		/// </summary>
 		[JsonProperty]
-		public Aspects Aspects { get; set; } = new Aspects();
+		public Pools Aspects { get; set; } = new Pools();
 
 		/// <summary>
 		/// Attributes modifier

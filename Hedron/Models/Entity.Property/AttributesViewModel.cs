@@ -43,7 +43,7 @@ namespace Hedron.Models
 			if (attributes == null)
 				return null;
 
-			AttributesViewModel aspectsModel = new AttributesViewModel
+			AttributesViewModel attributesModel = new AttributesViewModel
 			{
 				Might = attributes.Might,
 				Finesse = attributes.Finesse,
@@ -53,7 +53,7 @@ namespace Hedron.Models
 				Essence = attributes.Essence
 			};
 
-			return aspectsModel;
+			return attributesModel;
 		}
 
 		/// <summary>

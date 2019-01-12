@@ -22,7 +22,7 @@ namespace Hedron.Models
 		
 		public AttributesViewModel BaseAttributes { get; set; }
 		
-		public AspectsViewModel BaseAspects { get; set; }
+		public PoolsViewModel BaseAspects { get; set; }
 		
 		public QualitiesViewModel BaseQualities { get; set; }
 	}

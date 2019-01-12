@@ -8,14 +8,14 @@ namespace Hedron.Core.Property
 	public interface IAspects
 	{
 		/// <summary>
-		/// The base aspects
+		/// The base pools
 		/// </summary>
-		Aspects BaseMaxAspects { get; set; }
+		Pools BaseMaxPools { get; set; }
 
 		/// <summary>
-		/// Retrieve modified aspects after affects
+		/// Retrieve modified pools after affects
 		/// </summary>
-		/// <returns>The modified aspects</returns>
-		Aspects ModifiedAspects { get; }
+		/// <returns>The modified pools</returns>
+		Pools ModifiedPools { get; }
 	}
 }
