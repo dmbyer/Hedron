@@ -14,7 +14,6 @@ namespace Hedron
 	{
 		// Public Fields
 		public string Prompt { get; set; }
-		public Flags.PlayerRights Rights { get; set; } = 0;
 		public PlayerConfiguration Configuration { get; set; } = new PlayerConfiguration();
 
         // Constructor
@@ -23,7 +22,8 @@ namespace Hedron
             IOHandler = new IOHandler(this, stream);
             Prompt = string.Copy(Constants.Prompt.DEFAULT);
 
-			StateHandler.State = StateHandler.GameState.NameSelection;
+			StateHandler.State = GameState.NameSelection;
+			PrivilegeLevel = Commands.PrivilegeLevel.Administrator;
         }
 		
         public void Save()

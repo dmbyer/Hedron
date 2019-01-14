@@ -29,8 +29,8 @@ namespace Hedron.Combat
 			if (entity == null || target == null)
 				return;
 
-			entity.StateHandler.State = Network.StateHandler.GameState.Combat;
-			target.StateHandler.State = Network.StateHandler.GameState.Combat;
+			entity.StateHandler.State = Network.GameState.Combat;
+			target.StateHandler.State = Network.GameState.Combat;
 			
 			CombatTargets[entityID] = targetID;
 
@@ -53,7 +53,7 @@ namespace Hedron.Combat
 
 			var entitiesTargetingExiter = GetEntitiesTargeting(entityID);
 
-			entity.StateHandler.State = Network.StateHandler.GameState.Active;
+			entity.StateHandler.State = Network.GameState.Active;
 			CombatTargets.Remove(entityID);
 
 			foreach (var targeter in entitiesTargetingExiter)
@@ -66,7 +66,7 @@ namespace Hedron.Combat
 					var instanceTargeter = DataAccess.Get<EntityAnimate>(targeter, CacheType.Instance);
 
 					if (instanceTargeter != null)
-						instanceTargeter.StateHandler.State = Network.StateHandler.GameState.Active;
+						instanceTargeter.StateHandler.State = Network.GameState.Active;
 
 					CombatTargets.Remove(targeter);
 				}
@@ -167,7 +167,13 @@ namespace Hedron.Combat
 					if (target.GetType() == typeof(Player))
 					{
 						target.IOHandler.QueueOutput("You have died!");
-						Commands.CommandHandler.InvokeCommand(Commands.Command.CMD_GOTO, DataAccess.GetAll<World>(CacheType.Instance)?[0].Instance.ToString(), target);
+
+						var args = new Commands.CommandEventArgs(
+							DataAccess.GetAll<World>(CacheType.Instance)?[0].Instance.ToString(),
+							target,
+							null);
+
+						new Commands.Movement.Goto().Execute(args);
 					}
 
 					source.IOHandler?.QueueOutput($"You have slain {target.ShortDescription}!");

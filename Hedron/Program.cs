@@ -45,6 +45,8 @@ namespace Hedron
 				World.NewPrototype();
 			}
 
+			CommandHandler.Initialize();
+
 			gameLoop = new Thread(new ThreadStart(GameLoop));
 			gameLoop.Start();
 

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using Hedron.Commands;
 using Hedron.System;
 using Hedron.Data;
 using Hedron.Core.Property;
@@ -21,6 +22,11 @@ namespace Hedron.Core
 		/// Eventhandler for entity death
 		/// </summary>
 		public event EventHandler<CacheObjectEventArgs> EntityDied;
+
+		/// <summary>
+		/// The entity's privilege level
+		/// </summary>
+		public PrivilegeLevel PrivilegeLevel { get; set; } = PrivilegeLevel.NPC;
 
 		// State
 		[JsonIgnore]
@@ -160,7 +166,7 @@ namespace Hedron.Core
 		/// </summary>
 		public EntityAnimate() : base()
 		{
-			StateHandler.State = StateHandler.GameState.Active;
+			StateHandler.State = GameState.Active;
 
 			WornEquipment.AffectAdded += HandleAffectAdded;
 			WornEquipment.AffectRemoved += HandleAffectRemoved;

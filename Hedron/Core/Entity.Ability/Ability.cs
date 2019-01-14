@@ -4,13 +4,8 @@ using System.Text;
 
 namespace Hedron.Core
 {
-	public abstract class Ability
+	public abstract class Ability : Commands.Command
 	{
-		/// <summary>
-		/// The name of the ability
-		/// </summary>
-		public string Name { get; set; }
-
 		/// <summary>
 		/// The experience of the ability
 		/// </summary>
@@ -19,6 +14,6 @@ namespace Hedron.Core
 		/// <summary>
 		/// The tier of the ability
 		/// </summary>
-		public Tier Tier { get; set; }
+		public Tier Tier { get; set; } = new Tier();
 	}
 }

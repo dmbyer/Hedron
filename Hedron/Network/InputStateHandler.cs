@@ -16,16 +16,6 @@ namespace Hedron.Network
 	public class StateHandler
 	{
 		/// <summary>
-		/// Valid input states
-		/// </summary>
-		public enum GameState
-		{
-			NameSelection,
-			Active,
-			Combat
-		}
-
-		/// <summary>
 		/// The current input state for the player
 		/// </summary>
 		public GameState State { get; set; }
@@ -79,7 +69,14 @@ namespace Hedron.Network
 				var output = new OutputBuilder($"Welcome to HedronMUD, {entity.Name}!");
 
 				var startingRooms = DataAccess.GetInstancesOfPrototype<Room>(DataAccess.Get<World>(0, CacheType.Instance).StartingLocation);
-				output.Append(CommandHandler.InvokeCommand(Command.CMD_GOTO, startingRooms.Count > 0 ? startingRooms[0].Instance.ToString() : "0", entity).ResultMessage);
+
+				var args = new CommandEventArgs(
+					startingRooms.Count > 0 ? startingRooms[0].Instance.ToString() : "0",
+					entity,
+					null);
+
+				output.Append(new Commands.Movement.Goto().Execute(args).ResultMessage);
+
 				return CommandResult.Success(output.Output);
 			}
 			else

@@ -57,7 +57,7 @@ namespace Hedron.Commands
 		/// <returns>Not Implemented command result</returns>
 		public static CommandResult NotImplemented(string command)
 		{
-			return new CommandResult { ResultCode = ResultCode.NOT_IMPLEMENTED, ResultMessage = $"The '{command}' command is not yet implemented." };
+			return new CommandResult { ResultCode = ResultCode.NOT_IMPLEMENTED, ResultMessage = $"The '{command.ToLower()}' command is not yet implemented." };
 		}
 
 		/// <summary>

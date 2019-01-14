@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Hedron.Core;
 
 namespace Hedron.System
 {
@@ -122,6 +123,31 @@ namespace Hedron.System
 			}
 
 			return output.TrimEnd();
+		}
+
+		/// <summary>
+		/// Parses exits of a room as friendly text
+		/// </summary>
+		/// <param name="room">The room to parse exits from</param>
+		/// <returns>A string representing the room's exits</returns>
+		public static string ParseExits(Room room)
+		{
+			if (room == null)
+				return "";
+
+			string parsedexits = "";
+
+			if (room.Exits.North != null) parsedexits += "[north] ";
+			if (room.Exits.East != null) parsedexits += "[east] ";
+			if (room.Exits.South != null) parsedexits += "[south] ";
+			if (room.Exits.West != null) parsedexits += "[west] ";
+			if (room.Exits.Up != null) parsedexits += "[up] ";
+			if (room.Exits.Down != null) parsedexits += "[down]";
+
+			if (parsedexits == "")
+				parsedexits = "[none]";
+
+			return parsedexits;
 		}
 	}
 }
