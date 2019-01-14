@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Network;
+using Hedron.System.Exceptions;
 
 namespace Hedron.Commands
 {
@@ -63,18 +64,21 @@ namespace Hedron.Commands
 			// TODO: Throw exception on failure, allow inherited classes to handle the exception
 
 			// Check for null args
-
+			if (args == null)
+				throw new ArgumentNullException(nameof(args));
 
 			// Check for null entity
-
+			if (args.Entity == null)
+				throw new CommandException(CommandResult.NullEntity());
 
 			// Check privilege level
-
+			var privLevel = args.PrivilegeOverride ?? args.Entity.PrivilegeLevel;
+			if (privLevel < PrivilegeLevel)
+				throw new PrivilegeException();
 
 			// Check state
-			
-
-
+			if (!ValidStates.Contains(args.Entity.StateHandler.State))
+				throw new StateException();
 
 			return CommandResult.Success("");
 		}

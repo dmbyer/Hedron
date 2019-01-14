@@ -14,32 +14,19 @@ namespace Hedron.System.Exceptions
 		public CommandResult CommandResult { get; protected set; }
 
 		/// <summary>
+		/// Private default constructor
+		/// </summary>
+		protected CommandException()
+		{
+
+		}
+
+		/// <summary>
 		/// Default constructor
 		/// </summary>
-		public CommandException()
+		public CommandException(CommandResult commandResult)
 		{
-			CommandResult = CommandResult.Failure("Error: General command execution failure.");
-		}
-
-		/// <summary>
-		/// New CommandException
-		/// </summary>
-		/// <param name="message">The exception message</param>
-		public CommandException(string message)
-			: base(message)
-		{
-			CommandResult = CommandResult.Failure(message);
-		}
-
-		/// <summary>
-		/// New CommandException
-		/// </summary>
-		/// <param name="message">The exception message</param>
-		/// <param name="inner">The inner exception</param>
-		public CommandException(string message, Exception inner)
-			: base(message, inner)
-		{
-			CommandResult = CommandResult.Failure(message);
+			CommandResult = commandResult;
 		}
 	}
 }

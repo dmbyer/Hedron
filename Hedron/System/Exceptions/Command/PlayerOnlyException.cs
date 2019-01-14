@@ -16,28 +16,7 @@ namespace Hedron.System.Exceptions
 		/// </summary>
 		public PlayerOnlyException()
 		{
-			CommandResult = CommandResult.Failure("Error: Player-only command.");
-		}
-
-		/// <summary>
-		/// New CommandException
-		/// </summary>
-		/// <param name="message">The exception message</param>
-		public PlayerOnlyException(string message)
-			: base(message)
-		{
-			CommandResult = CommandResult.Failure(message);
-		}
-
-		/// <summary>
-		/// New CommandException
-		/// </summary>
-		/// <param name="message">The exception message</param>
-		/// <param name="inner">The inner exception</param>
-		public PlayerOnlyException(string message, Exception inner)
-			: base(message, inner)
-		{
-			CommandResult = CommandResult.Failure(message);
+			CommandResult = CommandResult.PlayerOnly();
 		}
 	}
 }
