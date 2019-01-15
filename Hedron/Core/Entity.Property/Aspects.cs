@@ -12,6 +12,7 @@ namespace Hedron.Core.Property
         Dawn,
         Dream,
         Myth,
+		Pain,
         Shadow,
         Spirit,
         Tribe,
