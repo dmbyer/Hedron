@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Hedron.System
+namespace Hedron.System.Text
 {
 	public static class StringExtensions
 	{

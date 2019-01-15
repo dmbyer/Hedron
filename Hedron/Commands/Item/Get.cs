@@ -6,6 +6,7 @@ using Hedron.Core;
 using Hedron.Data;
 using Hedron.System;
 using Hedron.System.Exceptions;
+using Hedron.System.Text;
 
 namespace Hedron.Commands.Item
 {
@@ -87,7 +88,7 @@ namespace Hedron.Commands.Item
 				var itemsPicked = EntityQuantityMapper.ParseEntityQuantitiesAsStrings(matchedItems, EntityQuantityMapper.MapStringTypes.ShortDescription);
 
 				output.Append("You pick up:");
-				output.Append(TextFormatter.NewTableFromList(itemsPicked, 1, 4, 0));
+				output.Append(Formatter.NewTableFromList(itemsPicked, 1, 4, 0));
 			}
 
 			return CommandResult.Success(output.Output);

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Hedron.System;
 using Hedron.System.Exceptions;
+using Hedron.System.Text;
 
 namespace Hedron.Commands.Operational
 {
@@ -41,12 +42,12 @@ namespace Hedron.Commands.Operational
 			output.Append("Valid commands are:");
 
 			output.Append(
-				TextFormatter.NewTableFromList(
+				Formatter.NewTableFromList(
 					CommandHandler.AvailableCommands(
 						commandEventArgs.PrivilegeOverride == null
 							? commandEventArgs.Entity.PrivilegeLevel
 							: (PrivilegeLevel)commandEventArgs.PrivilegeOverride),
-						6, 5, TextFormatter.DefaultIndent));
+						6, 5, Formatter.DefaultIndent));
 
 			return CommandResult.Success(output.Output);
 		}

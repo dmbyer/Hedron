@@ -6,6 +6,7 @@ using Hedron.Core;
 using Hedron.Core.Property;
 using Hedron.System;
 using Hedron.System.Exceptions;
+using Hedron.System.Text;
 
 namespace Hedron.Commands.General
 {
@@ -45,9 +46,9 @@ namespace Hedron.Commands.General
 			var modAttributes = entity.ModifiedAttributes;
 			var modQualities = entity.ModifiedQualities;
 
-			var poolsTable = TextFormatter.ToTable(2, TextFormatter.DefaultIndent,
+			var poolsTable = Formatter.ToTable(2, Formatter.DefaultIndent,
 				// HP row
-				TextFormatter.NewRow(
+				Formatter.NewRow(
 					"Hit Points:  ",
 					$"{entity.CurrentHitPoints}",
 					"/",
@@ -55,7 +56,7 @@ namespace Hedron.Commands.General
 					""
 				),
 				// Stamina row
-				TextFormatter.NewRow(
+				Formatter.NewRow(
 					"Stamina:  ",
 					$"{entity.CurrentStamina}",
 					"/",
@@ -63,7 +64,7 @@ namespace Hedron.Commands.General
 					""
 				),
 				// Energy row
-				TextFormatter.NewRow(
+				Formatter.NewRow(
 					"Energy:  ",
 					$"{entity.CurrentEnergy}",
 					"/",
@@ -72,48 +73,48 @@ namespace Hedron.Commands.General
 				)
 			);
 
-			var attributesTable = TextFormatter.ToTable(2, TextFormatter.DefaultIndent,
+			var attributesTable = Formatter.ToTable(2, Formatter.DefaultIndent,
 				// Essence row
-				TextFormatter.NewRow(
+				Formatter.NewRow(
 					"Essence:  ",
 					$"{baseAttributes.Essence}",
 					$"[{modAttributes.Essence}]"
 				),
 				// Finesse row
-				TextFormatter.NewRow(
+				Formatter.NewRow(
 					"Finesse:  ",
 					$"{baseAttributes.Finesse}",
 					$"[{modAttributes.Finesse}]"
 				),
 				// Intellect row
-				TextFormatter.NewRow(
+				Formatter.NewRow(
 					"Intellect:  ",
 					$"{baseAttributes.Intellect}",
 					$"[{modAttributes.Intellect}]"
 				),
 				// Might row
-				TextFormatter.NewRow(
+				Formatter.NewRow(
 					"Might:  ",
 					$"{baseAttributes.Might}",
 					$"[{modAttributes.Might}]"
 				),
 				// Spirit row
-				TextFormatter.NewRow(
+				Formatter.NewRow(
 					"Spirit:  ",
 					$"{baseAttributes.Spirit}",
 					$"[{modAttributes.Spirit}]"
 				),
 				// Will row
-				TextFormatter.NewRow(
+				Formatter.NewRow(
 					"Will:  ",
 					$"{baseAttributes.Will}",
 					$"[{modAttributes.Will}]"
 				)
 			);
 
-			var qualitiesTable = TextFormatter.ToTable(2, TextFormatter.DefaultIndent,
+			var qualitiesTable = Formatter.ToTable(2, Formatter.DefaultIndent,
 				// Attack and Armor row
-				TextFormatter.NewRow(
+				Formatter.NewRow(
 					"Attack Rating:  ",
 					$"{baseQualities.AttackRating}",
 					$"[{modQualities.AttackRating}]",
@@ -122,7 +123,7 @@ namespace Hedron.Commands.General
 					$"[{modQualities.ArmorRating}]"
 				),
 				// Critical Hit and Damage row
-				TextFormatter.NewRow(
+				Formatter.NewRow(
 					"Critical Hit:  ",
 					$"{baseQualities.CriticalHit}",
 					$"[{modQualities.CriticalHit}]",

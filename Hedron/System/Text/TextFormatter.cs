@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Text;
 using Hedron.Core;
 
-namespace Hedron.System
+namespace Hedron.System.Text
 {
-	public static class TextFormatter
+	public static class Formatter
 	{
 		public enum Align
 		{

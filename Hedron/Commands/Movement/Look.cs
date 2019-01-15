@@ -6,6 +6,7 @@ using Hedron.Core;
 using Hedron.Data;
 using Hedron.System;
 using Hedron.System.Exceptions;
+using Hedron.System.Text;
 
 namespace Hedron.Commands.Movement
 {
@@ -78,7 +79,7 @@ namespace Hedron.Commands.Movement
 
 					output.Append(room.Description);
 
-					output.Append("Exits: " + TextFormatter.ParseExits(room));
+					output.Append("Exits: " + Formatter.ParseExits(room));
 
 					var roomAllEntities = room.GetAllEntities();
 

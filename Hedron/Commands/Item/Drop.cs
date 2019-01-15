@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Hedron.Core;
 using Hedron.System;
 using Hedron.System.Exceptions;
+using Hedron.System.Text;
 
 namespace Hedron.Commands.Item
 {
@@ -88,7 +89,7 @@ namespace Hedron.Commands.Item
 				var droppedItems = EntityQuantityMapper.ParseEntityQuantitiesAsStrings(matchedItems, EntityQuantityMapper.MapStringTypes.ShortDescription);
 
 				output.Append("You drop:");
-				output.Append(TextFormatter.NewTableFromList(droppedItems, 1, 4, 0));
+				output.Append(Formatter.NewTableFromList(droppedItems, 1, 4, 0));
 			}
 
 			return CommandResult.Success(output.Output);

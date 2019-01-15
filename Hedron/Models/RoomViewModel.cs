@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Hedron.Core;
 using Hedron.Data;
 using Hedron.System;
+using Hedron.System.Text;
 
 namespace Hedron.Models
 {

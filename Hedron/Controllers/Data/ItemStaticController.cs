@@ -8,6 +8,7 @@ using Hedron.Core;
 using Hedron.Data;
 using Hedron.Models;
 using Hedron.System;
+using Hedron.System.Text;
 
 namespace Hedron.Controllers.Data
 {

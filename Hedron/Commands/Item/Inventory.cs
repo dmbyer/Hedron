@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Hedron.Core;
 using Hedron.System;
 using Hedron.System.Exceptions;
+using Hedron.System.Text;
 
 namespace Hedron.Commands.Item
 {
@@ -44,7 +45,7 @@ namespace Hedron.Commands.Item
 			else
 			{
 				var itemDescriptions = EntityQuantityMapper.ParseEntityQuantitiesAsStrings(entities, EntityQuantityMapper.MapStringTypes.ShortDescription);
-				output.Append(TextFormatter.NewTableFromList(itemDescriptions, 1, 4, 0));
+				output.Append(Formatter.NewTableFromList(itemDescriptions, 1, 4, 0));
 			}
 
 			return CommandResult.Success(output.Output);
