@@ -2,15 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Hedron.Core.Materials;
 
-namespace Hedron.Core.Materials
+namespace Hedron.Data
 {
-	public enum MaterialType
+	public static class DataStructure
 	{
-		Cloth,
-		Hide,
-		Metal,
-		Stone,
-		Wood
+
 	}
 }
