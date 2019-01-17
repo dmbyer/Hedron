@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Hedron.System;
 
-namespace Hedron.Core
+namespace Hedron.Core.Property
 {
 	/// <summary>
 	/// Holds current Tier level and label

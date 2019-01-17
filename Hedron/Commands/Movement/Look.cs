@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Core;
+using Hedron.Core.Container;
+using Hedron.Core.Entity;
 using Hedron.Data;
 using Hedron.System;
 using Hedron.System.Exceptions;
@@ -46,7 +48,7 @@ namespace Hedron.Commands.Movement
 			{
 				if (argument?.Length > 0)
 				{
-					var entities = DataAccess.GetMany<Entity>(room.GetAllEntities(), CacheType.Instance)
+					var entities = DataAccess.GetMany<EntityBase>(room.GetAllEntities(), CacheType.Instance)
 						.Where(e => e?.Instance != entity.Instance)
 						.OrderBy(e => e?.Name);
 

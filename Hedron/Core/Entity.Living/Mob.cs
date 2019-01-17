@@ -4,10 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Hedron.Core.Behavior;
+using Hedron.Core.Container;
+using Hedron.Core.Entity;
 using Hedron.Data;
 using Hedron.System;
 
-namespace Hedron.Core
+namespace Hedron.Core.Entity
 {
     public sealed class Mob : EntityAnimate
 	{

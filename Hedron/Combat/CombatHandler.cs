@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Core;
+using Hedron.Core.Entity;
+using Hedron.Core.Property;
 using Hedron.Data;
 using Hedron.System;
 

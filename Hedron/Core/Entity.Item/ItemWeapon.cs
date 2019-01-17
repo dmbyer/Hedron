@@ -6,9 +6,10 @@ using Hedron.Core.Damage;
 using Hedron.System;
 using Newtonsoft.Json;
 using Hedron.Core.Behavior;
+using Hedron.Core.Container;
 using Hedron.Core.Property;
 
-namespace Hedron.Core
+namespace Hedron.Core.Entity
 {
 	public class ItemWeapon : EntityInanimate
 	{

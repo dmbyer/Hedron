@@ -6,17 +6,18 @@ using System.Collections.Generic;
 using Hedron.Commands;
 using Hedron.System;
 using Hedron.Data;
+using Hedron.Core.Container;
 using Hedron.Core.Property;
 using Hedron.Network;
 using Hedron.System.Exceptions;
 using Newtonsoft.Json;
 
-namespace Hedron.Core
+namespace Hedron.Core.Entity
 {
 	/// <summary>
 	/// For all living entities
 	/// </summary>
-	abstract public class EntityAnimate : Entity, IPools, IAttributes, IQualities
+	abstract public class EntityAnimate : EntityBase, IPools, IAttributes, IQualities
 	{
 		/// <summary>
 		/// Eventhandler for entity death

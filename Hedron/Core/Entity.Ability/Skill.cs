@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Hedron.Core
+namespace Hedron.Core.Ability
 {
-	public class Skill : Ability
+	public class Skill : AbilityBase
 	{
 	}
 }

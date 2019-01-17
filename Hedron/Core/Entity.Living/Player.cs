@@ -4,11 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Net.Sockets;
 using Hedron.Core;
+using Hedron.Core.Container;
+using Hedron.Core.Entity;
 using Hedron.System;
 using Hedron.Data;
 using Hedron.Network;
 
-namespace Hedron
+namespace Hedron.Core.Entity
 {
 	public sealed class Player : EntityAnimate
 	{

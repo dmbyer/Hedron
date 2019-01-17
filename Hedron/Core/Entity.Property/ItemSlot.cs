@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Hedron.Core
+namespace Hedron.Core.Property
 {
 	public enum ItemSlot
 	{

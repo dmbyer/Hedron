@@ -4,8 +4,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Collections.Generic;
-using Hedron.System;
 using Hedron.Core;
+using Hedron.Core.Entity;
+using Hedron.System;
 
 
 namespace Hedron.Network

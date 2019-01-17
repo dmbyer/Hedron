@@ -4,8 +4,9 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Core;
+using Hedron.Core.Container;
+using Hedron.Core.Entity;
 using Hedron.Data;
-using Hedron.System;
 using Hedron.System.Text;
 
 namespace Hedron.Models
@@ -46,7 +47,7 @@ namespace Hedron.Models
 				Tier = room.Tier.Level,
 				Description = truncate == -1 ? room.Description : room.Description.ToTruncatedSubString(truncate, true),
 				Exits = room.Exits,
-				Entities = BaseEntityViewModel.EntityToViewModel(DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype))
+				Entities = BaseEntityViewModel.EntityToViewModel(DataAccess.GetMany<EntityBase>(room.GetAllEntities<EntityBase>(), CacheType.Prototype))
 			};
 		}
 

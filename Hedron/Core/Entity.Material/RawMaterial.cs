@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Hedron.Core.Property;
 using Hedron.System;
 
 namespace Hedron.Core.Materials

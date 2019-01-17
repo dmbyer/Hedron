@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Data;
+using Hedron.Core.Entity;
+using Hedron.Core.Property;
 
-namespace Hedron.Core
+namespace Hedron.Core.Container
 {
 	public class Corpse : EntityContainer, IEntity
 	{

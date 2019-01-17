@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Core;
 using Hedron.Core.Behavior;
+using Hedron.Core.Property;
 using Hedron.System;
 
 namespace Hedron.Models

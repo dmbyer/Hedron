@@ -2,8 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Hedron.Core;
-using Hedron.Data;
+using Hedron.Core.Entity;
 
 namespace Hedron.System
 {

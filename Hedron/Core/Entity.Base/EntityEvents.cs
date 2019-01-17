@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Hedron.Data;
 using Hedron.Core.Property;
 
-namespace Hedron.Core
+namespace Hedron.Core.Entity
 {
 	public class EntityEvents : CacheableObject
 	{

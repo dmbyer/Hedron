@@ -4,10 +4,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Hedron.Core;
+using Hedron.Core.Entity;
 using Hedron.Data;
 using Hedron.Models;
-using Hedron.System;
 using Hedron.System.Text;
 
 namespace Hedron.Controllers.Data

@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Net.Sockets;
 using Hedron.Core;
+using Hedron.Core.Entity;
 using Hedron.System;
 using Hedron.Data;
 using Hedron.Network;

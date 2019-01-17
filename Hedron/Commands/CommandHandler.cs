@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Hedron.Core;
+using Hedron.Core.Entity;
 using Hedron.System;
 using Hedron.Data;
 

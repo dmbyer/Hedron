@@ -9,12 +9,12 @@ using Hedron.Data;
 using Hedron.Network;
 using Newtonsoft.Json;
 
-namespace Hedron.Core
+namespace Hedron.Core.Entity
 {
 	/// <summary>
 	/// Base entity class for common attributes
 	/// </summary>
-	abstract public class Entity : EntityEvents, ISpawnableObject, ICopyableObject<Entity>, IEntity
+	abstract public class EntityBase : EntityEvents, ISpawnableObject, ICopyableObject<EntityBase>, IEntity
 	{
 		protected List<Affect> _affects = new List<Affect>();
 
@@ -57,7 +57,7 @@ namespace Hedron.Core
 		/// <summary>
 		/// Default constructor
 		/// </summary>
-		public Entity() : base()
+		public EntityBase() : base()
 		{
 
 		}
@@ -135,7 +135,7 @@ namespace Hedron.Core
 		/// </summary>
 		/// <param name="entity">The entity to copy to.</param>
 		/// <remarks>Doesn't copy IDs, cache type, or IOHandler.</remarks>
-		public virtual void CopyTo(Entity entity)
+		public virtual void CopyTo(EntityBase entity)
 		{
 			if (entity == null)
 				return;

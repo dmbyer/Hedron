@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Hedron.Core.Property;
 
-namespace Hedron.Core
+namespace Hedron.Core.Ability
 {
-	public abstract class Ability : Commands.Command
+	public abstract class AbilityBase : Commands.Command
 	{
 		/// <summary>
 		/// The experience of the ability

@@ -4,8 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Core;
-using Hedron.Core.Behavior;
-using Hedron.Core.Property;
+using Hedron.Core.Container;
 using Hedron.System;
 
 namespace Hedron.Models

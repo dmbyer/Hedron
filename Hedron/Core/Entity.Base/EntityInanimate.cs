@@ -5,16 +5,17 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using Hedron.Core.Behavior;
 using Hedron.Core.Materials;
+using Hedron.Core.Property;
 using Hedron.Data;
 using Hedron.System;
 using Newtonsoft.Json;
 
-namespace Hedron.Core
+namespace Hedron.Core.Entity
 {
 	/// <summary>
 	/// For all inanimate entities (e.g. items)
 	/// </summary>
-	abstract public class EntityInanimate : Entity, ICopyableObject<EntityInanimate>
+	abstract public class EntityInanimate : EntityBase, ICopyableObject<EntityInanimate>
 	{
 		protected ItemSlot _slot;
 

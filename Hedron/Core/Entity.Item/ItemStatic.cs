@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 using Hedron.System;
 using Hedron.Data;
 using Hedron.Core.Behavior;
+using Hedron.Core.Container;
+using Hedron.Core.Property;
 
-namespace Hedron.Core
+namespace Hedron.Core.Entity
 {
 	public class ItemStatic : EntityInanimate
 	{

@@ -5,8 +5,9 @@ using Hedron.Data;
 using Hedron.Core;
 using Hedron.System;
 using Newtonsoft.Json;
+using Hedron.Core.Entity;
 
-namespace Hedron.Core
+namespace Hedron.Core.Container
 {
 	/// <summary>
 	/// The Inventory class contains EntityInanimates. It may be used for inventories, equipment lists, general containers, etc.

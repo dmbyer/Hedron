@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Hedron.Core.Container;
+using Hedron.Core.Entity;
 using Hedron.System;
 using Hedron.Data;
 using Newtonsoft.Json;
@@ -266,7 +268,7 @@ namespace Hedron.Core
 				var room = DataAccess.Get<Room>(kvp.Key, CacheType.Prototype);
 				foreach (var item in kvp.Value)
 				{
-					var i = DataAccess.Get<Entity>(item, CacheType.Prototype);
+					var i = DataAccess.Get<EntityBase>(item, CacheType.Prototype);
 					room.AddEntity(item, i, false);
 				}
 			}

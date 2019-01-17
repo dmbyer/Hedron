@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Text;
 using Hedron.Data;
 using Newtonsoft.Json;
+using Hedron.Core.Entity;
 
-namespace Hedron.Core
+namespace Hedron.Core.Container
 {
 	/// <summary>
 	/// Container class for entities
@@ -60,7 +61,7 @@ namespace Hedron.Core
 		/// <param name="id">The cache ID of the entity to remove</param>
 		public void RemoveEntity(uint? id)
 		{
-			RemoveEntity(id, DataAccess.Get<Entity>(id, CacheType), true);
+			RemoveEntity(id, DataAccess.Get<EntityBase>(id, CacheType), true);
 		}
 
 		/// <summary>
@@ -69,7 +70,7 @@ namespace Hedron.Core
 		/// <param name="id">The ID of the entity to unlink</param>
 		/// <param name="entity">A reference to the entity to be removed for event subscription purposes</param>
 		/// <remarks>This method removes an entity and unsubscribes from cache removal notifications.</remarks>
-		public void RemoveEntity(uint? id, Entity entity)
+		public void RemoveEntity(uint? id, EntityBase entity)
 		{
 			RemoveEntity(id, entity, true);
 		}
@@ -81,7 +82,7 @@ namespace Hedron.Core
 		/// <param name="entity">A reference to the entity to be removed for event subscription purposes</param>
 		/// <param name="updatePersistence">Whether to update persistence cache</param>
 		/// <remarks>This method removes an entity and unsubscribes from cache removal notifications.</remarks>
-		private void RemoveEntity(uint? id, Entity entity, bool updatePersistence)
+		private void RemoveEntity(uint? id, EntityBase entity, bool updatePersistence)
 		{
 			if (id == null)
 				return;
@@ -200,9 +201,9 @@ namespace Hedron.Core
 		public void RemoveAllEntities(bool updatePersistence = true)
 		{
 			var entityIDs = GetAllEntities();
-			var entitiesToRemove = new Dictionary<uint?, Entity>();
+			var entitiesToRemove = new Dictionary<uint?, EntityBase>();
 
-			entityIDs.ForEach(x => entitiesToRemove.Add(x, DataAccess.Get<Entity>(x, CacheType)));
+			entityIDs.ForEach(x => entitiesToRemove.Add(x, DataAccess.Get<EntityBase>(x, CacheType)));
 			foreach (var kvp in entitiesToRemove)
 				RemoveEntity(kvp.Key, kvp.Value, updatePersistence);
 
