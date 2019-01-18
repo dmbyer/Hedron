@@ -14,6 +14,11 @@ namespace Hedron.Core.Materials
 		public Aspects? Aspect { get; set; }
 
 		/// <summary>
+		/// The material name
+		/// </summary>
+		public string Name { get; set; }
+
+		/// <summary>
 		/// The material quality
 		/// </summary>
 		public MaterialQuality Quality { get; set; }
