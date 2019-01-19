@@ -13,31 +13,43 @@ namespace Hedron.Core.Property
 		/// Armor modifier
 		/// </summary>
 		[JsonProperty]
-		public int? Armor { get; set; }
+		public int? ArmorModifier { get; set; }
+
+		/// <summary>
+		/// Armor multiplier
+		/// </summary>
+		[JsonProperty]
+		public float? ArmorMultiplier { get; set; }
 
 		/// <summary>
 		/// Aspects modifier
 		/// </summary>
 		[JsonProperty]
-		public Pools Aspects { get; set; } = new Pools();
+		public Pools Pools { get; set; }
 
 		/// <summary>
 		/// Attributes modifier
 		/// </summary>
 		[JsonProperty]
-		public Attributes Attributes { get; set; } = new Attributes();
+		public Attributes Attributes { get; set; }
 
 		/// <summary>
 		/// Whether the affect can be dispelled
 		/// </summary>
 		[JsonProperty]
-		bool CanDispel { get; set; }
+		public bool CanDispel { get; set; }
 
 		/// <summary>
 		/// The damage modifiers
 		/// </summary>
 		[JsonProperty]
-		List<DamageModifier> DamageModifiers { get; set; } = new List<DamageModifier>();
+		public DamageModifier DamageModifiers { get; set; }
+
+		/// <summary>
+		/// The damage multipliers
+		/// </summary>
+		[JsonProperty]
+		public DamageModifier DamageMultipliers { get; set; }
 
 		/// <summary>
 		/// The display of the affect
@@ -61,6 +73,6 @@ namespace Hedron.Core.Property
 		/// Qualities modifier
 		/// </summary>
 		[JsonProperty]
-		public Qualities Qualities { get; set; } = new Qualities();
+		public Qualities Qualities { get; set; }
 	}
 }

@@ -11,6 +11,11 @@ namespace Hedron.Core.Property
 	public class Qualities : ICopyableObject<Qualities>
 	{
 		/// <summary>
+		/// Whether this is additive or multiplicative
+		/// </summary>
+		public bool IsMultiplier { get; set; }
+
+		/// <summary>
 		/// Critical hit percentage
 		/// </summary>
 		public float? CriticalHit { get; set; }
@@ -81,6 +86,18 @@ namespace Hedron.Core.Property
 		}
 
 		// overload operator *
+		public static Qualities operator *(Qualities a, int? b)
+		{
+			return new Qualities()
+			{
+				CriticalHit = NullableMath.Multiply(a?.CriticalHit, b),
+				CriticalDamage = NullableMath.Multiply(a?.CriticalDamage, b),
+				AttackRating = NullableMath.Multiply(a?.AttackRating, b),
+				ArmorRating = NullableMath.Multiply(a?.ArmorRating, b)
+			};
+		}
+
+		// overload operator *
 		public static Qualities operator *(Qualities a, float? b)
 		{
 			return new Qualities()
@@ -101,6 +118,18 @@ namespace Hedron.Core.Property
 				CriticalDamage = NullableMath.Multiply(a?.CriticalDamage, b?.CriticalDamage),
 				AttackRating = NullableMath.Multiply(a?.AttackRating, b?.AttackRating),
 				ArmorRating = NullableMath.Multiply(a?.ArmorRating, b?.ArmorRating),
+			};
+		}
+
+		// overload operator /
+		public static Qualities operator /(Qualities a, int? b)
+		{
+			return new Qualities()
+			{
+				CriticalHit = NullableMath.Divide(a?.CriticalHit, b),
+				CriticalDamage = NullableMath.Divide(a?.CriticalDamage, b),
+				AttackRating = NullableMath.Divide(a?.AttackRating, b),
+				ArmorRating = NullableMath.Divide(a?.ArmorRating, b),
 			};
 		}
 
@@ -129,6 +158,18 @@ namespace Hedron.Core.Property
 		}
 
 		// overload operator +
+		public static Qualities operator +(Qualities a, int? b)
+		{
+			return new Qualities()
+			{
+				CriticalHit = NullableMath.Add(a?.CriticalHit, b),
+				CriticalDamage = NullableMath.Add(a?.CriticalDamage, b),
+				AttackRating = NullableMath.Add(a?.AttackRating, b),
+				ArmorRating = NullableMath.Add(a?.ArmorRating, b),
+			};
+		}
+
+		// overload operator +
 		public static Qualities operator +(Qualities a, float? b)
 		{
 			return new Qualities()
@@ -150,6 +191,12 @@ namespace Hedron.Core.Property
 				AttackRating = NullableMath.Add(a?.AttackRating, b?.AttackRating),
 				ArmorRating = NullableMath.Add(a?.ArmorRating, b?.ArmorRating),
 			};
+		}
+
+		// overload operator -
+		public static Qualities operator -(Qualities a, int? b)
+		{
+			return a + (-b);
 		}
 
 		// overload operator -

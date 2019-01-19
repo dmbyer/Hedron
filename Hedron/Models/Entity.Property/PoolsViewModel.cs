@@ -12,17 +12,17 @@ namespace Hedron.Models
 		/// <summary>
 		/// Maximum health, affected by Might + Essence
 		/// </summary>
-		public int? HitPoints { get; set; }
+		public float? HitPoints { get; set; }
 
 		/// <summary>
 		/// Maximum stamina, affected by Finesse + Essence
 		/// </summary>
-		public int? Stamina { get; set; }
+		public float? Stamina { get; set; }
 
 		/// <summary>
 		/// Maximum energy, affected by Will + Spirit + Essence
 		/// </summary>
-		public int? Energy { get; set; }
+		public float? Energy { get; set; }
 
 		public static PoolsViewModel ToViewModel(Pools pools)
 		{

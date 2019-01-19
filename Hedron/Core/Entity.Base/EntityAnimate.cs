@@ -48,14 +48,25 @@ namespace Hedron.Core.Entity
 			get
 			{
 				var modAttributes = new Attributes();
+				var multAttributes = new Attributes();
 
 				foreach (var affect in Affects)
-					modAttributes += affect.Attributes;
+				{
+					if (affect.Attributes != null && affect.Attributes.IsMultiplier)
+						multAttributes += affect.Attributes;
+					else if (affect.Attributes != null && !affect.Attributes.IsMultiplier)
+						modAttributes += affect.Attributes;
+				}
 
 				foreach (var affect in DataAccess.GetMany<EntityInanimate>(WornEquipment.GetAllEntities(), CacheType).SelectMany(x => x.Affects))
-					modAttributes += affect.Attributes;
+				{
+					if (affect.Attributes != null && affect.Attributes.IsMultiplier)
+						multAttributes += affect.Attributes;
+					else if (affect.Attributes != null && !affect.Attributes.IsMultiplier)
+						modAttributes += affect.Attributes;
+				}
 
-				return BaseAttributes + modAttributes;
+				return (BaseAttributes + modAttributes) * multAttributes;
 			}
 		}
 
@@ -116,14 +127,25 @@ namespace Hedron.Core.Entity
 			get
 			{
 				var modPools = new Pools();
+				var multPools = new Pools();
 
 				foreach (var affect in Affects)
-					modPools += affect.Aspects;
+				{
+					if (affect.Attributes != null && affect.Attributes.IsMultiplier)
+						multPools += affect.Pools;
+					else if (affect.Attributes != null && !affect.Attributes.IsMultiplier)
+						modPools += affect.Pools;
+				}
 
 				foreach (var affect in DataAccess.GetMany<EntityInanimate>(WornEquipment.GetAllEntities(), CacheType).SelectMany(x => x.Affects))
-					modPools += affect.Aspects;
+				{
+					if (affect.Attributes != null && affect.Attributes.IsMultiplier)
+						multPools += affect.Pools;
+					else if (affect.Attributes != null && !affect.Attributes.IsMultiplier)
+						modPools += affect.Pools;
+				}
 
-				return BaseMaxPools + modPools;
+				return (BaseMaxPools + modPools) * multPools;
 			}
 		}
 
@@ -142,22 +164,38 @@ namespace Hedron.Core.Entity
 			get
 			{
 				var modQualities = new Qualities();
+				var multQualities = new Qualities();
 
 				foreach (var affect in Affects)
-					modQualities += affect.Qualities;
+				{
+					if (affect.Attributes != null && affect.Attributes.IsMultiplier)
+						multQualities += affect.Qualities;
+					else if (affect.Attributes != null && !affect.Attributes.IsMultiplier)
+						modQualities += affect.Qualities;
+				}
 
 				foreach (var affect in DataAccess.GetMany<EntityInanimate>(WornEquipment.GetAllEntities(), CacheType).SelectMany(x => x.Affects))
-					modQualities += affect.Qualities;
+				{
+					if (affect.Attributes != null && affect.Attributes.IsMultiplier)
+						multQualities += affect.Qualities;
+					else if (affect.Attributes != null && !affect.Attributes.IsMultiplier)
+						modQualities += affect.Qualities;
+				}
 
-				return BaseQualities + modQualities;
+				return (BaseQualities + modQualities) * multQualities;
 			}
 		}
 
-		// Equipment management
+		/// <summary>
+		/// The entity's worn equipment
+		/// </summary>
 		[JsonConverter(typeof(InventoryPropertyConverter))]
 		[JsonProperty]
 		protected Inventory WornEquipment { get; set; } = new Inventory();
 
+		/// <summary>
+		/// The entity's inventory
+		/// </summary>
 		[JsonConverter(typeof(InventoryPropertyConverter))]
 		[JsonProperty]
 		protected Inventory Inventory { get; set; } = new Inventory();

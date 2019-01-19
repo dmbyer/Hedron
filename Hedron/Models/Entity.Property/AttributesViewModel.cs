@@ -11,32 +11,32 @@ namespace Hedron.Models
 		/// <summary>
 		/// Physical strength
 		/// </summary>
-		public int? Might { get; set; }
+		public float? Might { get; set; }
 
 		/// <summary>
 		/// Physical agility
 		/// </summary>
-		public int? Finesse { get; set; }
+		public float? Finesse { get; set; }
 
 		/// <summary>
 		/// Mental force
 		/// </summary>
-		public int? Will { get; set; }
+		public float? Will { get; set; }
 
 		/// <summary>
 		/// Mental precision
 		/// </summary>
-		public int? Intellect { get; set; }
+		public float? Intellect { get; set; }
 
 		/// <summary>
 		/// Spiritual power
 		/// </summary>
-		public int? Spirit { get; set; }
+		public float? Spirit { get; set; }
 
 		/// <summary>
 		/// Spiritual fortitude
 		/// </summary>
-		public int? Essence { get; set; }
+		public float? Essence { get; set; }
 
 		public static AttributesViewModel ToViewModel(Attributes attributes)
 		{

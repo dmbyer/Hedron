@@ -12,19 +12,24 @@ namespace Hedron.Core.Property
 	public class Pools : ICopyableObject<Pools>
 	{
 		/// <summary>
+		/// Whether this is additive or multiplicative
+		/// </summary>
+		public bool IsMultiplier { get; set; }
+
+		/// <summary>
 		/// Health, affected by Might + Essence
 		/// </summary>
-		public int? HitPoints { get; set; }
+		public float? HitPoints { get; set; }
 
 		/// <summary>
 		/// Stamina, affected by Finesse + Essence
 		/// </summary>
-		public int? Stamina { get; set; }
+		public float? Stamina { get; set; }
 
 		/// <summary>
 		/// Energy, affected by Will + Spirit + Essence
 		/// </summary>
-		public int? Energy { get; set; }
+		public float? Energy { get; set; }
 
 		/// <summary>
 		/// Creates a default set of pools
@@ -86,6 +91,17 @@ namespace Hedron.Core.Property
 		}
 
 		// overload operator *
+		public static Pools operator *(Pools a, float? b)
+		{
+			return new Pools()
+			{
+				HitPoints = NullableMath.Multiply(a?.HitPoints, b),
+				Stamina = NullableMath.Multiply(a?.Stamina, b),
+				Energy = NullableMath.Multiply(a?.Energy, b)
+			};
+		}
+
+		// overload operator *
 		public static Pools operator *(Pools a, Pools b)
 		{
 			return new Pools()
@@ -98,6 +114,17 @@ namespace Hedron.Core.Property
 
 		// overload operator /
 		public static Pools operator /(Pools a, int? b)
+		{
+			return new Pools()
+			{
+				HitPoints = NullableMath.Divide(a?.HitPoints, b),
+				Stamina = NullableMath.Divide(a?.Stamina, b),
+				Energy = NullableMath.Divide(a?.Energy, b)
+			};
+		}
+
+		// overload operator /
+		public static Pools operator /(Pools a, float? b)
 		{
 			return new Pools()
 			{
@@ -130,6 +157,17 @@ namespace Hedron.Core.Property
 		}
 
 		// overload operator +
+		public static Pools operator +(Pools a, float? b)
+		{
+			return new Pools()
+			{
+				HitPoints = NullableMath.Add(a?.HitPoints, b),
+				Stamina = NullableMath.Add(a?.Stamina, b),
+				Energy = NullableMath.Add(a?.Energy, b)
+			};
+		}
+
+		// overload operator +
 		public static Pools operator +(Pools a, Pools b)
 		{
 			return new Pools()
@@ -142,6 +180,12 @@ namespace Hedron.Core.Property
 
 		// overload operator -
 		public static Pools operator -(Pools a, int? b)
+		{
+			return a + (-b);
+		}
+
+		// overload operator -
+		public static Pools operator -(Pools a, float? b)
 		{
 			return a + (-b);
 		}

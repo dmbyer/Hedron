@@ -12,17 +12,17 @@ namespace Hedron.Models
 	public class MobViewModel : BaseEntityViewModel
 	{
 		[Display(Name = "Inventory")]
-		public Inventory Inventory { get; set; }
+		public Inventory Inventory { get; set; } = new Inventory();
 
 		[Display(Name = "Equipment")]
-		public Inventory WornEquipment { get; set; }
+		public Inventory WornEquipment { get; set; } = new Inventory();
 
-		public MobBehaviorViewModel Behavior { get; set; }
-		
-		public AttributesViewModel BaseAttributes { get; set; }
-		
-		public PoolsViewModel BaseAspects { get; set; }
-		
-		public QualitiesViewModel BaseQualities { get; set; }
+		public MobBehaviorViewModel Behavior { get; set; } = new MobBehaviorViewModel();
+
+		public AttributesViewModel BaseAttributes { get; set; } = new AttributesViewModel();
+
+		public PoolsViewModel BaseAspects { get; set; } = new PoolsViewModel();
+
+		public QualitiesViewModel BaseQualities { get; set; } = new QualitiesViewModel();
 	}
 }
