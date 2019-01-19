@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Hedron.Core.Entity;
 using Hedron.System;
 using Hedron.System.Exceptions;
+using Hedron.System.Text;
 
 namespace Hedron.Commands.Item
 {
@@ -58,9 +59,9 @@ namespace Hedron.Commands.Item
 			else
 			{
 				matchedItems = new List<EntityInanimate>();
-				EntityInanimate itemMatched = equipmentEntities.FirstOrDefault(item => item.Name.ToUpper().StartsWith(nameToRemove));
+				var itemMatched = Parse.MatchOnEntityNameByOrder(nameToRemove, equipmentEntities.Cast<IEntity>().ToList());
 				if (itemMatched != null)
-					matchedItems.Add(itemMatched);
+					matchedItems.Add((EntityInanimate)itemMatched);
 			}
 
 			if (matchedItems.Count == 0)
