@@ -48,7 +48,7 @@ namespace Hedron.Commands.Movement
 			{
 				if (argument?.Length > 0)
 				{
-					var entities = DataAccess.GetMany<EntityBase>(room.GetAllEntities(), CacheType.Instance)
+					var entities = DataAccess.GetMany<IEntity>(room.GetAllEntities(), CacheType.Instance)
 						.Where(e => e?.Instance != entity.Instance)
 						.OrderBy(e => e?.Name);
 
@@ -56,7 +56,7 @@ namespace Hedron.Commands.Movement
 
 					foreach (var ent in entities)
 					{
-						if (ent.Name.StartsWith(argument))
+						if (Parse.KeywordsStartWith(argument, ent.Name))
 						{
 							output.Append(ent.LongDescription);
 							found = true;

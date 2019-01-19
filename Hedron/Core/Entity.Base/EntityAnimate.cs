@@ -638,7 +638,7 @@ namespace Hedron.Core.Entity
 				// TODO: Handle soulbound items for players
 				var newCorpse = new Corpse
 				{
-					Name = "corpse" + Name,
+					Name = "corpse " + Name,
 					ShortDescription = $"{ShortDescription}'s corpse.",
 					LongDescription = $"{ShortDescription}'s corpse.",
 				};
