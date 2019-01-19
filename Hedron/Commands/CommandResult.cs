@@ -78,13 +78,28 @@ namespace Hedron.Commands
 		/// <returns>Invalid Syntax command result</returns>
 		public static CommandResult InvalidSyntax(string command, params List<string>[] validArgs)
 		{
-			var result = new CommandResult {
+			return InvalidSyntax(command, null, validArgs);
+		}
+
+		/// <summary>
+		/// Indicates the command syntax is invalid.
+		/// </summary>
+		/// <param name="command">The name of the command which invalid syntax was provided.</param>
+		/// <param name="validArgs">Valid arguments for the command. If a single list has more than one item, it will be displayed as x/y/z.</param>
+		/// <returns>Invalid Syntax command result</returns>
+		public static CommandResult InvalidSyntax(string command, string addedHelp, params List<string>[] validArgs)
+		{
+			var result = new CommandResult
+			{
 				ResultCode = ResultCode.ERR_SYNTAX,
 				ResultMessage = $"Invalid syntax. Usage:\n{command.ToLower()}"
 			};
 
 			foreach (var arg in validArgs)
 				result.ResultMessage += $" <{string.Join("/", arg).ToLower()}>";
+
+			if (addedHelp != null)
+				result.ResultMessage += $"\n{addedHelp}";
 
 			return result;
 		}

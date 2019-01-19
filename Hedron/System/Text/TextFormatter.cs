@@ -7,6 +7,9 @@ namespace Hedron.System.Text
 {
 	public static class Formatter
 	{
+		/// <summary>
+		/// Text alignment
+		/// </summary>
 		public enum Align
 		{
 			Left,
@@ -14,7 +17,106 @@ namespace Hedron.System.Text
 			Center
 		}
 
+		/// <summary>
+		/// Default indent to use for tables
+		/// </summary>
 		public const int DefaultIndent = 4;
+
+		// Text color formatting
+		public const string UniColorBlack   = "\u001b[30m";
+		public const string UniColorBlue    = "\u001b[34m";
+		public const string UniColorBold    = "\u001b[1m";
+		public const string UniColorCyan    = "\u001b[36m";
+		public const string UniColorGreen   = "\u001b[32m";
+		public const string UniColorMagenta = "\u001b[35m";
+		public const string UniColorRed     = "\u001b[31m";
+		public const string UniColorReset   = "\u001b[0m";
+		public const string UniColorWhite   = "\u001b[37m";
+		public const string UniColorYellow  = "\u001b[33m";
+
+		// Friendly color formatting
+		public const string FriendlyColorBlack   = "`b";
+		public const string FriendlyColorBlue    = "`u";
+		public const string FriendlyColorBold    = "`B";
+		public const string FriendlyColorCyan    = "`c";
+		public const string FriendlyColorGreen   = "`g";
+		public const string FriendlyColorMagenta = "`m";
+		public const string FriendlyColorRed     = "`r";
+		public const string FriendlyColorReset   = "`x";
+		public const string FriendlyColorWhite   = "`w";
+		public const string FriendlyColorYellow  = "`y";
+
+		/// <summary>
+		/// Converts friendly color naming conventions to unicode characters
+		/// </summary>
+		/// <param name="toConvert">The string to process color conversion on</param>
+		/// <returns>The converted string</returns>
+		public static string FriendlyColorConversion(string toConvert, bool stripColor)
+		{
+			var parsed = string.Empty;
+
+			if (stripColor)
+			{
+				parsed = toConvert.Replace($"`{FriendlyColorBlack}", UniColorBlack)
+					.Replace($"`{FriendlyColorBlue}", UniColorBlue)
+					.Replace($"`{FriendlyColorBold}", UniColorBold)
+					.Replace($"`{FriendlyColorCyan}", UniColorCyan)
+					.Replace($"`{FriendlyColorGreen}", UniColorGreen)
+					.Replace($"`{FriendlyColorMagenta}", UniColorMagenta)
+					.Replace($"`{FriendlyColorRed}", UniColorRed)
+					.Replace($"`{FriendlyColorReset}", UniColorReset)
+					.Replace($"`{FriendlyColorWhite}", UniColorWhite)
+					.Replace($"`{FriendlyColorYellow}", UniColorYellow);
+
+				parsed = parsed.Replace(FriendlyColorBlack, "")
+					.Replace(FriendlyColorBlue, "")
+					.Replace(FriendlyColorBold, "")
+					.Replace(FriendlyColorCyan, "")
+					.Replace(FriendlyColorGreen, "")
+					.Replace(FriendlyColorMagenta, "")
+					.Replace(FriendlyColorRed, "")
+					.Replace(FriendlyColorReset, "")
+					.Replace(FriendlyColorWhite, "")
+					.Replace(FriendlyColorYellow, "");
+
+				parsed = parsed.Replace(UniColorBlack, FriendlyColorBlack)
+					.Replace(UniColorBlue, FriendlyColorBlue)
+					.Replace(UniColorBold, FriendlyColorBold)
+					.Replace(UniColorCyan, FriendlyColorCyan)
+					.Replace(UniColorGreen, FriendlyColorGreen)
+					.Replace(UniColorMagenta, FriendlyColorMagenta)
+					.Replace(UniColorRed, FriendlyColorRed)
+					.Replace(UniColorReset, FriendlyColorReset)
+					.Replace(UniColorWhite, FriendlyColorWhite)
+					.Replace(UniColorYellow, FriendlyColorYellow);
+			}
+			else
+			{
+				parsed = toConvert.Replace($"{FriendlyColorBlack}", UniColorBlack)
+					.Replace($"{FriendlyColorBlue}", UniColorBlue)
+					.Replace($"{FriendlyColorBold}", UniColorBold)
+					.Replace($"{FriendlyColorCyan}", UniColorCyan)
+					.Replace($"{FriendlyColorGreen}", UniColorGreen)
+					.Replace($"{FriendlyColorMagenta}", UniColorMagenta)
+					.Replace($"{FriendlyColorRed}", UniColorRed)
+					.Replace($"{FriendlyColorReset}", UniColorReset)
+					.Replace($"{FriendlyColorWhite}", UniColorWhite)
+					.Replace($"{FriendlyColorYellow}", UniColorYellow);
+
+				parsed = parsed.Replace($"`{UniColorBlack}", FriendlyColorBlack)
+					.Replace($"`{UniColorBlue}", FriendlyColorBlue)
+					.Replace($"`{UniColorBold}", FriendlyColorBold)
+					.Replace($"`{UniColorCyan}", FriendlyColorCyan)
+					.Replace($"`{UniColorGreen}", FriendlyColorGreen)
+					.Replace($"`{UniColorMagenta}", FriendlyColorMagenta)
+					.Replace($"`{UniColorRed}", FriendlyColorRed)
+					.Replace($"`{UniColorReset}", FriendlyColorReset)
+					.Replace($"`{UniColorWhite}", FriendlyColorWhite)
+					.Replace($"`{UniColorYellow}", FriendlyColorYellow);
+			}
+
+			return parsed;
+		}
 
 		/// <summary>
 		/// Creates a new table row from a set of strings
@@ -72,7 +174,7 @@ namespace Hedron.System.Text
 				for (var c = 0; c < numColumns; c++)
 				{
 					if (cellIndex < cells.Count)
-						table[r][c] = cells[cellIndex++].ToLower().Trim();
+						table[r][c] = cells[cellIndex++].Trim();
 					else
 						table[r][c] = "";
 				}

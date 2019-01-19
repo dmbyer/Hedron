@@ -8,11 +8,11 @@ namespace Hedron.Core.Property
 	public enum Level
 	{
 		Pathetic,
-		Minor,
 		Meek,
+		Minor,
 		Fair,
 		Heightened,
 		Great,
-		Tremendous
+		Legendary
 	}
 }

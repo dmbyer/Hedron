@@ -7,6 +7,7 @@ using Hedron.Core.Behavior;
 using Hedron.Core.Container;
 using Hedron.Core.Property;
 using Hedron.Data;
+using Hedron.System;
 using Newtonsoft.Json;
 
 namespace Hedron.Core.Entity
@@ -36,7 +37,7 @@ namespace Hedron.Core.Entity
 		public Mob() 
 			: base()
 		{
-			LevelAffect = new Affect();
+			LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_FAIR);
 			ModifiedPools.CopyTo(CurrentPools);
 		}
 
@@ -51,25 +52,25 @@ namespace Hedron.Core.Entity
 			switch (Level)
 			{
 				case Level.Pathetic:
-					LevelAffect = Affect.NewMultiplier(0.7f);
+					LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_PATHETIC);
 					break;
 				case Level.Minor:
-					LevelAffect = Affect.NewMultiplier(0.8f);
+					LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_MEEK);
 					break;
 				case Level.Meek:
-					LevelAffect = Affect.NewMultiplier(0.9f);
+					LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_MINOR);
 					break;
 				case Level.Fair:
-					LevelAffect = new Affect();
+					LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_FAIR);
 					break;
 				case Level.Heightened:
-					LevelAffect = Affect.NewMultiplier(1.1f);
+					LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_LEGENDARY);
 					break;
 				case Level.Great:
-					LevelAffect = Affect.NewMultiplier(1.2f);
+					LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_LEGENDARY);
 					break;
-				case Level.Tremendous:
-					LevelAffect = Affect.NewMultiplier(1.3f);
+				case Level.Legendary:
+					LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_LEGENDARY);
 					break;
 			}
 
