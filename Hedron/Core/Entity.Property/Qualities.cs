@@ -62,6 +62,21 @@ namespace Hedron.Core.Property
 		}
 
 		/// <summary>
+		/// Creates a new qualities set as a multiplier
+		/// </summary>
+		/// <param name="multiplier">The multiplier to set all properties to</param>
+		public static Qualities NewMultiplier(float multiplier)
+		{
+			return new Qualities
+			{
+				CriticalHit = multiplier,
+				CriticalDamage = multiplier,
+				AttackRating = multiplier,
+				ArmorRating = multiplier
+			};
+		}
+
+		/// <summary>
 		///  Copies qualities to another qualities object
 		/// </summary>
 		/// <param name="qualities">The qualities object to copy to</param>

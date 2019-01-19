@@ -10,7 +10,7 @@ namespace Hedron.Core.Damage
 		/// <summary>
 		/// The DamageType of the modifier
 		/// </summary>
-		public DamageType DamageType    { get; set; }
+		public DamageType? DamageType    { get; set; }
 
 		/// <summary>
 		/// The value of the modifier
@@ -30,7 +30,7 @@ namespace Hedron.Core.Damage
 		/// </summary>
 		/// <param name="damageType">The DamageType</param>
 		/// <param name="value">The value for the DamageType</param>
-		public DamageModifier(DamageType damageType, float value)
+		public DamageModifier(DamageType? damageType, float value)
 		{
 			DamageType = damageType;
 			Value = value;

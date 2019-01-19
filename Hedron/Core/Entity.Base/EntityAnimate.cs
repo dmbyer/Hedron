@@ -43,7 +43,7 @@ namespace Hedron.Core.Entity
 		/// The entity's modified attributes
 		/// </summary>
 		[JsonIgnore]
-		public Attributes ModifiedAttributes
+		public virtual Attributes ModifiedAttributes
 		{
 			get
 			{
@@ -122,7 +122,7 @@ namespace Hedron.Core.Entity
 		/// The entity's modified pools
 		/// </summary>
 		[JsonIgnore]
-		public Pools ModifiedPools
+		public virtual Pools ModifiedPools
 		{
 			get
 			{
@@ -159,7 +159,7 @@ namespace Hedron.Core.Entity
 		/// The entity's modified qualities
 		/// </summary>
 		[JsonIgnore]
-		public Qualities ModifiedQualities
+		public virtual Qualities ModifiedQualities
 		{
 			get
 			{
@@ -213,6 +213,8 @@ namespace Hedron.Core.Entity
 			WornEquipment.EntityRemoved += HandleEntityRemoved;
 
 			EntityDied += HandleDeath;
+
+			ModifiedPools.CopyTo(CurrentPools);
 		}
 
 		/// <summary>

@@ -57,6 +57,20 @@ namespace Hedron.Core.Property
 		}
 
 		/// <summary>
+		/// Creates a new pool set as a multiplier
+		/// </summary>
+		/// <param name="multiplier">The multiplier to set all properties to</param>
+		public static Pools NewMultiplier(float multiplier)
+		{
+			return new Pools
+			{
+				HitPoints = multiplier,
+				Stamina = multiplier,
+				Energy = multiplier
+			};
+		}
+
+		/// <summary>
 		///  Copies pools to another pools object
 		/// </summary>
 		/// <param name="pools">The pools object to copy to</param>

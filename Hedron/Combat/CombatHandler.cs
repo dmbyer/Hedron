@@ -155,7 +155,7 @@ namespace Hedron.Combat
 
 				var status = target.ModifyCurrentHealth(0 - damage, true);
 
-				source.IOHandler?.QueueOutput($"You hit {target.ShortDescription} for {damage.ToString()} damage.");
+				source.IOHandler?.QueueOutput($"You hit {target.ShortDescription} for {damage.ToString()} damage. ({target.CurrentHitPoints}/{target.ModifiedPools.HitPoints})");
 				target.IOHandler?.QueueOutput($"{source.ShortDescription} hits you for {damage.ToString()}.");
 
 				// Handle target death

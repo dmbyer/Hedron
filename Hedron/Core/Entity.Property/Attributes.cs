@@ -70,7 +70,23 @@ namespace Hedron.Core.Property
 		public static Attributes Default(Tier tier)
 		{
 			return Default() * tier;
+		}
 
+		/// <summary>
+		/// Creates a new attribute set as a multiplier
+		/// </summary>
+		/// <param name="multiplier">The multiplier to set all properties to</param>
+		public static Attributes NewMultiplier(float multiplier)
+		{
+			return new Attributes
+			{
+				Might = multiplier,
+				Finesse = multiplier,
+				Will = multiplier,
+				Intellect = multiplier,
+				Spirit = multiplier,
+				Essence = multiplier
+			};
 		}
 
 		/// <summary>

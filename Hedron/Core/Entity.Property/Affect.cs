@@ -43,13 +43,13 @@ namespace Hedron.Core.Property
 		/// The damage modifiers
 		/// </summary>
 		[JsonProperty]
-		public DamageModifier DamageModifiers { get; set; }
+		public DamageModifier DamageModifier { get; set; }
 
 		/// <summary>
 		/// The damage multipliers
 		/// </summary>
 		[JsonProperty]
-		public DamageModifier DamageMultipliers { get; set; }
+		public DamageModifier DamageMultiplier { get; set; }
 
 		/// <summary>
 		/// The display of the affect
@@ -74,5 +74,22 @@ namespace Hedron.Core.Property
 		/// </summary>
 		[JsonProperty]
 		public Qualities Qualities { get; set; }
+
+		/// <summary>
+		/// Creates a new affect as a multiplier
+		/// </summary>
+		/// <param name="multiplier">The multiplier to set all properties to</param>
+		public static Affect NewMultiplier(float multiplier)
+		{
+			return new Affect
+			{
+				ArmorMultiplier = multiplier,
+				Pools = Pools.NewMultiplier(multiplier),
+				Attributes = Attributes.NewMultiplier(multiplier),
+				CanDispel = false,
+				DamageMultiplier = new DamageModifier(null, multiplier),
+				Qualities = Qualities.NewMultiplier(multiplier)
+			};
+		}
 	}
 }
