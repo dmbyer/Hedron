@@ -19,7 +19,7 @@ namespace Hedron.Commands
             {"save",      new Operational.Save() },
             
 			// Movement commands
-			{"north",     new Movement.North() },
+            {"north",     new Movement.North() },
             {"east",      new Movement.East() },
             {"south",     new Movement.South() },
             {"west",      new Movement.West() },
@@ -29,30 +29,30 @@ namespace Hedron.Commands
             {"goto",      new Movement.Goto() },
 
 			// Item commands
-			{"drop",      new Item.Drop() },
+            {"drop",      new Item.Drop() },
             {"equipment", new Item.Equipment() },
             {"get",       new Item.Get() },
             {"inventory", new Item.Inventory() },
             {"remove",    new Item.Remove() },
             {"wear",      new Item.Wear() },
 
-			// General commands
-			// {"\n",        InvokableCommand.CMD_BLANK_LINE },
-			{"prompt",    new General.Prompt() },
+            // General commands
+            // {"\n",        InvokableCommand.CMD_BLANK_LINE },
+            {"prompt",    new General.Prompt() },
             {"stats",     new General.Stats() },
             {"who",       new General.Who() },
-
-			// Building commands
-			{"autodig",   new Building.Autodig() },
+            
+            // Building commands
+            {"autodig",   new Building.Autodig() },
             {"elist",     new Building.Elist() },
             {"set",       new Building.Set() },
-
-			// Combat commands
-			{"flee",      new Combat.Flee() },
+            
+            // Combat commands
+            {"flee",      new Combat.Flee() },
             {"kill",      new Combat.Kill() },
-
-			// System commands
-			{"shutdown",  new System.Shutdown() }
+            
+            // System commands
+            {"shutdown",  new System.Shutdown() }
         };
 
         /// <summary>
