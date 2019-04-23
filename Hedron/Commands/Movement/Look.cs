@@ -51,7 +51,7 @@ namespace Hedron.Commands.Movement
 					var matchedEntity = Parse.MatchOnEntityNameByOrder(argument, DataAccess.GetMany<IEntity>(room.GetAllEntities(), CacheType.Instance));
 
 					if (matchedEntity != null)
-						output.Append(entity.LongDescription);
+						output.Append(matchedEntity.LongDescription);
 					else
 						return CommandResult.Failure("You do not see that here.");
 				}
