@@ -42,9 +42,9 @@ namespace Hedron.Commands
 			{"wear",      new Item.Wear() },
 
 			// General commands
-			// {"\n",        InvokableCommand.CMD_BLANK_LINE },
 			{"prompt",    new General.Prompt() },
 			{"stats",     new General.Stats() },
+		    {"who",       new General.Who() },
 
 			// Building commands
 			{"autodig",   new Building.Autodig() },
