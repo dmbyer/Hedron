@@ -46,7 +46,18 @@ namespace Hedron.Network
 					CommandResult result = HandleNameSelection(input, entity);
 
 					if (result.ResultCode == ResultCode.SUCCESS)
+					{
+						entity.IOHandler?.QueueOutput(result.ResultMessage);
+						var startingRooms = DataAccess.GetInstancesOfPrototype<Room>(DataAccess.Get<World>(0, CacheType.Instance).StartingLocation);
+
+						var args = new CommandEventArgs(
+							startingRooms.Count > 0 ? startingRooms[0].Instance.ToString() : "0",
+							entity,
+							null);
+
 						State = GameState.Active;
+						result = new Commands.Movement.Goto().Execute(args);
+					}
 
 					return result;
 				case GameState.Active:
@@ -68,15 +79,6 @@ namespace Hedron.Network
 			{
 				entity.Name = input;
 				var output = new OutputBuilder($"Welcome to HedronMUD, {entity.Name}!");
-
-				var startingRooms = DataAccess.GetInstancesOfPrototype<Room>(DataAccess.Get<World>(0, CacheType.Instance).StartingLocation);
-
-				var args = new CommandEventArgs(
-					startingRooms.Count > 0 ? startingRooms[0].Instance.ToString() : "0",
-					entity,
-					null);
-
-				output.Append(new Commands.Movement.Goto().Execute(args).ResultMessage);
 
 				return CommandResult.Success(output.Output);
 			}

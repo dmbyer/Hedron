@@ -61,8 +61,24 @@ namespace Hedron.Commands.Operational
 						return CommandResult.InvalidSyntax("config areaname", new List<string> { "on", "off" });
 					}
 					break;
+				case "COLOR":
+					if (opt == "ON")
+					{
+						player.Configuration.UseColor = true;
+						output.Append("Color is now enabled.");
+					}
+					else if (opt == "OFF")
+					{
+						player.Configuration.UseColor = false;
+						output.Append("Color is now disabled.");
+					}
+					else
+					{
+						return CommandResult.InvalidSyntax("config color", new List<string> { "on", "off" });
+					}
+					break;
 				default:
-					return CommandResult.InvalidSyntax(nameof(Config), new List<string> { "areaname" }, new List<string> { "option" });
+					return CommandResult.InvalidSyntax(nameof(Config), new List<string> { "areaname", "color" }, new List<string> { "option" });
 			}
 
 			return CommandResult.Success(output.Output);

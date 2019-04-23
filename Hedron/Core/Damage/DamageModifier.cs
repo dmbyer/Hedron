@@ -10,12 +10,12 @@ namespace Hedron.Core.Damage
 		/// <summary>
 		/// The DamageType of the modifier
 		/// </summary>
-		public DamageType DamageType    { get; set; }
+		public DamageType? DamageType    { get; set; }
 
 		/// <summary>
 		/// The value of the modifier
 		/// </summary>
-		public int        Value         { get; set; }
+		public float?     Value         { get; set; }
 
 		/// <summary>
 		/// Default constructor
@@ -30,7 +30,7 @@ namespace Hedron.Core.Damage
 		/// </summary>
 		/// <param name="damageType">The DamageType</param>
 		/// <param name="value">The value for the DamageType</param>
-		public DamageModifier(DamageType damageType, int value)
+		public DamageModifier(DamageType? damageType, float value)
 		{
 			DamageType = damageType;
 			Value = value;
@@ -42,8 +42,11 @@ namespace Hedron.Core.Damage
 		/// <param name="damageModifier"></param>
 		public void CopyTo(DamageModifier damageModifier)
 		{
-			damageModifier.DamageType = DamageType;
-			damageModifier.Value = Value;
+			if (damageModifier != null)
+			{
+				damageModifier.DamageType = DamageType;
+				damageModifier.Value = Value;
+			}
 		}
 	}
 }

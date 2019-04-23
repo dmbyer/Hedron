@@ -6,6 +6,7 @@ using Hedron.Core.Entity;
 using Hedron.Core.Property;
 using Hedron.System;
 using Hedron.System.Exceptions;
+using Hedron.System.Text;
 
 namespace Hedron.Commands.Item
 {
@@ -81,16 +82,16 @@ namespace Hedron.Commands.Item
 			{
 				// Find the given item in inventory and equip it, removing any currently equipped items as necessary
 				List<EntityInanimate> itemsRemoved = new List<EntityInanimate>();
-				EntityInanimate itemMatched = inventoryEntities.FirstOrDefault(item => item.Name.ToUpper().StartsWith(nameToWear));
+				var itemMatched = Parse.MatchOnEntityNameByOrder(nameToWear, inventoryEntities.Cast<IEntity>().ToList());
 				if (itemMatched != null)
 				{
 					try
 					{
 						// Equip the item and swap already equipped items to inventory
-						itemsRemoved = entity.EquipItemAt(itemMatched.Instance, itemMatched.Slot, true);
+						itemsRemoved = entity.EquipItemAt(itemMatched.Instance, ((EntityInanimate)itemMatched).Slot, true);
 
 						entity.RemoveInventoryItem(itemMatched.Instance);
-						itemsMarkedAsWorn.Add(itemMatched);
+						itemsMarkedAsWorn.Add((EntityInanimate)itemMatched);
 
 						foreach (var item in itemsRemoved)
 							output.Append($"You remove {item.ShortDescription} and put it in your pack.");

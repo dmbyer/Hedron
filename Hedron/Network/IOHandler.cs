@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using Hedron.Core;
 using Hedron.Core.Entity;
 using Hedron.System;
+using Hedron.System.Text;
 
 
 namespace Hedron.Network
@@ -191,7 +192,17 @@ namespace Hedron.Network
         {
             if (output != "")
             {
-                byte[] send = Encoding.ASCII.GetBytes(output.TrimEnd('\n').ToCharArray());
+				if (player.Configuration.UseColor)
+				{
+					output = Formatter.FriendlyColorConversion(output, false);
+					output += Formatter.UniColorReset;
+				}
+				else
+				{
+					output = Formatter.FriendlyColorConversion(output, true);
+				}
+
+				byte[] send = Encoding.ASCII.GetBytes(output.TrimEnd('\n').ToCharArray());
                 stream.Write(send, 0, send.Length);
                 stream.Write(writelineterminate, 0, 1);
 

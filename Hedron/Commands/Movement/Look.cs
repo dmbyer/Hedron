@@ -48,23 +48,11 @@ namespace Hedron.Commands.Movement
 			{
 				if (argument?.Length > 0)
 				{
-					var entities = DataAccess.GetMany<EntityBase>(room.GetAllEntities(), CacheType.Instance)
-						.Where(e => e?.Instance != entity.Instance)
-						.OrderBy(e => e?.Name);
+					var matchedEntity = Parse.MatchOnEntityNameByOrder(argument, DataAccess.GetMany<IEntity>(room.GetAllEntities(), CacheType.Instance));
 
-					bool found = false;
-
-					foreach (var ent in entities)
-					{
-						if (ent.Name.StartsWith(argument))
-						{
-							output.Append(ent.LongDescription);
-							found = true;
-							break;
-						}
-					}
-
-					if (!found)
+					if (matchedEntity != null)
+						output.Append(entity.LongDescription);
+					else
 						return CommandResult.Failure("You do not see that here.");
 				}
 				else

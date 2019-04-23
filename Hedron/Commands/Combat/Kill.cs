@@ -8,6 +8,7 @@ using Hedron.Core.Container;
 using Hedron.Core.Entity;
 using Hedron.Data;
 using Hedron.System.Exceptions;
+using Hedron.System.Text;
 
 namespace Hedron.Commands.Combat
 {
@@ -55,14 +56,7 @@ namespace Hedron.Commands.Combat
 			uint? targetID = null;
 
 			// Find first matching target
-			foreach (var ent in entities)
-			{
-				if (ent.Instance != targetID && ent.Name.StartsWith(commandEventArgs.Argument))
-				{
-					targetID = ent.Instance;
-					break;
-				}
-			}
+			targetID = Parse.MatchOnEntityNameByOrder(commandEventArgs.Argument, entities.Cast<IEntity>().ToList())?.Instance;
 
 			if (targetID != null)
 			{

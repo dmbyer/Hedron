@@ -15,14 +15,13 @@ namespace Hedron.Core.Entity
 	public sealed class Player : EntityAnimate
 	{
 		// Public Fields
-		public string Prompt { get; set; }
+		public string Prompt { get; set; } = Constants.Prompt.DEFAULT_COLOR;
 		public PlayerConfiguration Configuration { get; set; } = new PlayerConfiguration();
 
         // Constructor
         public Player(NetworkStream stream) : base()
         {
             IOHandler = new IOHandler(this, stream);
-            Prompt = string.Copy(Constants.Prompt.DEFAULT);
 
 			StateHandler.State = GameState.NameSelection;
 			PrivilegeLevel = Commands.PrivilegeLevel.Administrator;

@@ -41,6 +41,15 @@ namespace Hedron.System
 		public const int    MIN_TIER              = 1;
 		public const int    MAX_TIER              = 6;
 
+		// Mob level modifiers
+		public const float  LEVEL_MOD_PATHETIC    = 0.50f;
+		public const float  LEVEL_MOD_MEEK        = 0.75f;
+		public const float  LEVEL_MOD_MINOR       = 0.90f;
+		public const float  LEVEL_MOD_FAIR        = 1.00f;
+		public const float  LEVEL_MOD_HEIGHTENED  = 1.50f;
+		public const float  LEVEL_MOD_GREAT       = 2.00f;
+		public const float  LEVEL_MOD_LEGENDARY   = 3.00f;
+
 		// Directions rooms can have
 		public enum EXIT
 		{
@@ -102,13 +111,21 @@ namespace Hedron.System
 		public static class Prompt
 		{
 			// Public members
-			public static readonly string HP_CURRENT      = @"$hp";
-			public static readonly string HP_MAX          = @"$HP";
-			public static readonly string STAMINA_CURRENT = @"$st";
-			public static readonly string STAMINA_MAX     = @"$ST";
-			public static readonly string ENERGY_CURRENT  = @"$en";
-			public static readonly string ENERGY_MAX      = @"$EN";
-			public static readonly string DEFAULT         = @"$hp/$HPhp $st/$STst $en/$ENen > ";
+			public static readonly string HP_CURRENT      = $"$hp";
+			public static readonly string HP_MAX          = $"$HP";
+			public static readonly string STAMINA_CURRENT = $"$st";
+			public static readonly string STAMINA_MAX     = $"$ST";
+			public static readonly string ENERGY_CURRENT  = $"$en";
+			public static readonly string ENERGY_MAX      = $"$EN";
+
+			public static readonly string DEFAULT_COLOR   = $"{Text.Formatter.FriendlyColorRed}$hp{Text.Formatter.FriendlyColorReset}/"
+				+ $"{Text.Formatter.FriendlyColorRed + Text.Formatter.FriendlyColorBold}$HP{Text.Formatter.FriendlyColorReset}hp "
+				+ $"{Text.Formatter.FriendlyColorGreen}$st{Text.Formatter.FriendlyColorReset}/"
+				+ $"{Text.Formatter.FriendlyColorGreen + Text.Formatter.FriendlyColorBold}$ST{Text.Formatter.FriendlyColorReset}st "
+				+ $"{Text.Formatter.FriendlyColorBlue}$en{Text.Formatter.FriendlyColorReset}/"
+				+ $"{Text.Formatter.FriendlyColorBlue + Text.Formatter.FriendlyColorBold}$EN{Text.Formatter.FriendlyColorReset}en > ";
+
+			public static readonly string DEFAULT         = $"$hp/$HPhp $st/$STst $en/$ENen > ";
 		}
 	}
 }

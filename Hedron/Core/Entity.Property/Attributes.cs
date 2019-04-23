@@ -11,34 +11,39 @@ namespace Hedron.Core.Property
 	public class Attributes : ICopyableObject<Attributes>
 	{
 		/// <summary>
+		/// Whether this is additive or multiplicative
+		/// </summary>
+		public bool IsMultiplier { get; set; }
+
+		/// <summary>
 		/// Physical strength
 		/// </summary>
-		public int? Might { get; set; }
+		public float? Might { get; set; }
 
 		/// <summary>
 		/// Physical agility
 		/// </summary>
-		public int? Finesse { get; set; }
+		public float? Finesse { get; set; }
 
 		/// <summary>
 		/// Mental force
 		/// </summary>
-		public int? Will { get; set; }
+		public float? Will { get; set; }
 
 		/// <summary>
 		/// Mental precision
 		/// </summary>
-		public int? Intellect { get; set; }
+		public float? Intellect { get; set; }
 
 		/// <summary>
 		/// Spiritual power
 		/// </summary>
-		public int? Spirit { get; set; }
+		public float? Spirit { get; set; }
 
 		/// <summary>
 		/// Spiritual fortitude
 		/// </summary>
-		public int? Essence { get; set; }
+		public float? Essence { get; set; }
 
 		/// <summary>
 		/// Returns a default set of attributes
@@ -65,7 +70,23 @@ namespace Hedron.Core.Property
 		public static Attributes Default(Tier tier)
 		{
 			return Default() * tier;
+		}
 
+		/// <summary>
+		/// Creates a new attribute set as a multiplier
+		/// </summary>
+		/// <param name="multiplier">The multiplier to set all properties to</param>
+		public static Attributes NewMultiplier(float multiplier)
+		{
+			return new Attributes
+			{
+				Might = multiplier,
+				Finesse = multiplier,
+				Will = multiplier,
+				Intellect = multiplier,
+				Spirit = multiplier,
+				Essence = multiplier
+			};
 		}
 
 		/// <summary>
@@ -109,6 +130,20 @@ namespace Hedron.Core.Property
 		}
 
 		// overload operator *
+		public static Attributes operator *(Attributes a, float? b)
+		{
+			return new Attributes()
+			{
+				Might = NullableMath.Multiply(a?.Might, b),
+				Finesse = NullableMath.Multiply(a?.Finesse, b),
+				Will = NullableMath.Multiply(a?.Will, b),
+				Intellect = NullableMath.Multiply(a?.Intellect, b),
+				Spirit = NullableMath.Multiply(a?.Spirit, b),
+				Essence = NullableMath.Multiply(a?.Essence, b)
+			};
+		}
+
+		// overload operator *
 		public static Attributes operator *(Attributes a, Attributes b)
 		{
 			return new Attributes()
@@ -124,6 +159,20 @@ namespace Hedron.Core.Property
 
 		// overload operator /
 		public static Attributes operator /(Attributes a, int? b)
+		{
+			return new Attributes()
+			{
+				Might = NullableMath.Divide(a?.Might, b),
+				Finesse = NullableMath.Divide(a?.Finesse, b),
+				Will = NullableMath.Divide(a?.Will, b),
+				Intellect = NullableMath.Divide(a?.Intellect, b),
+				Spirit = NullableMath.Divide(a?.Spirit, b),
+				Essence = NullableMath.Divide(a?.Essence, b)
+			};
+		}
+
+		// overload operator /
+		public static Attributes operator /(Attributes a, float? b)
 		{
 			return new Attributes()
 			{
@@ -165,6 +214,20 @@ namespace Hedron.Core.Property
 		}
 
 		// overload operator +
+		public static Attributes operator +(Attributes a, float? b)
+		{
+			return new Attributes()
+			{
+				Might = NullableMath.Add(a?.Might, b),
+				Finesse = NullableMath.Add(a?.Finesse, b),
+				Will = NullableMath.Add(a?.Will, b),
+				Intellect = NullableMath.Add(a?.Intellect, b),
+				Spirit = NullableMath.Add(a?.Spirit, b),
+				Essence = NullableMath.Add(a?.Essence, b)
+			};
+		}
+
+		// overload operator +
 		public static Attributes operator +(Attributes a, Attributes b)
 		{
 			return new Attributes()
@@ -180,6 +243,12 @@ namespace Hedron.Core.Property
 
 		// overload operator -
 		public static Attributes operator -(Attributes a, int? b)
+		{
+			return a + (-b);
+		}
+
+		// overload operator -
+		public static Attributes operator -(Attributes a, float? b)
 		{
 			return a + (-b);
 		}

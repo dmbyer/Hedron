@@ -67,9 +67,9 @@ namespace Hedron.Commands.Item
 			else
 			{
 				matchedItems = new List<EntityInanimate>();
-				EntityInanimate itemMatched = roomEntities.FirstOrDefault(item => item.Name.ToUpper().StartsWith(nameToGet));
+				var itemMatched = Parse.MatchOnEntityNameByOrder(nameToGet, roomEntities.Cast<IEntity>().ToList());
 				if (itemMatched != null)
-					matchedItems.Add(itemMatched);
+					matchedItems.Add((EntityInanimate)itemMatched);
 			}
 
 			if (matchedItems.Count == 0)

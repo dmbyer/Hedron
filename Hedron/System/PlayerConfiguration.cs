@@ -19,5 +19,10 @@ namespace Hedron.System
 		/// Whether to display the area name when looking in a room
 		/// </summary>
 		public bool DisplayAreaName { get; set; } = true;
+
+		/// <summary>
+		/// Whether to use color codes
+		/// </summary>
+		public bool UseColor { get; set; } = true;
 	}
 }

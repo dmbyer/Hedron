@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Hedron.Core.Entity;
 using Hedron.System;
 using Hedron.System.Exceptions;
+using Hedron.System.Text;
 
 namespace Hedron.Commands.General
 {
@@ -35,44 +37,70 @@ namespace Hedron.Commands.General
 				return ex.CommandResult;
 			}
 
-			// TODO: Rewrite to accommodate network input
-			/*
-            string firstarg = string.Copy(ParseFirstArgument(argument));
-            firstarg = firstarg.ToUpper();
+			var player = (Player)commandEventArgs.Entity;
+			var output = new OutputBuilder();
+			var argument = CommandHandler.ParseFirstArgument(commandEventArgs.Argument).ToUpper();
 
-            if (firstarg == "SET")
-            {
-                string sout = "Enter the prompt you'd like to use. Placeholders are:\n";
-                sout += "$hp - Current hit points\n"
-                 + "$HP - Maximum hit points\n"
-                 + "$st - Current stamina\n"
-                 + "$ST - Maximum stamina\n"
-                 + "$en - Current energy\n"
-                 + "$EN - Maximum energy\n"
-                 + "Prompt: ";
-                entity.IOHandler.QueueOutput(sout);
-                entity.IOHandler.SendOutput();
+			switch (argument)
+			{
+				case "CLEAR":
+					player.Prompt = "";
+					output.Append("Your prompt has been cleared.");
+					break;
+				case "RESET":
+					if (player.Configuration.UseColor)
+						player.Prompt = Constants.Prompt.DEFAULT_COLOR;
+					else
+						player.Prompt = Constants.Prompt.DEFAULT;
 
-                string newprompt = entity.IOHandler.GetInput();
+					output.Append($"Your prompt has been set to:\n   {player.Prompt}");
 
-                ((Player)entity).Prompt = newprompt;
+					break;
+				case "SET":
+					var arg = CommandHandler.ParseArgument(commandEventArgs.Argument);
+					if (arg == "")
+					{
+						var help = Formatter.NewTableFromList(
+							new List<string>
+							{
+								"Valid placeholders are:",
+								"Valid color codes are:",
+								"$hp - Current hit points",
+								$"`{Formatter.FriendlyColorBlack} - Black",
+								"$HP - Maximum hit points",
+								$"`{Formatter.FriendlyColorBlue} - Blue",
+								"$st - Current stamina",
+								$"`{Formatter.FriendlyColorBold} - (Bold)",
+								"$ST - Maximum stamina",
+								$"`{Formatter.FriendlyColorCyan} - Cyan",
+								"$en - Current energy",
+								$"`{Formatter.FriendlyColorGreen} - Green",
+								"$EN - Maximum energy",
+								$"`{Formatter.FriendlyColorMagenta} - Magenta",
+								"",
+								$"`{Formatter.FriendlyColorRed} - Red",
+								"",
+								$"`{Formatter.FriendlyColorReset} - (Reset)",
+								"",
+								$"`{Formatter.FriendlyColorWhite} - White",
+								"",
+								$"`{Formatter.FriendlyColorYellow} - Yellow"
+							}, 2, 4, 4);
 
-                entity.IOHandler.QueueOutput("Your prompt has been set to: " + newprompt);
-                return CommandResult.CMD_R_SUCCESS;
-            }
+						if (!player.Prompt.EndsWith(Formatter.FriendlyColorReset))
+							player.Prompt += Formatter.FriendlyColorReset;
 
-            if (firstarg == "CLEAR")
-            {
-                ((Player)entity).Prompt = "";
-                entity.IOHandler.QueueOutput("Your prompt has been cleared.");
-                return CommandResult.CMD_R_SUCCESS;
-            }
+						return CommandResult.InvalidSyntax(nameof(Prompt), $"\n{help}", new List<string> { "set [new prompt]" });
+					}
 
-            entity.IOHandler.QueueOutput("Usage: prompt <action>\nValid actions are SET and CLEAR.");
-            return CommandResult.CMD_R_ERRSYNTAX;
-            */
+					player.Prompt = arg;
+					output.Append($"Your prompt has been set to:\n   {arg}");
+					break;
+				default:
+					return CommandResult.InvalidSyntax(nameof(Prompt), new List<string> { "clear", "reset", "set" });
+			}
 
-			return CommandResult.NotImplemented(nameof(Prompt));
+			return CommandResult.Success(output.Output);
 		}
 	}
 }
