@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Hedron.Data
+﻿namespace Hedron.Data
 {
 	/// <summary>
 	/// Allows an object to be cacheable.

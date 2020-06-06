@@ -1,17 +1,16 @@
-﻿using System;
+﻿using Hedron.Core.Entity.Property;
+using Hedron.System;
+using Hedron.System.Exceptions.Command;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core.Property;
-using Hedron.System;
-using Hedron.System.Exceptions;
 
 namespace Hedron.Commands.Item
 {
-	/// <summary>
-	/// Reviews the contents of worn equipment
-	/// </summary>
-	public class Equipment : Command
+    /// <summary>
+    /// Reviews the contents of worn equipment
+    /// </summary>
+    public class Equipment : Command
 	{
 		/// <summary>
 		/// Default constructor

@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
-namespace Hedron.System.Exceptions
+namespace Hedron.System.Exceptions.Slot
 {
 	/// <summary>
 	/// For situations in which the slot provided is either invalid or an item of a certain slot is added to another slot

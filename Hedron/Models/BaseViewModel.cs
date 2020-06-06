@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Data;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Hedron.Models
 {
-	public class BaseViewModel
+    public class BaseViewModel
 	{
 		protected string _type;
 

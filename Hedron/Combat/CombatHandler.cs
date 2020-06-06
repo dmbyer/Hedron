@@ -1,16 +1,16 @@
-﻿using System;
+﻿using Hedron.Core.Entity.Base;
+using Hedron.Core.Entity.Item;
+using Hedron.Core.Entity.Living;
+using Hedron.Core.Entity.Property;
+using Hedron.Core.Locale;
+using Hedron.Data;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core;
-using Hedron.Core.Entity;
-using Hedron.Core.Property;
-using Hedron.Data;
-using Hedron.System;
 
 namespace Hedron.Combat
 {
-	public static class CombatHandler
+    public static class CombatHandler
 	{
 		/// <summary>
 		/// Map entity combat targets. Each entity may have 1 target.

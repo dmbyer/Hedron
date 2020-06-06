@@ -1,21 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core;
-using Hedron.Core.Container;
-using Hedron.Core.Entity;
+﻿using Hedron.Core.Container;
+using Hedron.Core.Entity.Base;
+using Hedron.Core.Entity.Living;
+using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.System;
-using Hedron.System.Exceptions;
+using Hedron.System.Exceptions.Command;
 using Hedron.System.Text;
+using System.Linq;
 
 namespace Hedron.Commands.Movement
 {
-	/// <summary>
-	/// Shows player information about the thing they are looking at or their surroundings
-	/// </summary>
-	public class Look : Command
+    /// <summary>
+    /// Shows player information about the thing they are looking at or their surroundings
+    /// </summary>
+    public class Look : Command
 	{
 		/// <summary>
 		/// Default constructor

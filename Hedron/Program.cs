@@ -1,25 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using System.Net;
-using System.Net.Sockets;
-using Hedron.Core;
-using Hedron.Core.Entity;
-using Hedron.System;
+﻿using Hedron.Commands;
+using Hedron.Core.Entity.Living;
+using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.Network;
-using Hedron.Commands;
+using Hedron.System;
+using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Hosting;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
 
 namespace Hedron
 {
-	public class Program
+    public class Program
 	{
 		private static Thread gameLoop;
 

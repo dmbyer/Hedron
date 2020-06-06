@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace Hedron.System
+﻿namespace Hedron.System
 {
-	public class OutputBuilder
+    public class OutputBuilder
 	{
 		public string Output { get; protected set; }
 

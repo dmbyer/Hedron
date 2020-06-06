@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Commands;
+﻿using Hedron.Commands;
 
-namespace Hedron.System.Exceptions
+namespace Hedron.System.Exceptions.Command
 {
 	/// <summary>
 	/// For situations in which the privilege level is not high enough to execute an action

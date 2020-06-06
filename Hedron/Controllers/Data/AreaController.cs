@@ -1,16 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Hedron.Core;
+﻿using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.Models;
+using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Hedron.Controllers.Data
 {
-    public class AreaController : Controller
+	public class AreaController : Controller
     {
 		// GET: Area
 		public ActionResult Index()

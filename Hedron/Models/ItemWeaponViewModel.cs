@@ -1,16 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core;
-using Hedron.Core.Damage;
-using Hedron.Core.Property;
-using Hedron.System;
+﻿using Hedron.Core.Damage;
+using Hedron.Core.Entity.Property;
 
 namespace Hedron.Models
 {
-	public class ItemWeaponViewModel : BaseEntityInanimateViewModel
+    public class ItemWeaponViewModel : BaseEntityInanimateViewModel
 	{
 		public DamageType DamageType { get; set; }
 

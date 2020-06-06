@@ -1,21 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Combat;
-using Hedron.Core;
+﻿using Hedron.Combat;
 using Hedron.Core.Container;
-using Hedron.Core.Entity;
+using Hedron.Core.Entity.Base;
+using Hedron.Core.Locale;
 using Hedron.Data;
-using Hedron.System.Exceptions;
+using Hedron.System;
+using Hedron.System.Exceptions.Command;
 using Hedron.System.Text;
+using System.Linq;
 
 namespace Hedron.Commands.Combat
 {
-	/// <summary>
-	/// Initiates combat
-	/// </summary>
-	public class Kill : Command
+    /// <summary>
+    /// Initiates combat
+    /// </summary>
+    public class Kill : Command
 	{
 		/// <summary>
 		/// Default constructor

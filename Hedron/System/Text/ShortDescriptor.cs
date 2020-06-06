@@ -1,15 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core.Entity;
+﻿using Hedron.Core.Entity.Base;
 
 namespace Hedron.System.Text
 {
-	/// <summary>
-	/// Provides descriptions for entities based on their properties
-	/// </summary>
-	public static class Descriptor
+    /// <summary>
+    /// Provides descriptions for entities based on their properties
+    /// </summary>
+    public static class Descriptor
 	{
 		/// <summary>
 		/// Provides a short description for an item

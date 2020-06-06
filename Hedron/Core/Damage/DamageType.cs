@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Hedron.Core.Damage
+﻿namespace Hedron.Core.Damage
 {
-	/// <summary>
-	/// Damage types
-	/// </summary>
-	public enum DamageType
+    /// <summary>
+    /// Damage types
+    /// </summary>
+    public enum DamageType
 	{
 		Acid,
 		Air,

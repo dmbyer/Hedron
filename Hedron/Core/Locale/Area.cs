@@ -1,20 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Hedron.Core.Container;
-using Hedron.Core.Property;
+﻿using Hedron.Core.Container;
+using Hedron.Core.Entity.Property;
 using Hedron.Data;
 using Hedron.System;
-using Newtonsoft.Json;
 
-namespace Hedron.Core
+namespace Hedron.Core.Locale
 {
-    public class Area : EntityContainer, ICopyableObject<Area>, ISpawnableObject
+	public class Area : EntityContainer, ICopyableObject<Area>, ISpawnableObject
 	{
-		public Tier	     Tier		{ get; private set; } = new Tier();
-		public string    Name		{ get; set; }
+		public Tier Tier { get; private set; } = new Tier();
+		public string Name { get; set; }
 
 		/// <summary>
 		/// Creates a new area. Must be added to cache.
@@ -67,7 +61,7 @@ namespace Hedron.Core
 		/// <param name="parent">The parent instance ID</param>
 		/// <returns>The spawned area. Will return null if the method is called from an instanced object.</returns>
 		/// <remarks>Exits will all be null and must be fixed from prototype. Parent cannot be null.</remarks>
-		public T SpawnAsObject<T>(bool withEntities, uint? parent = null) where T: CacheableObject
+		public T SpawnAsObject<T>(bool withEntities, uint? parent = null) where T : CacheableObject
 		{
 			return DataAccess.Get<T>(Spawn(withEntities, parent), CacheType.Instance);
 		}

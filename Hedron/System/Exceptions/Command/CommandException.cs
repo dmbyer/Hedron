@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Commands;
+﻿using Hedron.Commands;
+using System;
 
-namespace Hedron.System.Exceptions
+namespace Hedron.System.Exceptions.Command
 {
 	public class CommandException : Exception
 	{

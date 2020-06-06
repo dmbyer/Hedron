@@ -1,12 +1,11 @@
-﻿using System;
+﻿using Hedron.Core.Entity.Base;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core.Entity;
 
 namespace Hedron.System.Text
 {
-	public static class Parse
+    public static class Parse
 	{
 		/// <summary>
 		/// Determines whether a list of keywords begins with a given string. Case insensitive.

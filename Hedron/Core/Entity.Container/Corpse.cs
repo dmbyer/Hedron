@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Data;
-using Hedron.Core.Entity;
-using Hedron.Core.Property;
+﻿using Hedron.Core.Entity.Base;
+using Hedron.Core.Entity.Property;
 
 namespace Hedron.Core.Container
 {

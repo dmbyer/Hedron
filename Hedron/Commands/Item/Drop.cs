@@ -1,20 +1,18 @@
-﻿using System;
+﻿using Hedron.Core.Container;
+using Hedron.Core.Entity.Base;
+using Hedron.Core.Locale;
+using Hedron.System;
+using Hedron.System.Exceptions.Command;
+using Hedron.System.Text;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core;
-using Hedron.Core.Container;
-using Hedron.Core.Entity;
-using Hedron.System;
-using Hedron.System.Exceptions;
-using Hedron.System.Text;
 
 namespace Hedron.Commands.Item
 {
-	/// <summary>
-	/// Drops an object to a room
-	/// </summary>
-	public class Drop : Command
+    /// <summary>
+    /// Drops an object to a room
+    /// </summary>
+    public class Drop : Command
 	{
 		/// <summary>
 		/// Default constructor

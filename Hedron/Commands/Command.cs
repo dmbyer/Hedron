@@ -1,13 +1,11 @@
-﻿using System;
+﻿using Hedron.Network;
+using Hedron.System.Exceptions.Command;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Network;
-using Hedron.System.Exceptions;
 
 namespace Hedron.Commands
 {
-	public abstract class Command
+    public abstract class Command
 	{
 		/// <summary>
 		/// The friendly name of the command

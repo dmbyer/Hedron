@@ -1,27 +1,25 @@
-﻿using System;
+﻿using Hedron.Core.Container;
+using Hedron.Core.Entity.Base;
+using Hedron.Core.Entity.Item;
+using Hedron.Core.Entity.Living;
+using Hedron.Data;
+using Hedron.System;
+using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Hedron.Core.Container;
-using Hedron.Core.Entity;
-using Hedron.System;
-using Hedron.Data;
-using Newtonsoft.Json;
 
-namespace Hedron.Core
+namespace Hedron.Core.Locale
 {
-    public class World : EntityContainer, ICopyableObject<World>, ISpawnableObject
+	public class World : EntityContainer, ICopyableObject<World>, ISpawnableObject
 	{
 		[JsonIgnore]
-		public bool        IsLoading        { get; private set; }
+		public bool IsLoading { get; private set; }
 
 		[JsonIgnore]
-		public static bool Shutdown         { get; set; }
+		public static bool Shutdown { get; set; }
 
-        public string      Name             { get; set; }
-		public uint?       StartingLocation { get; set; } = null;
+		public string Name { get; set; }
+		public uint? StartingLocation { get; set; } = null;
 
 		/// <summary>
 		/// Default constructor
@@ -62,8 +60,8 @@ namespace Hedron.Core
 		/// Saves the world to the filesystem
 		/// </summary>
 		/// <param name="path">The folder path to save to. Uses default location if unspecified.</param>
-        public void SaveWorld()
-        {
+		public void SaveWorld()
+		{
 			// Write world
 			DataPersistence.SaveObject(this);
 
@@ -165,10 +163,10 @@ namespace Hedron.Core
 			else
 			{
 				// No <worldname>.json found
-				Logger.Error(nameof(World), 
-					nameof(LoadWorld), 
+				Logger.Error(nameof(World),
+					nameof(LoadWorld),
 					string.Format(@"No .json file found to load in {0}\{1}", basePath, typeof(World).ToString()));
-				return default(World);
+				return default;
 			}
 
 			// Load rooms
@@ -299,7 +297,7 @@ namespace Hedron.Core
 				// Final pass at fixing null exits for instanced rooms
 				Logger.Info(nameof(World), nameof(LoadWorld), "Fixing null exits.");
 				RoomExits.FixNullExits(CacheType.Instance);
-				
+
 				Logger.Info(nameof(World), nameof(LoadWorld), "Finished instantiating world.");
 			}
 

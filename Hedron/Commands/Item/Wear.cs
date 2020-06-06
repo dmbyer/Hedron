@@ -1,19 +1,18 @@
-﻿using System;
+﻿using Hedron.Core.Entity.Base;
+using Hedron.Core.Entity.Property;
+using Hedron.System;
+using Hedron.System.Exceptions.Command;
+using Hedron.System.Exceptions.Slot;
+using Hedron.System.Text;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core.Entity;
-using Hedron.Core.Property;
-using Hedron.System;
-using Hedron.System.Exceptions;
-using Hedron.System.Text;
 
 namespace Hedron.Commands.Item
 {
-	/// <summary>
-	/// Wears an object
-	/// </summary>
-	public class Wear : Command
+    /// <summary>
+    /// Wears an object
+    /// </summary>
+    public class Wear : Command
 	{
 		/// <summary>
 		/// Default constructor

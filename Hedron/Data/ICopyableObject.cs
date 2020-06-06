@@ -1,4 +1,4 @@
-﻿namespace Hedron.Core
+﻿namespace Hedron.Data
 {
 	/// <summary>
 	/// Allows an object to copy itself to another object. DO NOT copy the Instance property of ICacheableObject.

@@ -1,18 +1,17 @@
-﻿using System;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Hedron.Commands;
-using Hedron.System;
-using Hedron.Data;
+﻿using Hedron.Commands;
 using Hedron.Core.Container;
-using Hedron.Core.Property;
+using Hedron.Core.Entity.Property;
+using Hedron.Core.Locale;
+using Hedron.Data;
 using Hedron.Network;
-using Hedron.System.Exceptions;
+using Hedron.System;
+using Hedron.System.Exceptions.Slot;
 using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
-namespace Hedron.Core.Entity
+namespace Hedron.Core.Entity.Base
 {
 	/// <summary>
 	/// For all living entities
@@ -74,7 +73,7 @@ namespace Hedron.Core.Entity
 		/// The entity's base pools
 		/// </summary>
 		[JsonProperty]
-		public Pools BaseMaxPools    { get; set; } = Pools.Default();
+		public Pools BaseMaxPools { get; set; } = Pools.Default();
 
 		/// <summary>
 		/// The entity's current hitpoints
@@ -153,7 +152,7 @@ namespace Hedron.Core.Entity
 		/// The entity's base qualities
 		/// </summary>
 		[JsonProperty]
-		public Qualities BaseQualities  { get; set; } = Qualities.Default();
+		public Qualities BaseQualities { get; set; } = Qualities.Default();
 
 		/// <summary>
 		/// The entity's modified qualities
@@ -559,7 +558,7 @@ namespace Hedron.Core.Entity
 		public override void HandleEntityAdded(object source, CacheObjectEventArgs args)
 		{
 			base.HandleEntityAdded(source, args);
-			
+
 			/*
 			// If an item was added to the worn equipment, process affects impacting Current Aspects
 			if (source == WornEquipment)

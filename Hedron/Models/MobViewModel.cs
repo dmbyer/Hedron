@@ -1,15 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Hedron.Core.Container;
+using Hedron.Models.Behavior;
+using Hedron.Models.Entity.Property;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core;
-using Hedron.Core.Container;
-using Hedron.System;
 
 namespace Hedron.Models
 {
-	public class MobViewModel : BaseEntityViewModel
+    public class MobViewModel : BaseEntityViewModel
 	{
 		[Display(Name = "Inventory")]
 		public Inventory Inventory { get; set; } = new Inventory();

@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace Hedron.Core.Property
+﻿namespace Hedron.Core.Entity.Property
 {
-	public enum ItemRarity
+    public enum ItemRarity
 	{
 		Common,
 		Uncommon,

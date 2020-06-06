@@ -1,18 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Combat;
-using Hedron.Core;
-using Hedron.System;
-using Hedron.System.Exceptions;
+﻿using Hedron.Combat;
+using Hedron.System.Exceptions.Command;
 
 namespace Hedron.Commands.Combat
 {
-	/// <summary>
-	/// Flees from combat
-	/// </summary>
-	public class Flee : Command
+    /// <summary>
+    /// Flees from combat
+    /// </summary>
+    public class Flee : Command
 	{
 		/// <summary>
 		/// Default constructor

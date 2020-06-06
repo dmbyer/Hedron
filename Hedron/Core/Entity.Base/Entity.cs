@@ -1,15 +1,10 @@
-﻿using System;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Hedron.System;
-using Hedron.Core.Property;
+﻿using Hedron.Core.Entity.Property;
 using Hedron.Data;
 using Hedron.Network;
-using Newtonsoft.Json;
+using System.Collections.Generic;
+using System.Linq;
 
-namespace Hedron.Core.Entity
+namespace Hedron.Core.Entity.Base
 {
 	/// <summary>
 	/// Base entity class for common attributes
@@ -32,27 +27,27 @@ namespace Hedron.Core.Entity
 		/// <summary>
 		/// The name of the entity
 		/// </summary>
-		public string       Name             { get; set; } = "[name]";
+		public string Name { get; set; } = "[name]";
 
 		/// <summary>
 		/// The Short Description of the entity
 		/// </summary>
-		public string       ShortDescription { get; set; } = "[short]";
+		public string ShortDescription { get; set; } = "[short]";
 
 		/// <summary>
 		/// The Long Description of the entity
 		/// </summary>
-		public string       LongDescription  { get; set; } = "[long]";
+		public string LongDescription { get; set; } = "[long]";
 
 		/// <summary>
 		/// The Tier of the entity
 		/// </summary>
-		public Tier         Tier             { get; protected set; } = new Tier();
+		public Tier Tier { get; protected set; } = new Tier();
 
 		/// <summary>
 		/// The IOHandler for network processing
 		/// </summary>
-		public IOHandler    IOHandler        { get; set; }
+		public IOHandler IOHandler { get; set; }
 
 		/// <summary>
 		/// Default constructor

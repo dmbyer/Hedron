@@ -1,20 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Net.Sockets;
-using Hedron.Commands;
-using Hedron.Core;
-using Hedron.Core.Entity;
+﻿using Hedron.Commands;
+using Hedron.Core.Entity.Base;
+using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.System;
 
 namespace Hedron.Network
 {
-	/// <summary>
-	/// Handles input from player based on game state
-	/// </summary>
-	public class StateHandler
+    /// <summary>
+    /// Handles input from player based on game state
+    /// </summary>
+    public class StateHandler
 	{
 		/// <summary>
 		/// The current input state for the player

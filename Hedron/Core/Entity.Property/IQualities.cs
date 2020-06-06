@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace Hedron.Core.Property
+﻿namespace Hedron.Core.Entity.Property
 {
-	public interface IQualities
+    public interface IQualities
 	{
 		/// <summary>
 		/// The base qualities

@@ -1,21 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core;
-using Hedron.Core.Container;
-using Hedron.Core.Entity;
+﻿using Hedron.Core.Container;
+using Hedron.Core.Entity.Base;
+using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.System;
-using Hedron.System.Exceptions;
+using Hedron.System.Exceptions.Command;
 using Hedron.System.Text;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Hedron.Commands.Item
 {
-	/// <summary>
-	/// Gets an object from a container
-	/// </summary>
-	public class Get : Command
+    /// <summary>
+    /// Gets an object from a container
+    /// </summary>
+    public class Get : Command
 	{
 		/// <summary>
 		/// Default constructor

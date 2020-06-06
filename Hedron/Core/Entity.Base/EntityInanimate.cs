@@ -1,16 +1,9 @@
-﻿using System;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Hedron.Core.Behavior;
-using Hedron.Core.Materials;
-using Hedron.Core.Property;
+﻿using Hedron.Core.Behavior;
+using Hedron.Core.Entity.Property;
 using Hedron.Data;
-using Hedron.System;
 using Newtonsoft.Json;
 
-namespace Hedron.Core.Entity
+namespace Hedron.Core.Entity.Base
 {
 	/// <summary>
 	/// For all inanimate entities (e.g. items)
@@ -26,7 +19,7 @@ namespace Hedron.Core.Entity
 		public ItemRarity   Rarity   { get; set; } = ItemRarity.Common;
 
 		[JsonProperty]
-		public Material     Material { get; set; } = new Material();
+		public Material.Material     Material { get; set; } = new Material.Material();
 
 		[JsonProperty]
 		public virtual ItemSlot Slot

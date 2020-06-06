@@ -1,7 +1,6 @@
-﻿using System;
+﻿using Hedron.Core.Locale;
+using System;
 using System.Collections.Generic;
-using System.Text;
-using Hedron.Core;
 
 namespace Hedron.System.Text
 {

@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core.Property;
+﻿using Hedron.Core.Entity.Property;
 
-namespace Hedron.Core.Materials
+namespace Hedron.Core.Material
 {
 	public class Material
 	{

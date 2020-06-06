@@ -1,11 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using Hedron.Core.Entity.Property;
 using Hedron.Data;
-using Hedron.Core.Property;
+using System;
 
-namespace Hedron.Core.Entity
+namespace Hedron.Core.Entity.Base
 {
 	public class EntityEvents : CacheableObject
 	{

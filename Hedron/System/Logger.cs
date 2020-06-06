@@ -1,12 +1,12 @@
 ﻿using System;
 
-namespace Hedron
+namespace Hedron.System
 {
 	public static class Logger
 	{
 		public static void Bug(string className, string methodName, string message)
 		{
-			
+
 		}
 
 		public static void Error(string className, string methodName, string message)

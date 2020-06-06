@@ -1,17 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core;
+﻿using Hedron.Core.Locale;
 using Hedron.System;
-using Hedron.System.Exceptions;
+using Hedron.System.Exceptions.Command;
 
 namespace Hedron.Commands.System
 {
-	/// <summary>
-	/// Flags the server to shutdown
-	/// </summary>
-	public class Shutdown : Command
+    /// <summary>
+    /// Flags the server to shutdown
+    /// </summary>
+    public class Shutdown : Command
 	{
 		/// <summary>
 		/// Default constructor

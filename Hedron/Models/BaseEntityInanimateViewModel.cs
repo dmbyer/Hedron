@@ -1,15 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core;
-using Hedron.Core.Behavior;
-using Hedron.Core.Property;
-using Hedron.System;
+﻿using Hedron.Core.Entity.Property;
+using Hedron.Models.Behavior;
 
 namespace Hedron.Models
 {
-	public class BaseEntityInanimateViewModel : BaseEntityViewModel
+    public class BaseEntityInanimateViewModel : BaseEntityViewModel
 	{
 		public ItemBehaviorViewModel Behavior { get; set; }
 

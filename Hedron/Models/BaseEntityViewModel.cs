@@ -1,13 +1,11 @@
-﻿using System;
+﻿using Hedron.Core.Entity.Base;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core.Entity;
 
 namespace Hedron.Models
 {
-	public class BaseEntityViewModel : BaseViewModel
+    public class BaseEntityViewModel : BaseViewModel
 	{
 		[Display(Name = "Short Description")]
 		public string ShortDescription { get; set; }

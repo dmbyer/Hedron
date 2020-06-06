@@ -1,5 +1,5 @@
-﻿using System;
-using Hedron.Core.Entity;
+﻿using Hedron.Core.Entity.Living;
+using System;
 
 namespace Hedron.System
 {

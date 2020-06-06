@@ -1,20 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core;
-using Hedron.Core.Container;
-using Hedron.Core.Entity;
+﻿using Hedron.Core.Container;
+using Hedron.Core.Entity.Living;
+using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.System;
-using Hedron.System.Exceptions;
+using Hedron.System.Exceptions.Command;
 
 namespace Hedron.Commands.Movement
 {
-	/// <summary>
-	/// Moves an entity from one location to another
-	/// </summary>
-	public class MoveEntity : Command
+    /// <summary>
+    /// Moves an entity from one location to another
+    /// </summary>
+    public class MoveEntity : Command
 	{
 		/// <summary>
 		/// Default constructor

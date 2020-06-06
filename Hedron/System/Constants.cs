@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using Hedron.Core;
-using Hedron.Core.Property;
+﻿using Hedron.Core.Entity.Property;
 
 namespace Hedron.System
 {

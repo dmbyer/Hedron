@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Hedron.Core.Property;
+﻿using Hedron.Core.Entity.Property;
 
-namespace Hedron.Core.Ability
+namespace Hedron.Core.Entity.Ability
 {
 	public abstract class AbilityBase : Commands.Command
 	{

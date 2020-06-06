@@ -1,12 +1,11 @@
-﻿using System;
+﻿using Hedron.Core.Entity.Base;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using Hedron.Core.Entity;
 
 namespace Hedron.System
 {
-	public static class EntityQuantityMapper
+    public static class EntityQuantityMapper
 	{
 		public enum MapStringTypes
 		{

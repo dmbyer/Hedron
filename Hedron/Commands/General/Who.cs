@@ -1,8 +1,8 @@
-﻿using Hedron.Core.Entity;
+﻿using Hedron.Core.Entity.Living;
 using Hedron.Data;
 using Hedron.Network;
 using Hedron.System;
-using Hedron.System.Exceptions;
+using Hedron.System.Exceptions.Command;
 using Hedron.System.Text;
 using System.Collections.Generic;
 

@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using Hedron.Models;
 using Microsoft.AspNetCore.Mvc;
-using Hedron.Models;
+using System.Diagnostics;
 
 namespace Hedron.Controllers
 {

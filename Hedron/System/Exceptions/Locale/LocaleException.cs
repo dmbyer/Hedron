@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Hedron.System.Exceptions.Locale
 {
-	public class LocaleException : Exception
+    public class LocaleException : Exception
 	{
 		/// <summary>
 		/// Default constructor

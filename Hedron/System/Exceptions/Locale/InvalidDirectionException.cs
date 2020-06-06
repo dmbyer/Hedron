@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Hedron.System.Exceptions.Locale
 {
-	public class InvalidDirectionException : LocaleException
+    public class InvalidDirectionException : LocaleException
 	{
 		/// <summary>
 		/// Default constructor

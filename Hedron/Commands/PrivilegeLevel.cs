@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace Hedron.Commands
+﻿namespace Hedron.Commands
 {
 	/// <summary>
 	/// The privilege level for command execution

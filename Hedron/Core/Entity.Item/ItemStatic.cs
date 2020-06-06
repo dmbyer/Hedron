@@ -1,15 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Hedron.System;
-using Hedron.Data;
-using Hedron.Core.Behavior;
+﻿using Hedron.Core.Behavior;
 using Hedron.Core.Container;
-using Hedron.Core.Property;
+using Hedron.Core.Entity.Base;
+using Hedron.Core.Entity.Property;
+using Hedron.Core.Locale;
+using Hedron.Data;
+using Hedron.System;
 
-namespace Hedron.Core.Entity
+namespace Hedron.Core.Entity.Item
 {
 	public class ItemStatic : EntityInanimate
 	{
