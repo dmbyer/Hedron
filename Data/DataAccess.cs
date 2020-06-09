@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 // TODO: Use an enum to specify cache type so the instance vs prototype methods don't need to be duplicated
 // ... use a dictionary to map enum Key to cache Value so parameter can directly map to dictionary?

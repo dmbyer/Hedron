@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace Hedron.System.Text
+﻿namespace Hedron.System.Text
 {
-	public static class StringExtensions
+    public static class StringExtensions
 	{
 		public static string ToTruncatedSubString(this string value, int count, bool withEllipses)
 		{

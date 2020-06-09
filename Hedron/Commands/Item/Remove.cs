@@ -1,18 +1,16 @@
-﻿using System;
+﻿using Hedron.Core.Entity.Base;
+using Hedron.System;
+using Hedron.System.Exceptions.Command;
+using Hedron.System.Text;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core.Entity;
-using Hedron.System;
-using Hedron.System.Exceptions;
-using Hedron.System.Text;
 
 namespace Hedron.Commands.Item
 {
-	/// <summary>
-	/// Removes an object
-	/// </summary>
-	public class Remove : Command
+    /// <summary>
+    /// Removes an object
+    /// </summary>
+    public class Remove : Command
 	{
 		/// <summary>
 		/// Default constructor

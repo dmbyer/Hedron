@@ -1,19 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core;
-using Hedron.Core.Container;
+﻿using Hedron.Core.Container;
+using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.System;
-using Hedron.System.Exceptions;
+using Hedron.System.Exceptions.Command;
+using System.Collections.Generic;
 
 namespace Hedron.Commands.Building
 {
-	/// <summary>
-	/// Sets properties of things for building
-	/// </summary>
-	public class Set : Command
+    /// <summary>
+    /// Sets properties of things for building
+    /// </summary>
+    public class Set : Command
 	{
 		/// <summary>
 		/// Default constructor

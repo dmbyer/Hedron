@@ -1,13 +1,9 @@
-﻿using System;
-using System.IO;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Collections.Generic;
-using Hedron.Core;
-using Hedron.Core.Entity;
+﻿using Hedron.Core.Entity.Living;
 using Hedron.System;
 using Hedron.System.Text;
+using System;
+using System.Net.Sockets;
+using System.Text;
 
 
 namespace Hedron.Network

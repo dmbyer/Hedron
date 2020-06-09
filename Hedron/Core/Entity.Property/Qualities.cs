@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using Hedron.Data;
 using Hedron.System;
 
-namespace Hedron.Core.Property
+namespace Hedron.Core.Entity.Property
 {
 	/// <summary>
 	/// The various qualities for an Entity

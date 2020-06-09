@@ -1,18 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Hedron.Core.Behavior;
+﻿using Hedron.Core.Behavior;
 using Hedron.Core.Container;
-using Hedron.Core.Property;
+using Hedron.Core.Entity.Base;
+using Hedron.Core.Entity.Property;
+using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.System;
 using Newtonsoft.Json;
 
-namespace Hedron.Core.Entity
+namespace Hedron.Core.Entity.Living
 {
-    public sealed class Mob : EntityAnimate
+	public sealed class Mob : EntityAnimate
 	{
 		/// <summary>
 		/// The mob's behavior

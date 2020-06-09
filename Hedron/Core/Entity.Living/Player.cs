@@ -1,18 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Net.Sockets;
-using Hedron.Core;
-using Hedron.Core.Container;
-using Hedron.Core.Entity;
-using Hedron.System;
+﻿using Hedron.Core.Entity.Base;
 using Hedron.Data;
 using Hedron.Network;
+using Hedron.System;
+using System.Net.Sockets;
 
-namespace Hedron.Core.Entity
+namespace Hedron.Core.Entity.Living
 {
-	public sealed class Player : EntityAnimate
+    public sealed class Player : EntityAnimate
 	{
 		// Public Fields
 		public string Prompt { get; set; } = Constants.Prompt.DEFAULT_COLOR;

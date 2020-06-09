@@ -1,36 +1,32 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Hedron.Core.Container;
-using Hedron.Core.Entity;
+﻿using Hedron.Core.Container;
+using Hedron.Core.Entity.Living;
+using Hedron.Core.Entity.Property;
 using Hedron.Data;
-using Hedron.Core.Property;
 using Hedron.System;
 using Newtonsoft.Json;
+using System;
 
-namespace Hedron.Core
+namespace Hedron.Core.Locale
 {
 
-    public class Room : EntityContainer, ICopyableObject<Room>, ISpawnableObject
+	public class Room : EntityContainer, ICopyableObject<Room>, ISpawnableObject
 	{
 		[JsonProperty]
-		public RoomExits Exits       { get; private set; } = new RoomExits();
+		public RoomExits Exits { get; private set; } = new RoomExits();
 
 		[JsonProperty]
-		public Tier      Tier        { get; private set; } = new Tier();
+		public Tier Tier { get; private set; } = new Tier();
 
 		[JsonProperty]
-		public string    Name        { get; set; }
+		public string Name { get; set; }
 
 		[JsonProperty]
-        public string    Description { get; set; }
-		
+		public string Description { get; set; }
+
 		/// <summary>
 		/// Creates a new room with default name and description. Must be added to cache.
 		/// </summary>
-        public Room() : base()
+		public Room() : base()
 		{
 			Name = "[name]";
 			Description = "[description]";
@@ -69,28 +65,28 @@ namespace Hedron.Core
 		/// <param name="exit">The direction to set</param>
 		/// <param name="room">The ID of the room</param>
 		public void SetExit(Constants.EXIT exit, uint? room)
-        {
-            switch (exit)
-            {
-                case Constants.EXIT.NORTH:
-                    Exits.North = room;
-                    return;
-                case Constants.EXIT.EAST:
-                    Exits.East = room;
-                    return;
-                case Constants.EXIT.SOUTH:
-                    Exits.South = room;
-                    return;
-                case Constants.EXIT.WEST:
-                    Exits.West = room;
-                    return;
-                case Constants.EXIT.UP:
-                    Exits.Up = room;
-                    return;
-                case Constants.EXIT.DOWN:
-                    Exits.Down = room;
-                    return;
-            }
+		{
+			switch (exit)
+			{
+				case Constants.EXIT.NORTH:
+					Exits.North = room;
+					return;
+				case Constants.EXIT.EAST:
+					Exits.East = room;
+					return;
+				case Constants.EXIT.SOUTH:
+					Exits.South = room;
+					return;
+				case Constants.EXIT.WEST:
+					Exits.West = room;
+					return;
+				case Constants.EXIT.UP:
+					Exits.Up = room;
+					return;
+				case Constants.EXIT.DOWN:
+					Exits.Down = room;
+					return;
+			}
 
 			// Update persistence since data structure has changed
 			if (CacheType == CacheType.Prototype)
@@ -104,7 +100,7 @@ namespace Hedron.Core
 		/// <param name="parent">The parent area instance ID</param>
 		/// <returns>The spawned room. Will return null if the method is called from an instanced object.</returns>
 		/// <remarks>Exits will all be null and must be fixed from prototype. Parent cannot be null. Adds new room to instanced area.</remarks>
-		public T SpawnAsObject<T>(bool withEntities, uint? parent = null) where T: CacheableObject
+		public T SpawnAsObject<T>(bool withEntities, uint? parent = null) where T : CacheableObject
 		{
 			return DataAccess.Get<T>(Spawn(withEntities, parent), CacheType.Instance);
 		}
@@ -123,7 +119,7 @@ namespace Hedron.Core
 
 			if (parent == null)
 				throw new ArgumentNullException(nameof(parent), "Parent cannot be null when spawning a room.");
-			
+
 			Logger.Info(nameof(Room), nameof(Spawn), "Spawning room: " + Name + ": ProtoID=" + Prototype.ToString());
 
 			// Create new instance room and add to parent area

@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace Hedron.System
+﻿namespace Hedron.System
 {
-	/// <summary>
-	/// Configuration options for Players
-	/// </summary>
-	public class PlayerConfiguration
+    /// <summary>
+    /// Configuration options for Players
+    /// </summary>
+    public class PlayerConfiguration
 	{
 		/// <summary>
 		/// Whether the player automatically digs when moving directions

@@ -1,11 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core.Property;
+﻿using Hedron.Core.Entity.Property;
 using Hedron.Data;
 
-namespace Hedron.Core.Entity
+namespace Hedron.Core.Entity.Base
 {
 	public interface IEntity : ICacheableObject
 	{

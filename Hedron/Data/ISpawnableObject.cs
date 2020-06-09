@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Hedron.Data;
-
-namespace Hedron.Core
+﻿namespace Hedron.Data
 {
 	public interface ISpawnableObject : ICacheableObject
 	{

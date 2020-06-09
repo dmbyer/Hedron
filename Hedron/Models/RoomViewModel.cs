@@ -1,17 +1,15 @@
-﻿using System;
+﻿using Hedron.Core.Container;
+using Hedron.Core.Entity.Base;
+using Hedron.Core.Locale;
+using Hedron.Data;
+using Hedron.System.Text;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core;
-using Hedron.Core.Container;
-using Hedron.Core.Entity;
-using Hedron.Data;
-using Hedron.System.Text;
 
 namespace Hedron.Models
 {
-	public class RoomUpdateViewModel
+    public class RoomUpdateViewModel
 	{
 		public uint   Prototype { get; set; }
 		public string Name      { get; set; }

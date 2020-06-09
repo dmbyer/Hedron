@@ -1,14 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Hedron.System;
+﻿using Hedron.System;
 
-namespace Hedron.Core.Property
+namespace Hedron.Core.Entity.Property
 {
-	/// <summary>
-	/// Holds current Tier level and label
-	/// </summary>
-	public class Tier
+    /// <summary>
+    /// Holds current Tier level and label
+    /// </summary>
+    public class Tier
 	{
 		private int _level;
 		

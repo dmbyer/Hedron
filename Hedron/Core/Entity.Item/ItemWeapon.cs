@@ -1,15 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Hedron.Data;
+﻿using Hedron.Core.Behavior;
+using Hedron.Core.Container;
 using Hedron.Core.Damage;
+using Hedron.Core.Entity.Base;
+using Hedron.Core.Entity.Property;
+using Hedron.Core.Locale;
+using Hedron.Data;
 using Hedron.System;
 using Newtonsoft.Json;
-using Hedron.Core.Behavior;
-using Hedron.Core.Container;
-using Hedron.Core.Property;
 
-namespace Hedron.Core.Entity
+namespace Hedron.Core.Entity.Item
 {
 	public class ItemWeapon : EntityInanimate
 	{

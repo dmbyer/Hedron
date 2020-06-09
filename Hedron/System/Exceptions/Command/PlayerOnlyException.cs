@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Commands;
+﻿using Hedron.Commands;
 
-namespace Hedron.System.Exceptions
+namespace Hedron.System.Exceptions.Command
 {
 	/// <summary>
 	/// For situations where only a player may execute a command due to casting requirements

@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
-namespace Hedron.System.Exceptions
+namespace Hedron.System.Exceptions.Slot
 {
 	/// <summary>
 	/// For situations in which an item cannot added to a slot that is already full
@@ -12,7 +9,7 @@ namespace Hedron.System.Exceptions
 	{
 		public SlotFullException()
 		{
-			
+
 		}
 
 		public SlotFullException(string message)

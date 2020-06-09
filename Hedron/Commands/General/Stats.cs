@@ -1,19 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core;
-using Hedron.Core.Property;
-using Hedron.System;
-using Hedron.System.Exceptions;
+﻿using Hedron.System;
+using Hedron.System.Exceptions.Command;
 using Hedron.System.Text;
 
 namespace Hedron.Commands.General
 {
-	/// <summary>
-	/// Outputs entity stats
-	/// </summary>
-	public class Stats : Command
+    /// <summary>
+    /// Outputs entity stats
+    /// </summary>
+    public class Stats : Command
 	{
 		/// <summary>
 		/// Default constructor

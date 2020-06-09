@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Hedron.Data
 {
-    internal class DataCache
+	internal class DataCache
     {
 		/// <summary>
 		/// The cached objects in the data cache, mapped by ID

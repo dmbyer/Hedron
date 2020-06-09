@@ -1,16 +1,11 @@
-﻿using System;
+﻿using Hedron.Core.Entity.Base;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Hedron.Core;
-using Hedron.Core.Entity;
-using Hedron.System;
-using Hedron.Data;
 
 namespace Hedron.Commands
 {
-	public static class CommandHandler
+    public static class CommandHandler
 	{		
 		/// <summary>
 		/// Maps command strings to the corresponding Command

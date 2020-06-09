@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Hedron.System;
+﻿using Hedron.Data;
 
 namespace Hedron.Core.Damage
 {

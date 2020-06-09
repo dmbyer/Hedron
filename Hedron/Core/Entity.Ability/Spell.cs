@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Hedron.Core.Ability
+﻿namespace Hedron.Core.Entity.Ability
 {
 	public class Spell : AbilityBase
 	{

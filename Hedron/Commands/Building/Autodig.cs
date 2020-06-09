@@ -1,17 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core.Entity;
+﻿using Hedron.Core.Entity.Living;
 using Hedron.System;
-using Hedron.System.Exceptions;
+using Hedron.System.Exceptions.Command;
+using System.Collections.Generic;
 
 namespace Hedron.Commands.Building
 {
-	/// <summary>
-	/// Enables automatic room creation if room does not exist when moving directions
-	/// </summary>
-	public class Autodig : Command
+    /// <summary>
+    /// Enables automatic room creation if room does not exist when moving directions
+    /// </summary>
+    public class Autodig : Command
 	{
 		/// <summary>
 		/// Default constructor

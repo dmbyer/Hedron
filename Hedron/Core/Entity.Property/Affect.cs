@@ -1,11 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Hedron.System;
-using Hedron.Core.Damage;
+﻿using Hedron.Core.Damage;
 using Newtonsoft.Json;
 
-namespace Hedron.Core.Property
+namespace Hedron.Core.Entity.Property
 {
 	public class Affect
 	{

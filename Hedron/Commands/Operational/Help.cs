@@ -1,17 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.System;
-using Hedron.System.Exceptions;
+﻿using Hedron.System;
+using Hedron.System.Exceptions.Command;
 using Hedron.System.Text;
 
 namespace Hedron.Commands.Operational
 {
-	/// <summary>
-	/// Shows help files
-	/// </summary>
-	public class Help : Command
+    /// <summary>
+    /// Shows help files
+    /// </summary>
+    public class Help : Command
 	{
 		/// <summary>
 		/// Default constructor

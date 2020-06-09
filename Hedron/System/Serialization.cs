@@ -1,11 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Hedron.Core.Container;
+﻿using Hedron.Core.Container;
 using Hedron.Data;
 using Newtonsoft.Json;
+using System;
 
-namespace Hedron.Core
+namespace Hedron.System
 {
 	/// <summary>
 	/// Overrides serialization for properties of type Inventory to reference the Prototype ID instead of serializing the collection

@@ -1,14 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core.Entity;
-using Hedron.System.Exceptions;
+﻿using Hedron.Core.Entity.Living;
 using Hedron.System;
+using Hedron.System.Exceptions.Command;
+using System.Collections.Generic;
 
 namespace Hedron.Commands.Operational
 {
-	public class Config : Command
+    public class Config : Command
 	{
 		/// <summary>
 		/// Default constructor

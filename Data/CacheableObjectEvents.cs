@@ -1,12 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Hedron.Data
 {
-	abstract public class CacheableObjectEvents
+    abstract public class CacheableObjectEvents
 	{
 		/// <summary>
 		/// Eventhandler for child objects being removed from cache

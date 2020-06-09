@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core;
-using Hedron.Core.Entity;
+﻿using Hedron.Core.Entity.Base;
+using System;
 
 namespace Hedron.Commands
 {
-	public class CommandEventArgs : EventArgs
+    public class CommandEventArgs : EventArgs
 	{
 		/// <summary>
 		/// The command argument

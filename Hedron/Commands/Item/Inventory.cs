@@ -1,18 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core;
-using Hedron.System;
-using Hedron.System.Exceptions;
+﻿using Hedron.System;
+using Hedron.System.Exceptions.Command;
 using Hedron.System.Text;
 
 namespace Hedron.Commands.Item
 {
-	/// <summary>
-	/// Reviews the contents of the inventory
-	/// </summary>
-	public class Inventory : Command
+    /// <summary>
+    /// Reviews the contents of the inventory
+    /// </summary>
+    public class Inventory : Command
 	{
 		/// <summary>
 		/// Default constructor

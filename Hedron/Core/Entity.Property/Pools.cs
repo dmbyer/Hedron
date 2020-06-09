@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using Hedron.Data;
 using Hedron.System;
-using Hedron.Data;
 
-namespace Hedron.Core.Property
+namespace Hedron.Core.Entity.Property
 {
 	/// <summary>
 	/// The pools for health, stamina, and energy for an Entity

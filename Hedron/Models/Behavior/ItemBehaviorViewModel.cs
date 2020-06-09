@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core.Behavior;
+﻿using Hedron.Core.Behavior;
 
-namespace Hedron.Models
+namespace Hedron.Models.Behavior
 {
 	public class ItemBehaviorViewModel
 	{

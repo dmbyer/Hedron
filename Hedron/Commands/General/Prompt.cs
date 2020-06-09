@@ -1,18 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Hedron.Core.Entity;
+﻿using Hedron.Core.Entity.Living;
 using Hedron.System;
-using Hedron.System.Exceptions;
+using Hedron.System.Exceptions.Command;
 using Hedron.System.Text;
+using System.Collections.Generic;
 
 namespace Hedron.Commands.General
 {
-	/// <summary>
-	/// Modifies the player's prompt
-	/// </summary>
-	public class Prompt : Command
+    /// <summary>
+    /// Modifies the player's prompt
+    /// </summary>
+    public class Prompt : Command
 	{
 		/// <summary>
 		/// Default constructor
