@@ -152,8 +152,8 @@ namespace Hedron.Core.Locale
 		{
 			Guard.ThrowIfNull(room, nameof(room));
 
-			room.Name = string.Copy(Name);
-			room.Description = string.Copy(Description);
+			room.Name = Name;
+			room.Description = Description;
 			room.Tier.Level = Tier.Level;
 		}
 

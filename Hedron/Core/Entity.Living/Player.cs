@@ -47,7 +47,7 @@ namespace Hedron.Core.Entity.Living
 		/// <returns>The parsed prompt</returns>
         public string GetParsedPrompt()
         {
-            string parsed = string.Copy(Prompt);
+            string parsed = Prompt;
 
             parsed = parsed.Replace(Constants.Prompt.HP_CURRENT, CurrentHitPoints.ToString());
             parsed = parsed.Replace(Constants.Prompt.HP_MAX, ModifiedPools.HitPoints.ToString());

@@ -109,7 +109,7 @@ namespace Hedron.Core.Locale
 		{
 			Guard.ThrowIfNull(area, nameof(area));
 
-			area.Name = string.Copy(Name);
+			area.Name = Name;
 			area.Tier.Level = Tier.Level;
 		}
 	}

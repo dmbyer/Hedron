@@ -363,7 +363,7 @@ namespace Hedron.Core.Locale
 		{
 			Guard.ThrowIfNull(world, nameof(world));
 
-			world.Name = string.Copy(Name);
+			world.Name = Name;
 			world.StartingLocation = StartingLocation;
 		}
 	}

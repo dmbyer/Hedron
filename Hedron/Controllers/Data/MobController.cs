@@ -28,8 +28,8 @@ namespace Hedron.Controllers.Data
 					ShortDescription = mob.ShortDescription.ToTruncatedSubString(30, true),
 					LongDescription = mob.LongDescription.ToTruncatedSubString(80, true),
 					Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
-					BaseAspects = PoolsViewModel.ToViewModel(mob.BaseMaxPools),
 					BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
+					BasePools = PoolsViewModel.ToViewModel(mob.BaseMaxPools),
 					BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
 				});
 			}
@@ -53,8 +53,8 @@ namespace Hedron.Controllers.Data
 				ShortDescription = mob.ShortDescription,
 				LongDescription = mob.LongDescription,
 				Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
-				BaseAspects = PoolsViewModel.ToViewModel(mob.BaseMaxPools),
 				BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
+				BasePools = PoolsViewModel.ToViewModel(mob.BaseMaxPools),
 				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
 			};
 
@@ -70,7 +70,7 @@ namespace Hedron.Controllers.Data
 		// POST: Mob/Create
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public ActionResult Create([Bind("Name,ShortDescription,LongDescription,Tier")] MobViewModel mobViewModel)
+		public ActionResult Create([Bind("Name,ShortDescription,LongDescription,Tier,Behavior,BaseAttributes,BasePools,BaseQualities")] MobViewModel mobViewModel)
 		{
 			if (ModelState.IsValid)
 			{
@@ -83,8 +83,8 @@ namespace Hedron.Controllers.Data
 					mob.ShortDescription = mobViewModel.ShortDescription;
 					mob.LongDescription = mobViewModel.LongDescription;
 					mob.Behavior = MobBehaviorViewModel.ToMobBehavior(mobViewModel.Behavior);
-					mob.BaseMaxPools = PoolsViewModel.ToPools(mobViewModel.BaseAspects);
 					mob.BaseAttributes = AttributesViewModel.ToAttributes(mobViewModel.BaseAttributes);
+					mob.BaseMaxPools = PoolsViewModel.ToPools(mobViewModel.BasePools);
 					mob.BaseQualities = QualitiesViewModel.ToQualities(mobViewModel.BaseQualities);
 
 					DataPersistence.SaveObject(mob);
@@ -114,8 +114,8 @@ namespace Hedron.Controllers.Data
 				ShortDescription = mob.ShortDescription,
 				LongDescription = mob.LongDescription,
 				Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
-				BaseAspects = PoolsViewModel.ToViewModel(mob.BaseMaxPools),
 				BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
+				BasePools = PoolsViewModel.ToViewModel(mob.BaseMaxPools),
 				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
 			};
 
@@ -125,7 +125,7 @@ namespace Hedron.Controllers.Data
 		// POST: Mob/Edit/5
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public ActionResult Edit(int id, [Bind("Prototype,Name,ShortDescription,LongDescription,Tier")] MobViewModel mobViewModel)
+		public ActionResult Edit(int id, [Bind("Prototype,Name,ShortDescription,LongDescription,Tier,Behavior,BaseAttributes,BasePools,BaseQualities")] MobViewModel mobViewModel)
 		{
 			if (id != mobViewModel.Prototype)
 				return NotFound();
@@ -141,8 +141,8 @@ namespace Hedron.Controllers.Data
 					mob.ShortDescription = mobViewModel.ShortDescription;
 					mob.LongDescription = mobViewModel.LongDescription;
 					mob.Behavior = MobBehaviorViewModel.ToMobBehavior(mobViewModel.Behavior);
-					mob.BaseMaxPools = PoolsViewModel.ToPools(mobViewModel.BaseAspects);
 					mob.BaseAttributes = AttributesViewModel.ToAttributes(mobViewModel.BaseAttributes);
+					mob.BaseMaxPools = PoolsViewModel.ToPools(mobViewModel.BasePools);
 					mob.BaseQualities = QualitiesViewModel.ToQualities(mobViewModel.BaseQualities);
 
 					DataPersistence.SaveObject(mob);
@@ -175,8 +175,8 @@ namespace Hedron.Controllers.Data
 				ShortDescription = mob.ShortDescription,
 				LongDescription = mob.LongDescription,
 				Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
-				BaseAspects = PoolsViewModel.ToViewModel(mob.BaseMaxPools),
 				BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
+				BasePools = PoolsViewModel.ToViewModel(mob.BaseMaxPools),
 				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
 			};
 

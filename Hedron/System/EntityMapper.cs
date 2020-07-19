@@ -39,13 +39,13 @@ namespace Hedron.System
 				switch (descriptionType)
 				{
 					case MapStringTypes.Name:
-						descriptionString = string.Copy(entity.Name);
+						descriptionString = entity.Name;
 						break;
 					case MapStringTypes.ShortDescription:
-						descriptionString = string.Copy(entity.ShortDescription);
+						descriptionString = entity.ShortDescription;
 						break;
 					case MapStringTypes.LongDescription:
-						descriptionString = string.Copy(entity.LongDescription);
+						descriptionString = entity.LongDescription;
 						break;
 				}
 

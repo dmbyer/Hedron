@@ -63,43 +63,134 @@
             <div class="w3-container w3-margin-top">
                 <label asp-for="Behavior.Aggressive"></label>
                 <div>
-                    <input asp-for="Behavior.Aggressive" value="@Model.Behavior.Aggressive" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="Behavior.Aggressive" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="Behavior.Aggressive" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="Behavior.AutoEquip"></label>
                 <div>
-                    <input asp-for="Behavior.AutoEquip" value="@Model.Behavior.AutoEquip" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="Behavior.AutoEquip" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="Behavior.AutoEquip" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="Behavior.AutoPillage"></label>
                 <div>
-                    <input asp-for="Behavior.AutoPillage" value="@Model.Behavior.AutoPillage" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="Behavior.AutoPillage" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="Behavior.AutoPillage" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="Behavior.Scavenge"></label>
                 <div>
-                    <input asp-for="Behavior.Scavenge" value="@Model.Behavior.Scavenge" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="Behavior.Scavenge" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="Behavior.Scavenge" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="Behavior.ShopKeeper"></label>
                 <div>
-                    <input asp-for="Behavior.ShopKeeper" value="@Model.Behavior.ShopKeeper" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="Behavior.ShopKeeper" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="Behavior.ShopKeeper" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="Behavior.Wander"></label>
                 <div>
-                    <input asp-for="Behavior.Wander" value="@Model.Behavior.Wander" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="Behavior.Wander" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="Behavior.Wander" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="BaseAttributes.Essence"></label>
+                <div>
+                    <input asp-for="BaseAttributes.Essence" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="BaseAttributes.Essence" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="BaseAttributes.Finesse"></label>
+                <div>
+                    <input asp-for="BaseAttributes.Finesse" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="BaseAttributes.Finesse" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="BaseAttributes.Intellect"></label>
+                <div>
+                    <input asp-for="BaseAttributes.Intellect" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="BaseAttributes.Intellect" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="BaseAttributes.Might"></label>
+                <div>
+                    <input asp-for="BaseAttributes.Might" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="BaseAttributes.Might" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="BaseAttributes.Spirit"></label>
+                <div>
+                    <input asp-for="BaseAttributes.Spirit" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="BaseAttributes.Spirit" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="BaseAttributes.Will"></label>
+                <div>
+                    <input asp-for="BaseAttributes.Will" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="BaseAttributes.Will" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="BasePools.Energy"></label>
+                <div>
+                    <input asp-for="BasePools.Energy" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="BasePools.Energy" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="BasePools.HitPoints"></label>
+                <div>
+                    <input asp-for="BasePools.HitPoints" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="BasePools.HitPoints" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="BasePools.Stamina"></label>
+                <div>
+                    <input asp-for="BasePools.Stamina" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="BasePools.Stamina" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="BaseQualities.ArmorRating"></label>
+                <div>
+                    <input asp-for="BaseQualities.ArmorRating" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="BaseQualities.ArmorRating" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="BaseQualities.AttackRating"></label>
+                <div>
+                    <input asp-for="BaseQualities.AttackRating" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="BaseQualities.AttackRating" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="BaseQualities.CriticalDamage"></label>
+                <div>
+                    <input asp-for="BaseQualities.CriticalDamage" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="BaseQualities.CriticalDamage" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="BaseQualities.CriticalHit"></label>
+                <div>
+                    <input asp-for="BaseQualities.CriticalHit" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="BaseQualities.CriticalHit" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-padding-32 w3-margin-left w3-margin-right">

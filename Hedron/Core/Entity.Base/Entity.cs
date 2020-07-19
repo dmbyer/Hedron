@@ -135,9 +135,9 @@ namespace Hedron.Core.Entity.Base
 			if (entity == null)
 				return;
 
-			entity.Name = string.Copy(Name);
-			entity.LongDescription = string.Copy(LongDescription);
-			entity.ShortDescription = string.Copy(ShortDescription);
+			entity.Name = Name;
+			entity.LongDescription = LongDescription;
+			entity.ShortDescription = ShortDescription;
 			entity.Tier.Level = Tier.Level;
 		}
 

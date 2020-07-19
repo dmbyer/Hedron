@@ -17,7 +17,7 @@ namespace Hedron.Models
 
 		public AttributesViewModel BaseAttributes { get; set; } = new AttributesViewModel();
 
-		public PoolsViewModel BaseAspects { get; set; } = new PoolsViewModel();
+		public PoolsViewModel BasePools { get; set; } = new PoolsViewModel();
 
 		public QualitiesViewModel BaseQualities { get; set; } = new QualitiesViewModel();
 	}

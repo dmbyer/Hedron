@@ -119,7 +119,7 @@ namespace Hedron.Commands
 				return "";
 			}
 			
-            string toMatch = string.Copy(input);
+            string toMatch = input;
             toMatch = toMatch.Trim();
             int i = toMatch.IndexOf(' ');
             if (i != -1)
@@ -139,7 +139,7 @@ namespace Hedron.Commands
 			if (input == null || input == "")
 				return "";
 
-			string stmp = string.Copy(input);
+			string stmp = input;
             stmp = stmp.Trim();
             int i = stmp.IndexOf(' ');
             if (i != -1) { return stmp.Substring(i).Trim(); }
@@ -160,7 +160,7 @@ namespace Hedron.Commands
 			if (input == null || input == "")
 				return "";
 
-			string stmp = string.Copy(input);
+			string stmp = input;
             stmp = stmp.Trim();
 
             string[] words = stmp.Split(' ');
