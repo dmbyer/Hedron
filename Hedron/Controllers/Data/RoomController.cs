@@ -147,7 +147,7 @@ namespace Hedron.Controllers.Data
 				}
 				catch
 				{
-					if (DataAccess.Get<Area>((uint)id, CacheType.Prototype) == null)
+					if (DataAccess.Get<Room>((uint)id, CacheType.Prototype) == null)
 						return NotFound();
 					else
 						throw;
