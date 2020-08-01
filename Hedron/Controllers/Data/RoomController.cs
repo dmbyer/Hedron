@@ -8,6 +8,7 @@ using Hedron.Models;
 using Hedron.System;
 using Hedron.System.Text;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -251,8 +252,11 @@ namespace Hedron.Controllers.Data
 		// POST: Room/Update
 		[HttpPost, ActionName("Update")]
 		[ValidateAntiForgeryToken]
-		public ActionResult Update([FromBody]RoomUpdateViewModel roomJson)
+		public ActionResult Update([FromBody] RoomUpdateViewModel roomJson)
 		{
+			if (!ModelState.IsValid)
+				return BadRequest();
+
 			var room = DataAccess.Get<Room>(roomJson.Prototype, CacheType.Prototype);
 
 			if (room == null)
@@ -277,6 +281,7 @@ namespace Hedron.Controllers.Data
 			RoomExits.ConnectRoomExits(room, DataAccess.Get<Room>(roomJson.Up, CacheType.Prototype), Constants.EXIT.UP, true, true);
 			RoomExits.ConnectRoomExits(room, DataAccess.Get<Room>(roomJson.Down, CacheType.Prototype), Constants.EXIT.DOWN, true, true);
 
+			// Magic number to truncate to 100 characters
 			return Json(RoomViewModel.RoomToViewModel(room, 100));
 		}
 	}

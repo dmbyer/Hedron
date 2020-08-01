@@ -84,7 +84,7 @@
         request.open('POST', '/Room/Update', true);
 
         request.setRequestHeader("XSRF-TOKEN", document.getElementsByName('__RequestVerificationToken')[0].value);
-        request.setRequestHeader("Content-Type", "application/json");
+        request.setRequestHeader("Content-Type", "application/json; charset=utf-8");
         request.responseType = "json";
 
         request.onreadystatechange = function() {
@@ -93,16 +93,7 @@
                 expandRoom(id);
             }
         };
-
-        console.log(id);
-        console.log(document.getElementById('form-name-' + id).value);
-        console.log(document.getElementById('form-north-' + id).value);
-        console.log(document.getElementById('form-east-' + id).value);
-        console.log(document.getElementById('form-south-' + id).value);
-        console.log(document.getElementById('form-west-' + id).value);
-        console.log(document.getElementById('form-up-' + id).value);
-        console.log(document.getElementById('form-down-' + id).value);
-
+        
         let name = document.getElementById('form-name-' + id).value;
         let north = document.getElementById('form-north-' + id).value;
         let east = document.getElementById('form-east-' + id).value;
@@ -111,17 +102,38 @@
         let up = document.getElementById('form-up-' + id).value;
         let down = document.getElementById('form-down-' + id).value;
 
+        if (north === "")
+            north = null;
+
+        if (east === "")
+            east = null;
+
+        if (south === "")
+            south = null;
+
+        if (west === "")
+            west = null;
+
+        if (up === "")
+            up = null;
+
+        if (down === "")
+            down = null;
+
         let payload =
         {
             'Prototype': id,
             'Name': name,
-            'North': north,
-            'East': east,
-            'South': south,
-            'West': west,
-            'Up': up,
-            'Down': down
+            'North': parseInt(north),
+            'East': parseInt(east),
+            'South': parseInt(south),
+            'West': parseInt(west),
+            'Up': parseInt(up),
+            'Down': parseInt(down)
         };
+
+        console.log(payload);
+        console.log(JSON.stringify(payload));
 
         request.send(JSON.stringify(payload));
     }

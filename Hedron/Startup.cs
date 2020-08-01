@@ -27,12 +27,14 @@ namespace Hedron
                 options.MinimumSameSitePolicy = SameSiteMode.None;
             });
 
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_3_0);
+            // services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_3_0);
             services.AddAntiforgery(options => options.HeaderName = "XSRF-TOKEN");
+            services.AddRazorPages();
+            services.AddSignalR();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app,  IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
             {
@@ -51,6 +53,7 @@ namespace Hedron
 
             app.UseEndpoints(endpoints =>
             {
+                /*
                 endpoints.MapControllerRoute(
                     "default",
                     "{controller=Home}/{action=Index}/{id?}");
@@ -60,6 +63,12 @@ namespace Hedron
                 endpoints.MapControllerRoute(
                     "Room Index",
                     "Room/{controller=Room}/{action=Index}/{id?}");
+                endpoints.MapControllerRoute(
+                    "Room Update",
+                    "Room/{controller=Room}/{action=Update}");
+                */
+                endpoints.MapDefaultControllerRoute(); 
+                // endpoints.MapRazorPages();
             });
         }
     }
