@@ -12,15 +12,27 @@ namespace Hedron.Core.Entity.Base
 	{
 		protected ItemSlot _slot;
 
+		/// <summary>
+		/// The item's behaviors.
+		/// </summary>
 		[JsonProperty]
 		public ItemBehavior Behavior { get; set; } = new ItemBehavior();
 
+		/// <summary>
+		/// The rarity of the item.
+		/// </summary>
 		[JsonProperty]
-		public ItemRarity   Rarity   { get; set; } = ItemRarity.Common;
+		public ItemRarity Rarity { get; set; } = ItemRarity.Common;
 
+		/// <summary>
+		/// The material the item is made from.
+		/// </summary>
 		[JsonProperty]
-		public Material.Material     Material { get; set; } = new Material.Material();
+		public Material.Material Material { get; set; } = new Material.Material();
 
+		/// <summary>
+		/// The slot of the item.
+		/// </summary>
 		[JsonProperty]
 		public virtual ItemSlot Slot
 		{
@@ -33,6 +45,13 @@ namespace Hedron.Core.Entity.Base
 				_slot = value;
 			}
 		}
+
+		/// <summary>
+		/// The value of the item.
+		/// </summary>
+		[JsonProperty]
+		public Currency Value { get; set; } = new Currency();
+
 
 		public EntityInanimate() : base()
 		{

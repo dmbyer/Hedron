@@ -76,6 +76,12 @@ namespace Hedron.Core.Entity.Base
 		public Pools BaseMaxPools { get; set; } = Pools.Default();
 
 		/// <summary>
+		/// The entity's currency
+		/// </summary>
+		[JsonProperty]
+		public Currency Currency { get; set; } = new Currency();
+
+		/// <summary>
 		/// The entity's current hitpoints
 		/// </summary>
 		[JsonProperty]
