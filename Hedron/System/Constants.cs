@@ -48,6 +48,9 @@ namespace Hedron.System
 		public const float  LEVEL_MOD_GREAT       = 2.00f;
 		public const float  LEVEL_MOD_LEGENDARY   = 3.00f;
 
+		// Skill levels
+		public const int    MAX_SKILL_LEVEL       = 10000;
+
 		// Directions rooms can have
 		public enum EXIT
 		{

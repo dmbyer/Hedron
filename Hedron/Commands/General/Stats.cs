@@ -32,11 +32,11 @@ namespace Hedron.Commands.General
 
 			var entity = commandEventArgs.Entity;
 
-			var baseAspects = entity.BaseMaxPools;
+			var basePools = entity.BaseMaxPools;
 			var baseAttributes = entity.BaseAttributes;
 			var baseQualities = entity.BaseQualities;
 
-			var modAspects = entity.ModifiedPools;
+			var modPools = entity.ModifiedPools;
 			var modAttributes = entity.ModifiedAttributes;
 			var modQualities = entity.ModifiedQualities;
 
@@ -46,7 +46,7 @@ namespace Hedron.Commands.General
 					"Hit Points:  ",
 					$"{entity.CurrentHitPoints}",
 					"/",
-					$"{baseAspects.HitPoints}",
+					$"{basePools.HitPoints}",
 					""
 				),
 				// Stamina row
@@ -54,7 +54,7 @@ namespace Hedron.Commands.General
 					"Stamina:  ",
 					$"{entity.CurrentStamina}",
 					"/",
-					$"{baseAspects.Stamina}",
+					$"{basePools.Stamina}",
 					""
 				),
 				// Energy row
@@ -62,7 +62,7 @@ namespace Hedron.Commands.General
 					"Energy:  ",
 					$"{entity.CurrentEnergy}",
 					"/",
-					$"{baseAspects.Energy}",
+					$"{basePools.Energy}",
 					""
 				)
 			);

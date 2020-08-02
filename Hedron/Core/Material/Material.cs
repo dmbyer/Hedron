@@ -5,11 +5,6 @@ namespace Hedron.Core.Material
 	public class Material
 	{
 		/// <summary>
-		/// The material aspect
-		/// </summary>
-		public Aspects? Aspect { get; set; }
-
-		/// <summary>
 		/// The material name
 		/// </summary>
 		public string Name { get; set; }

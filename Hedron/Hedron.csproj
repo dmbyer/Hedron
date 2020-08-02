@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <Folder Include="Hubs\" />
+    <Folder Include="Skills\Active\" />
+    <Folder Include="Skills\Passive\" />
     <Folder Include="wwwroot\images\" />
   </ItemGroup>
 
