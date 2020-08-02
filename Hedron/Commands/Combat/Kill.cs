@@ -1,6 +1,7 @@
 ﻿using Hedron.Combat;
 using Hedron.Core.Container;
 using Hedron.Core.Entity.Base;
+using Hedron.Core.Entity.Living;
 using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.System;
@@ -14,60 +15,66 @@ namespace Hedron.Commands.Combat
     /// Initiates combat
     /// </summary>
     public class Kill : Command
-	{
-		/// <summary>
-		/// Default constructor
-		/// </summary>
-		public Kill()
-		{
-			FriendlyName = "kill";
-			PrivilegeLevel = PrivilegeLevel.NPC;
-			ValidStates.Add(Network.GameState.Active);
-		}
+    {
+        /// <summary>
+        /// Default constructor
+        /// </summary>
+        public Kill()
+        {
+            FriendlyName = "kill";
+            PrivilegeLevel = PrivilegeLevel.NPC;
+            ValidStates.Add(Network.GameState.Active);
+        }
 
-		public override CommandResult Execute(CommandEventArgs commandEventArgs)
-		{
-			try
-			{
-				base.Execute(commandEventArgs);
-			}
-			catch (StateException)
-			{
-				if (commandEventArgs.Entity.StateHandler.State == Network.GameState.Combat)
-				{
-					return CommandResult.Failure("You are already in combat!");
-				}
-				else
-				{
-					var errMessage = $"Unexpected entity state: {commandEventArgs.Entity.StateHandler.State}.";
-					Logger.Error(nameof(CommandHandler), nameof(Kill), errMessage);
-					return CommandResult.Failure(errMessage);
-				}
-			}
-			catch (CommandException ex)
-			{
-				return ex.CommandResult;
-			}
+        public override CommandResult Execute(CommandEventArgs commandEventArgs)
+        {
+            try
+            {
+                base.Execute(commandEventArgs);
+            }
+            catch (StateException)
+            {
+                if (commandEventArgs.Entity.StateHandler.State == Network.GameState.Combat)
+                {
+                    return CommandResult.Failure("You are already in combat!");
+                }
+                else
+                {
+                    var errMessage = $"Unexpected entity state: {commandEventArgs.Entity.StateHandler.State}.";
+                    Logger.Error(nameof(CommandHandler), nameof(Kill), errMessage);
+                    return CommandResult.Failure(errMessage);
+                }
+            }
+            catch (CommandException ex)
+            {
+                return ex.CommandResult;
+            }
 
-			var room = EntityContainer.GetInstanceParent<Room>(commandEventArgs.Entity.Instance);
-			var entities = DataAccess.GetMany<EntityAnimate>(room.GetAllEntities<EntityAnimate>(), CacheType.Instance);
-			uint? targetID = null;
+            var room = EntityContainer.GetInstanceParent<Room>(commandEventArgs.Entity.Instance);
+            var entities = DataAccess.GetMany<EntityAnimate>(room.GetAllEntities<EntityAnimate>(), CacheType.Instance);
+            Player player = (Player)commandEventArgs.Entity;
+            uint? targetID = null;
 
-			// Find first matching target
-			targetID = Parse.MatchOnEntityNameByOrder(commandEventArgs.Argument, entities.Cast<IEntity>().ToList())?.Instance;
+            // Find first matching target
+            targetID = Parse.MatchOnEntityNameByOrder(commandEventArgs.Argument, entities.Cast<IEntity>().ToList())?.Instance;
 
-			if (targetID != null)
-			{
-				CombatHandler.Enter(commandEventArgs.Entity.Instance, targetID, false);
-			}
-			else
-			{
-				return CommandResult.Failure("There is no such target.");
-			}
+            if (targetID == player?.Instance)
+            {
+                return CommandResult.Failure("You cannot kill yourself.");
+            }
 
-			var targetName = DataAccess.Get<EntityAnimate>(targetID, CacheType.Instance).ShortDescription;
+            if (targetID != null)
+            {
+                CombatHandler.Enter(commandEventArgs.Entity.Instance, targetID, false);
+            }
+            else
+            {
+                return CommandResult.Failure("There is no such target.");
+            }
 
-			return CommandResult.Success($"You attack {targetName}!");
-		}
-	}
+            var targetName = DataAccess.Get<EntityAnimate>(targetID, CacheType.Instance).ShortDescription;
+
+            return CommandResult.Success($"You attack {targetName}!");
+        }
+    }
 }
