@@ -2,6 +2,7 @@
 using Hedron.Core.Entity.Property;
 using Hedron.Data;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 namespace Hedron.Core.Entity.Base
 {
@@ -10,6 +11,8 @@ namespace Hedron.Core.Entity.Base
 	/// </summary>
 	abstract public class EntityInanimate : EntityBase, ICopyableObject<EntityInanimate>
 	{
+		[JsonProperty]
+		[JsonConverter(typeof(StringEnumConverter))]
 		protected ItemSlot _slot;
 
 		/// <summary>
@@ -22,6 +25,7 @@ namespace Hedron.Core.Entity.Base
 		/// The rarity of the item.
 		/// </summary>
 		[JsonProperty]
+		[JsonConverter(typeof(StringEnumConverter))]
 		public ItemRarity Rarity { get; set; } = ItemRarity.Common;
 
 		/// <summary>
@@ -34,6 +38,7 @@ namespace Hedron.Core.Entity.Base
 		/// The slot of the item.
 		/// </summary>
 		[JsonProperty]
+		[JsonConverter(typeof(StringEnumConverter))]
 		public virtual ItemSlot Slot
 		{
 			get

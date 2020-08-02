@@ -27,6 +27,7 @@ namespace Hedron.Controllers.Data
 					Prototype = (uint)weapon.Prototype,
 					Tier = weapon.Tier.Level,
 					Name = weapon.Name,
+					WeaponType = weapon.WeaponType,
 					ShortDescription = weapon.ShortDescription.ToTruncatedSubString(30, true),
 					LongDescription = weapon.LongDescription.ToTruncatedSubString(80, true),
 					MinDamage = weapon.MinDamage,
@@ -54,6 +55,7 @@ namespace Hedron.Controllers.Data
 				Prototype = (uint)weapon.Prototype,
 				Tier = weapon.Tier.Level,
 				Name = weapon.Name,
+				WeaponType = weapon.WeaponType,
 				ShortDescription = weapon.ShortDescription,
 				LongDescription = weapon.LongDescription,
 				MinDamage = weapon.MinDamage,
@@ -76,7 +78,7 @@ namespace Hedron.Controllers.Data
 		// POST: ItemWeapon/Create
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public ActionResult Create([Bind("Parent,Name,ShortDescription,LongDescription,MinDamage,MaxDamage,Tier,Behavior,Rarity,DamageType,ElementalType,Slot")]
+		public ActionResult Create([Bind("Parent,Name,WeaponType,ShortDescription,LongDescription,MinDamage,MaxDamage,Tier,Behavior,Rarity,DamageType,ElementalType,Slot")]
 			ItemWeaponViewModel itemWeaponViewModel)
 		{
 			if (ModelState.IsValid)
@@ -88,6 +90,7 @@ namespace Hedron.Controllers.Data
 					// weapon.Parent = itemWeaponViewModel.Parent;
 					weapon.Tier.Level = itemWeaponViewModel.Tier;
 					weapon.Name = itemWeaponViewModel.Name;
+					weapon.WeaponType = itemWeaponViewModel.WeaponType;
 					weapon.ShortDescription = itemWeaponViewModel.ShortDescription;
 					weapon.LongDescription = itemWeaponViewModel.LongDescription;
 					weapon.MinDamage = itemWeaponViewModel.MinDamage;
@@ -124,6 +127,7 @@ namespace Hedron.Controllers.Data
 				// Parent = weapon.Parent,
 				Tier = weapon.Tier.Level,
 				Name = weapon.Name,
+				WeaponType = weapon.WeaponType,
 				ShortDescription = weapon.ShortDescription,
 				LongDescription = weapon.LongDescription,
 				MinDamage = weapon.MinDamage,
@@ -141,7 +145,7 @@ namespace Hedron.Controllers.Data
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult Edit(int id, 
-			[Bind("Prototype,Parent,Name,ShortDescription,LongDescription,MinDamage,MaxDamage,Tier,Behavior,Rarity,DamageType,ElementalType,Slot")]
+			[Bind("Prototype,Parent,Name,WeaponType,ShortDescription,LongDescription,MinDamage,MaxDamage,Tier,Behavior,Rarity,DamageType,ElementalType,Slot")]
 			ItemWeaponViewModel itemWeaponViewModel)
 		{
 			if (id != itemWeaponViewModel.Prototype)
@@ -156,6 +160,7 @@ namespace Hedron.Controllers.Data
 					// weapon.Parent = itemWeaponViewModel.Parent;
 					weapon.Tier.Level = itemWeaponViewModel.Tier;
 					weapon.Name = itemWeaponViewModel.Name;
+					weapon.WeaponType = itemWeaponViewModel.WeaponType;
 					weapon.ShortDescription = itemWeaponViewModel.ShortDescription;
 					weapon.LongDescription = itemWeaponViewModel.LongDescription;
 					weapon.MinDamage = itemWeaponViewModel.MinDamage;
@@ -195,6 +200,7 @@ namespace Hedron.Controllers.Data
 				// Parent = weapon.Parent,
 				Tier = weapon.Tier.Level,
 				Name = weapon.Name,
+				WeaponType = weapon.WeaponType,
 				ShortDescription = weapon.ShortDescription,
 				LongDescription = weapon.LongDescription,
 				MinDamage = weapon.MinDamage,

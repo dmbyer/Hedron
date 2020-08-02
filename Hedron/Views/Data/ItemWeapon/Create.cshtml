@@ -36,6 +36,13 @@
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
+                <label asp-for="WeaponType"></label>
+                <div>
+                    <select asp-for="WeaponType" asp-items="Html.GetEnumSelectList<WeaponType>()" class="form-control"></select>
+                    <span asp-validation-for="WeaponType" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
                 <label asp-for="ShortDescription"></label>
                 <div>
                     <input asp-for="ShortDescription" class="w3-animate-input" style="width:30%" />

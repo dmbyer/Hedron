@@ -7,6 +7,7 @@ using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.System;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 namespace Hedron.Core.Entity.Item
 {
@@ -15,6 +16,8 @@ namespace Hedron.Core.Entity.Item
 		/// <summary>
 		/// Guarantees an ItemWeapon slot will always be OneHandedWeapon if set to anything other than a weapon slot
 		/// </summary>
+		[JsonProperty]
+		[JsonConverter(typeof(StringEnumConverter))]
 		public override ItemSlot Slot
 		{
 			get
@@ -34,19 +37,27 @@ namespace Hedron.Core.Entity.Item
 		/// Damage type
 		/// </summary>
 		[JsonProperty]
+		[JsonConverter(typeof(StringEnumConverter))]
 		public DamageType DamageType { get; set; }
 
 		/// <summary>
 		/// Minimum weapon damage
 		/// </summary>
 		[JsonProperty]
-		public int        MinDamage  { get; set; } = Constants.DEFAULT_DAMAGE;
+		public int MinDamage  { get; set; } = Constants.DEFAULT_DAMAGE;
 
 		/// <summary>
 		/// Maximum weapon damage
 		/// </summary>
 		[JsonProperty]
-		public int        MaxDamage  { get; set; } = Constants.DEFAULT_DAMAGE * 2;
+		public int MaxDamage  { get; set; } = Constants.DEFAULT_DAMAGE * 2;
+
+		/// <summary>
+		/// The type of weapon
+		/// </summary>
+		[JsonProperty]
+		[JsonConverter(typeof(StringEnumConverter))]
+		public WeaponType WeaponType { get; set; }
 
 		/// <summary>
 		/// Base constructor
