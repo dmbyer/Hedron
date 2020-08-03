@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace Hedron.Skills
 {
-    public interface ISkill
+	public interface ISkill
 	{
 		/// <summary>
 		/// The friendly name of the skill
@@ -22,5 +22,10 @@ namespace Hedron.Skills
 		/// The rate at which this skill progresses based on use.
 		/// </summary>
 		public float LearnRate { get; set; }
+
+		/// <summary>
+		/// The cooldown of the skill, measured in ticks
+		/// </summary>
+		public int Cooldown { get; }
 	}
 }

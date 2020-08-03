@@ -4,6 +4,7 @@ using Hedron.Core.Entity.Property;
 using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.Network;
+using Hedron.Skills;
 using Hedron.System;
 using Hedron.System.Exceptions.Slot;
 using Newtonsoft.Json;
@@ -37,6 +38,12 @@ namespace Hedron.Core.Entity.Base
 		/// </summary>
 		[JsonProperty]
 		public Attributes BaseAttributes { get; set; } = Attributes.Default();
+
+		/// <summary>
+		/// The entity's learned skills
+		/// </summary>
+		[JsonProperty]
+		public List<ISkill> Skills { get; protected set; } = new List<ISkill>();
 
 		/// <summary>
 		/// The entity's modified attributes

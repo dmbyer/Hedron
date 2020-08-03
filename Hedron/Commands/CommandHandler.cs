@@ -50,6 +50,10 @@ namespace Hedron.Commands
 			{"flee",      new Combat.Flee() },
 			{"kill",      new Combat.Kill() },
 
+			// Skill commands
+			{"learn",     new Skill.Learn() },
+			{"skills",    new Skill.Skills() },
+
 			// System commands
 			{"shutdown",  new System.Shutdown() }
 		};

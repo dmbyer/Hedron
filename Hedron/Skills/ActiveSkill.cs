@@ -12,5 +12,7 @@ namespace Hedron.Skills
         public int SkillLevel { get; set; } = 0;
 
         public float LearnRate { get; set; } = 1.0f;
+
+        public int Cooldown { get; protected set; }
     }
 }

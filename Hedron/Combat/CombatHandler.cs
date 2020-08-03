@@ -83,11 +83,24 @@ namespace Hedron.Combat
 		/// <summary>
 		/// Get a list of the entities targeting this entity
 		/// </summary>
-		/// <param name="entityID"></param>
-		/// <returns></returns>
+		/// <param name="entityID">The entity being targeted</param>
+		/// <returns>The entities targeting the given entity</returns>
 		public static List<uint?> GetEntitiesTargeting(uint? entityID)
 		{
 			return CombatTargets.Where(kvp => kvp.Value == entityID).Select(kvp => kvp.Key).ToList();
+		}
+
+		/// <summary>
+		/// Gets the target of a given entity
+		/// </summary>
+		/// <param name="entityID">The entity in combat</param>
+		/// <returns>The given entity's combat target</returns>
+		public static uint? GetTarget(uint? entityID)
+		{
+			if (CombatTargets.ContainsKey(entityID))
+				return CombatTargets[entityID];
+			else
+				return null;
 		}
 
 		/// <summary>
