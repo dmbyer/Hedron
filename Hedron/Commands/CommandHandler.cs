@@ -41,6 +41,7 @@ namespace Hedron.Commands
 			{"prompt",    new General.Prompt() },
             {"stats",     new General.Stats() },
             {"who",       new General.Who() },
+            {"title",     new General.Title() },
 
 			// Building commands
 			{"autodig",   new Building.Autodig() },
@@ -107,6 +108,7 @@ namespace Hedron.Commands
             if (command == null)
                 return CommandResult.NotFound(commandInput);
 
+            // TODO: Move command failure messages based on state into properties and change the failure message here to use it from the command itself
             if (!command.ValidStates.Intersect(validStates).Any())
             {
                 return CommandResult.Failure("State commands not found.");
