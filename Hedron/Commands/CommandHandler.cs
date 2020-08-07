@@ -47,6 +47,8 @@ namespace Hedron.Commands
 			{"autodig",   new Building.Autodig() },
             {"elist",     new Building.Elist() },
             {"set",       new Building.Set() },
+            {"mgenerate", new Building.Mgenerate() },
+            {"mlist",     new Building.Mlist() },
 
 			// Combat commands
 			{"flee",      new Combat.Flee() },
