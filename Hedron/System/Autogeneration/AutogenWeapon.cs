@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Hedron.Autogeneration
 {
-    public class AutogenWeapon
+    public static class AutogenWeapon
     {
 
     }

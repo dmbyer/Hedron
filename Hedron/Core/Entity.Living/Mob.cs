@@ -17,16 +17,13 @@ namespace Hedron.Core.Entity.Living
 		public MobBehavior Behavior { get; set; } = new MobBehavior();
 
 		/// <summary>
-		/// The mob's advancement level
-		/// </summary>
-		[JsonIgnore]
-		public Level Level { get; private set; } = Level.Fair;
-
-		/// <summary>
 		/// The affect for the mob's level
 		/// </summary>
-		[JsonIgnore]
 		private Affect LevelAffect { get; set; } = new Affect();
+
+
+		private MobLevel _level;
+
 
 		/// <summary>
 		/// Default constructor
@@ -34,45 +31,44 @@ namespace Hedron.Core.Entity.Living
 		public Mob() 
 			: base()
 		{
-			LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_FAIR);
+			LevelAffect = Affect.NewMultiplier(MobLevelModifier.Map(MobLevel.Fair));
 			ModifiedPools.CopyTo(CurrentPools);
 		}
 
 		/// <summary>
 		/// Creates a new mob of the given level
 		/// </summary>
-		/// <param name="level"></param>
-		private Mob(Level level) 
+		/// <param name="level">The level multipler of the mob</param>
+		private Mob(MobLevel level) 
 			: base()
 		{
-			Level = level;
-			switch (Level)
-			{
-				case Level.Pathetic:
-					LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_PATHETIC);
-					break;
-				case Level.Minor:
-					LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_MEEK);
-					break;
-				case Level.Meek:
-					LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_MINOR);
-					break;
-				case Level.Fair:
-					LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_FAIR);
-					break;
-				case Level.Heightened:
-					LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_LEGENDARY);
-					break;
-				case Level.Great:
-					LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_LEGENDARY);
-					break;
-				case Level.Legendary:
-					LevelAffect = Affect.NewMultiplier(Constants.LEVEL_MOD_LEGENDARY);
-					break;
-			}
-
+			LevelAffect = Affect.NewMultiplier(MobLevelModifier.Map(level));
 			ModifiedPools.CopyTo(CurrentPools);
 		}
+
+		/// <summary>
+		/// The mob's advancement level
+		/// </summary>
+		public MobLevel Level
+        {
+			get
+            {
+				return _level;
+            }
+			set
+            {
+				try
+				{
+					LevelAffect = Affect.NewMultiplier(MobLevelModifier.Map(value));
+					_level = value;
+				}
+				catch
+				{
+					LevelAffect = Affect.NewMultiplier(MobLevelModifier.Map(MobLevel.Fair));
+					_level = MobLevel.Fair;
+				}
+            }
+        }
 
 		/// <summary>
 		/// The entity's modified attributes
@@ -134,7 +130,7 @@ namespace Hedron.Core.Entity.Living
 		/// <param name="withPrototype">Whether to also create a backing prototype</param>
 		/// <param name="prototypeID">An optional PrototypeID to use if also creating a backing prototype. Used when loading.</param>
 		/// <returns>The new instanced mob</returns>
-		public static Mob NewInstance(Level level, bool withPrototype = false, uint? prototypeID = null, uint? inventoryPrototypeID = null, uint? equipmentPrototypeID = null)
+		public static Mob NewInstance(MobLevel level, bool withPrototype = false, uint? prototypeID = null, uint? inventoryPrototypeID = null, uint? equipmentPrototypeID = null)
 		{
 			Mob newMob;
 
@@ -159,7 +155,7 @@ namespace Hedron.Core.Entity.Living
 		/// <remarks>Parent cannot be null. Adds new mob to instanced room.</remarks>
 		public override T SpawnAsObject<T>(bool withEntities, uint? parent = null)
 		{
-			return SpawnAsObject<T>(Level.Fair, withEntities, parent);
+			return SpawnAsObject<T>(MobLevel.Fair, withEntities, parent);
 		}
 
 		/// <summary>
@@ -170,7 +166,7 @@ namespace Hedron.Core.Entity.Living
 		/// <param name="parent">The parent room instance ID</param>
 		/// <returns>The spawned mob. Will return null if the method is called from an instanced object.</returns>
 		/// <remarks>Parent cannot be null. Adds new mob to instanced room.</remarks>
-		public T SpawnAsObject<T>(Level level, bool withEntities, uint? parent = null) where T: ICacheableObject
+		public T SpawnAsObject<T>(MobLevel level, bool withEntities, uint? parent = null) where T: ICacheableObject
 		{
 			return DataAccess.Get<T>(Spawn(level, withEntities, parent), CacheType.Instance);
 		}
@@ -184,7 +180,7 @@ namespace Hedron.Core.Entity.Living
 		/// <remarks>Parent may be null. Adds new mob to parent room, if specified.</remarks>
 		public override uint? Spawn(bool withEntities, uint? parent = null)
 		{
-			return Spawn(Level.Fair, withEntities, parent);
+			return Spawn(MobLevel.Fair, withEntities, parent);
 		}
 
 		/// <summary>
@@ -195,7 +191,7 @@ namespace Hedron.Core.Entity.Living
 		/// <param name="parent">The parent room instance ID</param>
 		/// <returns>The instance ID of the spawned mob. Will return null if the method is called from an instanced object.</returns>
 		/// <remarks>Parent may be null. Adds new mob to parent room, if specified.</remarks>
-		public uint? Spawn(Level level, bool withEntities, uint? parent = null)
+		public uint? Spawn(MobLevel level, bool withEntities, uint? parent = null)
 		{
 			if (CacheType != CacheType.Prototype)
 				return null;

@@ -39,14 +39,8 @@ namespace Hedron.System
 		public const int    MIN_TIER              = 1;
 		public const int    MAX_TIER              = 6;
 
-		// Mob level modifiers
-		public const float  LEVEL_MOD_PATHETIC    = 0.50f;
-		public const float  LEVEL_MOD_MEEK        = 0.75f;
-		public const float  LEVEL_MOD_MINOR       = 0.90f;
-		public const float  LEVEL_MOD_FAIR        = 1.00f;
-		public const float  LEVEL_MOD_HEIGHTENED  = 1.50f;
-		public const float  LEVEL_MOD_GREAT       = 2.00f;
-		public const float  LEVEL_MOD_LEGENDARY   = 3.00f;
+		// Mob levels defined in Entity.Property/Level.cs for now
+		// ----
 
 		// Skill levels
 		public const int    MAX_SKILL_LEVEL       = 10000;
