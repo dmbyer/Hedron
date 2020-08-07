@@ -41,6 +41,7 @@ namespace Hedron.Commands
 			{"prompt",    new General.Prompt() },
             {"stats",     new General.Stats() },
             {"who",       new General.Who() },
+            {"title",     new General.Title() },
 
 			// Building commands
 			{"autodig",   new Building.Autodig() },

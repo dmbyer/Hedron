@@ -65,10 +65,10 @@ namespace Hedron.Commands.General
         {
             if (name.Length > 5)
             {
-                return "\t\t";
+                return "\t";
             }
 
-            return "\t\t\t";
+            return "\t\t";
         }
     }
 }

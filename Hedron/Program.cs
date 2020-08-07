@@ -87,7 +87,7 @@ namespace Hedron
 					TcpClient client = server.AcceptTcpClient();
 					clients.Add(client);
 
-					Player player = new Player(client.GetStream());
+					Player player = new Player(client.GetStream()) { ShortDescription = "the Adventurer." };
 					player.Instance = DataAccess.Add<Player>(player, CacheType.Instance);
 
 					// Player connected -- get name:
