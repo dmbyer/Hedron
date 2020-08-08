@@ -61,6 +61,7 @@ namespace Hedron.Core.Entity.Property
 		{
 			return new Pools
 			{
+				IsMultiplier = true,
 				HitPoints = multiplier,
 				Stamina = multiplier,
 				Energy = multiplier
@@ -76,6 +77,7 @@ namespace Hedron.Core.Entity.Property
 			if (pools == null)
 				pools = new Pools();
 
+			pools.IsMultiplier = IsMultiplier;
 			pools.HitPoints = HitPoints;
 			pools.Stamina = Stamina;
 			pools.Energy = Energy;

@@ -56,7 +56,7 @@ namespace Hedron.Commands.Building
 			}
 
 			// Create new mobs of all levels and instantiate them in this room
-			var mobs = AutogenMob.CreateAndInstantiateAllLevels(name, room.Prototype);
+			var mobs = AutogenMob.CreateAndInstantiateAllLevels(name, room.Instance);
 
 			var output = new OutputBuilder();
 

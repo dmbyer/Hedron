@@ -78,6 +78,7 @@ namespace Hedron.Core.Entity.Property
 		{
 			return new Attributes
 			{
+				IsMultiplier = true,
 				Might = multiplier,
 				Finesse = multiplier,
 				Will = multiplier,
@@ -96,6 +97,7 @@ namespace Hedron.Core.Entity.Property
 			if (attributes == null)
 				attributes = new Attributes();
 
+			attributes.IsMultiplier = IsMultiplier;
 			attributes.Might = Might;
 			attributes.Finesse = Finesse;
 			attributes.Will = Will;

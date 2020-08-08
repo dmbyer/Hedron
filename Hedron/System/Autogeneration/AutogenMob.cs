@@ -20,25 +20,34 @@ namespace Hedron.System.Autogeneration
         public static List<uint?> CreateAndInstantiateAllLevels(string name, uint? parentID)
         {
             var mobs = new List<uint?>();
-            var parentRoom = DataAccess.Get<Room>(parentID, CacheType.Prototype);
+            var parentRoom = DataAccess.Get<Room>(parentID, CacheType.Instance);
+            var protoRoom = DataAccess.Get<Room>(parentRoom?.Prototype, CacheType.Prototype);
+
+            // Fail gracefully upon an invalid room ID
+            if (parentRoom == null)
+            {
+                Logger.Error(nameof(AutogenMob), nameof(CreateAndInstantiateAllLevels), "Invalid Room ID. Cannot create and instantiate mobs.");
+                return new List<uint?>();
+            }
 
             foreach (var level in Enum.GetValues(typeof(MobLevel)))
             {
-                var mob = Mob.NewPrototype();
+                var mob = Mob.NewPrototype((MobLevel)level);
                 var levelName = MobLevelModifier.MapName((MobLevel)level);
                 var desc = $"{levelName} {name}";
 
-                parentRoom?.AddEntity(mob.Prototype, mob, true);
+                protoRoom.AddEntity(mob.Prototype, mob, true);
 
                 mob.ShortDescription = $"a {desc}";
                 mob.LongDescription = $"A {desc} is here.";
                 mob.Name = $"{levelName} {name}";
 
                 DataPersistence.SaveObject(mob);
-                DataPersistence.SaveObject(parentRoom);
 
-                mobs.Add(mob.Spawn(true, parentRoom?.Prototype));
+                mobs.Add(mob.Spawn(true, parentRoom.Instance));
             }
+
+            DataPersistence.SaveObject(protoRoom);
 
             return mobs;
         }

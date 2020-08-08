@@ -67,6 +67,7 @@ namespace Hedron.Core.Entity.Property
 		{
 			return new Qualities
 			{
+				IsMultiplier = true,
 				CriticalHit = multiplier,
 				CriticalDamage = multiplier,
 				AttackRating = multiplier,
@@ -83,6 +84,7 @@ namespace Hedron.Core.Entity.Property
 			if (qualities == null)
 				qualities = new Qualities();
 
+			qualities.IsMultiplier = IsMultiplier;
 			qualities.CriticalHit = CriticalHit;
 			qualities.CriticalDamage = CriticalDamage;
 			qualities.AttackRating = AttackRating;

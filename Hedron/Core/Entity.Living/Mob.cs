@@ -19,6 +19,7 @@ namespace Hedron.Core.Entity.Living
 		/// <summary>
 		/// The affect for the mob's level
 		/// </summary>
+		[JsonProperty]
 		private Affect LevelAffect { get; set; } = new Affect();
 
 
@@ -42,6 +43,7 @@ namespace Hedron.Core.Entity.Living
 		private Mob(MobLevel level) 
 			: base()
 		{
+			Level = level;
 			LevelAffect = Affect.NewMultiplier(MobLevelModifier.Map(level));
 			ModifiedPools.CopyTo(CurrentPools);
 		}
@@ -113,9 +115,9 @@ namespace Hedron.Core.Entity.Living
 		/// <param name="inventoryPrototypeID">An optional PrototypeID for Inventory. Used when loading.</param>
 		/// <param name="equipmentPrototypeID">An optional PrototypeID for WornEquipment. Used when loading.</param>
 		/// <returns>The new prototype mob</returns>
-		public static Mob NewPrototype(uint? prototypeID = null, uint? inventoryPrototypeID = null, uint? equipmentPrototypeID = null)
+		public static Mob NewPrototype(MobLevel level = MobLevel.Fair, uint? prototypeID = null, uint? inventoryPrototypeID = null, uint? equipmentPrototypeID = null)
 		{
-			var newMob = new Mob();
+			var newMob = new Mob(level);
 
 			DataAccess.Add<Mob>(newMob, CacheType.Prototype, prototypeID);
 			DataAccess.Add<Inventory>(newMob.Inventory, CacheType.Prototype, inventoryPrototypeID);
@@ -135,7 +137,7 @@ namespace Hedron.Core.Entity.Living
 			Mob newMob;
 
 			if (withPrototype)
-				newMob = DataAccess.Get<Mob>(NewPrototype(prototypeID, inventoryPrototypeID, equipmentPrototypeID).Spawn(level, false), CacheType.Instance);
+				newMob = DataAccess.Get<Mob>(NewPrototype(level, prototypeID, inventoryPrototypeID, equipmentPrototypeID).Spawn(level, false), CacheType.Instance);
 			else
 			{
 				newMob = DataAccess.Get<Mob>(DataAccess.Add<Mob>(new Mob(level), CacheType.Instance), CacheType.Instance);
@@ -180,7 +182,7 @@ namespace Hedron.Core.Entity.Living
 		/// <remarks>Parent may be null. Adds new mob to parent room, if specified.</remarks>
 		public override uint? Spawn(bool withEntities, uint? parent = null)
 		{
-			return Spawn(MobLevel.Fair, withEntities, parent);
+			return Spawn(Level, withEntities, parent);
 		}
 
 		/// <summary>
