@@ -37,7 +37,8 @@ namespace Hedron.Combat
 
 			if (isOffhand)
 			{
-				attackRating += entity.Skills.Where(s => s.GetType() == typeof(DualWield)).FirstOrDefault().SkillLevel;
+				ISkill dualWield = entity.Skills.FirstOrDefault(s => s.GetType() == typeof(DualWield));
+				attackRating += dualWield?.SkillLevel ?? 0;
 				attackRating /= 2;
 			}
 
