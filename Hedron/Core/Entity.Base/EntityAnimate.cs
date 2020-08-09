@@ -43,7 +43,7 @@ namespace Hedron.Core.Entity.Base
 		/// The entity's learned skills
 		/// </summary>
 		[JsonProperty]
-		public List<ISkill> Skills { get; protected set; } = new List<ISkill>();
+		public List<ISkill> Skills { get; set; } = new List<ISkill>();
 
 		/// <summary>
 		/// The entity's modified attributes

@@ -5,6 +5,7 @@ using Hedron.Core.Entity.Living;
 using Hedron.Data;
 using Hedron.System;
 using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -12,6 +13,13 @@ namespace Hedron.Core.Locale
 {
 	public class World : EntityContainer, ICopyableObject<World>, ISpawnableObject
 	{
+		/// <summary>
+		/// Provides a global random object to use
+		/// </summary>
+		/// <remarks>This is useful to avoid rapidly executing loops generating a new random object from having the same seed.</remarks>
+		[JsonIgnore]
+		public static Random Random = new Random();
+
 		[JsonIgnore]
 		public bool IsLoading { get; private set; }
 

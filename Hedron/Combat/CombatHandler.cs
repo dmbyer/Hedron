@@ -115,12 +115,12 @@ namespace Hedron.Combat
 			// Process attacks for players first
 			var players = DataAccess.GetMany<Player>(CombatTargets.Keys.Cast<uint>().ToList(), CacheType.Instance);
 			foreach (var p in players)
-				ProcessEntityAutoAttack(1, p, DataAccess.Get<EntityAnimate>(CombatTargets[p.Instance], CacheType.Instance));
+				ProcessEntityAutoAttack(p, DataAccess.Get<EntityAnimate>(CombatTargets[p.Instance], CacheType.Instance));
 			
 			// Process attacks for mobs next
 			var mobs = DataAccess.GetMany<Mob>(CombatTargets.Keys.Cast<uint>().ToList(), CacheType.Instance);
 			foreach (var m in mobs)
-				ProcessEntityAutoAttack(1, m, DataAccess.Get<EntityAnimate>(CombatTargets[m.Instance], CacheType.Instance));
+				ProcessEntityAutoAttack(m, DataAccess.Get<EntityAnimate>(CombatTargets[m.Instance], CacheType.Instance));
 
 			foreach (var p in players)
 			{
@@ -135,24 +135,36 @@ namespace Hedron.Combat
 		/// <param name="numAttacks">The number of attacks to process</param>
 		/// <param name="source">The attacking entity</param>
 		/// <param name="target">The target entity</param>
-		public static void ProcessEntityAutoAttack(int numAttacks, EntityAnimate source, EntityAnimate target)
+		public static void ProcessEntityAutoAttack(EntityAnimate source, EntityAnimate target)
 		{
 			if (source == null || target == null)
 				return;
 
+			var rand = World.Random;
+			var weapons = source.GetItemsEquippedAt(ItemSlot.OneHandedWeapon, ItemSlot.TwoHandedWeapon);
+			int numAttacks = 0;
+
+			// Calculate the number of attacks
+			if (weapons.Count == 0)
+				numAttacks += CombatHelper.CalcNumAttacks(source, WeaponType.Unarmed, false);
+			else
+				for (var i = 0; i < weapons.Count; i++)
+					numAttacks += CombatHelper.CalcNumAttacks(source, ((ItemWeapon)weapons[i]).WeaponType, i > 0);
+
+			// Process attacks
 			for (var i = 0; i < numAttacks && numAttacks > 0; i++)
 			{
-				var rand = new Random();
-				var weaponDamage = source.GetType() == typeof(Player)
-					? rand.Next(source.Tier.Level + (int)source.ModifiedAttributes.Might / 2, (source.Tier.Level + (int)source.ModifiedAttributes.Might / 2) * 2)
-					: rand.Next(source.Tier.Level, source.Tier.Level * 2);
-				var weapons = source.GetItemsEquippedAt(ItemSlot.OneHandedWeapon, ItemSlot.TwoHandedWeapon);
+				// Base weapon damage
+				int weaponDamage = source.Tier.Level + (int)source.ModifiedAttributes.Might / 2;
 
 				if (weapons.Count != 0)
 				{
 					var weaponToUse = (ItemWeapon)weapons[rand.Next(weapons.Count)];
-					if (weaponToUse.MinDamage <= weaponToUse.MaxDamage && weaponToUse.MinDamage > 0)
-						weaponDamage = rand.Next(weaponToUse.MinDamage, weaponToUse.MaxDamage);
+					weaponDamage += rand.Next(weaponToUse.MinDamage, weaponToUse.MaxDamage);
+				}
+				else
+				{
+					weaponDamage = rand.Next((int)Math.Floor(weaponDamage * 0.9), (int)Math.Ceiling(weaponDamage * 1.1));
 				}
 
 				var defense = target.ModifiedQualities.ArmorRating;
@@ -161,15 +173,15 @@ namespace Hedron.Combat
 				if (damage < 1)
 					damage = 1;
 
-				var crit = rand.Next(1, 101) <= source.ModifiedQualities.CriticalHit ? true : false;
+				var crit = rand.Next(1, 101) <= source.ModifiedQualities.CriticalHit;
 
 				if (crit)
 					damage = (int)(damage + (damage * source.ModifiedQualities.CriticalDamage / 100));
 
 				var status = target.ModifyCurrentHealth(0 - damage, true);
 
-				source.IOHandler?.QueueOutput($"You hit {target.ShortDescription} for {damage.ToString()} damage. ({target.CurrentHitPoints}/{target.ModifiedPools.HitPoints})");
-				target.IOHandler?.QueueOutput($"{source.ShortDescription} hits you for {damage.ToString()}.");
+				source.IOHandler?.QueueOutput($"You hit {target.ShortDescription} for {damage} damage. ({target.CurrentHitPoints}/{target.ModifiedPools.HitPoints})");
+				target.IOHandler?.QueueOutput($"{source.ShortDescription} hits you for {damage}.");
 
 				// Handle target death
 				if (status.Died)

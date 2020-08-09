@@ -2,14 +2,14 @@
 
 namespace Hedron.Skills.Passive
 {
-    public class Dodge : PassiveSkill
+    public class Dagger : PassiveSkill
     {
         /// <summary>
         /// Default constructor
         /// </summary>
-        public Dodge()
+        public Dagger()
         {
-            FriendlyName = "dodge";
+            FriendlyName = "dagger";
             LearnRate = 1.0f;
             Cooldown = Constants.COOLDOWN_TIME_NONE;
         }

@@ -2,8 +2,6 @@
 using Hedron.Skills.Passive;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Hedron.Commands
 {
@@ -22,7 +20,19 @@ namespace Hedron.Commands
         /// </summary>
         public static Dictionary<string, Type> PassiveSkills = new Dictionary<string, Type>()
         {
-            { "dodge", typeof(Dodge) }
+            { "axe", typeof(Axe) },
+            { "bow", typeof(Bow) },
+            { "dagger", typeof(Dagger) },
+            { "dodge", typeof(Dodge) },
+            { "dual wield", typeof(DualWield) },
+            { "mace", typeof(Mace) },
+            { "one handed", typeof(OneHanded) },
+            { "shield", typeof(Shield) },
+            { "staff", typeof(Staff) },
+            { "sword", typeof(Sword) },
+            { "two handed", typeof(TwoHanded) },
+            { "unarmed", typeof(Unarmed) },
+            { "wand", typeof(Wand) }
         };
     }
 }

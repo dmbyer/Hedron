@@ -174,9 +174,10 @@ namespace Hedron.Core.Entity.Item
 
 			base.CopyTo(item);
 
+			item.DamageType = DamageType;
 			item.MinDamage = MinDamage;
 			item.MaxDamage = MaxDamage;
-			item.DamageType = DamageType;
+			item.WeaponType = WeaponType;
 		}
 	}
 }

@@ -18,5 +18,12 @@ namespace Hedron.Core.Material
 		/// The material type
 		/// </summary>
 		public MaterialType Type { get; set; }
+
+		public void CopyTo(Material material)
+		{
+			material.Name = Name;
+			material.Quality = Quality;
+			material.Type = Type;
+		}
 	}
 }

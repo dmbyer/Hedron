@@ -76,8 +76,9 @@ namespace Hedron.Core.Entity.Base
 			base.CopyTo(item);
 
 			Behavior.CopyTo(item.Behavior);
-			item.Slot = Slot;
 			item.Rarity = Rarity;
+			Material.CopyTo(item.Material);
+			item.Slot = Slot;
 		}
 	}
 }
