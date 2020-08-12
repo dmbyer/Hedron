@@ -9,8 +9,7 @@ namespace Hedron.Skills.Passive
         /// </summary>
         public Wand()
         {
-            FriendlyName = "wand";
-            LearnRate = 1.0f;
+            LearnRate = 1.0;
             Cooldown = Constants.COOLDOWN_TIME_NONE;
         }
     }

@@ -9,7 +9,6 @@ namespace Hedron.Skills.Passive
         /// </summary>
         public Axe()
         {
-            FriendlyName = "axe";
             LearnRate = 1.0f;
             Cooldown = Constants.COOLDOWN_TIME_NONE;
         }

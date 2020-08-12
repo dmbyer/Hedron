@@ -1,17 +1,16 @@
-﻿using System;
+﻿using Hedron.Commands;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace Hedron.Skills
 {
-    public class PassiveSkill : ISkill
+    public abstract class PassiveSkill : ISkill
     {
-        public string FriendlyName { get; set; }
+        public double SkillLevel { get; set; } = 1;
 
-        public int SkillLevel { get; set; } = 0;
-
-        public float LearnRate { get; set; } = 1.0f;
+        public double LearnRate { get; set; } = 1.0f;
 
         public int Cooldown { get; protected set; }
     }

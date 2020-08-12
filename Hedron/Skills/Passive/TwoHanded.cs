@@ -9,8 +9,7 @@ namespace Hedron.Skills.Passive
         /// </summary>
         public TwoHanded()
         {
-            FriendlyName = "two handed";
-            LearnRate = 1.0f;
+            LearnRate = 0.25;
             Cooldown = Constants.COOLDOWN_TIME_NONE;
         }
     }

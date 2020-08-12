@@ -45,6 +45,7 @@ namespace Hedron.System
 		// Skill levels
 		public const int    MAX_SKILL_LEVEL       = 10000;
 		public const int    COOLDOWN_TIME_NONE    = 0;
+		public const int    SKILL_UNLEARNED       = -1;
 
 		// Directions rooms can have
 		public enum EXIT

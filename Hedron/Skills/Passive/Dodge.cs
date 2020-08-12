@@ -9,8 +9,7 @@ namespace Hedron.Skills.Passive
         /// </summary>
         public Dodge()
         {
-            FriendlyName = "dodge";
-            LearnRate = 1.0f;
+            LearnRate = 1.0;
             Cooldown = Constants.COOLDOWN_TIME_NONE;
         }
     }

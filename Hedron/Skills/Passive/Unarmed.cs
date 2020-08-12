@@ -9,8 +9,7 @@ namespace Hedron.Skills.Passive
         /// </summary>
         public Unarmed()
         {
-            FriendlyName = "unarmed";
-            LearnRate = 1.0f;
+            LearnRate = 0.5;
             Cooldown = Constants.COOLDOWN_TIME_NONE;
         }
     }

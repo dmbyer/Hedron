@@ -244,7 +244,7 @@ namespace Hedron.Core.Entity.Base
 		/// Returns all items equipped at the specified slots
 		/// </summary>
 		/// <param name="slot">The slots to check for equipped items</param>
-		/// <returns>A list of equipped items</returns>
+		/// <returns>A list of equipped items, or an empty list if there are no matches.</returns>
 		public List<EntityInanimate> GetItemsEquippedAt(params ItemSlot[] slot)
 		{
 			List<EntityInanimate> equippedItems = new List<EntityInanimate>();
@@ -549,6 +549,63 @@ namespace Hedron.Core.Entity.Base
 			}
 
 			return (int)CurrentPools.Energy;
+		}
+
+		/// <summary>
+		/// Improves an existing skill. If the skill is not already in the entity's list, it will be added prior to improving.
+		/// </summary>
+		/// <param name="skillName">The friendly name of the skill to add</param>
+		/// <param name="successChance">The chance of success this skill had of activating; 1.0 denotes a 100% chance.</param>
+		/// <returns>The result of the skill improvement</returns>
+		/// <remarks>The successChance will be clamped between 0.01 and 1.0.</remarks>
+		public ImproveSkillResult ImproveSkill(string skillName, double successChance)
+		{
+			double improvedBy;
+			string improvedMessage;
+			bool wasAdded = false;
+			skillName = skillName.ToLower();
+			Type skillType = SkillMap.FriendlyNameToSkill(skillName);
+			var skill = Skills.FirstOrDefault(s => s.GetType() == skillType);
+
+			// Clamp success chance
+			if (successChance > 1.0)
+				successChance = 1.0;
+
+			if (successChance < 0)
+				successChance = 0.01;
+
+			// Add or improve skill
+			if (skill == default(ISkill))
+			{
+				skill = (ISkill)Activator.CreateInstance(skillType);
+				Skills.Add(skill);
+				wasAdded = true;
+				skill.SkillLevel = 1;
+				improvedBy = 1;
+				improvedMessage = $"You have learned the {skillName} skill!";
+			}
+			else
+			{
+				// Without the default case, the compiler complains the switch is not exhaustive for some reason...
+				double exp = successChance switch
+				{
+					double c when c >  0.95               => 1,
+					double c when c >  0.75 && c <= 0.95  => 2,
+					double c when c >  0.25 && c <= 0.75  => 3,
+					double c when c >= 0.05 && c <= 0.25  => 4,
+					double c when c <  0.05               => 5,
+					_ => 1
+				};
+
+				// ... so log in the default case for debugging purposes.
+				Logger.Bug(nameof(EntityAnimate), nameof(ImproveSkill), "Skill improvement experience calculated as the default case.");
+
+				improvedBy = exp * skill.LearnRate;
+				skill.SkillLevel += improvedBy;
+				improvedMessage = $"Your {skillName} skill has improved!";
+			}
+
+			return new ImproveSkillResult(improvedBy, improvedMessage, wasAdded, skillName);
 		}
 
 

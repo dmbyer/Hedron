@@ -9,8 +9,7 @@ namespace Hedron.Skills.Passive
         /// </summary>
         public OneHanded()
         {
-            FriendlyName = "one handed";
-            LearnRate = 1.0f;
+            LearnRate = 0.25;
             Cooldown = Constants.COOLDOWN_TIME_NONE;
         }
     }

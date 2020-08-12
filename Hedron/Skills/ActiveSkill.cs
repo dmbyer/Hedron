@@ -9,9 +9,9 @@ namespace Hedron.Skills
 {
     public abstract class ActiveSkill : Command, ISkill
     {
-        public int SkillLevel { get; set; } = 0;
+        public double SkillLevel { get; set; } = 1;
 
-        public float LearnRate { get; set; } = 1.0f;
+        public double LearnRate { get; set; } = 1.0f;
 
         public int Cooldown { get; protected set; }
     }

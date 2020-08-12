@@ -1,9 +1,16 @@
-﻿using Hedron.Core.Entity.Base;
+﻿using Hedron.Commands;
+using Hedron.Core.Entity.Base;
 using Hedron.Core.Entity.Item;
 using Hedron.Core.Entity.Living;
 using Hedron.Core.Entity.Property;
 using Hedron.Core.Locale;
 using Hedron.Data;
+using Hedron.Skills;
+using Hedron.Skills.Passive;
+using Hedron.System;
+using Hedron.System.Text;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Razor.Language;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -141,71 +148,149 @@ namespace Hedron.Combat
 				return;
 
 			var rand = World.Random;
-			var weapons = source.GetItemsEquippedAt(ItemSlot.OneHandedWeapon, ItemSlot.TwoHandedWeapon);
-			int numAttacks = 0;
+			var attackRating = 0;
+			var weapons = source.GetItemsEquippedAt(ItemSlot.OneHandedWeapon, ItemSlot.TwoHandedWeapon).Cast<ItemWeapon>().ToList();
+			var skillResults = new List<ImproveSkillResult>();
+			string supportSkillToImprove = "";
 
 			// Calculate the number of attacks
-			if (weapons.Count == 0)
-				numAttacks += CombatHelper.CalcNumAttacks(source, WeaponType.Unarmed, false);
-			else
-				for (var i = 0; i < weapons.Count; i++)
-					numAttacks += CombatHelper.CalcNumAttacks(source, ((ItemWeapon)weapons[i]).WeaponType, i > 0);
+			var numAttacks = CombatHelper.CalcEntityMaxNumAttacks(source);
+			var attackChanceList = new List<double>();
 
-			// Process attacks
-			for (var i = 0; i < numAttacks && numAttacks > 0; i++)
+			// Protect unknown circumstances
+			if (numAttacks < 1)
 			{
-				// Base weapon damage
-				int weaponDamage = source.Tier.Level + (int)source.ModifiedAttributes.Might / 2;
+				Logger.Info(nameof(CombatHandler), nameof(ProcessEntityAutoAttack), $"Number of attacks for {source.Name}: ID {source.Prototype} was less than 1.");
+				string sourceShort = source.ShortDescription ?? "";
+				string targetShort = target.ShortDescription.FirstLetterToUpperCaseOrConvertNullToEmptyString();
 
-				if (weapons.Count != 0)
+				source.IOHandler?.QueueOutput($"You struggle to attack {targetShort}, but can't!");
+				target.IOHandler?.QueueOutput($"{sourceShort} struggles to attack you, but can't!");
+				return;
+			}
+
+			// Get support skill for later improvement
+			if (source.GetType() == typeof(Player))
+			{
+				if (weapons.Count == 0)
 				{
-					var weaponToUse = (ItemWeapon)weapons[rand.Next(weapons.Count)];
-					weaponDamage += rand.Next(weaponToUse.MinDamage, weaponToUse.MaxDamage);
+					// Unarmed
+					supportSkillToImprove = SkillMap.SkillToFriendlyName(typeof(Unarmed));
+				}
+				else if (weapons.Count == 1)
+				{
+					// Two handed?
+					if (weapons[0].Slot == ItemSlot.TwoHandedWeapon)
+						supportSkillToImprove = SkillMap.SkillToFriendlyName(typeof(TwoHanded));
+					else
+						supportSkillToImprove = SkillMap.SkillToFriendlyName(typeof(OneHanded));
 				}
 				else
 				{
-					weaponDamage = rand.Next((int)Math.Floor(weaponDamage * 0.9), (int)Math.Ceiling(weaponDamage * 1.1));
+					// Dual wielding
+					supportSkillToImprove = SkillMap.SkillToFriendlyName(typeof(DualWield));
 				}
+			}
 
-				var defense = target.ModifiedQualities.ArmorRating;
-				int damage = (int)(weaponDamage * weaponDamage / (weaponDamage > 0 || defense > 0 ? (weaponDamage + defense) : 1));
+			// Build attack chance list
+			for (int i = 0; i < numAttacks; i++)
+				attackChanceList.Add(CombatHelper.CalculateAttackChance(attackRating, i));
 
-				if (damage < 1)
-					damage = 1;
+			// Iterate attack chance list and process attacks
+			for (int i = 0; i < attackChanceList.Count; i++)
+			{
+				int damage = 0;
+				bool didHit = false;
 
-				var crit = rand.Next(1, 101) <= source.ModifiedQualities.CriticalHit;
+				// Improve support skills
+				if (source.GetType() == typeof(Player))
+					skillResults.Add(source.ImproveSkill(supportSkillToImprove, attackChanceList[i]));
 
-				if (crit)
-					damage = (int)(damage + (damage * source.ModifiedQualities.CriticalDamage / 100));
-
-				var status = target.ModifyCurrentHealth(0 - damage, true);
-
-				source.IOHandler?.QueueOutput($"You hit {target.ShortDescription} for {damage} damage. ({target.CurrentHitPoints}/{target.ModifiedPools.HitPoints})");
-				target.IOHandler?.QueueOutput($"{source.ShortDescription} hits you for {damage}.");
-
-				// Handle target death
-				if (status.Died)
+				// Process the attack if it succeeds and handle skill improvement
+				if (rand.NextDouble() <= attackChanceList[i])
 				{
-					Exit(target.Instance);
+					didHit = true;
 
-					if (target.GetType() == typeof(Mob))
-						DataAccess.Remove<Mob>(target.Instance, CacheType.Instance);
-
-					if (target.GetType() == typeof(Player))
+					if (weapons.Count == 0)
 					{
-						target.IOHandler.QueueOutput("You have died!");
-
-						var args = new Commands.CommandEventArgs(
-							DataAccess.GetAll<World>(CacheType.Instance)?[0].Instance.ToString(),
-							target,
-							null);
-
-						new Commands.Movement.Goto().Execute(args);
+						// Unarmed damage
+						damage = (source.Tier.Level * 2) + (int)source.ModifiedAttributes.Might * 3 / 5;
+						damage = rand.Next((int)Math.Floor(damage * 0.9), (int)Math.Ceiling(damage * 1.1));
+						if (source.GetType() == typeof(Player))
+							skillResults.Add(source.ImproveSkill(SkillMap.SkillToFriendlyName(typeof(Unarmed)), 1));
 					}
+					else if (weapons.Count == 1)
+					{
+						// Single weapon damage
+						if (weapons[0].Slot == ItemSlot.TwoHandedWeapon)
+						{
+							damage = rand.Next(weapons[0].MinDamage, weapons[0].MaxDamage + 1) + ((int)source.ModifiedAttributes.Might / 3);
+						}
+						else
+						{
+							damage = rand.Next(weapons[0].MinDamage, weapons[0].MaxDamage + 1) + ((int)source.ModifiedAttributes.Might / 5);
+						}
 
-					source.IOHandler?.QueueOutput($"You have slain {target.ShortDescription}!");
-					return;
+						if (source.GetType() == typeof(Player))
+							skillResults.Add(source.ImproveSkill(SkillMap.WeaponTypeToSkillName(weapons[0].WeaponType), 1));
+					}
+					else
+					{
+						// Dual wield; alternate weapons for each attack
+						int weaponIndex = i % 2;
+						damage = rand.Next(weapons[weaponIndex].MinDamage, weapons[0].MaxDamage + 1) + ((int)source.ModifiedAttributes.Might / 5);
+						if (source.GetType() == typeof(Player))
+							skillResults.Add(source.ImproveSkill(SkillMap.WeaponTypeToSkillName(weapons[weaponIndex].WeaponType), 1));
+					}
 				}
+
+				if (didHit)
+				{
+					if (damage < 1)
+						damage = 1;
+
+					var crit = rand.NextDouble() * 100 <= source.ModifiedQualities.CriticalHit;
+
+					if (crit)
+						damage = (int)(damage + (damage * source.ModifiedQualities.CriticalDamage / 100));
+
+					var (hitPoints, died) = target.ModifyCurrentHealth(0 - damage, true);
+
+					source.IOHandler?.QueueOutput($"You{(crit ? " critically" : "")} hit {target.ShortDescription} for {damage} damage{(crit ? "!" : ".")} ({target.CurrentHitPoints}/{target.ModifiedPools.HitPoints})");
+					target.IOHandler?.QueueOutput($"{source.ShortDescription}{(crit ? " critically" : "")} hits you for {damage}{(crit ? "!" : ".")}");
+
+					// Handle target death
+					if (died)
+					{
+						Exit(target.Instance);
+
+						if (target.GetType() == typeof(Mob))
+							DataAccess.Remove<Mob>(target.Instance, CacheType.Instance);
+
+						if (target.GetType() == typeof(Player))
+						{
+							target.IOHandler.QueueOutput("You have died!");
+
+							var args = new Commands.CommandEventArgs(
+								DataAccess.GetAll<World>(CacheType.Instance)?[0].Instance.ToString(),
+								target,
+								null);
+
+							new Commands.Movement.Goto().Execute(args);
+						}
+
+						source.IOHandler?.QueueOutput($"You have slain {target.ShortDescription}!");
+
+						break;
+					}
+				}
+			}
+
+			// Handle skill improvement messages
+			// TODO: Add configuration options to allow for suppressions skill improvement messages.
+			foreach (var result in skillResults)
+			{
+				source.IOHandler?.QueueOutput(result.ImprovedMessage);
 			}
 		}
 	}

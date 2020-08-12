@@ -48,7 +48,7 @@ namespace Hedron.Commands.Skill
 			OutputBuilder result = new OutputBuilder();
 
 			foreach (var s in skills)
-				result.Append($"{s.FriendlyName}\n");
+				result.Append($"{SkillMap.SkillToFriendlyName(s.GetType())} [{(int)s.SkillLevel}]\n");
 
 			return CommandResult.Success(result.Output);
 		}

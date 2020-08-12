@@ -39,19 +39,12 @@ namespace Hedron.Commands.Skill
 			}
 
 			EntityAnimate entity = commandEventArgs.Entity;
+			string skillName = SkillMap.SkillToFriendlyName(typeof(Dodge));
 
-			if (commandEventArgs.Argument.ToLower() != "dodge")
-				return CommandResult.InvalidSyntax(nameof(Learn), new List<string> { "dodge" });
+			if (commandEventArgs.Argument.ToLower() != skillName)
+				return CommandResult.InvalidSyntax(nameof(Learn), new List<string> { skillName });
 
-			if (entity.Skills.Where(s => s.FriendlyName == "dodge").FirstOrDefault() == null)
-			{
-				entity.Skills.Add((ISkill)Activator.CreateInstance(typeof(Dodge)));
-				return CommandResult.Success("You have learned the 'dodge' skill!");
-			}
-			else
-			{
-				return CommandResult.Failure("You already know the 'dodge' skill!");
-			}
+			return CommandResult.Success(entity.ImproveSkill(skillName, 0).ImprovedMessage);
 		}
 	}
 }
