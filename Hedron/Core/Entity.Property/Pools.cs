@@ -75,7 +75,7 @@ namespace Hedron.Core.Entity.Property
 		public void CopyTo(Pools pools)
 		{
 			if (pools == null)
-				pools = new Pools();
+				return;
 
 			pools.IsMultiplier = IsMultiplier;
 			pools.HitPoints = HitPoints;

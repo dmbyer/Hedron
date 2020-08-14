@@ -95,7 +95,7 @@ namespace Hedron.Core.Entity.Property
 		public void CopyTo(Attributes attributes)
 		{
 			if (attributes == null)
-				attributes = new Attributes();
+				return;
 
 			attributes.IsMultiplier = IsMultiplier;
 			attributes.Might = Might;

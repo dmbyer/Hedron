@@ -20,17 +20,15 @@ namespace Hedron.System
 		/// <param name="entities">The list of instanced entities to count</param>
 		/// <param name="descriptionType">The description type to match on</param>
 		/// <returns>A map of unique entities and their count, sich as [[Entity][2]]</returns>
-		private static Dictionary<string, int> MapEntityDescriptionQuantites<T>(List<T> entities, MapStringTypes descriptionType) where T: IEntity
+		private static Dictionary<Tuple<string, uint?>, int> MapEntityDescriptionQuantites<T>(List<T> entities, MapStringTypes descriptionType) where T: IEntity
 		{
-			var mappedObjects = new Dictionary<string, int>();
-
-			// Orders the list by entity name
-			entities = entities.OrderBy(e => e.Name).ToList();
+			var mappedObjects = new Dictionary<Tuple<string, uint?>, int>();
 
 			if (entities.Count == 0)
 				return mappedObjects;
 
-			var uniqueEntities = new List<Tuple<string, uint?>>();
+			// Orders the list by entity name
+			entities = entities.OrderBy(e => e.Name).ToList();
 
 			foreach (var entity in entities)
 			{
@@ -51,14 +49,13 @@ namespace Hedron.System
 
 				var descriptionAndID = new Tuple<string, uint?>(descriptionString, entity.Prototype);
 
-				if (!uniqueEntities.Contains(descriptionAndID))
+				if (!mappedObjects.ContainsKey(descriptionAndID))
 				{
-					uniqueEntities.Add(descriptionAndID);
-					mappedObjects.Add(descriptionString, 1);
+					mappedObjects.Add(descriptionAndID, 1);
 				}
 				else
 				{
-					mappedObjects[descriptionString] += 1;
+					mappedObjects[descriptionAndID] += 1;
 				}
 			}
 
@@ -71,7 +68,7 @@ namespace Hedron.System
 		/// <param name="entities">The list of entities to parse</param>
 		/// <param name="descriptionType">The type of description to parse</param>
 		/// <returns>A map of the quantity and description, such as [["a short sword"][2]]</returns>
-		public static Dictionary<string, int>ParseEntityQuantitiesAsMap<T>(List<T> entities, MapStringTypes descriptionType) where T: IEntity
+		public static Dictionary<Tuple<string, uint?>, int> ParseEntityQuantitiesAsMap<T>(List<T> entities, MapStringTypes descriptionType) where T: IEntity
 		{
 			return MapEntityDescriptionQuantites(entities, descriptionType);
 		}
@@ -89,7 +86,7 @@ namespace Hedron.System
 			var parsedStrings = new List<string>();
 
 			foreach (var entity in mappedObjects)
-				parsedStrings.Add(entity.Key + (entity.Value > 1 ? string.Format(" [{0}]", entity.Value) : ""));
+				parsedStrings.Add(entity.Key.Item1 + (entity.Value > 1 ? string.Format(" [{0}]", entity.Value) : ""));
 
 			return parsedStrings;
 		}

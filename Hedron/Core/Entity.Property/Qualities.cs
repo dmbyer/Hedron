@@ -82,7 +82,7 @@ namespace Hedron.Core.Entity.Property
 		public void CopyTo(Qualities qualities)
 		{
 			if (qualities == null)
-				qualities = new Qualities();
+				return;
 
 			qualities.IsMultiplier = IsMultiplier;
 			qualities.CriticalHit = CriticalHit;

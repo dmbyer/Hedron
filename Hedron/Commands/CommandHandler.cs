@@ -30,7 +30,8 @@ namespace Hedron.Commands
             {"goto",      new Movement.Goto() },
 
 			// Item commands
-			{"drop",      new Item.Drop() },
+			{"drink",     new Item.Drink() },
+            {"drop",      new Item.Drop() },
             {"equipment", new Item.Equipment() },
             {"get",       new Item.Get() },
             {"inventory", new Item.Inventory() },
@@ -53,6 +54,9 @@ namespace Hedron.Commands
 			// Combat commands
 			{"flee",      new Combat.Flee() },
             {"kill",      new Combat.Kill() },
+
+			// Creation commands
+			{"craft",     new Creation.Craft() },
 
 			// Skill commands
 			{"learn",     new Skill.Learn() },

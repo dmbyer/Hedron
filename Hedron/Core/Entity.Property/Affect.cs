@@ -50,6 +50,8 @@ namespace Hedron.Core.Entity.Property
 		/// <summary>
 		/// The display of the affect
 		/// </summary>
+		/// <remarks>This should be a shorthand display that can be applied to entity descriptions.
+		/// For example, "(H)" would work for a haste affect that can be prepended to a character's description.</remarks>
 		[JsonProperty]
 		public string Display { get; set; }
 
@@ -70,6 +72,38 @@ namespace Hedron.Core.Entity.Property
 		/// </summary>
 		[JsonProperty]
 		public Qualities Qualities { get; set; }
+
+		/// <summary>
+		/// The description to provide the affected entity when the affect is added
+		/// </summary>
+		/// <remarks>This should be the full description to be passed to the affected entity.
+		/// For example, "You feel yourself speed up!" would be used for a haste affect being applied.</remarks>
+		[JsonProperty]
+		public string ApplyDescriptionSelf { get; set; }
+
+		/// <summary>
+		/// The description to provide other entities when the affect is added
+		/// </summary>
+		/// <remarks>This should be a partial description so an entity's proper name can be applied accordingly.
+		/// For example, "speeds up." could be used for a haste affect being applied, and the caller can prepend EntityAnimate.Name.</remarks>
+		[JsonProperty]
+		public string ApplyDescriptionOther { get; set; }
+
+		/// <summary>
+		/// The description to provide the affected entity when the affect is removed
+		/// </summary>
+		/// <remarks>This should be the full description to be passed to the affected entity.
+		/// For example, "You feel yourself slow down." would be used for a haste affect wearing off.</remarks>
+		[JsonProperty]
+		public string RemoveDescriptionSelf { get; set; }
+
+		/// <summary>
+		/// The description to provide other entities when the affect is removed
+		/// </summary>
+		/// <remarks>This should be a partial description so an entity's proper name can be applied accordingly.
+		/// For example, "slows down." could be used for a haste affect wearing off, and the caller can prepend EntityAnimate.Name.</remarks>
+		[JsonProperty]
+		public string RemoveDescriptionOther { get; set; }
 
 		/// <summary>
 		/// Creates a new affect as a multiplier
