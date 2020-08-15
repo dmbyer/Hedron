@@ -149,6 +149,50 @@ namespace Hedron.Core.Container
 		}
 
 		/// <summary>
+		/// Retrieves entity objects of a given type in this container.
+		/// </summary>
+		/// <typeparam name="T">The type of entity to retrieve.</typeparam>
+		/// <returns>A list of entity objects</returns>
+		public List<T> GetAllEntitiesAsObjects<T>() where T : CacheableObject
+		{
+			var entities = new List<T>();
+
+			foreach (var entity in _entityList)
+			{
+				var entityObject = DataAccess.Get<T>(entity, CacheType);
+				if (entityObject != null)
+					entities.Add(entityObject);
+			}
+
+			return entities;
+		}
+
+		/// <summary>
+		/// Provides a count of all unique entities within this container
+		/// </summary>
+		/// <typeparam name="T">The type of object to count</typeparam>
+		/// <returns>A dictionary that contains the key of each unique entity and its quantity within this container</returns>
+		/// <remarks>The count is based off the prototype ID. If the container is a prototype object, it will simply provide
+		/// the maximum number of each unique contained object. If the container is an instance object, it will count
+		/// how many of each prototype object has been instantiated. Useful for respawning areas in particular by determining
+		/// the difference in number of mobs or other items in the area that should be refreshed.</remarks>
+		public Dictionary<uint, int> CountAllEntitiesByPrototypeID<T>() where T: EntityBase
+		{
+			var entities = GetAllEntitiesAsObjects<T>();
+			var countedEntities = new Dictionary<uint, int>();
+
+			foreach (var e in entities)
+			{
+				if (!countedEntities.ContainsKey((uint)e.Prototype))
+					countedEntities.Add((uint)e.Prototype, 1);
+				else
+					countedEntities[(uint)e.Prototype] += 1;
+			}
+
+			return countedEntities;
+		}
+
+		/// <summary>
 		/// Gets the container parent from the instance cache
 		/// </summary>
 		/// <typeparam name="T">The parent container type</typeparam>

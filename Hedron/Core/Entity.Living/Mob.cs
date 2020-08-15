@@ -157,7 +157,7 @@ namespace Hedron.Core.Entity.Living
 		/// <remarks>Parent cannot be null. Adds new mob to instanced room.</remarks>
 		public override T SpawnAsObject<T>(bool withEntities, uint? parent = null)
 		{
-			return SpawnAsObject<T>(MobLevel.Fair, withEntities, parent);
+			return SpawnAsObject<T>(Level, withEntities, parent);
 		}
 
 		/// <summary>

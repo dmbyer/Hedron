@@ -59,9 +59,9 @@ namespace Hedron
 			// Declare input read timer
 			// ...
 
-			// Declare tick timer
+			// Declare tick timers
 			// ...
-			var combatTimer = DateTime.UtcNow;
+			var tickTimer = DateTime.UtcNow;
 
 			// List of TcpClients
 			List<TcpClient> clients = new List<TcpClient>();
@@ -148,13 +148,19 @@ namespace Hedron
 					player.IOHandler.SendOutput();
 				}
 
-				// TODO: "Tick" to update game world (only tick once every WORLD_TICK_TIME
+				// TODO: Update to use an event-driven heartbeat
+				// TODO: Update area respawn to function based off heartbeat
 				// TODO: Implement synchronous event handling
 				// Send player output again
-				if ((DateTime.UtcNow - combatTimer).TotalSeconds >= 1)
+				if ((DateTime.UtcNow - tickTimer).TotalSeconds >= 1)
 				{
-					combatTimer = DateTime.UtcNow;
+					tickTimer = DateTime.UtcNow;
 					Combat.CombatHandler.ProcessAllEntityCombatRound();
+
+					var areas = DataAccess.GetAll<Area>(CacheType.Instance);
+
+					foreach (var area in areas)
+						area.Respawn();
 				}
 
 				// Process pending socket closures and remove players from world

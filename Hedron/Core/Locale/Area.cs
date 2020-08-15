@@ -1,7 +1,10 @@
 ﻿using Hedron.Core.Container;
+using Hedron.Core.Entity.Base;
+using Hedron.Core.Entity.Living;
 using Hedron.Core.Entity.Property;
 using Hedron.Data;
 using Hedron.System;
+using System.Collections.Generic;
 
 namespace Hedron.Core.Locale
 {
@@ -11,11 +14,181 @@ namespace Hedron.Core.Locale
 		public string Name { get; set; }
 
 		/// <summary>
+		/// The rate of respawning in ticks
+		/// </summary>
+		/// <remarks>A value of </remarks>
+		public int RespawnRate { get; set; } = Constants.AREA_MANUAL_RESPAWN;
+
+		/// <summary>
 		/// Creates a new area. Must be added to cache.
 		/// </summary>
 		public Area() : base()
 		{
 			Name = "[name]";
+		}
+
+		/// <summary>
+		/// Respawns the area
+		/// </summary>
+		/// TODO: Improve systems for conditional respawning, e.g. players in or out of the area and when they were last in the area
+		public void Respawn()
+		{
+			if (CacheType == CacheType.Prototype)
+				return;
+
+			var allRooms = GetAllEntities<Room>();
+			var protoMobQuantities = new Dictionary<uint, int>();
+			var protoItemQuantities = new Dictionary<uint, int>();
+			var instanceMobQuantities = new Dictionary<uint, int>();
+			var instanceItemQuantities = new Dictionary<uint, int>();
+
+			// Build quantity dictionaries
+			foreach (var roomID in allRooms)
+			{
+				var protoRoom = DataAccess.Get<Room>(roomID, CacheType.Prototype);
+				var instanceRoom = DataAccess.Get<Room>(roomID, CacheType.Instance);
+
+				Dictionary<uint, int> roomProtoMobQuantities = protoRoom?.CountAllEntitiesByPrototypeID<Mob>() ?? new Dictionary<uint, int>();
+				Dictionary<uint, int> roomProtoItemQuantities = protoRoom?.CountAllEntitiesByPrototypeID<EntityInanimate>() ?? new Dictionary<uint, int>();
+
+				Dictionary<uint, int> roomInstanceMobQuantities = instanceRoom?.CountAllEntitiesByPrototypeID<Mob>() ?? new Dictionary<uint, int>();
+				Dictionary<uint, int> roomInstanceItemQuantities = instanceRoom?.CountAllEntitiesByPrototypeID<EntityInanimate>() ?? new Dictionary<uint, int>();
+
+				foreach (var kvp in roomProtoMobQuantities)
+				{
+					if (protoMobQuantities.ContainsKey(kvp.Key))
+						protoMobQuantities[kvp.Key] += kvp.Value;
+					else
+						protoMobQuantities.Add(kvp.Key, kvp.Value);
+				}
+
+				foreach (var kvp in roomProtoItemQuantities)
+				{
+					if (protoItemQuantities.ContainsKey(kvp.Key))
+						protoItemQuantities[kvp.Key] += kvp.Value;
+					else
+						protoItemQuantities.Add(kvp.Key, kvp.Value);
+				}
+
+				foreach (var kvp in roomInstanceMobQuantities)
+				{
+					if (instanceMobQuantities.ContainsKey(kvp.Key))
+						instanceMobQuantities[kvp.Key] += kvp.Value;
+					else
+						instanceMobQuantities.Add(kvp.Key, kvp.Value);
+				}
+
+				foreach (var kvp in roomInstanceItemQuantities)
+				{
+					if (instanceItemQuantities.ContainsKey(kvp.Key))
+						instanceItemQuantities[kvp.Key] += kvp.Value;
+					else
+						instanceItemQuantities.Add(kvp.Key, kvp.Value);
+				}
+			}
+
+			// Spawn missing mobs
+			foreach (var kvp in protoMobQuantities)
+			{
+				int difference = 0;
+
+				if (instanceMobQuantities.ContainsKey(kvp.Key))
+					difference = kvp.Value - instanceMobQuantities[kvp.Key];
+				else
+					difference = kvp.Value;
+
+				if (difference > 0)
+				{
+					var rooms = GetAllRoomsContainingEntityOfPrototype<Mob>(kvp.Key);
+					for (var i = 0; i < difference; i++)
+					{
+						var mob = DataAccess.Get<Mob>(kvp.Key, CacheType.Prototype)?.SpawnAsObject<Mob>(true, rooms[World.Random.Next(rooms.Count - 1)].Instance);
+						if (mob != null)
+							Logger.Info(nameof(Area), nameof(Respawn), $"Completed respawning {mob.Name} ({mob.Prototype}) in area {Name} ({Instance}).");
+						else
+							Logger.Bug(nameof(Area), nameof(Respawn), $"Mob not found for respawning in area {Name} ({Instance}).");
+					}
+				}
+			}
+
+			// Spawn missing items
+			foreach (var kvp in protoItemQuantities)
+			{
+				int difference = 0;
+
+				if (instanceItemQuantities.ContainsKey(kvp.Key))
+					difference = kvp.Value - instanceItemQuantities[kvp.Key];
+				else
+					difference = kvp.Value;
+
+				if (difference > 0)
+				{
+					var rooms = GetAllRoomsContainingEntityOfPrototype<EntityInanimate>(kvp.Key);
+					for (var i = 0; i < difference; i++)
+					{
+						var item = DataAccess.Get<EntityInanimate>(kvp.Key, CacheType.Prototype)?.SpawnAsObject<EntityInanimate>(true, rooms[World.Random.Next(rooms.Count - 1)].Instance);
+						if (item != null)
+							Logger.Info(nameof(Area), nameof(Respawn), $"Completed respawning {item.Name} ({item.Prototype}) in area {Name} ({Instance}).");
+						else
+							Logger.Bug(nameof(Area), nameof(Respawn), $"Item not found for respawning in area {Name} ({Instance}).");
+					}
+				}
+			}
+
+		}
+
+		/// <summary>
+		/// Provides a list of rooms in this area that contain a given entity
+		/// </summary>
+		/// <param name="prototypeID">The prototype ID of the entity</param>
+		/// <returns>A list of room objects that contain the entity</returns>
+		/// <remarks>The list may contain duplicates if a room contains the entity more than once. This is by design
+		/// so, for example, as to allow the Respawn function to randomly pick from the list; if a room contains an entity once, and another
+		/// room contains the entity 9 times, there will be a 9/10 chance the entity respawns in the room with 9 entities.</remarks>
+		public List<Room> GetAllRoomsContainingEntityOfPrototype<T>(uint prototypeID) where T: CacheableObject
+		{
+			List<Room> roomsContainingEntity = new List<Room>();
+
+			foreach (var rID in _entityList)
+			{
+				var room = DataAccess.Get<Room>(rID, CacheType);
+
+				if (room != null)
+				{
+					List<T> entities;
+
+					if (room.CacheType == CacheType.Instance)
+						entities = DataAccess.Get<Room>(room.Prototype, CacheType.Prototype)?.GetAllEntitiesAsObjects<T>();
+					else
+						entities = room.GetAllEntitiesAsObjects<T>();
+
+					foreach (var e in entities)
+						if (e.Prototype == prototypeID)
+							roomsContainingEntity.Add(room);
+				}
+			}
+
+			return roomsContainingEntity;
+		}
+
+		/// <summary>
+		/// Retrieves all living entities contained within this area's rooms
+		/// </summary>
+		/// <typeparam name="T">The type of <see cref="EntityAnimate"/> to retrieve.</typeparam>
+		/// <returns>A list of all <typeparamref name="T"/></returns>
+		public List<T> GetAllLivingEntities<T>() where T: EntityAnimate
+		{
+			return GetAllEntitiesAsObjects<T>();
+		}
+
+		/// <summary>
+		/// Retrieves all inanimate entities contained within this area's rooms
+		/// </summary>
+		/// <typeparam name="T">The type of <see cref="EntityInanimate"/> to retrieve.</typeparam>
+		/// <returns>A list of all <typeparamref name="T"/></returns>
+		public List<T> GetAllInanimateEntities<T>() where T : EntityInanimate
+		{
+			return GetAllEntitiesAsObjects<T>();
 		}
 
 		/// <summary>
@@ -85,7 +258,7 @@ namespace Hedron.Core.Locale
 
 			// Set remaining properties
 			newArea.Prototype = Prototype;
-			// newArea.Parent = parent;
+			
 			CopyTo(newArea);
 
 			// Spawn contained rooms
@@ -111,6 +284,7 @@ namespace Hedron.Core.Locale
 
 			area.Name = Name;
 			area.Tier.Level = Tier.Level;
+			area.RespawnRate = RespawnRate;
 		}
 	}
 }

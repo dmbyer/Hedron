@@ -13,7 +13,7 @@ namespace Hedron.System
 
 		// Value in ms for game loop and combat loops
 		public const int    WORLD_TICK_TIME       = 1000;
-		public const int    COMBAT_TICK_TIME      = WORLD_TICK_TIME;
+		public const int    COMBAT_TICK_TIME      = WORLD_TICK_TIME * 2;
 		public const int    COMBAT_TICK_TIME_BOSS = COMBAT_TICK_TIME * 2;
 
 		// Server constants
@@ -41,6 +41,9 @@ namespace Hedron.System
 
 		// Mob levels defined in Entity.Property/Level.cs for now
 		// ----
+
+		// Area constants
+		public const int    AREA_MANUAL_RESPAWN   = 0;
 
 		// Skill levels
 		public const int    MAX_SKILL_LEVEL       = 10000;
