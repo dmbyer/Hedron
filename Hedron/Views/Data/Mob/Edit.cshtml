@@ -40,6 +40,13 @@
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
+                <label asp-for="Level"></label>
+                <div>
+                    <select asp-for="Level" asp-items="Html.GetEnumSelectList<Hedron.Core.Entity.Property.MobLevel>()" class="form-control"></select>
+                    <span asp-validation-for="Level" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
                 <label asp-for="Name"></label>
                 <div>
                     <input asp-for="Name" value="@Model.Name" class="w3-animate-input" style="width:30%" />

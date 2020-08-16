@@ -24,6 +24,7 @@ namespace Hedron.Controllers.Data
 				{
 					Prototype = (uint)mob.Prototype,
 					Tier = mob.Tier.Level,
+					Level = mob.Level,
 					Name = mob.Name,
 					ShortDescription = mob.ShortDescription.ToTruncatedSubString(30, true),
 					LongDescription = mob.LongDescription.ToTruncatedSubString(80, true),
@@ -49,6 +50,7 @@ namespace Hedron.Controllers.Data
 			{
 				Prototype = (uint)mob.Prototype,
 				Tier = mob.Tier.Level,
+				Level = mob.Level,
 				Name = mob.Name,
 				ShortDescription = mob.ShortDescription,
 				LongDescription = mob.LongDescription,
@@ -64,13 +66,13 @@ namespace Hedron.Controllers.Data
 		// GET: Mob/Create
 		public ActionResult Create()
 		{
-			return View("~/Views/Data/Mob/Create.cshtml");
+			return View("~/Views/Data/Mob/Create.cshtml", MobViewModel.BaseNewMob());
 		}
 
 		// POST: Mob/Create
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public ActionResult Create([Bind("Name,ShortDescription,LongDescription,Tier,Behavior,BaseAttributes,BasePools,BaseQualities")] MobViewModel mobViewModel)
+		public ActionResult Create([Bind("Name,ShortDescription,LongDescription,Tier,Level,Behavior,BaseAttributes,BasePools,BaseQualities")] MobViewModel mobViewModel)
 		{
 			if (ModelState.IsValid)
 			{
@@ -79,6 +81,7 @@ namespace Hedron.Controllers.Data
 					var mob = Mob.NewPrototype();
 
 					mob.Tier.Level = mobViewModel.Tier;
+					mob.Level = mobViewModel.Level;
 					mob.Name = mobViewModel.Name;
 					mob.ShortDescription = mobViewModel.ShortDescription;
 					mob.LongDescription = mobViewModel.LongDescription;
@@ -110,6 +113,7 @@ namespace Hedron.Controllers.Data
 			{
 				Prototype = (uint)mob.Prototype,
 				Tier = mob.Tier.Level,
+				Level = mob.Level,
 				Name = mob.Name,
 				ShortDescription = mob.ShortDescription,
 				LongDescription = mob.LongDescription,
@@ -125,7 +129,7 @@ namespace Hedron.Controllers.Data
 		// POST: Mob/Edit/5
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public ActionResult Edit(int id, [Bind("Prototype,Name,ShortDescription,LongDescription,Tier,Behavior,BaseAttributes,BasePools,BaseQualities")] MobViewModel mobViewModel)
+		public ActionResult Edit(int id, [Bind("Prototype,Name,ShortDescription,LongDescription,Tier,Level,Behavior,BaseAttributes,BasePools,BaseQualities")] MobViewModel mobViewModel)
 		{
 			if (id != mobViewModel.Prototype)
 				return NotFound();
@@ -137,6 +141,7 @@ namespace Hedron.Controllers.Data
 					var mob = DataAccess.Get<Mob>((uint)id, CacheType.Prototype);
 
 					mob.Tier.Level = mobViewModel.Tier;
+					mob.Level = mobViewModel.Level;
 					mob.Name = mobViewModel.Name;
 					mob.ShortDescription = mobViewModel.ShortDescription;
 					mob.LongDescription = mobViewModel.LongDescription;
@@ -171,6 +176,7 @@ namespace Hedron.Controllers.Data
 			{
 				Prototype = (uint)mob.Prototype,
 				Tier = mob.Tier.Level,
+				Level = mob.Level,
 				Name = mob.Name,
 				ShortDescription = mob.ShortDescription,
 				LongDescription = mob.LongDescription,

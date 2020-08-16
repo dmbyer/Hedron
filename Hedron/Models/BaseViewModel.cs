@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Hedron.Core.Entity.Property;
+using Hedron.System;
+using System.ComponentModel.DataAnnotations;
 
 namespace Hedron.Models
 {
@@ -12,8 +14,10 @@ namespace Hedron.Models
 		[Display(Name = "Parent ID")]
 		public uint? Parent { get; set; }
 
-		public int Tier { get; set; }
+		[Range(Constants.MIN_TIER, Constants.MAX_TIER)]
+		public int Tier { get; set; } = Constants.MIN_TIER;
 
+		[Required(ErrorMessage = "Name is required")]
 		public string Name { get; set; }
 
 		// [Display(Name = "Parent Name")]

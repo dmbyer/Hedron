@@ -22,28 +22,35 @@
             <div class="w3-container w3-margin-top">
                 <label asp-for="Tier"></label>
                 <div>
-                    <input asp-for="Tier" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="Tier" value="@Model.Tier" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="Tier" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
+                <label asp-for="Level"></label>
+                <div>
+                    <select asp-for="Level" asp-items="Html.GetEnumSelectList<Hedron.Core.Entity.Property.MobLevel>()" class="form-control"></select>
+                    <span asp-validation-for="Level" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="Name"></label>
                 <div>
-                    <input asp-for="Name" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="Name" value="@Model.Name" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="Name" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="ShortDescription"></label>
                 <div>
-                    <input asp-for="ShortDescription" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="ShortDescription" value="@Model.ShortDescription" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="ShortDescription" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="LongDescription"></label>
                 <div>
-                    <textarea asp-for="LongDescription" class="w3-animate-input" style="width:50%" rows="5" cols="1">@Model.LongDescription</textarea>
+                    <textarea asp-for="LongDescription" value="@Model.LongDescription" class="w3-animate-input" style="width:50%" rows="5" cols="1">@Model.LongDescription</textarea>
                     <span asp-validation-for="LongDescription" class="w3-red"></span>
                 </div>
             </div>
@@ -92,91 +99,91 @@
             <div class="w3-container w3-margin-top">
                 <label asp-for="BaseAttributes.Essence"></label>
                 <div>
-                    <input asp-for="BaseAttributes.Essence" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="BaseAttributes.Essence" value="@Model.BaseAttributes.Essence" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="BaseAttributes.Essence" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="BaseAttributes.Finesse"></label>
                 <div>
-                    <input asp-for="BaseAttributes.Finesse" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="BaseAttributes.Finesse" value="@Model.BaseAttributes.Finesse" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="BaseAttributes.Finesse" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="BaseAttributes.Intellect"></label>
                 <div>
-                    <input asp-for="BaseAttributes.Intellect" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="BaseAttributes.Intellect" value="@Model.BaseAttributes.Intellect" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="BaseAttributes.Intellect" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="BaseAttributes.Might"></label>
                 <div>
-                    <input asp-for="BaseAttributes.Might" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="BaseAttributes.Might" value="@Model.BaseAttributes.Might" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="BaseAttributes.Might" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="BaseAttributes.Spirit"></label>
                 <div>
-                    <input asp-for="BaseAttributes.Spirit" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="BaseAttributes.Spirit" value="@Model.BaseAttributes.Spirit" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="BaseAttributes.Spirit" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="BaseAttributes.Will"></label>
                 <div>
-                    <input asp-for="BaseAttributes.Will" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="BaseAttributes.Will" value="@Model.BaseAttributes.Will" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="BaseAttributes.Will" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="BasePools.Energy"></label>
                 <div>
-                    <input asp-for="BasePools.Energy" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="BasePools.Energy" value="@Model.BasePools.Energy" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="BasePools.Energy" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="BasePools.HitPoints"></label>
                 <div>
-                    <input asp-for="BasePools.HitPoints" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="BasePools.HitPoints" value="@Model.BasePools.HitPoints" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="BasePools.HitPoints" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="BasePools.Stamina"></label>
                 <div>
-                    <input asp-for="BasePools.Stamina" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="BasePools.Stamina" value="@Model.BasePools.Stamina" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="BasePools.Stamina" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="BaseQualities.ArmorRating"></label>
                 <div>
-                    <input asp-for="BaseQualities.ArmorRating" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="BaseQualities.ArmorRating" value="@Model.BaseQualities.ArmorRating" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="BaseQualities.ArmorRating" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="BaseQualities.AttackRating"></label>
                 <div>
-                    <input asp-for="BaseQualities.AttackRating" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="BaseQualities.AttackRating" value="@Model.BaseQualities.AttackRating" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="BaseQualities.AttackRating" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="BaseQualities.CriticalDamage"></label>
                 <div>
-                    <input asp-for="BaseQualities.CriticalDamage" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="BaseQualities.CriticalDamage" value="@Model.BaseQualities.CriticalDamage" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="BaseQualities.CriticalDamage" class="w3-red"></span>
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
                 <label asp-for="BaseQualities.CriticalHit"></label>
                 <div>
-                    <input asp-for="BaseQualities.CriticalHit" class="w3-animate-input" style="width:30%" />
+                    <input asp-for="BaseQualities.CriticalHit" value="@Model.BaseQualities.CriticalHit" class="w3-animate-input" style="width:30%" />
                     <span asp-validation-for="BaseQualities.CriticalHit" class="w3-red"></span>
                 </div>
             </div>

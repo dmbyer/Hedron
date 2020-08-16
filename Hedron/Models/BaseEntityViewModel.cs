@@ -8,9 +8,11 @@ namespace Hedron.Models
     public class BaseEntityViewModel : BaseViewModel
 	{
 		[Display(Name = "Short Description")]
+		[Required(ErrorMessage = "Short description required")]
 		public string ShortDescription { get; set; }
 
 		[Display(Name = "Long Description")]
+		[Required(ErrorMessage = "Long description required")]
 		public string LongDescription { get; set; }
 
 		public static BaseEntityViewModel EntityToViewModel(EntityBase entity)
