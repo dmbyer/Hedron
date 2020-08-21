@@ -27,6 +27,13 @@
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
+                <label asp-for="IsShop"></label>
+                <div>
+                    <input asp-for="IsShop" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="IsShop" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
                 <label asp-for="Description"></label>
                 <div>
                     <textarea asp-for="Description" class="w3-animate-input" style="width:50%" rows="5" cols="1">@Model.Description</textarea>

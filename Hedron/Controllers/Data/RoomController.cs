@@ -9,6 +9,7 @@ using Hedron.System;
 using Hedron.System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -29,15 +30,21 @@ namespace Hedron.Controllers.Data
 					.OrderBy(e => e.Prototype)
 					.ToList();
 
+				var shopItems = DataAccess.GetMany<EntityBase>(room.GetShopItems<EntityInanimate>().Select(i => (uint)i.Prototype).ToList(), CacheType.Prototype)
+					.OrderBy(e => e.Prototype)
+					.ToList();
+
 				vModel.Add(new RoomViewModel()
 				{
 					Prototype = (uint)room.Prototype,
 					ParentName = EntityContainer.GetAllPrototypeParents<Area>(room.Prototype).FirstOrDefault()?.Name ?? "none",
 					Name = room.Name,
+					IsShop = room.IsShop,
 					Description = room.Description.ToTruncatedSubString(80, true),
 					Tier = room.Tier.Level,
 					Exits = room.Exits,
-					Entities = BaseEntityViewModel.EntityToViewModel(entities)
+					Entities = BaseEntityViewModel.EntityToViewModel(entities),
+					ShopItems = BaseEntityViewModel.EntityToViewModel(shopItems)
 				});
 			}
 
@@ -56,15 +63,21 @@ namespace Hedron.Controllers.Data
 				.OrderBy(e => e.Prototype)
 				.ToList();
 
+			var shopItems = DataAccess.GetMany<EntityBase>(room.GetShopItems<EntityInanimate>().Select(i => (uint)i.Prototype).ToList(), CacheType.Prototype)
+				.OrderBy(e => e.Prototype)
+				.ToList();
+
 			var vModel = new RoomViewModel()
 			{
 				Prototype = (uint)room.Prototype,
 				ParentName = EntityContainer.GetAllPrototypeParents<Area>(room.Prototype).FirstOrDefault()?.Name ?? "none",
 				Name = room.Name,
+				IsShop = room.IsShop,
 				Tier = room.Tier.Level,
 				Description = room.Description,
 				Exits = room.Exits,
-				Entities = BaseEntityViewModel.EntityToViewModel(entities)
+				Entities = BaseEntityViewModel.EntityToViewModel(entities),
+				ShopItems = BaseEntityViewModel.EntityToViewModel(shopItems)
 			};
 
 			return View("~/Views/Data/Room/Details.cshtml", vModel);
@@ -79,7 +92,7 @@ namespace Hedron.Controllers.Data
 		// POST: Room/Create
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public ActionResult Create([Bind("Name,Tier,Description")] RoomViewModel roomViewModel)
+		public ActionResult Create([Bind("Name,Tier,Description,IsShop")] RoomViewModel roomViewModel)
 		{
 			if (ModelState.IsValid)
 			{
@@ -88,6 +101,7 @@ namespace Hedron.Controllers.Data
 					var room = Room.NewPrototype();
 
 					room.Name = roomViewModel.Name;
+					room.IsShop = roomViewModel.IsShop;
 					room.Tier.Level = roomViewModel.Tier;
 					room.Description = roomViewModel.Description;
 
@@ -114,13 +128,19 @@ namespace Hedron.Controllers.Data
 				.OrderBy(e => e.Prototype)
 				.ToList();
 
+			var shopItems = DataAccess.GetMany<EntityBase>(room.GetShopItems<EntityInanimate>().Select(i => (uint)i.Prototype).ToList(), CacheType.Prototype)
+				.OrderBy(e => e.Prototype)
+				.ToList();
+
 			var vModel = new RoomViewModel()
 			{
 				Name = room.Name,
+				IsShop = room.IsShop,
 				Prototype = (uint)room.Prototype,
 				Tier = room.Tier.Level,
 				Description = room.Description,
-				Entities = BaseEntityViewModel.EntityToViewModel(entities)
+				Entities = BaseEntityViewModel.EntityToViewModel(entities),
+				ShopItems = BaseEntityViewModel.EntityToViewModel(shopItems)
 			};
 
 			return View("~/Views/Data/Room/Edit.cshtml", vModel);
@@ -129,7 +149,7 @@ namespace Hedron.Controllers.Data
 		// POST: Room/Edit/5
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public ActionResult Edit(int id, [Bind("Prototype,Name,Tier,Description")] RoomViewModel roomViewModel)
+		public ActionResult Edit(int id, [Bind("Prototype,Name,Tier,Description,IsShop")] RoomViewModel roomViewModel)
 		{
 			if (id != roomViewModel.Prototype)
 				return NotFound();
@@ -141,6 +161,7 @@ namespace Hedron.Controllers.Data
 					var room = DataAccess.Get<Room>((uint)id, CacheType.Prototype);
 
 					room.Name = roomViewModel.Name;
+					room.IsShop = roomViewModel.IsShop;
 					room.Tier.Level = roomViewModel.Tier;
 					room.Description = roomViewModel.Description;
 
@@ -170,15 +191,21 @@ namespace Hedron.Controllers.Data
 				.OrderBy(e => e.Prototype)
 				.ToList();
 
+			var shopItems = DataAccess.GetMany<EntityBase>(room.GetShopItems<EntityInanimate>().Select(i => (uint)i.Prototype).ToList(), CacheType.Prototype)
+				.OrderBy(e => e.Prototype)
+				.ToList();
+
 			var vModel = new RoomViewModel()
 			{
 				Name = room.Name,
+				IsShop = room.IsShop,
 				ParentName = EntityContainer.GetAllPrototypeParents<Area>(room.Prototype).FirstOrDefault()?.Name ?? "none",
 				Prototype = (uint)room.Prototype,
 				Tier = room.Tier.Level,
 				Description = room.Description,
 				Exits = room.Exits,
-				Entities = BaseEntityViewModel.EntityToViewModel(entities)
+				Entities = BaseEntityViewModel.EntityToViewModel(entities),
+				ShopItems = BaseEntityViewModel.EntityToViewModel(shopItems)
 			};
 
 			return View("~/Views/Data/Room/Delete.cshtml", vModel);
@@ -283,6 +310,66 @@ namespace Hedron.Controllers.Data
 
 			// Magic number to truncate to 100 characters
 			return Json(RoomViewModel.RoomToViewModel(room, 100));
+		}
+
+		// GET: Room/ShopList/5
+		[ActionName("ShopList")]
+		public ActionResult ShopList(int id)
+		{
+			var room = DataAccess.Get<Room>((uint)id, CacheType.Prototype);
+
+			if (room == null)
+				return NotFound();
+
+			var shopItems = room.GetShopItems<EntityInanimate>();
+
+			return PartialView("Partial/Item/_itemListForShop", BaseEntityInanimateViewModel.EntityToViewModel(shopItems));
+		}
+
+		// POST: Room/RemoveShopItem
+		[HttpPost, ActionName("RemoveShopItem")]
+		[ValidateAntiForgeryToken]
+		public ActionResult RemoveShopItem([FromBody] RoomItemAddToShopViewModel data)
+		{
+			var room = DataAccess.Get<Room>((uint)data.roomID, CacheType.Prototype);
+			var item = DataAccess.Get<EntityInanimate>((uint)data.itemID, CacheType.Prototype);
+
+			if (room == null || item == null)
+				return NotFound();
+
+			room.RemoveShopItem(item);
+
+			return ShopList(data.roomID);
+		}
+
+		// POST: Room/AddShopItem
+		[HttpPost, ActionName("AddShopItem")]
+		[ValidateAntiForgeryToken]
+		public ActionResult AddShopItem([FromBody] RoomItemAddToShopViewModel data)
+		{
+			var room = DataAccess.Get<Room>((uint)data.roomID, CacheType.Prototype);
+			var item = DataAccess.Get<EntityInanimate>((uint)data.itemID, CacheType.Prototype);
+
+			if (room == null || item == null)
+				return NotFound();
+
+			room.AddShopItem(item);
+
+			return ShopList(data.roomID);
+		}
+
+		// GET: Room/ItemList/5
+		[ActionName("ItemList")]
+		public ActionResult ItemList(int id)
+		{
+			var room = DataAccess.Get<Room>((uint)id, CacheType.Prototype);
+
+			if (room == null)
+				return NotFound();
+
+			var entities = room.GetAllEntitiesAsObjects<EntityBase>();
+
+			return PartialView("Partial/Item/_entityList", BaseEntityViewModel.EntityToViewModel(entities));
 		}
 	}
 }

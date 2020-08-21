@@ -1,0 +1,44 @@
+﻿@model IEnumerable<Hedron.Models.BaseEntityViewModel>
+<table class="w3-table w3-card w3-margin-bottom w3-border w3-bordered w3-pale-blue" id="tableWorldItemList">
+    <thead>
+        <tr class="w3-lime">
+            <th width="10px"></th>
+            <th>
+                @Html.DisplayNameFor(model => model.Prototype)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Name)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.ShortDescription)
+            </th>
+            <th class="w3-right-align">
+                <div class="w3-float-tooltip">
+                    <a href="#" onclick="filterItemList()"><i class="material-icons w3-hover-blue-gray" style="vertical-align:-8px">settings_backup_restore</i></a>
+                    <span class="w3-float-tooltiptext">Refresh</span>
+                </div>
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr class="w3-white">
+                <td>
+                </td>
+                <td>
+                    @item.Prototype
+                </td>
+                <td>
+                    @item.Name
+                </td>
+                <td>
+                    @item.ShortDescription
+                </td>
+                <td>
+                    <a href="#" onclick="addShopItem(@item.Prototype)"><i class="material-icons w3-hover-blue-gray" style="vertical-align:-8px">add</i></a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

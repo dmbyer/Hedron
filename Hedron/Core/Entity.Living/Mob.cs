@@ -215,7 +215,6 @@ namespace Hedron.Core.Entity.Living
 			{
 				// Because NewInstance also adds Inventory and WornEquipment as instances but we want to spawn them, we need to remove the
 				// the default new Inventory instances from the cache
-				DataAccess.Remove<Inventory>(DataAccess.Get<Inventory>(newMob.Inventory.Instance, CacheType.Instance).Instance, CacheType.Instance);
 				DataAccess.Remove<Inventory>(DataAccess.Get<Inventory>(newMob.WornEquipment.Instance, CacheType.Instance).Instance, CacheType.Instance);
 
 				// Now spawn the Inventory and Equipment

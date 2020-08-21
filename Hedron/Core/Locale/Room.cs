@@ -1,10 +1,12 @@
 ﻿using Hedron.Core.Container;
+using Hedron.Core.Entity.Base;
 using Hedron.Core.Entity.Living;
 using Hedron.Core.Entity.Property;
 using Hedron.Data;
 using Hedron.System;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 
 namespace Hedron.Core.Locale
 {
@@ -23,6 +25,13 @@ namespace Hedron.Core.Locale
 		[JsonProperty]
 		public string Description { get; set; }
 
+		[JsonConverter(typeof(InventoryPropertyConverter))]
+		[JsonProperty]
+		private Inventory ShopItems { get; set; } = new Inventory();
+
+		[JsonProperty]
+		public bool IsShop { get; set; }
+
 		/// <summary>
 		/// Creates a new room with default name and description. Must be added to cache.
 		/// </summary>
@@ -37,11 +46,12 @@ namespace Hedron.Core.Locale
 		/// </summary>
 		/// <param name="prototypeID">An optional PrototypeID. Used when loading.</param>
 		/// <returns>The new prototype room</returns>
-		public static Room NewPrototype(uint? prototypeID = null)
+		public static Room NewPrototype(uint? prototypeID = null, uint? shopInventoryID = null)
 		{
 			var newRoom = new Room();
 
 			DataAccess.Add<Room>(newRoom, CacheType.Prototype, prototypeID);
+			DataAccess.Add<Inventory>(newRoom.ShopItems, CacheType.Prototype, shopInventoryID);
 
 			return newRoom;
 		}
@@ -52,11 +62,19 @@ namespace Hedron.Core.Locale
 		/// <param name="withPrototype">Whether to also create a backing prototype</param>
 		/// <param name="prototypeID">An optional PrototypeID to use if also creating a backing prototype. Used when loading.</param>
 		/// <returns>The new instanced area</returns>
-		public static Room NewInstance(bool withPrototype = false, uint? prototypeID = null)
+		public static Room NewInstance(bool withPrototype = false, uint? prototypeID = null, uint? shopInventoryID = null)
 		{
-			return withPrototype
-				? DataAccess.Get<Room>(NewPrototype(prototypeID).Spawn(false), CacheType.Instance)
-				: DataAccess.Get<Room>(DataAccess.Add<Room>(new Room(), CacheType.Instance), CacheType.Instance);
+			Room newRoom;
+
+			if (withPrototype)
+				newRoom = DataAccess.Get<Room>(NewPrototype(prototypeID, shopInventoryID).Spawn(false), CacheType.Instance);
+			else
+			{
+				newRoom = DataAccess.Get<Room>(DataAccess.Add<Room>(new Room(), CacheType.Instance), CacheType.Instance);
+				DataAccess.Add<Inventory>(newRoom.ShopItems, CacheType.Instance);
+			}
+
+			return newRoom;
 		}
 
 		/// <summary>
@@ -91,6 +109,48 @@ namespace Hedron.Core.Locale
 			// Update persistence since data structure has changed
 			if (CacheType == CacheType.Prototype)
 				DataPersistence.SaveObject(this);
+		}
+
+		/// <summary>
+		/// Provides a list of all items in the shop
+		/// </summary>
+		/// <typeparam name="T">The type of item to retrieve</typeparam>
+		/// <returns>A list of items</returns>
+		public List<T> GetShopItems<T>() where T: EntityInanimate
+		{
+			return ShopItems.GetAllEntitiesAsObjects<T>();
+		}
+
+		/// <summary>
+		/// Adds an item to the shop
+		/// </summary>
+		/// <param name="item">The item to add</param>
+		public void AddShopItem(EntityInanimate item)
+		{
+			if (item != null)
+			{
+				if (CacheType == CacheType.Prototype)
+				{
+					ShopItems.AddEntity(item.Prototype, item, true);
+					DataPersistence.SaveObject(this);
+				}
+				else
+					ShopItems.AddEntity(item.Instance, item, false);
+			}
+		}
+
+		/// <summary>
+		/// Removes an item from the shop
+		/// </summary>
+		/// <param name="item">The item to remove</param>
+		public void RemoveShopItem(EntityInanimate item)
+		{
+			if (item != null)
+			{
+				ShopItems.RemoveEntity(item.CacheType == CacheType.Prototype ? item.Prototype : item.Instance, item);
+				if (CacheType == CacheType.Prototype)
+					DataPersistence.SaveObject(this);
+			}
 		}
 
 		/// <summary>
@@ -136,6 +196,14 @@ namespace Hedron.Core.Locale
 				var entities = DataAccess.GetMany<ISpawnableObject>(_entityList, CacheType.Prototype);
 				foreach (var entity in entities)
 					entity.Spawn(withEntities, newRoom.Instance);
+
+				// Because NewInstance also adds ShopItems as an instance but we want to spawn it, we need to remove the
+				// the default new Inventory instance from the cache
+				DataAccess.Remove<Inventory>(DataAccess.Get<Inventory>(newRoom.ShopItems.Instance, CacheType.Instance).Instance, CacheType.Instance);
+
+				// Now spawn the ShopItems
+				ShopItems.Spawn(withEntities);
+				newRoom.ShopItems = DataAccess.Get<Inventory>(ShopItems.Spawn(withEntities, ShopItems.Prototype), CacheType.Instance);
 			}
 
 			Logger.Info(nameof(Room), nameof(Spawn), "Finished spawning room.");
@@ -155,6 +223,7 @@ namespace Hedron.Core.Locale
 			room.Name = Name;
 			room.Description = Description;
 			room.Tier.Level = Tier.Level;
+			room.IsShop = IsShop;
 		}
 
 		/// <summary>

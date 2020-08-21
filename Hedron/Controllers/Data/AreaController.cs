@@ -190,5 +190,12 @@ namespace Hedron.Controllers.Data
 
 			return PartialView("Partial/_roomList", rooms);
 		}
+
+		// GET: Area/GetAreas
+		[ActionName("GetAreas")]
+		public ActionResult GetAreas()
+		{
+			return Json(DataAccess.GetAll<Area>(CacheType.Prototype));
+		}
 	}
 }

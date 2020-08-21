@@ -243,16 +243,13 @@ namespace Hedron.Core.Container
 		/// </summary>
 		public void RemoveAllEntities(bool updatePersistence = true)
 		{
-			var entityIDs = GetAllEntities();
-			var entitiesToRemove = new Dictionary<uint?, EntityBase>();
+			var entities = GetAllEntities();
 
-			entityIDs.ForEach(x => entitiesToRemove.Add(x, DataAccess.Get<EntityBase>(x, CacheType)));
-			foreach (var kvp in entitiesToRemove)
-				RemoveEntity(kvp.Key, kvp.Value, updatePersistence);
-
-			// Persist this entity to disk since the data structure has changed
-			if (CacheType == CacheType.Prototype && updatePersistence)
-				DataPersistence.SaveObject(this);
+			foreach (var e in entities)
+			{
+				// Also automatically persists to disk if necessary from RemoveEntity
+				RemoveEntity(e, null, updatePersistence);
+			}
 		}
 
 		/// <summary>

@@ -136,6 +136,7 @@ namespace Hedron.Core.Locale
 			var rooms = new string[0];
 			var inventories = new string[0];
 			var mobs = new string[0];
+			var itemPotions = new string[0];
 			var itemStatics = new string[0];
 			var itemWeapons = new string[0];
 
@@ -150,6 +151,9 @@ namespace Hedron.Core.Locale
 
 			if (Directory.Exists(basePath + typeof(Mob).ToString()))
 				mobs = Directory.GetFiles(basePath + typeof(Mob).ToString(), @"*.json");
+
+			if (Directory.Exists(basePath + typeof(ItemPotion).ToString()))
+				itemPotions = Directory.GetFiles(basePath + typeof(ItemPotion).ToString(), @"*.json");
 
 			if (Directory.Exists(basePath + typeof(ItemStatic).ToString()))
 				itemStatics = Directory.GetFiles(basePath + typeof(ItemStatic).ToString(), @"*.json");
@@ -175,6 +179,23 @@ namespace Hedron.Core.Locale
 					nameof(LoadWorld),
 					string.Format(@"No .json file found to load in {0}\{1}", basePath, typeof(World).ToString()));
 				return default;
+			}
+
+			// Load inventories
+			foreach (var inventory in inventories)
+			{
+				// Add inventory prototype
+				var newInventory = new Inventory();
+				DataPersistence.LoadObject(inventory, out newInventory);
+
+				// Populate items to load in inventories
+				itemsToLoadInInventory.Add(newInventory.Prototype, newInventory.GetAllEntities());
+
+				// Clear all item IDs so they can be added post-load
+				newInventory.RemoveAllEntities(false);
+
+				// Add to cache
+				DataAccess.Add<Inventory>(newInventory, CacheType.Prototype, newInventory.Prototype, false);
 			}
 
 			// Load rooms
@@ -219,23 +240,6 @@ namespace Hedron.Core.Locale
 					var addRoom = DataAccess.Get<Room>(room, CacheType.Prototype);
 					newArea.AddEntity(addRoom.Prototype, addRoom, false);
 				}
-			}
-
-			// Load inventories
-			foreach (var inventory in inventories)
-			{
-				// Add inventory prototype
-				var newInventory = new Inventory();
-				DataPersistence.LoadObject(inventory, out newInventory);
-
-				// Populate items to load in inventories
-				itemsToLoadInInventory.Add(newInventory.Prototype, newInventory.GetAllEntities());
-
-				// Clear all item IDs so they can be added post-load
-				newInventory.RemoveAllEntities(false);
-
-				// Add to cache
-				DataAccess.Add<Inventory>(newInventory, CacheType.Prototype, newInventory.Prototype, false);
 			}
 
 			// Load mobs

@@ -21,11 +21,21 @@ namespace Hedron.Models
 		public uint?  Down      { get; set; }
 	}
 
+	public class RoomItemAddToShopViewModel
+	{
+		public int roomID { get; set; }
+		public int itemID { get; set; }
+	}
+
 	public class RoomViewModel : BaseViewModel
 	{
 		public string Description { get; set; }
 
+		public bool IsShop { get; set; }
+
 		public List<BaseEntityViewModel> Entities { get; set; }
+
+		public List<BaseEntityViewModel> ShopItems { get; set; }
 
 		[Display(Name = "Parent Name")]
 		public string ParentName { get; set; }
@@ -42,6 +52,7 @@ namespace Hedron.Models
 				Prototype = (uint)room.Prototype,
 				ParentName = EntityContainer.GetAllPrototypeParents<Area>(room.Prototype).FirstOrDefault()?.Name ?? "none",
 				Name = room.Name,
+				IsShop = room.IsShop,
 				Tier = room.Tier.Level,
 				Description = truncate == -1 ? room.Description : room.Description.ToTruncatedSubString(truncate, true),
 				Exits = room.Exits,

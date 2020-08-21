@@ -1,4 +1,5 @@
-﻿using Hedron.Core.Entity.Base;
+﻿using Hedron.Commands.Item;
+using Hedron.Core.Entity.Base;
 using Hedron.Network;
 using System;
 using System.Collections.Generic;
@@ -57,6 +58,9 @@ namespace Hedron.Commands
 
 			// Creation commands
 			{"craft",     new Creation.Craft() },
+
+            // Shopping commands
+            {"shop",      new Shopping.Shop() },
 
 			// Skill commands
 			{"learn",     new Skill.Learn() },

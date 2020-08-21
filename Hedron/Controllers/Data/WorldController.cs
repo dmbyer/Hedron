@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
+using Hedron.Core.Entity.Base;
 using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.Models;
+using Hedron.System;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -130,6 +133,35 @@ namespace Hedron.Controllers.Data
             {
                 // Just route back to index for now; deleting worlds is not implemented
                 return Index();
+            }
+        }
+
+        // GET: World/ItemList?filterLevel=
+        public ActionResult ItemList(int levelFilter=0)
+		{
+
+            if (levelFilter >= Constants.MIN_TIER && levelFilter <= Constants.MAX_TIER)
+            {
+                var shopItems = BaseEntityInanimateViewModel.EntityToViewModel(
+                    DataAccess.GetAll<EntityInanimate>(CacheType.Prototype)
+                    .Where(i => i.Tier == levelFilter)
+                    .OrderBy(i => i.Slot)
+                    .ToList());
+
+                return PartialView("Partial/Item/_filterableItemList", shopItems);
+            }
+            else if (levelFilter == 0)
+            {
+                var shopItems = BaseEntityInanimateViewModel.EntityToViewModel(
+                    DataAccess.GetAll<EntityInanimate>(CacheType.Prototype)
+                    .OrderBy(i => i.Slot)
+                    .ToList());
+
+                return PartialView("Partial/Item/_filterableItemList", shopItems);
+            }
+            else
+            {
+                return BadRequest();
             }
         }
     }

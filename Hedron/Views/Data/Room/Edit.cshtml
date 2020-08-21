@@ -40,6 +40,13 @@
                 </div>
             </div>
             <div class="w3-container w3-margin-top">
+                <label asp-for="IsShop"></label>
+                <div>
+                    <input asp-for="IsShop" class="w3-animate-input" style="width:30%" />
+                    <span asp-validation-for="IsShop" class="w3-red"></span>
+                </div>
+            </div>
+            <div class="w3-container w3-margin-top">
                 <label asp-for="Description"></label>
                 <div>
                     <textarea asp-for="Description" class="w3-animate-input" style="width:50%" rows="5" cols="1">@Model.Description</textarea>
@@ -74,12 +81,44 @@
         @{ await Html.RenderPartialAsync("Partial/_entityList", Model.Entities); }
     </div>
 </div>
+<div class="w3-card w3-rest w3-margin-top">
+    <header class="w3-container w3-khaki">
+        <h2>Shop</h2>
+    </header>
+    <div class="w3-container w3-sand">
+        <div class="w3-container w3-section w3-large">
+        </div>
+    </div>
+    <div id="divShopItems" class="w3-container w3-sand">
+        @{ await Html.RenderPartialAsync("Partial/Item/_itemListForShop", Model.ShopItems); }
+    </div>
+</div>
+<div class="w3-card w3-rest w3-margin-top">
+    <header class="w3-container w3-khaki">
+        <h2>World Items</h2>
+    </header>
+    <div class="w3-container w3-sand">
+        <div class="w3-container w3-section w3-large">
+            <i class="material-icons" style="vertical-align:-6px">filter_list</i>
+            <select id="levelFilter" onchange="filterItemList()">
+                <option value="0">All</option>
+                @for (var i = Hedron.System.Constants.MIN_TIER; i <= Hedron.System.Constants.MAX_TIER; i++)
+                {
+                    var friendlyTier = (new Hedron.Core.Entity.Property.Tier(i)).ToString();
+                    <option value="@i">Tier @friendlyTier</option>
+                }
+            </select>
+        </div>
+    </div>
+    <div id="divWorldItems" class="w3-container w3-sand">
+        @{ await Html.RenderPartialAsync("Partial/Item/_filterableItemList", new List<Hedron.Models.BaseEntityViewModel>()); }
+    </div>
+</div>
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
-}
 
-<script>
+    <script>
     function addEntity(entityActionType) {
         let request = new XMLHttpRequest();
 
@@ -97,4 +136,76 @@
 
         request.send(@Model.Prototype);
     }
-</script>
+
+    function filterItemList() {
+        let request = new XMLHttpRequest();
+
+        request.open('GET', ('/World/ItemList?levelFilter=' + document.getElementById('levelFilter').selectedIndex), true);
+        request.responseType = "document";
+
+        request.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                document.getElementById('divWorldItems').innerHTML = this.responseXML.body.innerHTML;
+            }
+        };
+
+        request.send();
+    }
+
+    function removeShopItem(id) {
+        let request = new XMLHttpRequest();
+
+        request.open('POST', '/Room/RemoveShopItem', true);
+        request.responseType = "document";
+
+        request.setRequestHeader("XSRF-TOKEN", document.getElementsByName('__RequestVerificationToken')[0].value);
+        request.setRequestHeader("Content-Type", "application/json");
+
+        request.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                document.getElementById('divShopItems').innerHTML = this.responseXML.body.innerHTML;
+            }
+        };
+
+        let req = { roomID: @Model.Prototype, itemID: id };
+        request.send(JSON.stringify(req));
+    }
+
+    function addShopItem(id) {
+        let request = new XMLHttpRequest();
+
+        request.open('POST', '/Room/AddShopItem', true);
+        request.responseType = "document";
+
+        request.setRequestHeader("XSRF-TOKEN", document.getElementsByName('__RequestVerificationToken')[0].value);
+        request.setRequestHeader("Content-Type", "application/json");
+
+        request.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                document.getElementById('divShopItems').innerHTML = this.responseXML.body.innerHTML;
+            }
+        };
+
+        let req = { roomID: @Model.Prototype, itemID: id };
+        request.send(JSON.stringify(req));
+    }
+
+    function refreshShopList() {
+        let request = new XMLHttpRequest();
+        let roomID = @Model.Prototype;
+
+        request.open('GET', '/Room/ShopList/' + roomID, true);
+        request.responseType = "document";
+
+        request.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                document.getElementById('divShopItems').innerHTML = this.responseXML.body.innerHTML;
+            }
+        };
+
+        request.send();
+    }
+
+    $(document).ready(filterItemList());
+    </script>
+}
