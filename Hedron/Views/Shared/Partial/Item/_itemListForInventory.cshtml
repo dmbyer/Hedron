@@ -1,5 +1,5 @@
 ﻿@model IEnumerable<Hedron.Models.BaseEntityViewModel>
-<table class="w3-table w3-card w3-margin-bottom w3-border w3-bordered w3-pale-blue" id="tableShopList">
+<table class="w3-table w3-card w3-margin-bottom w3-border w3-bordered w3-pale-blue" id="tableInventoryList">
     <thead>
         <tr class="w3-lime">
             <th width="10px"></th>
@@ -36,7 +36,7 @@
                     @item.ShortDescription
                 </td>
                 <td>
-                    <a href="#" onclick="removeShopItem(@item.Prototype)"><i class="material-icons w3-hover-blue-gray" style="vertical-align:-8px">delete</i></a>
+                    <a href="#" onclick="removeInventoryItem(@item.Prototype)"><i class="material-icons w3-hover-blue-gray" style="vertical-align:-8px">delete</i></a>
                 </td>
             </tr>
         }

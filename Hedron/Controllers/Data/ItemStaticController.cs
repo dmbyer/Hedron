@@ -1,6 +1,7 @@
 ﻿using Hedron.Core.Entity.Item;
 using Hedron.Data;
 using Hedron.Models;
+using Hedron.Models.Entity.Property;
 using Hedron.System.Text;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
@@ -28,7 +29,8 @@ namespace Hedron.Controllers.Data
 					Name = item.Name,
 					ShortDescription = item.ShortDescription.ToTruncatedSubString(30, true),
 					LongDescription = item.LongDescription.ToTruncatedSubString(80, true),
-					Rarity = item.Rarity
+					Rarity = item.Rarity,
+					Value = CurrencyViewModel.ToCurrencyViewModel(item.Value)
 				});
 			}
 
@@ -50,7 +52,8 @@ namespace Hedron.Controllers.Data
 				Name = item.Name,
 				ShortDescription = item.ShortDescription,
 				LongDescription = item.LongDescription,
-				Rarity = item.Rarity
+				Rarity = item.Rarity,
+				Value = CurrencyViewModel.ToCurrencyViewModel(item.Value)
 			};
 
 			return View("~/Views/Data/ItemStatic/Details.cshtml", vModel);
@@ -78,6 +81,7 @@ namespace Hedron.Controllers.Data
 					item.ShortDescription = itemStaticViewModel.ShortDescription;
 					item.LongDescription = itemStaticViewModel.LongDescription;
 					item.Rarity = itemStaticViewModel.Rarity;
+					item.Value = CurrencyViewModel.ToCurrency(itemStaticViewModel.Value);
 
 					DataPersistence.SaveObject(item);
 				}
@@ -105,7 +109,8 @@ namespace Hedron.Controllers.Data
 				Name = item.Name,
 				ShortDescription = item.ShortDescription,
 				LongDescription = item.LongDescription,
-				Rarity = item.Rarity
+				Rarity = item.Rarity,
+				Value = CurrencyViewModel.ToCurrencyViewModel(item.Value)
 			};
 
 			return View("~/Views/Data/ItemStatic/Edit.cshtml", vModel);
@@ -130,6 +135,7 @@ namespace Hedron.Controllers.Data
 					item.ShortDescription = itemStaticViewModel.ShortDescription;
 					item.LongDescription = itemStaticViewModel.LongDescription;
 					item.Rarity = itemStaticViewModel.Rarity;
+					item.Value = CurrencyViewModel.ToCurrency(itemStaticViewModel.Value);
 
 					DataPersistence.SaveObject(item);
 				}
@@ -160,7 +166,8 @@ namespace Hedron.Controllers.Data
 				Name = item.Name,
 				ShortDescription = item.ShortDescription,
 				LongDescription = item.LongDescription,
-				Rarity = item.Rarity
+				Rarity = item.Rarity,
+				Value = CurrencyViewModel.ToCurrencyViewModel(item.Value)
 			};
 
 			return View("~/Views/Data/ItemStatic/Delete.cshtml", vModel);

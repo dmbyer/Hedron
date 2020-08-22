@@ -90,7 +90,7 @@
         </div>
     </div>
     <div id="divShopItems" class="w3-container w3-sand">
-        @{ await Html.RenderPartialAsync("Partial/Item/_itemListForShop", Model.ShopItems); }
+        @{ await Html.RenderPartialAsync("Partial/Item/_itemListForInventory", Model.ShopItems); }
     </div>
 </div>
 <div class="w3-card w3-rest w3-margin-top">
@@ -152,7 +152,7 @@
         request.send();
     }
 
-    function removeShopItem(id) {
+    function removeInventoryItem(id) {
         let request = new XMLHttpRequest();
 
         request.open('POST', '/Room/RemoveShopItem', true);
@@ -171,7 +171,7 @@
         request.send(JSON.stringify(req));
     }
 
-    function addShopItem(id) {
+    function addWorldItem(id) {
         let request = new XMLHttpRequest();
 
         request.open('POST', '/Room/AddShopItem', true);

@@ -19,6 +19,7 @@ namespace Hedron.Core.Entity.Living
 
 			StateHandler.State = GameState.NameSelection;
 			PrivilegeLevel = Commands.PrivilegeLevel.Administrator;
+			Currency += 50;
         }
 		
         public void Save()

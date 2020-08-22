@@ -281,6 +281,12 @@ namespace Hedron.Combat
 
 						source.IOHandler?.QueueOutput($"You have slain {target.ShortDescription}!");
 
+						if (target.Currency.HasAnyValue())
+						{
+							source.Currency += target.Currency;
+							source.IOHandler?.QueueOutput($"You gain {target.Currency}.");
+						}
+
 						break;
 					}
 				}

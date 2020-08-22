@@ -2,10 +2,12 @@
 using Hedron.Data;
 using Hedron.Models;
 using Hedron.Models.Behavior;
+using Hedron.Models.Entity.Property;
 using Hedron.System.Text;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Linq;
+using Hedron.Core.Container;
 
 namespace Hedron.Controllers.Data
 {
@@ -35,7 +37,8 @@ namespace Hedron.Controllers.Data
 					Behavior = ItemBehaviorViewModel.ToViewModel(weapon.Behavior),
 					Rarity = weapon.Rarity,
 					DamageType = weapon.DamageType,
-					Slot = weapon.Slot
+					Slot = weapon.Slot,
+					Value = CurrencyViewModel.ToCurrencyViewModel(weapon.Value)
 				});
 			}
 
@@ -63,7 +66,8 @@ namespace Hedron.Controllers.Data
 				Behavior = ItemBehaviorViewModel.ToViewModel(weapon.Behavior),
 				Rarity = weapon.Rarity,
 				DamageType = weapon.DamageType,
-				Slot = weapon.Slot
+				Slot = weapon.Slot,
+				Value = CurrencyViewModel.ToCurrencyViewModel(weapon.Value)
 			};
 
 			return View("~/Views/Data/ItemWeapon/Details.cshtml", vModel);
@@ -78,7 +82,7 @@ namespace Hedron.Controllers.Data
 		// POST: ItemWeapon/Create
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public ActionResult Create([Bind("Parent,Name,WeaponType,ShortDescription,LongDescription,MinDamage,MaxDamage,Tier,Behavior,Rarity,DamageType,ElementalType,Slot")]
+		public ActionResult Create([Bind("Parent,Name,WeaponType,ShortDescription,LongDescription,MinDamage,MaxDamage,Tier,Behavior,Rarity,DamageType,ElementalType,Slot,Value")]
 			ItemWeaponViewModel itemWeaponViewModel)
 		{
 			if (ModelState.IsValid)
@@ -87,7 +91,8 @@ namespace Hedron.Controllers.Data
 				{
 					var weapon = ItemWeapon.NewPrototype();
 
-					// weapon.Parent = itemWeaponViewModel.Parent;
+					DataAccess.Get<EntityContainer>(itemWeaponViewModel.Parent, CacheType.Prototype)?.AddEntity(weapon.Prototype, weapon);
+
 					weapon.Tier.Level = itemWeaponViewModel.Tier;
 					weapon.Name = itemWeaponViewModel.Name;
 					weapon.WeaponType = itemWeaponViewModel.WeaponType;
@@ -101,6 +106,7 @@ namespace Hedron.Controllers.Data
 					weapon.Rarity = itemWeaponViewModel.Rarity;
 					weapon.DamageType = itemWeaponViewModel.DamageType;
 					weapon.Slot = itemWeaponViewModel.Slot;
+					weapon.Value = CurrencyViewModel.ToCurrency(itemWeaponViewModel.Value);
 
 					DataPersistence.SaveObject(weapon);
 				}
@@ -135,7 +141,8 @@ namespace Hedron.Controllers.Data
 				Behavior = ItemBehaviorViewModel.ToViewModel(weapon.Behavior),
 				Rarity = weapon.Rarity,
 				DamageType = weapon.DamageType,
-				Slot = weapon.Slot
+				Slot = weapon.Slot,
+				Value = CurrencyViewModel.ToCurrencyViewModel(weapon.Value)
 			};
 
 			return View("~/Views/Data/ItemWeapon/Edit.cshtml", vModel);
@@ -145,7 +152,7 @@ namespace Hedron.Controllers.Data
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult Edit(int id, 
-			[Bind("Prototype,Parent,Name,WeaponType,ShortDescription,LongDescription,MinDamage,MaxDamage,Tier,Behavior,Rarity,DamageType,ElementalType,Slot")]
+			[Bind("Prototype,Parent,Name,WeaponType,ShortDescription,LongDescription,MinDamage,MaxDamage,Tier,Behavior,Rarity,DamageType,ElementalType,Slot,Value")]
 			ItemWeaponViewModel itemWeaponViewModel)
 		{
 			if (id != itemWeaponViewModel.Prototype)
@@ -157,7 +164,8 @@ namespace Hedron.Controllers.Data
 				{
 					var weapon = DataAccess.Get<ItemWeapon>((uint)id, CacheType.Prototype);
 
-					// weapon.Parent = itemWeaponViewModel.Parent;
+					DataAccess.Get<Hedron.Core.Container.EntityContainer>(itemWeaponViewModel.Parent, CacheType.Prototype)?.AddEntity(weapon.Prototype, weapon);
+
 					weapon.Tier.Level = itemWeaponViewModel.Tier;
 					weapon.Name = itemWeaponViewModel.Name;
 					weapon.WeaponType = itemWeaponViewModel.WeaponType;
@@ -171,6 +179,7 @@ namespace Hedron.Controllers.Data
 					weapon.Rarity = itemWeaponViewModel.Rarity;
 					weapon.DamageType = itemWeaponViewModel.DamageType;
 					weapon.Slot = itemWeaponViewModel.Slot;
+					weapon.Value = CurrencyViewModel.ToCurrency(itemWeaponViewModel.Value);
 
 					DataPersistence.SaveObject(weapon);
 				}
@@ -208,7 +217,8 @@ namespace Hedron.Controllers.Data
 				Behavior = ItemBehaviorViewModel.ToViewModel(weapon.Behavior),
 				Rarity = weapon.Rarity,
 				DamageType = weapon.DamageType,
-				Slot = weapon.Slot
+				Slot = weapon.Slot,
+				Value = CurrencyViewModel.ToCurrencyViewModel(weapon.Value)
 			};
 
 			return View("~/Views/Data/ItemWeapon/Delete.cshtml", vModel);

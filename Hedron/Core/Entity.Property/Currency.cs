@@ -196,6 +196,25 @@ namespace Hedron.Core.Entity.Property
             return new Currency(a.TotalCopper - b, a.Vita, a.Menta, a.Astra);
         }
 
+        public static Currency operator -(Currency a, Currency b)
+        {
+            var c = new Currency();
+
+            if (b.TotalCopper <= a.TotalCopper)
+                c.Copper = a.TotalCopper - b.TotalCopper;
+
+            if (b.Vita <= a.Vita)
+                c.Vita = a.Vita - b.Vita;
+
+            if (b.Menta <= a.Menta)
+                c.Menta = a.Menta - b.Menta;
+
+            if (b.Astra <= a.Astra)
+                c.Astra = a.Astra - b.Astra;
+
+            return c;
+        }
+
         public static Currency operator +(Currency a, Currency b)
         {
             ulong totalCopper = a.TotalCopper + b.TotalCopper;
@@ -238,6 +257,85 @@ namespace Hedron.Core.Entity.Property
             remainingCurrency -= _silver;
             remainingCurrency /= 100;
             _gold = remainingCurrency;
+        }
+
+        public bool HasAnyValue()
+		{
+            if (Copper > 0 || Silver > 0 || Gold > 0 || Vita > 0 || Menta > 0 || Astra > 0)
+                return true;
+            else
+                return false;
+		}
+
+        public void CopyTo(Currency currency)
+		{
+            currency.Copper = Copper;
+            currency.Silver = Silver;
+            currency.Gold = Gold;
+            currency.Vita = Vita;
+            currency.Menta = Menta;
+            currency.Astra = Astra;
+		}
+
+        public override string ToString()
+		{
+            var output = "";
+            bool hasAppended = false;
+
+            if (Copper > 0)
+			{
+                output = $"Copper: { Copper }";
+                hasAppended = true;
+			}
+
+            if (Silver > 0)
+			{
+                if (hasAppended)
+                    output += ", ";
+
+                output += $"Silver: { Silver }";
+                hasAppended = true;
+            }
+
+            if (Gold > 0)
+            {
+                if (hasAppended)
+                    output += ", ";
+
+                output += $"Gold: { Gold }";
+                hasAppended = true;
+            }
+
+            if (Vita > 0)
+            {
+                if (hasAppended)
+                    output += ", ";
+
+                output += $"Vita: { Vita }";
+                hasAppended = true;
+            }
+
+            if (Menta > 0)
+            {
+                if (hasAppended)
+                    output += ", ";
+
+                output += $"Menta: { Menta }";
+                hasAppended = true;
+            }
+
+            if (Astra > 0)
+            {
+                if (hasAppended)
+                    output += ", ";
+
+                output += $"Astra: { Astra }";
+            }
+
+            if (output == "")
+                output = "free";
+
+            return output;
         }
 
         /// <summary>

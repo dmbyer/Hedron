@@ -24,6 +24,8 @@ namespace Hedron.Models
 
 		public QualitiesViewModel BaseQualities { get; set; } = new QualitiesViewModel();
 
+		public CurrencyViewModel Currency { get; set; } = new CurrencyViewModel();
+
 		public static MobViewModel BaseNewMob()
 		{
 			var vm = new MobViewModel();

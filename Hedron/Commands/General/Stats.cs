@@ -132,7 +132,12 @@ namespace Hedron.Commands.General
 				poolsTable + "\n\n" +
 				attributesTable + "\n\n" +
 				qualitiesTable + "\n\n"
-				);
+			);
+
+			if (entity.Currency.HasAnyValue())
+				output.Append("[Currency] " + entity.Currency.ToString() + "\n\n");
+			else
+				output.Append("[Currency] none\n\n");
 
 			return CommandResult.Success(output.Output);
 		}

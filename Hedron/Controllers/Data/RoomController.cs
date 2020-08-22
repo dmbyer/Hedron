@@ -323,7 +323,7 @@ namespace Hedron.Controllers.Data
 
 			var shopItems = room.GetShopItems<EntityInanimate>();
 
-			return PartialView("Partial/Item/_itemListForShop", BaseEntityInanimateViewModel.EntityToViewModel(shopItems));
+			return PartialView("Partial/Item/_itemListForInventory", BaseEntityInanimateViewModel.EntityToViewModel(shopItems));
 		}
 
 		// POST: Room/RemoveShopItem

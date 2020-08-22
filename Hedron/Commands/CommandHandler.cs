@@ -60,6 +60,8 @@ namespace Hedron.Commands
 			{"craft",     new Creation.Craft() },
 
             // Shopping commands
+            {"buy",       new Shopping.Buy() },
+            {"sell",      new Shopping.Sell() },
             {"shop",      new Shopping.Shop() },
 
 			// Skill commands

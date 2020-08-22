@@ -1,6 +1,7 @@
 ﻿using Hedron.Core.Entity.Base;
 using Hedron.Core.Entity.Property;
 using Hedron.Models.Behavior;
+using Hedron.Models.Entity.Property;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -14,6 +15,8 @@ namespace Hedron.Models
 		public ItemRarity Rarity { get; set; }
 
 		public ItemSlot Slot { get; set; }
+
+		public CurrencyViewModel Value { get; set; }
 
 		public static BaseEntityInanimateViewModel EntityToViewModel(EntityInanimate entity)
 		{
@@ -30,7 +33,8 @@ namespace Hedron.Models
 				LongDescription = entity.LongDescription,
 				Behavior = ItemBehaviorViewModel.ToViewModel(entity.Behavior),
 				Rarity = entity.Rarity,
-				Slot = entity.Slot
+				Slot = entity.Slot,
+				Value = CurrencyViewModel.ToCurrencyViewModel(entity.Value)
 			};
 		}
 

@@ -51,8 +51,16 @@ namespace Hedron.Commands.Shopping
 			else
 			{
 				output.Append("Available for purchase: ");
-				var itemDescriptions = EntityQuantityMapper.ParseEntityQuantitiesAsStrings(items, EntityQuantityMapper.MapStringTypes.ShortDescription);
-				output.Append(Formatter.NewTableFromList(itemDescriptions, 1, 4, 0));
+
+				// var itemDescriptions = EntityQuantityMapper.ParseEntityQuantitiesAsStrings(items, EntityQuantityMapper.MapStringTypes.ShortDescription);
+				var itemDescriptions = new List<string>();
+
+				foreach (var i in items)
+				{
+					itemDescriptions.Add(i.Value.ToString());
+					itemDescriptions.Add(i.ShortDescription);
+				}
+				output.Append(Formatter.NewTableFromList(itemDescriptions, 2, 4, 4));
 			}
 
 			return CommandResult.Success(output.Output);

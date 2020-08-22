@@ -743,9 +743,10 @@ namespace Hedron.Core.Entity.Base
 
 			base.CopyTo(entityAnimate);
 
-			entityAnimate.BaseMaxPools.CopyTo(BaseMaxPools);
-			entityAnimate.BaseAttributes.CopyTo(BaseAttributes);
-			entityAnimate.BaseQualities.CopyTo(BaseQualities);
+			BaseMaxPools.CopyTo(entityAnimate.BaseMaxPools);
+			BaseAttributes.CopyTo(entityAnimate.BaseAttributes);
+			BaseQualities.CopyTo(entityAnimate.BaseQualities);
+			Currency.CopyTo(entityAnimate.Currency);
 		}
 	}
 }

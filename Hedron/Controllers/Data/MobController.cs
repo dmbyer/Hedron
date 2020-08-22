@@ -1,4 +1,5 @@
 ﻿using Hedron.Core.Entity.Living;
+using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.Models;
 using Hedron.Models.Behavior;
@@ -31,7 +32,8 @@ namespace Hedron.Controllers.Data
 					Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
 					BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
 					BasePools = PoolsViewModel.ToViewModel(mob.BaseMaxPools),
-					BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
+					BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities),
+					Currency = CurrencyViewModel.ToCurrencyViewModel(mob.Currency)
 				});
 			}
 
@@ -57,7 +59,8 @@ namespace Hedron.Controllers.Data
 				Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
 				BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
 				BasePools = PoolsViewModel.ToViewModel(mob.BaseMaxPools),
-				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
+				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities),
+				Currency = CurrencyViewModel.ToCurrencyViewModel(mob.Currency)
 			};
 
 			return View("~/Views/Data/Mob/Details.cshtml", vModel);
@@ -72,13 +75,15 @@ namespace Hedron.Controllers.Data
 		// POST: Mob/Create
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public ActionResult Create([Bind("Name,ShortDescription,LongDescription,Tier,Level,Behavior,BaseAttributes,BasePools,BaseQualities")] MobViewModel mobViewModel)
+		public ActionResult Create([Bind("Parent,Name,ShortDescription,LongDescription,Tier,Level,Behavior,BaseAttributes,BasePools,BaseQualities,Currency")] MobViewModel mobViewModel)
 		{
 			if (ModelState.IsValid)
 			{
 				try
 				{
 					var mob = Mob.NewPrototype();
+
+					DataAccess.Get<Room>(mobViewModel.Parent, CacheType.Prototype)?.AddEntity(mob.Prototype, mob);
 
 					mob.Tier.Level = mobViewModel.Tier;
 					mob.Level = mobViewModel.Level;
@@ -89,6 +94,7 @@ namespace Hedron.Controllers.Data
 					mob.BaseAttributes = AttributesViewModel.ToAttributes(mobViewModel.BaseAttributes);
 					mob.BaseMaxPools = PoolsViewModel.ToPools(mobViewModel.BasePools);
 					mob.BaseQualities = QualitiesViewModel.ToQualities(mobViewModel.BaseQualities);
+					mob.Currency = CurrencyViewModel.ToCurrency(mobViewModel.Currency);
 
 					DataPersistence.SaveObject(mob);
 				}
@@ -120,7 +126,8 @@ namespace Hedron.Controllers.Data
 				Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
 				BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
 				BasePools = PoolsViewModel.ToViewModel(mob.BaseMaxPools),
-				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
+				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities),
+				Currency = CurrencyViewModel.ToCurrencyViewModel(mob.Currency)
 			};
 
 			return View("~/Views/Data/Mob/Edit.cshtml", vModel);
@@ -129,7 +136,7 @@ namespace Hedron.Controllers.Data
 		// POST: Mob/Edit/5
 		[HttpPost]
 		[ValidateAntiForgeryToken]
-		public ActionResult Edit(int id, [Bind("Prototype,Name,ShortDescription,LongDescription,Tier,Level,Behavior,BaseAttributes,BasePools,BaseQualities")] MobViewModel mobViewModel)
+		public ActionResult Edit(int id, [Bind("Parent,Prototype,Name,ShortDescription,LongDescription,Tier,Level,Behavior,BaseAttributes,BasePools,BaseQualities,Currency")] MobViewModel mobViewModel)
 		{
 			if (id != mobViewModel.Prototype)
 				return NotFound();
@@ -140,6 +147,8 @@ namespace Hedron.Controllers.Data
 				{
 					var mob = DataAccess.Get<Mob>((uint)id, CacheType.Prototype);
 
+					DataAccess.Get<Room>(mobViewModel.Parent, CacheType.Prototype)?.AddEntity(mob.Prototype, mob);
+
 					mob.Tier.Level = mobViewModel.Tier;
 					mob.Level = mobViewModel.Level;
 					mob.Name = mobViewModel.Name;
@@ -149,6 +158,7 @@ namespace Hedron.Controllers.Data
 					mob.BaseAttributes = AttributesViewModel.ToAttributes(mobViewModel.BaseAttributes);
 					mob.BaseMaxPools = PoolsViewModel.ToPools(mobViewModel.BasePools);
 					mob.BaseQualities = QualitiesViewModel.ToQualities(mobViewModel.BaseQualities);
+					mob.Currency = CurrencyViewModel.ToCurrency(mobViewModel.Currency);
 
 					DataPersistence.SaveObject(mob);
 				}
@@ -183,7 +193,8 @@ namespace Hedron.Controllers.Data
 				Behavior = MobBehaviorViewModel.ToViewModel(mob.Behavior),
 				BaseAttributes = AttributesViewModel.ToViewModel(mob.BaseAttributes),
 				BasePools = PoolsViewModel.ToViewModel(mob.BaseMaxPools),
-				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities)
+				BaseQualities = QualitiesViewModel.ToViewModel(mob.BaseQualities),
+				Currency = CurrencyViewModel.ToCurrencyViewModel(mob.Currency)
 			};
 
 			return View("~/Views/Data/Mob/Delete.cshtml", vModel);
