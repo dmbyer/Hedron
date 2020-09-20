@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Hedron.Core.Entity.Base;
+using Hedron.Core.Entities.Base;
 using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.Models;
-using Hedron.System;
+using Hedron.Core.System;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 

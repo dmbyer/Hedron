@@ -1,5 +1,5 @@
-﻿using Hedron.Core.Entity.Property;
-using Hedron.System;
+﻿using Hedron.Core.Entities.Properties;
+using Hedron.Core.System;
 using System.ComponentModel.DataAnnotations;
 
 namespace Hedron.Models

@@ -42,7 +42,7 @@
             <div class="w3-container w3-margin-top">
                 <label asp-for="Level"></label>
                 <div>
-                    <select asp-for="Level" asp-items="Html.GetEnumSelectList<Hedron.Core.Entity.Property.MobLevel>()" class="form-control"></select>
+                    <select asp-for="Level" asp-items="Html.GetEnumSelectList<Hedron.Core.Entities.Properties.MobLevel>()" class="form-control"></select>
                     <span asp-validation-for="Level" class="w3-red"></span>
                 </div>
             </div>

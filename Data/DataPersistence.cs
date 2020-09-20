@@ -47,7 +47,6 @@ namespace Hedron.Data
 			{
 				var fileName = obj.Prototype.ToString() + ".json";
 				var delPath = string.Format("{0}\\{1}\\", PersistencePath, obj.GetType().ToString());
-				var serialized = JsonConvert.SerializeObject(obj, Formatting.Indented);
 
 				File.Delete(delPath + fileName);
 

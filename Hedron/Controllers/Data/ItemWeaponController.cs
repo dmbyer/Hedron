@@ -1,9 +1,9 @@
-﻿using Hedron.Core.Entity.Item;
+﻿using Hedron.Core.Entities.Item;
 using Hedron.Data;
 using Hedron.Models;
 using Hedron.Models.Behavior;
 using Hedron.Models.Entity.Property;
-using Hedron.System.Text;
+using Hedron.Core.System.Text;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Linq;

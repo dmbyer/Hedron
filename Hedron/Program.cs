@@ -1,9 +1,9 @@
-﻿using Hedron.Commands;
-using Hedron.Core.Entity.Living;
+﻿using Hedron.Core.Commands;
+using Hedron.Core.Entities.Living;
 using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.Network;
-using Hedron.System;
+using Hedron.Core.System;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using System;
@@ -42,7 +42,7 @@ namespace Hedron
 				World.NewPrototype();
 			}
 
-			CommandHandler.Initialize();
+			CommandService.Initialize();
 
 			gameLoop = new Thread(new ThreadStart(GameLoop));
 			gameLoop.Start();
@@ -91,14 +91,14 @@ namespace Hedron
 					player.Instance = DataAccess.Add<Player>(player, CacheType.Instance);
 
 					// Player connected -- get name:
-					player.IOHandler.QueueOutput("Welcome! Please enter your player name: ");
-					player.IOHandler.SendOutput();
+					player.IOHandler?.QueueRawOutput("Welcome! Please enter your player name: ");
+					player.IOHandler?.SendOutput();
 				}
 
 				// Process input/output on all existing players
 				foreach (var player in DataAccess.GetAll<Player>(CacheType.Instance))
 				{
-					var inputResult = player.IOHandler.RetrieveInput();
+					var inputResult = player.IOHandler?.?etrieveInput();
 					CommandResult commandResult = null;
 
 					if (inputResult.StatusCode == Constants.IO_READ.PENDINGREAD)
@@ -132,7 +132,7 @@ namespace Hedron
 							}
 
 							// Send command result to player
-							player.IOHandler.QueueOutput(commandResult.ResultMessage);
+							player.IOHandler?.QueueRawOutput(commandResult.ResultMessage);
 
 							break;
 						case Constants.IO_READ.SENDEXCEED:
@@ -142,10 +142,10 @@ namespace Hedron
 							continue;
 					}
 
-					player.IOHandler.QueueOutput("\n" + player.GetParsedPrompt());
+					player.IOHandler?.QueueRawOutput("\n" + player.GetParsedPrompt());
 
 					// Send player output
-					player.IOHandler.SendOutput();
+					player.IOHandler?.SendOutput();
 				}
 
 				// TODO: Update to use an event-driven heartbeat
@@ -170,8 +170,8 @@ namespace Hedron
 					{
 						player.Exit();
 						DataAccess.Remove<Player>(player.Instance, CacheType.Instance);
-						player.IOHandler.SendOutput();
-						player.IOHandler.CloseConnection();
+						player.IOHandler?.SendOutput();
+						player.IOHandler?.?loseConnection();
 					}
 					PendingPlayerConnectionClosures.Clear();
 				}
@@ -184,7 +184,7 @@ namespace Hedron
 			// Time to shutdown!
 			foreach (var p in DataAccess.GetAll<Player>(CacheType.Instance))
 			{
-				p.IOHandler.CloseConnection();
+				p.IOHandler?.?loseConnection();
 			}
 
 			// TODO: Do some cleanup like saving characters etc.

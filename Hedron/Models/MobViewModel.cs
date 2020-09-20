@@ -1,5 +1,5 @@
 ﻿using Hedron.Core.Container;
-using Hedron.Core.Entity.Property;
+using Hedron.Core.Entities.Properties;
 using Hedron.Models.Behavior;
 using Hedron.Models.Entity.Property;
 using System.ComponentModel.DataAnnotations;

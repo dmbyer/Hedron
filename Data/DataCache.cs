@@ -9,12 +9,12 @@ namespace Hedron.Data
 		/// <summary>
 		/// The cached objects in the data cache, mapped by ID
 		/// </summary>
-		private Dictionary<uint, ICacheableObject> _cached_objects = new Dictionary<uint, ICacheableObject>();
+		private readonly Dictionary<uint, ICacheableObject> _cached_objects = new Dictionary<uint, ICacheableObject>();
 
 		/// <summary>
 		/// The list of unique IDs in the cache.
 		/// </summary>
-		private List<uint> _id_list = new List<uint>();
+		private readonly List<uint> _id_list = new List<uint>();
 
 		public DataCache()
 		{

@@ -1,4 +1,4 @@
-﻿using Hedron.Core.Entity.Base;
+﻿using Hedron.Core.Entities.Base;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -15,7 +15,7 @@ namespace Hedron.Models
 		[Required(ErrorMessage = "Long description required")]
 		public string LongDescription { get; set; }
 
-		public static BaseEntityViewModel EntityToViewModel(EntityBase entity)
+		public static BaseEntityViewModel EntityToViewModel(Entity entity)
 		{
 			if (entity == null)
 				return null;
@@ -32,7 +32,7 @@ namespace Hedron.Models
 			};
 		}
 
-		public static List<BaseEntityViewModel> EntityToViewModel(List<EntityBase> entities)
+		public static List<BaseEntityViewModel> EntityToViewModel(List<Entity> entities)
 		{
 			if (entities == null)
 				return null;

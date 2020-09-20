@@ -1,12 +1,12 @@
 ﻿using Hedron.Core.Container;
-using Hedron.Core.Entity.Base;
-using Hedron.Core.Entity.Item;
-using Hedron.Core.Entity.Living;
+using Hedron.Core.Entities.Base;
+using Hedron.Core.Entities.Item;
+using Hedron.Core.Entities.Living;
 using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.Models;
-using Hedron.System;
-using Hedron.System.Text;
+using Hedron.Core.System;
+using Hedron.Core.System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -26,11 +26,11 @@ namespace Hedron.Controllers.Data
 			foreach (var room in listRooms)
 			{
 
-				var entities = DataAccess.GetMany<EntityBase>(room.GetAllEntities<EntityBase>(), CacheType.Prototype)
+				var entities = DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype)
 					.OrderBy(e => e.Prototype)
 					.ToList();
 
-				var shopItems = DataAccess.GetMany<EntityBase>(room.GetShopItems<EntityInanimate>().Select(i => (uint)i.Prototype).ToList(), CacheType.Prototype)
+				var shopItems = DataAccess.GetMany<Entity>(room.GetShopItems<EntityInanimate>().Select(i => (uint)i.Prototype).ToList(), CacheType.Prototype)
 					.OrderBy(e => e.Prototype)
 					.ToList();
 
@@ -59,11 +59,11 @@ namespace Hedron.Controllers.Data
 			if (room == null)
 				return NotFound();
 
-			var entities = DataAccess.GetMany<EntityBase>(room.GetAllEntities<EntityBase>(), CacheType.Prototype)
+			var entities = DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype)
 				.OrderBy(e => e.Prototype)
 				.ToList();
 
-			var shopItems = DataAccess.GetMany<EntityBase>(room.GetShopItems<EntityInanimate>().Select(i => (uint)i.Prototype).ToList(), CacheType.Prototype)
+			var shopItems = DataAccess.GetMany<Entity>(room.GetShopItems<EntityInanimate>().Select(i => (uint)i.Prototype).ToList(), CacheType.Prototype)
 				.OrderBy(e => e.Prototype)
 				.ToList();
 
@@ -124,11 +124,11 @@ namespace Hedron.Controllers.Data
 			if (room == null)
 				return NotFound();
 
-			var entities = DataAccess.GetMany<EntityBase>(room.GetAllEntities<EntityBase>(), CacheType.Prototype)
+			var entities = DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype)
 				.OrderBy(e => e.Prototype)
 				.ToList();
 
-			var shopItems = DataAccess.GetMany<EntityBase>(room.GetShopItems<EntityInanimate>().Select(i => (uint)i.Prototype).ToList(), CacheType.Prototype)
+			var shopItems = DataAccess.GetMany<Entity>(room.GetShopItems<EntityInanimate>().Select(i => (uint)i.Prototype).ToList(), CacheType.Prototype)
 				.OrderBy(e => e.Prototype)
 				.ToList();
 
@@ -187,11 +187,11 @@ namespace Hedron.Controllers.Data
 			if (room == null)
 				return NotFound();
 
-			var entities = DataAccess.GetMany<EntityBase>(room.GetAllEntities<EntityBase>(), CacheType.Prototype)
+			var entities = DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype)
 				.OrderBy(e => e.Prototype)
 				.ToList();
 
-			var shopItems = DataAccess.GetMany<EntityBase>(room.GetShopItems<EntityInanimate>().Select(i => (uint)i.Prototype).ToList(), CacheType.Prototype)
+			var shopItems = DataAccess.GetMany<Entity>(room.GetShopItems<EntityInanimate>().Select(i => (uint)i.Prototype).ToList(), CacheType.Prototype)
 				.OrderBy(e => e.Prototype)
 				.ToList();
 
@@ -237,7 +237,7 @@ namespace Hedron.Controllers.Data
 			room.AddEntity(newItem.Prototype, newItem);
 
 			var entities = BaseEntityViewModel.EntityToViewModel(
-				DataAccess.GetMany<EntityBase>(room.GetAllEntities<EntityBase>(), CacheType.Prototype));
+				DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype));
 
 			return PartialView("Partial/_entityList", entities);
 		}
@@ -255,7 +255,7 @@ namespace Hedron.Controllers.Data
 			room.AddEntity(newWeapon.Prototype, newWeapon);
 
 			var entities = BaseEntityViewModel.EntityToViewModel(
-				DataAccess.GetMany<EntityBase>(room.GetAllEntities<EntityBase>(), CacheType.Prototype));
+				DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype));
 
 			return PartialView("Partial/_entityList", entities);
 		}
@@ -271,7 +271,7 @@ namespace Hedron.Controllers.Data
 			room.AddEntity(newMob.Prototype, newMob);
 
 			var entities = BaseEntityViewModel.EntityToViewModel(
-				DataAccess.GetMany<EntityBase>(room.GetAllEntities<EntityBase>(), CacheType.Prototype));
+				DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype));
 
 			return PartialView("Partial/_entityList", entities);
 		}
@@ -367,7 +367,7 @@ namespace Hedron.Controllers.Data
 			if (room == null)
 				return NotFound();
 
-			var entities = room.GetAllEntitiesAsObjects<EntityBase>();
+			var entities = room.GetAllEntitiesAsObjects<Entity>();
 
 			return PartialView("Partial/Item/_entityList", BaseEntityViewModel.EntityToViewModel(entities));
 		}

@@ -1,0 +1,46 @@
+﻿@inherits ComponentBase
+@using Hedron.Core.Locale;
+
+    <label for="areaSelect" class="col-xl-1 col-form-label">Area</label>
+    <select id="areaSelect" class="col-xl-2 col-form-label" @bind="AreaID">
+        <option value="-1">None</option>
+        @foreach (var area in Areas)
+        {
+            if (area.Prototype == SelectedArea)
+            {
+                <option value="@area.Prototype" selected>@area.Name</option>
+            }
+            else
+            {
+                <option value="@area.Prototype">@area.Name</option>
+            }
+        }
+    </select>
+
+@code {
+    [Parameter]
+    public EventCallback<uint?> OnAreaFilterChanged { get; set; }
+
+    private int _areaID;
+    private int AreaID
+    {
+        get => _areaID;
+        set
+        {
+            _areaID = value;
+            OnAreaFilterChanged.InvokeAsync(_areaID == -1 ? null : (uint?)_areaID);
+        }
+    }
+
+    [Parameter]
+    public List<Area> Areas { get; set; }
+
+    [Parameter]
+    public uint? SelectedArea { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _areaID = -1;
+    }
+
+}

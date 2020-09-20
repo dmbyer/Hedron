@@ -1,8 +1,8 @@
 ﻿using Hedron.Core.Container;
-using Hedron.Core.Entity.Base;
+using Hedron.Core.Entities.Base;
 using Hedron.Core.Locale;
 using Hedron.Data;
-using Hedron.System.Text;
+using Hedron.Core.System.Text;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -56,7 +56,7 @@ namespace Hedron.Models
 				Tier = room.Tier.Level,
 				Description = truncate == -1 ? room.Description : room.Description.ToTruncatedSubString(truncate, true),
 				Exits = room.Exits,
-				Entities = BaseEntityViewModel.EntityToViewModel(DataAccess.GetMany<EntityBase>(room.GetAllEntities<EntityBase>(), CacheType.Prototype))
+				Entities = BaseEntityViewModel.EntityToViewModel(DataAccess.GetMany<Entity>(room.GetAllEntities<Entity>(), CacheType.Prototype))
 			};
 		}
 

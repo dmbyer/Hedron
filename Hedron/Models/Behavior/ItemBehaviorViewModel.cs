@@ -1,4 +1,4 @@
-﻿using Hedron.Core.Behavior;
+﻿
 
 namespace Hedron.Models.Behavior
 {

@@ -35,7 +35,7 @@ namespace Bot
             }
 
             serviceProvider.GetRequiredService<CommandService>();
-            serviceProvider.GetRequiredService<CommandHandlerService>();
+            serviceProvider.GetRequiredService<CommandServiceService>();
 
             await Task.Delay(-1);
         }
@@ -49,7 +49,7 @@ namespace Bot
                     LogLevel = Discord.LogSeverity.Verbose
                 }
             ))
-            .AddSingleton<CommandHandlerService>()
+            .AddSingleton<CommandServiceService>()
             .AddSingleton<CommandService>()
             .AddSingleton<LoggingService>()
             .AddSingleton<StartupService>();

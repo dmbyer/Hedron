@@ -102,9 +102,9 @@
             <i class="material-icons" style="vertical-align:-6px">filter_list</i>
             <select id="levelFilter" onchange="filterItemList()">
                 <option value="0">All</option>
-                @for (var i = Hedron.System.Constants.MIN_TIER; i <= Hedron.System.Constants.MAX_TIER; i++)
+                @for (var i = Hedron.Core.System.Constants.MIN_TIER; i <= Hedron.Core.System.Constants.MAX_TIER; i++)
                 {
-                    var friendlyTier = (new Hedron.Core.Entity.Property.Tier(i)).ToString();
+                    var friendlyTier = (new Hedron.Core.Entities.Properties.Tier(i)).ToString();
                     <option value="@i">Tier @friendlyTier</option>
                 }
             </select>

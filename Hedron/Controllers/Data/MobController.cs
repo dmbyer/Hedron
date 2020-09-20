@@ -1,10 +1,10 @@
-﻿using Hedron.Core.Entity.Living;
+﻿using Hedron.Core.Entities.Living;
 using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.Models;
 using Hedron.Models.Behavior;
 using Hedron.Models.Entity.Property;
-using Hedron.System.Text;
+using Hedron.Core.System.Text;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Linq;
