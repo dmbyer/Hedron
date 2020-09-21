@@ -1,18 +1,31 @@
 ﻿@inherits ComponentBase
 @using Hedron.Core.Locale;
 
-    <label for="roomSelect" class="col-xl-1 col-form-label">Room</label>
+    <label for="roomSelect" class="col-xl-1 col-form-label"><strong>Room</strong></label>
     <select id="roomSelect" class="col-xl-2 col-form-label" @bind="RoomID">
         <option value="-1">None</option>
         @foreach (var room in Rooms)
         {
-            <option value="@room.Prototype">@room.Name</option>
+            if (room.Prototype == SelectedRoom)
+            {
+                <option value="@room.Prototype" selected>@room.Name</option>
+            }
+            else
+            {
+                <option value="@room.Prototype">@room.Name</option>
+            }
         }
     </select>
 
 @code {
     [Parameter]
     public EventCallback<uint?> OnRoomFilterChanged { get; set; }
+
+    [Parameter]
+    public List<Room> Rooms { get; set; }
+
+    [Parameter]
+    public uint? SelectedRoom { get; set; }
 
     private int _roomID;
     private int RoomID
@@ -24,9 +37,6 @@
             OnRoomFilterChanged.InvokeAsync(_roomID == -1 ? null : (uint?)_roomID);
         }
     }
-
-    [Parameter]
-    public List<Room> Rooms { get; set; }
 
     protected override void OnInitialized()
     {

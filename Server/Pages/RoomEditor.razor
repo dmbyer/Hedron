@@ -1,0 +1,207 @@
+﻿@page "/roomeditor"
+@inherits ComponentBase
+@using Hedron.Core.Locale;
+@using Hedron.Data;
+@using Hedron.Core.Entities.Living;
+@using Hedron.Core.System;
+@using Server.Shared.Filters;
+
+<div>
+    <form>
+        <div class="form-group row">
+            <AreaFilter OnAreaFilterChanged="@AreaFilterChanged" Areas="@Areas" SelectedArea="@_currentArea?.Prototype" />
+            <RoomFilter OnRoomFilterChanged="@RoomFilterChanged" Rooms="@Rooms" SelectedRoom="@_currentRoom?.Prototype" />
+            <div class="col-xl-1">
+                <!-- empty -->
+            </div>
+            <div class="col-xl-2 pl-0">
+                @if (_currentArea != null)
+                {
+                    <button @onclick="NewRoom" class="btn btn-primary col-form-label mr-3 text-center" style="width: 75px">New</button>
+                }
+                @if (_currentRoom != null)
+                {
+                    <button @onclick="DeleteRoom" class="btn btn-danger col-form-label text-center" style="width: 75px">Delete</button>
+                }
+            </div>
+        </div>
+    </form>
+
+    <form>
+        <div class="form-group row">
+            <label for="roomName" class="col-xl-1 col-form-label">Name</label>
+            @if (_currentRoom != null)
+            {
+                <input id="roomName" class="col-xl-2 col-form-label" @bind="_currentRoom.Name" />
+                DataPersistence.SaveObject(_currentRoom);
+            }
+            else
+            {
+                <input id="roomName" class="col-xl-2 col-form-label" disabled />
+            }
+            <label for="roomTier" class="col-xl-1 col-form-label">Tier</label>
+            @if (_currentRoom != null)
+            {
+                <select id="roomTier" class="col-xl-2 col-form-label" @bind="_currentRoom.Tier.Level">
+                    @for (var i = Constants.MIN_TIER; i <= Constants.MAX_TIER; i++)
+                    {
+                        <option value="@i">@i</option>
+                    }
+                </select>
+                DataPersistence.SaveObject(_currentRoom);
+            }
+            else
+            {
+                <select id="roomTier" class="col-xl-2 col-form-label" disabled>
+                </select>
+            }
+            <label for="roomPrototype" class="col-xl-1 col-form-label">Prototype</label>
+            @if (_currentRoom != null)
+            {
+                <input id="roomPrototype" class="col-xl-2 col-form-label" @bind="_currentRoom.Prototype" disabled />
+            }
+            else
+            {
+                <input id="roomName" class="col-xl-2 col-form-label" disabled />
+            }
+        </div>
+        <div class="form-group row">
+            <label for="roomDescription" class="col-xl-1 col-form-label">Name</label>
+            @if (_currentRoom != null)
+            {
+                <textarea id="roomDesc" class="col-xl-5 col-form-label" @bind="_currentRoom.Description" rows="4" />
+                DataPersistence.SaveObject(_currentRoom);
+            }
+            else
+            {
+                <textarea id="roomDesc" class="col-xl-5 col-form-label" rows="4" disabled />
+            }
+            <label for="roomShop" class="col-xl-1 col-form-label">Shop</label>
+            <div class="col-xl-1 pl-0 pt-1">
+                @if (_currentRoom != null)
+                {
+                    <input type="checkbox" id="roomShop" @bind="_currentRoom.IsShop" rows="4" />
+                    DataPersistence.SaveObject(_currentRoom);
+                }
+                else
+                {
+                    <input type="checkbox" id="roomShop" rows="4" disabled />
+                }
+            </div>
+        </div>
+    </form>
+</div>
+@if (_currentRoom != null)
+{
+    <div>
+        <form>
+            <div class="form-group row">
+                <label for="exitNorth" class="col-xl-1 col-form-label">North</label>
+                <input id="exitNorth" class="col-xl-1 col-form-label" @bind="_currentRoom.Exits.North" />
+                <label for="exitEast" class="col-xl-1 col-form-label">East</label>
+                <input id="exitEast" class="col-xl-1 col-form-label" @bind="_currentRoom.Exits.East" />
+                <label for="exitSouth" class="col-xl-1 col-form-label">South</label>
+                <input id="exitSouth" class="col-xl-1 col-form-label" @bind="_currentRoom.Exits.South" />
+                <label for="exitWest" class="col-xl-1 col-form-label">West</label>
+                <input id="exitWest" class="col-xl-1 col-form-label" @bind="_currentRoom.Exits.West" />
+            </div>
+            <div class="form-group row">
+                <label for="exitUp" class="col-xl-1 col-form-label">Up</label>
+                <input id="exitUp" class="col-xl-1 col-form-label" @bind="_currentRoom.Exits.Up" />
+                <label for="exitDown" class="col-xl-1 col-form-label">Down</label>
+                <input id="exitDown" class="col-xl-1 col-form-label" @bind="_currentRoom.Exits.Down" />
+            </div>
+        </form>
+    </div>
+    DataPersistence.SaveObject(_currentRoom);
+}
+@if (_currentRoom != null)
+{
+    <div>
+        <div class="row mt-4 pt-xl-4 pr-xl-5 pl-xl-3">
+            <p>
+                <h3 class="pl-xl-5"><strong>Mobs</strong></h3>
+            </p>
+            <MobList Mobs="@(_currentRoom.GetAllEntitiesAsObjects<Mob>())" />
+        </div>
+        <div class="row mt-5 pt-xl-4 pr-xl-5 pl-xl-3">
+
+        </div>
+    </div>
+}
+
+
+@code {
+    public EventCallback<uint?> OnAreaFilterChanged { get; set; }
+    public EventCallback<uint?> OnRoomFilterChanged { get; set; }
+
+    private uint? _selectedArea;
+    private Area _currentArea;
+    private Room _currentRoom;
+    private uint? _selectedRoom;
+
+    public List<Area> Areas { get; set; }
+    public List<Room> Rooms { get; set; }
+    public List<Mob> Mobs { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Areas = DataAccess.GetAll<Area>(CacheType.Prototype);
+        RefreshRooms();
+    }
+
+    protected void AreaFilterChanged(uint? areaID)
+    {
+        _selectedArea = areaID;
+        _currentArea = DataAccess.Get<Area>(_selectedArea, CacheType.Prototype);
+        if (_currentArea == null)
+        {
+            _selectedRoom = null;
+            _currentRoom = null;
+        }
+        RefreshRooms();
+    }
+
+    protected void RoomFilterChanged(uint? roomID)
+    {
+        _selectedRoom = roomID;
+        _currentRoom = DataAccess.Get<Room>(_selectedRoom, CacheType.Prototype);
+        if (_currentRoom == null)
+        {
+            _selectedRoom = null;
+        }
+        RefreshMobs();
+    }
+
+    private void RefreshRooms()
+    {
+        if (_selectedArea != null)
+            Rooms = DataAccess.Get<Area>(_selectedArea, CacheType.Prototype).GetAllEntitiesAsObjects<Room>();
+        else
+            Rooms = new List<Room>();
+    }
+
+    private void RefreshMobs()
+    {
+        if (_currentRoom != null)
+            Mobs = _currentRoom.GetAllEntitiesAsObjects<Mob>();
+        else
+            Mobs = new List<Mob>();
+    }
+
+    private void NewRoom()
+    {
+        var newRoom = Room.NewPrototype();
+        _currentRoom = newRoom;
+        _currentArea.AddEntity(newRoom.Prototype, newRoom, true);
+        RefreshRooms();
+    }
+
+    private void DeleteRoom()
+    {
+        DataAccess.Remove<Room>(_currentRoom.Prototype, CacheType.Prototype);
+        _currentRoom = null;
+        RefreshRooms();
+    }
+
+}
