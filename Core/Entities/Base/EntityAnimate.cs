@@ -1,5 +1,6 @@
 ﻿using Hedron.Core.Commands;
 using Hedron.Core.Container;
+using Hedron.Core.Entities.Base;
 using Hedron.Core.Entities.Properties;
 using Hedron.Core.Locale;
 using Hedron.Data;
@@ -70,20 +71,20 @@ namespace Hedron.Core.Entities.Base
 				var modAttributes = new Attributes();
 				var multAttributes = new Attributes();
 
-				foreach (var affect in Affects)
+				foreach (var Effect in Effects)
 				{
-					if (affect.Attributes != null && affect.Attributes.IsMultiplier)
-						multAttributes += affect.Attributes;
-					else if (affect.Attributes != null && !affect.Attributes.IsMultiplier)
-						modAttributes += affect.Attributes;
+					if (Effect.Attributes != null && Effect.Attributes.IsMultiplier)
+						multAttributes += Effect.Attributes;
+					else if (Effect.Attributes != null && !Effect.Attributes.IsMultiplier)
+						modAttributes += Effect.Attributes;
 				}
 
-				foreach (var affect in DataAccess.GetMany<EntityInanimate>(WornEquipment.GetAllEntities(), CacheType).SelectMany(x => x.Affects))
+				foreach (var Effect in DataAccess.GetMany<EntityInanimate>(_equipment.GetAllEntities(), CacheType).SelectMany(x => x.Effects))
 				{
-					if (affect.Attributes != null && affect.Attributes.IsMultiplier)
-						multAttributes += affect.Attributes;
-					else if (affect.Attributes != null && !affect.Attributes.IsMultiplier)
-						modAttributes += affect.Attributes;
+					if (Effect.Attributes != null && Effect.Attributes.IsMultiplier)
+						multAttributes += Effect.Attributes;
+					else if (Effect.Attributes != null && !Effect.Attributes.IsMultiplier)
+						modAttributes += Effect.Attributes;
 				}
 
 				return (BaseAttributes + modAttributes) * multAttributes;
@@ -155,20 +156,20 @@ namespace Hedron.Core.Entities.Base
 				var modPools = new Pools();
 				var multPools = new Pools();
 
-				foreach (var affect in Affects)
+				foreach (var Effect in Effects)
 				{
-					if (affect.Attributes != null && affect.Attributes.IsMultiplier)
-						multPools += affect.Pools;
-					else if (affect.Attributes != null && !affect.Attributes.IsMultiplier)
-						modPools += affect.Pools;
+					if (Effect.Attributes != null && Effect.Attributes.IsMultiplier)
+						multPools += Effect.Pools;
+					else if (Effect.Attributes != null && !Effect.Attributes.IsMultiplier)
+						modPools += Effect.Pools;
 				}
 
-				foreach (var affect in DataAccess.GetMany<EntityInanimate>(WornEquipment.GetAllEntities(), CacheType).SelectMany(x => x.Affects))
+				foreach (var Effect in DataAccess.GetMany<EntityInanimate>(_equipment.GetAllEntities(), CacheType).SelectMany(x => x.Effects))
 				{
-					if (affect.Attributes != null && affect.Attributes.IsMultiplier)
-						multPools += affect.Pools;
-					else if (affect.Attributes != null && !affect.Attributes.IsMultiplier)
-						modPools += affect.Pools;
+					if (Effect.Attributes != null && Effect.Attributes.IsMultiplier)
+						multPools += Effect.Pools;
+					else if (Effect.Attributes != null && !Effect.Attributes.IsMultiplier)
+						modPools += Effect.Pools;
 				}
 
 				return (BaseMaxPools + modPools) * multPools;
@@ -192,20 +193,20 @@ namespace Hedron.Core.Entities.Base
 				var modQualities = new Qualities();
 				var multQualities = new Qualities();
 
-				foreach (var affect in Affects)
+				foreach (var Effect in Effects)
 				{
-					if (affect.Attributes != null && affect.Attributes.IsMultiplier)
-						multQualities += affect.Qualities;
-					else if (affect.Attributes != null && !affect.Attributes.IsMultiplier)
-						modQualities += affect.Qualities;
+					if (Effect.Attributes != null && Effect.Attributes.IsMultiplier)
+						multQualities += Effect.Qualities;
+					else if (Effect.Attributes != null && !Effect.Attributes.IsMultiplier)
+						modQualities += Effect.Qualities;
 				}
 
-				foreach (var affect in DataAccess.GetMany<EntityInanimate>(WornEquipment.GetAllEntities(), CacheType).SelectMany(x => x.Affects))
+				foreach (var Effect in DataAccess.GetMany<EntityInanimate>(_equipment.GetAllEntities(), CacheType).SelectMany(x => x.Effects))
 				{
-					if (affect.Attributes != null && affect.Attributes.IsMultiplier)
-						multQualities += affect.Qualities;
-					else if (affect.Attributes != null && !affect.Attributes.IsMultiplier)
-						modQualities += affect.Qualities;
+					if (Effect.Attributes != null && Effect.Attributes.IsMultiplier)
+						multQualities += Effect.Qualities;
+					else if (Effect.Attributes != null && !Effect.Attributes.IsMultiplier)
+						modQualities += Effect.Qualities;
 				}
 
 				return (BaseQualities + modQualities) * multQualities;
@@ -215,16 +216,16 @@ namespace Hedron.Core.Entities.Base
 		/// <summary>
 		/// The entity's worn equipment
 		/// </summary>
-		[JsonConverter(typeof(InventoryPropertyConverter))]
+		[JsonConverter(typeof(EntityContainerPropertyConverter))]
 		[JsonProperty]
-		protected Inventory WornEquipment { get; set; } = new Inventory();
+		protected EntityContainer _equipment = new EntityContainer();
 
 		/// <summary>
 		/// The entity's inventory
 		/// </summary>
-		[JsonConverter(typeof(InventoryPropertyConverter))]
+		[JsonConverter(typeof(EntityContainerPropertyConverter))]
 		[JsonProperty]
-		protected Inventory Inventory { get; set; } = new Inventory();
+		protected EntityContainer _inventory = new EntityContainer();
 
 		/// <summary>
 		/// Constructor
@@ -233,10 +234,8 @@ namespace Hedron.Core.Entities.Base
 		{
 			State = EntityState.Active;
 
-			WornEquipment.AffectAdded += HandleAffectAdded;
-			WornEquipment.AffectRemoved += HandleAffectRemoved;
-			WornEquipment.EntityAdded += HandleEntityAdded;
-			WornEquipment.EntityRemoved += HandleEntityRemoved;
+			_equipment.EntityAdded += HandleItemEquipped;
+			_equipment.EntityRemoved += HandleItemUnequipped;
 
 			EntityDied += HandleDeath;
 
@@ -250,7 +249,7 @@ namespace Hedron.Core.Entities.Base
 		/// <returns>A list of equipped items</returns>
 		public EntityInanimate GetFirstItemEquippedAt(ItemSlot slot)
 		{
-			return DataAccess.GetMany<EntityInanimate>(WornEquipment.GetAllEntities(), CacheType)
+			return DataAccess.GetMany<EntityInanimate>(_equipment.GetAllEntities(), CacheType)
 				?.FirstOrDefault(i => i.Slot == slot);
 		}
 
@@ -264,7 +263,7 @@ namespace Hedron.Core.Entities.Base
 			List<EntityInanimate> equippedItems = new List<EntityInanimate>();
 
 			foreach (var itemSlot in slot)
-				foreach (var item in DataAccess.GetMany<EntityInanimate>(WornEquipment.GetAllEntities(), CacheType))
+				foreach (var item in DataAccess.GetMany<EntityInanimate>(_equipment.GetAllEntities(), CacheType))
 					if (item.Slot == itemSlot)
 						equippedItems.Add(item);
 
@@ -277,7 +276,7 @@ namespace Hedron.Core.Entities.Base
 		/// <returns>A list of equipped items</returns>
 		public List<EntityInanimate> GetEquippedItems()
 		{
-			return DataAccess.GetMany<EntityInanimate>(WornEquipment.GetAllEntities(), CacheType);
+			return DataAccess.GetMany<EntityInanimate>(_equipment.GetAllEntities(), CacheType);
 		}
 
 		/// <summary>
@@ -286,7 +285,7 @@ namespace Hedron.Core.Entities.Base
 		/// <returns>A list of items in inventory</returns>
 		public List<EntityInanimate> GetInventoryItems()
 		{
-			return DataAccess.GetMany<EntityInanimate>(Inventory.GetAllEntities(), CacheType);
+			return DataAccess.GetMany<EntityInanimate>(_inventory.GetAllEntities(), CacheType);
 		}
 
 		/// <summary>
@@ -298,7 +297,7 @@ namespace Hedron.Core.Entities.Base
 			var item = DataAccess.Get<EntityInanimate>(itemID, CacheType);
 
 			if (item != null)
-				Inventory.AddEntity(CacheType == CacheType.Instance ? item.Instance : item.Prototype, item);
+				_inventory.AddEntity(CacheType == CacheType.Instance ? item.Instance : item.Prototype, item);
 		}
 
 		/// <summary>
@@ -308,10 +307,10 @@ namespace Hedron.Core.Entities.Base
 		/// <returns>The item that was removed</returns>
 		public EntityInanimate RemoveInventoryItem(uint? itemID)
 		{
-			var removedItem = Inventory.GetEntity<EntityInanimate>(itemID);
+			var removedItem = _inventory.GetEntity<EntityInanimate>(itemID);
 
 			if (removedItem != null)
-				Inventory.RemoveEntity(itemID);
+				_inventory.RemoveEntity(itemID);
 
 			return removedItem;
 		}
@@ -323,12 +322,12 @@ namespace Hedron.Core.Entities.Base
 		/// <returns>The list of items that were removed</returns>
 		public List<EntityInanimate> RemoveInventoryItems(List<uint?> itemIDs)
 		{
-			var removedItems = DataAccess.GetMany<EntityInanimate>(Inventory.GetAllEntities(), CacheType)
+			var removedItems = DataAccess.GetMany<EntityInanimate>(_inventory.GetAllEntities(), CacheType)
 				.Where(i => CacheType == CacheType.Instance ? itemIDs.Contains(i.Instance) : itemIDs.Contains(i.Prototype))
 				.ToList();
 
 			foreach (var item in removedItems)
-				Inventory.RemoveEntity(CacheType == CacheType.Instance ? item.Instance : item.Prototype);
+				_inventory.RemoveEntity(CacheType == CacheType.Instance ? item.Instance : item.Prototype);
 
 			return removedItems;
 		}
@@ -361,24 +360,13 @@ namespace Hedron.Core.Entities.Base
 
 			if (!swapRequired)
 			{
-				WornEquipment.AddEntity(itemID, item);
-				item.AffectAdded += HandleAffectAdded;
-				item.AffectRemoved += HandleAffectRemoved;
+				_equipment.AddEntity(itemID, item);
 			}
 			else if (swapRequired && swap)
 			{
 				// TODO: Fix so this only removes the required number of items from the slots
 				swappedItems = RemoveItemsAt(slot);
-
-				foreach (var rItem in swappedItems)
-				{
-					rItem.AffectAdded -= HandleAffectAdded;
-					rItem.AffectRemoved -= HandleAffectRemoved;
-				}
-
-				WornEquipment.AddEntity(itemID, item);
-				item.AffectAdded += HandleAffectAdded;
-				item.AffectRemoved += HandleAffectRemoved;
+				_equipment.AddEntity(itemID, item);
 			}
 			else if (swapRequired && !swap)
 			{
@@ -396,12 +384,12 @@ namespace Hedron.Core.Entities.Base
 		/// <returns>The item that was moved to inventory</returns>
 		public EntityInanimate UnequipItem(uint? itemID)
 		{
-			var removedItem = WornEquipment.GetEntity<EntityInanimate>(itemID);
+			var removedItem = _equipment.GetEntity<EntityInanimate>(itemID);
 
 			if (removedItem != null)
 			{
-				WornEquipment.RemoveEntity(itemID);
-				Inventory.AddEntity(CacheType == CacheType.Instance ? removedItem.Instance : removedItem.Prototype, removedItem);
+				_equipment.RemoveEntity(itemID);
+				_inventory.AddEntity(CacheType == CacheType.Instance ? removedItem.Instance : removedItem.Prototype, removedItem);
 			}
 
 			return removedItem;
@@ -418,11 +406,8 @@ namespace Hedron.Core.Entities.Base
 
 			foreach (var item in removedItems)
 			{
-				item.AffectAdded -= HandleAffectAdded;
-				item.AffectRemoved -= HandleAffectRemoved;
-
-				WornEquipment.RemoveEntity(CacheType == CacheType.Instance ? item.Instance : item.Prototype, item);
-				Inventory.AddEntity(CacheType == CacheType.Instance ? item.Instance : item.Prototype, item);
+				_equipment.RemoveEntity(CacheType == CacheType.Instance ? item.Instance : item.Prototype, item);
+				_inventory.AddEntity(CacheType == CacheType.Instance ? item.Instance : item.Prototype, item);
 			}
 		}
 
@@ -437,10 +422,7 @@ namespace Hedron.Core.Entities.Base
 
 			foreach (var item in removedItems)
 			{
-				item.AffectAdded -= HandleAffectAdded;
-				item.AffectRemoved -= HandleAffectRemoved;
-
-				WornEquipment.RemoveEntity(CacheType == CacheType.Instance ? item.Instance : item.Prototype, item);
+				_equipment.RemoveEntity(CacheType == CacheType.Instance ? item.Instance : item.Prototype, item);
 			}
 
 			return removedItems;
@@ -457,10 +439,7 @@ namespace Hedron.Core.Entities.Base
 
 			foreach (var item in removedItems)
 			{
-				item.AffectAdded -= HandleAffectAdded;
-				item.AffectRemoved -= HandleAffectRemoved;
-
-				WornEquipment.RemoveEntity(CacheType == CacheType.Instance ? item.Instance : item.Prototype, item);
+				_equipment.RemoveEntity(CacheType == CacheType.Instance ? item.Instance : item.Prototype, item);
 			}
 
 			return removedItems;
@@ -622,85 +601,6 @@ namespace Hedron.Core.Entities.Base
 			return new ImproveSkillResult(improvedBy, improvedMessage, wasAdded, skillName);
 		}
 
-
-		public override void HandleAffectAdded(object source, AffectEventArgs args)
-		{
-			base.HandleAffectAdded(source, args);
-
-
-		}
-
-
-		public override void HandleAffectRemoved(object source, AffectEventArgs args)
-		{
-			base.HandleAffectRemoved(source, args);
-
-
-		}
-
-
-		public override void HandleEntityAdded(object source, CacheObjectEventArgs args)
-		{
-			base.HandleEntityAdded(source, args);
-
-			/*
-			// If an item was added to the worn equipment, process affects impacting Current Aspects
-			if (source == WornEquipment)
-			{
-				var item = DataAccess.Get<EntityInanimate>(args.ID, CacheType);
-
-				if (item == null)
-					return;
-
-				foreach (var affect in item.Affects)
-				{
-					CurrentAspects.HitPoints += affect.Aspects.HitPoints;
-					CurrentAspects.Energy += affect.Aspects.Energy;
-					CurrentAspects.Stamina += affect.Aspects.Stamina;
-				}
-			}
-			*/
-		}
-
-
-		public override void HandleEntityRemoved(object source, CacheObjectEventArgs args)
-		{
-			base.HandleEntityRemoved(source, args);
-
-			/*
-			// If an item was removed from worn equipment, process affects impacting Current Aspects
-			if (source == WornEquipment)
-			{
-				var item = DataAccess.Get<EntityInanimate>(args.ID, CacheType);
-
-				if (item == null)
-					return;
-
-				foreach (var affect in item.Affects)
-				{
-					var hpVariance = ModifiedAspects.HitPoints - affect.Aspects.HitPoints;
-					var enVariance = ModifiedAspects.Energy - affect.Aspects.Energy;
-					var stVariance = ModifiedAspects.Stamina - affect.Aspects.Stamina;
-
-					ModifyCurrentHealth((int)(ModifiedAspects.HitPoints - affect.Aspects.HitPoints), false);
-					ModifyCurrentEnergy((int)(ModifiedAspects.Energy - affect.Aspects.Energy), false);
-					ModifyCurrentStamina((int)(ModifiedAspects.Stamina - affect.Aspects.Stamina), false);
-				}
-			}
-			*/
-			if (source == WornEquipment)
-			{
-				if (CurrentPools.HitPoints > BaseMaxPools.HitPoints)
-					ModifyCurrentHealth(0 - (int)(CurrentPools.HitPoints - BaseMaxPools.HitPoints), false);
-
-				if (CurrentPools.Energy > BaseMaxPools.Energy)
-					ModifyCurrentEnergy(0 - (int)(CurrentPools.Energy - BaseMaxPools.Energy), false);
-
-				if (CurrentPools.Stamina > BaseMaxPools.Stamina)
-					ModifyCurrentStamina(0 - (int)(CurrentPools.Stamina - BaseMaxPools.Stamina), false);
-			}
-		}
-
 		/// <summary>
 		/// Invokes the EntityDied event
 		/// </summary>
@@ -714,6 +614,31 @@ namespace Hedron.Core.Entities.Base
 		}
 
 		/// <summary>
+		/// Method to handle item equipped event
+		/// </summary>
+		/// <param name="args">The event args</param>
+		public void HandleItemEquipped(object source, CacheObjectEventArgs args)
+		{
+
+		}
+
+		/// <summary>
+		/// Method to handle item unequipped event
+		/// </summary>
+		/// <param name="args">The event args</param>
+		public void HandleItemUnequipped(object source, CacheObjectEventArgs args)
+		{
+			if (CurrentPools.HitPoints > BaseMaxPools.HitPoints)
+				ModifyCurrentHealth(0 - (int)(CurrentPools.HitPoints - BaseMaxPools.HitPoints), false);
+
+			if (CurrentPools.Energy > BaseMaxPools.Energy)
+				ModifyCurrentEnergy(0 - (int)(CurrentPools.Energy - BaseMaxPools.Energy), false);
+
+			if (CurrentPools.Stamina > BaseMaxPools.Stamina)
+				ModifyCurrentStamina(0 - (int)(CurrentPools.Stamina - BaseMaxPools.Stamina), false);
+		}
+
+		/// <summary>
 		/// Handles death for the entity. Does not remove from cache.
 		/// </summary>
 		protected virtual void HandleDeath(object source, CacheObjectEventArgs args)
@@ -721,7 +646,7 @@ namespace Hedron.Core.Entities.Base
 			if (args.ID == Instance)
 			{
 				// TODO: Handle soulbound items for players
-				var newCorpse = new Corpse
+				var newCorpse = new Storage
 				{
 					Name = "corpse " + Name,
 					ShortDescription = $"{ShortDescription}'s corpse.",
@@ -729,19 +654,19 @@ namespace Hedron.Core.Entities.Base
 				};
 				newCorpse.Tier.Level = Tier.Level;
 
-				DataAccess.Add<Corpse>(newCorpse, CacheType.Instance);
+				DataAccess.Add<Storage>(newCorpse, CacheType.Instance);
 
 				foreach (var invItem in GetInventoryItems().Concat(GetEquippedItems()))
 					newCorpse.AddEntity(invItem.Instance, invItem);
 
-				Inventory.RemoveAllEntities();
-				WornEquipment.RemoveAllEntities();
+				_inventory.RemoveAllEntities();
+				_equipment.RemoveAllEntities();
 
-				EntityContainer.GetInstanceParent<Room>(Instance)?.AddEntity(newCorpse.Instance, newCorpse, false);
+				GetInstanceParentRoom()?.StorageItems.AddEntity(newCorpse.Instance, newCorpse, false);
 			}
 			else
 			{
-
+				// TODO: Does HandleDeath need to allow for situations where the entity itself isn't the one dying?
 			}
 		}
 

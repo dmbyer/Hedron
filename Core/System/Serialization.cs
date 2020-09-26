@@ -8,7 +8,7 @@ namespace Hedron.Core.System
 	/// <summary>
 	/// Overrides serialization for properties of type Inventory to reference the Prototype ID instead of serializing the collection
 	/// </summary>
-	public class InventoryPropertyConverter : JsonConverter
+	public class EntityContainerPropertyConverter : JsonConverter
 	{
 		public override bool CanRead
 		{
@@ -17,7 +17,7 @@ namespace Hedron.Core.System
 
 		public override bool CanConvert(Type objectType)
 		{
-			return objectType == typeof(Inventory);
+			return objectType == typeof(EntityContainer);
 		}
 
 		/// <summary>
@@ -25,32 +25,21 @@ namespace Hedron.Core.System
 		/// </summary>
 		public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
 		{
-			var inventory = value as Inventory;
+			var inventory = value as EntityContainer;
 			var serializedInventory = inventory.Prototype.ToString();
 			writer.WriteValue(serializedInventory);
 		}
 
 		/// <summary>
-		/// Attempt to return a reference to the Inventory in the prototype data cache.
+		/// Attempt to return a reference to the container in the prototype data cache.
 		/// </summary>
-		/// <returns>A reference to the inventory, or null if not found in the cache.</returns>
+		/// <returns>A reference to the container, or null if not found in the cache.</returns>
 		public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
 		{
-			Inventory inventory;
+			EntityContainer container;
 
-			/* Try/catch for uint? conversion
-			try
-			{
-				inventory = DataAccess.Get<Inventory>((uint?)reader.Value, CacheType.Prototype);
-				return inventory;
-			}
-			catch
-			{
-				return null;
-			}
-			*/
-			inventory = DataAccess.Get<Inventory>(Convert.ToUInt32(reader.Value), CacheType.Prototype);
-			return inventory;
+			container = DataAccess.Get<EntityContainer>(Convert.ToUInt32(reader.Value), CacheType.Prototype);
+			return container;
 		}
 	}
 }

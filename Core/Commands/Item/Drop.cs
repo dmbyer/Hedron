@@ -42,11 +42,12 @@ namespace Hedron.Core.Commands.Item
 			if (nameToDrop == "")
 				return new CommandResult(ResultCode.ERR_SYNTAX, "What would you like to drop?");
 
-			if (EntityContainer.GetInstanceParent<Room>(commandEventArgs.Entity.Instance) == null)
+			var room = commandEventArgs.Entity.GetInstanceParentRoom();
+
+			if (room == null)
 				return CommandResult.Failure("There is nowhere to drop it to.");
 
 			// Search inventory for a match
-			var room = EntityContainer.GetInstanceParent<Room>(commandEventArgs.Entity.Instance);
 			var inventoryEntities = commandEventArgs.Entity.GetInventoryItems();
 
 			if (inventoryEntities.Count == 0)
@@ -78,7 +79,7 @@ namespace Hedron.Core.Commands.Item
 			foreach (var item in matchedItems)
 			{
 				commandEventArgs.Entity.RemoveInventoryItem(item.Instance);
-				room.AddEntity(item.Instance, item);
+				room.Items.AddEntity(item.Instance, item, false);
 			}
 
 			if (matchedItems.Count == 1)

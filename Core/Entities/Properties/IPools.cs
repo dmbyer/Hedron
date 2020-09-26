@@ -8,7 +8,7 @@
 		Pools BaseMaxPools { get; set; }
 
 		/// <summary>
-		/// Retrieve modified pools after affects
+		/// Retrieve modified pools after Effects
 		/// </summary>
 		/// <returns>The modified pools</returns>
 		Pools ModifiedPools { get; }

@@ -9,6 +9,7 @@
 <div>
     <form>
         <div class="form-group row">
+            <WorldFilter OnWorldFilterChanged="@WorldFilterChanged" Worlds="@Worlds" SelectedWorld="@_currentWorld?.Prototype" />
             <AreaFilter OnAreaFilterChanged="@AreaFilterChanged" Areas="@Areas" SelectedArea="@_currentArea?.Prototype" />
             <RoomFilter OnRoomFilterChanged="@RoomFilterChanged" Rooms="@Rooms" SelectedRoom="@_currentRoom?.Prototype" />
             <div class="col-xl-1">
@@ -122,7 +123,7 @@
             <p>
                 <h3 class="pl-xl-5"><strong>Mobs</strong></h3>
             </p>
-            <MobList Mobs="@(_currentRoom.GetAllEntitiesAsObjects<Mob>())" />
+            <MobList Mobs="@(_currentRoom.Animates.GetAllEntitiesAsObjects<Mob>())" />
         </div>
         <div class="row mt-5 pt-xl-4 pr-xl-5 pl-xl-3">
 
@@ -132,21 +133,37 @@
 
 
 @code {
-    public EventCallback<uint?> OnAreaFilterChanged { get; set; }
-    public EventCallback<uint?> OnRoomFilterChanged { get; set; }
+    private uint? _selectedWorld;
+    private World _currentWorld;
 
     private uint? _selectedArea;
     private Area _currentArea;
-    private Room _currentRoom;
-    private uint? _selectedRoom;
 
+    private uint? _selectedRoom;
+    private Room _currentRoom;
+
+    public List<World> Worlds { get; set; }
     public List<Area> Areas { get; set; }
     public List<Room> Rooms { get; set; }
     public List<Mob> Mobs { get; set; }
 
     protected override void OnInitialized()
     {
-        Areas = DataAccess.GetAll<Area>(CacheType.Prototype);
+        Worlds = DataAccess.GetAll<World>(CacheType.Prototype);
+        RefreshAreas();
+        RefreshRooms();
+    }
+
+    protected void WorldFilterChanged(uint? worldID)
+    {
+        _selectedWorld = worldID;
+        _currentWorld = DataAccess.Get<World>(_selectedWorld, CacheType.Prototype);
+        if (_currentWorld == null)
+        {
+            _selectedArea = null;
+            _currentArea = null;
+        }
+        RefreshAreas();
         RefreshRooms();
     }
 
@@ -160,6 +177,14 @@
             _currentRoom = null;
         }
         RefreshRooms();
+    }
+
+    private void RefreshAreas()
+    {
+        if (_selectedWorld != null)
+            Areas = DataAccess.Get<World>(_selectedWorld, CacheType.Prototype).Areas.GetAllEntitiesAsObjects<Area>();
+        else
+            Areas = new List<Area>();
     }
 
     protected void RoomFilterChanged(uint? roomID)
@@ -176,7 +201,7 @@
     private void RefreshRooms()
     {
         if (_selectedArea != null)
-            Rooms = DataAccess.Get<Area>(_selectedArea, CacheType.Prototype).GetAllEntitiesAsObjects<Room>();
+            Rooms = DataAccess.Get<Area>(_selectedArea, CacheType.Prototype).Rooms.GetAllEntitiesAsObjects<Room>();
         else
             Rooms = new List<Room>();
     }
@@ -184,16 +209,15 @@
     private void RefreshMobs()
     {
         if (_currentRoom != null)
-            Mobs = _currentRoom.GetAllEntitiesAsObjects<Mob>();
+            Mobs = _currentRoom.Animates.GetAllEntitiesAsObjects<Mob>();
         else
             Mobs = new List<Mob>();
     }
 
     private void NewRoom()
     {
-        var newRoom = Room.NewPrototype();
+        var newRoom = Room.NewPrototype((uint)_currentArea.Prototype);
         _currentRoom = newRoom;
-        _currentArea.AddEntity(newRoom.Prototype, newRoom, true);
         RefreshRooms();
     }
 

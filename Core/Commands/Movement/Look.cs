@@ -1,13 +1,11 @@
-﻿using Hedron.Core.Container;
-using Hedron.Core.Entities.Base;
+﻿using Hedron.Core.Entities.Base;
+using Hedron.Core.Container;
 using Hedron.Core.Entities.Living;
 using Hedron.Core.Entities.Properties;
-using Hedron.Core.Locale;
-using Hedron.Data;
 using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Command;
 using Hedron.Core.System.Text;
-using System.Linq;
+using System.Collections.Generic;
 
 namespace Hedron.Core.Commands.Movement
 {
@@ -41,13 +39,28 @@ namespace Hedron.Core.Commands.Movement
 			var output = new OutputBuilder();
 			var entity = commandEventArgs.Entity;
 			var argument = commandEventArgs.Argument;
-			Room room = EntityContainer.GetInstanceParent<Room>(entity.Instance);
+			var room = entity.GetInstanceParentRoom();
 
 			if (room != null)
 			{
+				var items = room.Items.GetAllEntitiesAsObjects<EntityInanimate>();
+				var storage = room.StorageItems.GetAllEntitiesAsObjects<Storage>();
+				var mobs = room.Animates.GetAllEntitiesAsObjects<Mob>();
+				var players = room.Animates.GetAllEntitiesAsObjects<Player>();
+
+				if (entity.GetType() == typeof(Player))
+					players.Remove((Player)entity);
+				else if (entity.GetType() == typeof(Mob))
+					mobs.Remove((Mob)entity);
+
 				if (argument?.Length > 0)
 				{
-					var matchedEntity = Parse.MatchOnEntityNameByOrder(argument, DataAccess.GetMany<IEntity>(room.GetAllEntities(), CacheType.Instance));
+					var allEntities = new List<IEntity>();
+					allEntities.AddRange(items);
+					allEntities.AddRange(storage);
+					allEntities.AddRange(mobs);
+					allEntities.AddRange(players);
+					var matchedEntity = Parse.MatchOnEntityNameByOrder(argument, allEntities);
 
 					if (matchedEntity != null)
 						output.Append(matchedEntity.LongDescription);
@@ -57,7 +70,7 @@ namespace Hedron.Core.Commands.Movement
 				else
 				{
 
-					var area = EntityContainer.GetInstanceParent<Area>(room.Instance);
+					var area = entity.GetInstanceParentArea();
 
 					output.Append("");
 
@@ -69,15 +82,6 @@ namespace Hedron.Core.Commands.Movement
 					output.Append(room.Description);
 
 					output.Append("Exits: " + Formatter.ParseExits(room));
-
-					var roomAllEntities = room.GetAllEntities();
-
-					var items = DataAccess.GetMany<EntityInanimate>(roomAllEntities, CacheType.Instance);
-					var containers = DataAccess.GetMany<EntityContainer>(roomAllEntities, CacheType.Instance).Cast<IEntity>().ToList();
-					var mobs = DataAccess.GetMany<Mob>(roomAllEntities, CacheType.Instance);
-					var players = DataAccess.GetMany<Player>(roomAllEntities, CacheType.Instance);
-
-					players.Remove((Player)entity);
 
 					// Print players
 					if (players.Count > 0)
@@ -95,9 +99,9 @@ namespace Hedron.Core.Commands.Movement
 							EntityQuantityMapper.ParseEntityQuantitiesAsStrings(items, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
 
 					// Print containers
-					if (containers.Count > 0)
+					if (storage.Count > 0)
 						output.Append(string.Join(", ",
-							EntityQuantityMapper.ParseEntityQuantitiesAsStrings(containers, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
+							EntityQuantityMapper.ParseEntityQuantitiesAsStrings(storage, EntityQuantityMapper.MapStringTypes.ShortDescription).ToArray()));
 				}
 			}
 			else

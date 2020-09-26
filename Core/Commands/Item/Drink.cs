@@ -62,10 +62,10 @@ namespace Hedron.Core.Commands.Item
 			var potion = (ItemPotion)itemMatched;
 			output.Append($"You drink {potion.ShortDescription}");
 
-			if (potion.Affect != null)
+			if (potion.Effect != null)
 			{
-				commandEventArgs.Entity.AddAffect(potion.Affect, false);
-				output.Append(potion.Affect.ApplyDescriptionSelf);
+				commandEventArgs.Entity.AddEffect(potion.Effect, false);
+				output.Append(potion.Effect.ApplyDescriptionSelf);
 			}
 
 			if (potion.PoolRestoration != null)

@@ -1,7 +1,6 @@
 ﻿using Hedron.Core.Container;
 using Hedron.Core.Entities.Base;
 using Hedron.Core.Entities.Properties;
-using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.Core.System;
 using Newtonsoft.Json;
@@ -17,10 +16,10 @@ namespace Hedron.Core.Entities.Item
 		public Pools PoolRestoration { get; set; } = new Pools();
 
 		/// <summary>
-		/// The affect the potion should provide
+		/// The Effect the potion should provide
 		/// </summary>
 		[JsonProperty]
-		public Affect Affect { get; set; }
+		public Effect Effect { get; set; }
 
 		/// <summary>
 		/// Guarantees an ItemPotion slot will always be None
@@ -46,40 +45,44 @@ namespace Hedron.Core.Entities.Item
 		}
 
 		/// <summary>
-		/// Creates a new item and adds it to the Prototype cache
+		/// Creates a new potion and adds it to the Prototype cache
 		/// </summary>
-		/// <param name="prototypeID">An optional PrototypeID. Used when loading.</param>
 		/// <returns>The new prototype item</returns>
-		public static ItemPotion NewPrototype(uint? prototypeID = null)
+		public static ItemPotion NewPrototype()
 		{
 			var newItem = new ItemPotion();
-
-			DataAccess.Add<ItemPotion>(newItem, CacheType.Prototype, prototypeID);
-
+			DataAccess.Add<ItemPotion>(newItem, CacheType.Prototype);
 			return newItem;
 		}
 
 		/// <summary>
-		/// Creates a new item and adds it to the Instance cache
+		/// Creates a new potion and adds it to the Instance cache
 		/// </summary>
-		/// <param name="withPrototype">Whether to also create a backing prototype</param>
-		/// <param name="prototypeID">An optional PrototypeID to use if also creating a backing prototype. Used when loading.</param>
+		/// <param name="withPrototype">Whether to also create a backing prototype.</param>
 		/// <returns>The new instanced item</returns>
-		public static ItemPotion NewInstance(bool withPrototype = false, uint? prototypeID = null)
+		public static ItemPotion NewInstance(bool withPrototype)
 		{
-			return withPrototype
-				? DataAccess.Get<ItemPotion>(NewPrototype(prototypeID).Spawn(false), CacheType.Instance)
-				: DataAccess.Get<ItemPotion>(DataAccess.Add<ItemPotion>(new ItemPotion(), CacheType.Instance), CacheType.Instance);
+			ItemPotion newItem = new ItemPotion();
+
+			if (withPrototype)
+			{
+				var newProto = NewPrototype();
+				newItem.Prototype = newProto.Prototype;
+			}
+
+			DataAccess.Add<ItemPotion>(newItem, CacheType.Instance);
+
+			return newItem;
 		}
 
 		/// <summary>
 		/// Spawns an instance of the item from prototype and adds it to the cache.
 		/// </summary>
 		/// <param name="withEntities">Whether to also spawn contained entities.</param>
-		/// <param name="parent">The ID the the parent.</param>
+		/// <param name="parent">The ID the the parent container.</param>
 		/// <returns>The spawned item. Will return null if the method is called from an instanced object.</returns>
 		/// <remarks>Parent may be null. Adds new item to parent, if specified.</remarks>
-		public override T SpawnAsObject<T>(bool withEntities, uint? parent = null)
+		public override T SpawnAsObject<T>(bool withEntities, uint parent)
 		{
 			return DataAccess.Get<T>(Spawn(withEntities, parent), CacheType.Instance);
 		}
@@ -88,10 +91,10 @@ namespace Hedron.Core.Entities.Item
 		/// Spawns an instance of the item from prototype and adds it to the cache.
 		/// </summary>
 		/// <param name="withEntities">Whether to also spawn contained entities.</param>
-		/// <param name="parent">The ID the the parent.</param>
+		/// <param name="parent">The ID the the parent container.</param>
 		/// <returns>The ID of the spawned item. Will return null if the method is called from an instanced object.</returns>
 		/// <remarks>Parent may be null. Adds new item to parent, if specified.</remarks>
-		public override uint? Spawn(bool withEntities, uint? parent = null)
+		public override uint? Spawn(bool withEntities, uint parent)
 		{
 			if (CacheType != CacheType.Prototype)
 				return null;
@@ -102,13 +105,7 @@ namespace Hedron.Core.Entities.Item
 			var newItem = NewInstance(false);
 
 			// Retrieve parent container and add entity
-			var parentContainer = DataAccess.Get<ICacheableObject>(parent, CacheType.Instance);
-
-			if (parentContainer?.GetType() == typeof(Room))
-				((Room)parentContainer).AddEntity(newItem.Instance, newItem);
-
-			if (parentContainer?.GetType() == typeof(Inventory))
-				((Inventory)parentContainer).AddEntity(newItem.Instance, newItem);
+			DataAccess.Get<EntityContainer>(parent, CacheType.Instance)?.AddEntity(newItem.Instance, newItem, false);
 
 			// Copy remaining properties
 			newItem.Prototype = Prototype;
@@ -136,10 +133,10 @@ namespace Hedron.Core.Entities.Item
 			else
 				item.PoolRestoration = null;
 
-			if (item.Affect != null)
-				item.Affect = Affect;
+			if (item.Effect != null)
+				item.Effect = Effect;
 			else
-				item.Affect = null;
+				item.Effect = null;
 		}
 	}
 }

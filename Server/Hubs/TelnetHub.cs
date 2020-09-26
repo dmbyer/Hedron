@@ -158,6 +158,8 @@ namespace Hedron.Network
                     _telnetClients.Remove(client);
 				}
 
+                clientsToRemove.Clear();
+
                 Thread.Sleep(10);
             } while (true);
         }

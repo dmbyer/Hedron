@@ -14,17 +14,17 @@ namespace Hedron.Core.Entities.Properties
 		public bool IsMultiplier { get; set; }
 
 		/// <summary>
-		/// Health, affected by Might + Essence
+		/// Health, Effected by Might + Essence
 		/// </summary>
 		public float? HitPoints { get; set; }
 
 		/// <summary>
-		/// Stamina, affected by Finesse + Essence
+		/// Stamina, Effected by Finesse + Essence
 		/// </summary>
 		public float? Stamina { get; set; }
 
 		/// <summary>
-		/// Energy, affected by Will + Spirit + Essence
+		/// Energy, Effected by Will + Spirit + Essence
 		/// </summary>
 		public float? Energy { get; set; }
 

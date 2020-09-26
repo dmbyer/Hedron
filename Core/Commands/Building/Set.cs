@@ -36,7 +36,7 @@ namespace Hedron.Core.Commands.Building
 			}
 
 			var output = new OutputBuilder();
-			var parentRoom = EntityContainer.GetInstanceParent<Room>(commandEventArgs.Entity.Instance);
+			var parentRoom = commandEventArgs.Entity.GetInstanceParentRoom();
 
 			if (parentRoom == null)
 			{

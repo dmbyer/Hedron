@@ -67,7 +67,7 @@ namespace Hedron.Data
 		/// <param name="cacheType">The cache type to retrieve from</param>
 		/// <typeparam name="T">The type of the objects</typeparam>
 		/// <returns>The instanced object</returns>
-		public static T Get<T>(uint? id, CacheType cacheType) where T : ICacheableObject
+		public static T Get<T>(uint? id, CacheType cacheType) where T : ICacheableObject, ISpawnableObject
 		{
 			DataCache dc = cacheType == CacheType.Instance ? _instanced : _prototype;
 			return dc.Get<T>(id);
@@ -80,7 +80,7 @@ namespace Hedron.Data
 		/// <param name="cacheType">The cache type to retrieve from</param>
 		/// <typeparam name="T">The type of the objects</typeparam>
 		/// <returns>The instanced object</returns>
-		public static List<T> GetMany<T>(List<uint> ids, CacheType cacheType) where T : ICacheableObject
+		public static List<T> GetMany<T>(List<uint> ids, CacheType cacheType) where T : ICacheableObject, ISpawnableObject
 		{
 			DataCache dc = cacheType == CacheType.Instance ? _instanced : _prototype;
 			return dc.GetMany<T>(ids);
@@ -92,7 +92,7 @@ namespace Hedron.Data
 		/// <param name="cacheType">The cache type to retrieve from</param>
 		/// <typeparam name="T">The type of the objects</typeparam>
 		/// <returns>A list of the instanced objects</returns>
-		public static List<T> GetAll<T>(CacheType cacheType) where T : ICacheableObject
+		public static List<T> GetAll<T>(CacheType cacheType) where T : ICacheableObject, ISpawnableObject
 		{
 			DataCache dc = cacheType == CacheType.Instance ? _instanced : _prototype;
 			return dc.GetAll<T>();
@@ -104,7 +104,7 @@ namespace Hedron.Data
 		/// <typeparam name="T">The type of the objects.</typeparam>
 		/// <param name="prototypeID">The prototype ID to match.</param>
 		/// <returns>A list of the instanced objects.</returns>
-		public static List<T> GetInstancesOfPrototype<T>(uint? prototypeID) where T : ICacheableObject
+		public static List<T> GetInstancesOfPrototype<T>(uint? prototypeID) where T : ICacheableObject, ISpawnableObject
 		{
 			return GetAll<T>(CacheType.Instance).Where(p => p.Prototype == prototypeID).ToList();
 		}
@@ -115,7 +115,7 @@ namespace Hedron.Data
 		/// <typeparam name="T">The type of the objects.</typeparam>
 		/// <param name="prototypeIDs">The list of prototype IDs to match.</param>
 		/// <returns>A list of the instanced objects.</returns>
-		public static List<T> GetInstancesOfPrototype<T>(List<uint?> prototypeIDs) where T : ICacheableObject
+		public static List<T> GetInstancesOfPrototype<T>(List<uint?> prototypeIDs) where T : ICacheableObject, ISpawnableObject
 		{
 			return GetAll<T>(CacheType.Instance).Where(p => prototypeIDs.Contains(p.Prototype)).ToList();
 		}

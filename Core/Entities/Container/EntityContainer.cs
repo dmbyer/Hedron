@@ -1,16 +1,33 @@
 ﻿using Hedron.Core.Entities.Base;
 using Hedron.Data;
+using Hedron.Core.System;
+using Hedron.Core.Factory;
+using Hedron.Core.Locale;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Hedron.Core.Container
 {
 	/// <summary>
 	/// Container class for entities
 	/// </summary>
-	public class EntityContainer : EntityEvents
+	public class EntityContainer : CacheableObject, IContainerObservable
 	{
+		public event EventHandler<CacheObjectEventArgs> EntityAdded;
+
+		public event EventHandler<CacheObjectEventArgs> EntityRemoved;
+
+		[JsonIgnore]
+		public int Count
+		{
+			get
+			{
+				return _entityList.Count;
+			}
+		}
+
 		/// <summary>
 		/// The contained entities
 		/// </summary>
@@ -42,6 +59,13 @@ namespace Hedron.Core.Container
 			else
 			{
 				_entityList.Add((uint)id);
+
+				if (CacheType == CacheType.Instance)
+					entity.InstanceParent = Instance;
+				else
+					if (!entity.PrototypeParents.Contains((uint)Prototype))
+						entity.PrototypeParents.Add((uint)Prototype);
+
 				entity.CacheObjectRemoved += OnCacheObjectRemoved;
 				OnEntityAdded(new CacheObjectEventArgs((uint)id, CacheType));
 
@@ -55,12 +79,24 @@ namespace Hedron.Core.Container
 		}
 
 		/// <summary>
+		/// Raises the Entity Added event
+		/// </summary>
+		/// <param name="args">The event args</param>
+		protected void OnEntityAdded(CacheObjectEventArgs args)
+		{
+			var handler = EntityAdded;
+
+			if (handler != null)
+				EntityAdded.Invoke(this, args);
+		}
+
+		/// <summary>
 		/// Removes the link to an entity in the container and sets the entity's parent to null.
 		/// </summary>
 		/// <param name="id">The cache ID of the entity to remove</param>
 		public void RemoveEntity(uint? id)
 		{
-			RemoveEntity(id, DataAccess.Get<Entity>(id, CacheType), true);
+			RemoveEntity(id, DataAccess.Get<CacheableObject>(id, CacheType), true);
 		}
 
 		/// <summary>
@@ -69,7 +105,7 @@ namespace Hedron.Core.Container
 		/// <param name="id">The ID of the entity to unlink</param>
 		/// <param name="entity">A reference to the entity to be removed for event subscription purposes</param>
 		/// <remarks>This method removes an entity and unsubscribes from cache removal notifications.</remarks>
-		public void RemoveEntity(uint? id, Entity entity)
+		public void RemoveEntity(uint? id, CacheableObject entity)
 		{
 			RemoveEntity(id, entity, true);
 		}
@@ -81,7 +117,7 @@ namespace Hedron.Core.Container
 		/// <param name="entity">A reference to the entity to be removed for event subscription purposes</param>
 		/// <param name="updatePersistence">Whether to update persistence cache</param>
 		/// <remarks>This method removes an entity and unsubscribes from cache removal notifications.</remarks>
-		private void RemoveEntity(uint? id, Entity entity, bool updatePersistence)
+		private void RemoveEntity(uint? id, CacheableObject entity, bool updatePersistence)
 		{
 			if (id == null)
 				return;
@@ -91,9 +127,14 @@ namespace Hedron.Core.Container
 
 			if (entity != null)
 			{
-				entity.CacheObjectRemoved -= OnCacheObjectRemoved;
-				// entity.Parent = null;
+				if (CacheType == CacheType.Instance)
+					entity.InstanceParent = null;
+				else
+					entity.PrototypeParents.Remove((uint)Prototype);
 
+				entity.CacheObjectRemoved -= OnCacheObjectRemoved;
+
+				// TODO: Is this needed? The save checks seem odd -- if it's prototype, it should always be saved when changed.
 				// Always persist target entity to disk since the data structure has changed
 				if (CacheType == CacheType.Prototype)
 					DataPersistence.SaveObject(entity);
@@ -102,6 +143,18 @@ namespace Hedron.Core.Container
 			// Persist this entity to disk (if requested) since the data structure has changed
 			if (CacheType == CacheType.Prototype && updatePersistence)
 				DataPersistence.SaveObject(this);
+		}
+
+		/// <summary>
+		/// Raises the Entity Added event
+		/// </summary>
+		/// <param name="args">The event args</param>
+		protected void OnEntityRemoved(CacheObjectEventArgs args)
+		{
+			var handler = EntityRemoved;
+
+			if (handler != null)
+				EntityRemoved.Invoke(this, args);
 		}
 
 		/// <summary>
@@ -176,7 +229,7 @@ namespace Hedron.Core.Container
 		/// the maximum number of each unique contained object. If the container is an instance object, it will count
 		/// how many of each prototype object has been instantiated. Useful for respawning areas in particular by determining
 		/// the difference in number of mobs or other items in the area that should be refreshed.</remarks>
-		public Dictionary<uint, int> CountAllEntitiesByPrototypeID<T>() where T: Entity
+		public Dictionary<uint, int> CountAllEntitiesByPrototypeID<T>() where T: CacheableObject
 		{
 			var entities = GetAllEntitiesAsObjects<T>();
 			var countedEntities = new Dictionary<uint, int>();
@@ -190,52 +243,6 @@ namespace Hedron.Core.Container
 			}
 
 			return countedEntities;
-		}
-
-		/// <summary>
-		/// Gets the container parent from the instance cache
-		/// </summary>
-		/// <typeparam name="T">The parent container type</typeparam>
-		/// <param name="childInstanceID">The instance ID of the child entity</param>
-		/// <returns>The instanced parent object</returns>
-		public static T GetInstanceParent<T>(uint? childInstanceID) where T: EntityContainer
-		{
-			if (childInstanceID == null)
-				return default(T);
-
-			var entities = DataAccess.GetAll<T>(CacheType.Instance);
-
-			foreach (var entity in entities)
-			{
-				if (entity.GetAllEntities().Contains((uint)childInstanceID))
-					return entity;
-			}
-
-			return default(T);
-		}
-
-		/// <summary>
-		/// Gets all container parents from the prototype cache
-		/// </summary>
-		/// <typeparam name="T">The parent container type</typeparam>
-		/// <param name="childPrototypeID">The prototype ID of the child entity</param>
-		/// <returns>A list of prototype parent objects</returns>
-		public static List<T> GetAllPrototypeParents<T>(uint? childPrototypeID) where T : EntityContainer
-		{
-			var parents = new List<T>();
-
-			if (childPrototypeID == null)
-				return parents;
-
-			var entities = DataAccess.GetAll<T>(CacheType.Prototype);
-
-			foreach (var entity in entities)
-			{
-				if (entity.GetAllEntities().Contains((uint)childPrototypeID))
-					parents.Add(entity);
-			}
-
-			return parents;
 		}
 
 		/// <summary>
@@ -276,6 +283,69 @@ namespace Hedron.Core.Container
 		{
 			if (args.CacheType == CacheType.Instance)
 				DataAccess.RemoveMany(_entityList, args.CacheType);
+		}
+
+		/// <summary>
+		/// Spawns an instance of the inventory from prototype and adds it to the cache.
+		/// </summary>
+		/// <param name="withEntities">Whether to also spawn contained entities.</param>
+		/// <param name="parent">The ID the the parent.</param>
+		/// <returns>The spawned inventory. Will return null if the method is called from an instanced object.</returns>
+		public override T SpawnAsObject<T>(bool withEntities, uint parent)
+		{
+			return DataAccess.Get<T>(Spawn(withEntities, parent), CacheType.Instance);
+		}
+
+		/// <summary>
+		/// Spawns an instance of the object from prototype and adds it to the cache.
+		/// </summary>
+		/// <param name="withEntities">Whether to also spawn contained entities.</param>
+		/// <param name="parent">The Instance ID of the parent.</param>
+		/// <returns>The instance ID of the spawned inventory. Will return null if the method is called from an instanced object.</returns>
+		/// <remarks>Parent is ignored because it cannot be determined which parent property needs to be set. Inventory must therefore be manually set
+		/// after spawning.</remarks>
+		public override uint? Spawn(bool withEntities, uint parent)
+		{
+			if (CacheType != CacheType.Prototype)
+				return null;
+
+			Logger.Info(nameof(EntityContainer), nameof(Spawn), "Spawning container: " + ": ProtoID=" + Prototype.ToString());
+
+			var newContainer = new EntityContainer
+			{
+				Prototype = Prototype
+			};
+
+			newContainer.InstanceParent = parent;
+			DataAccess.Add<EntityContainer>(newContainer, CacheType.Instance);
+
+			if (withEntities)
+			{
+				var entitiesToLoad = DataAccess.GetMany<ISpawnableObject>(_entityList, CacheType);
+				foreach (var entity in entitiesToLoad)
+					entity.Spawn(withEntities, (uint)newContainer.Instance);
+			}
+
+			Logger.Info(nameof(EntityContainer), nameof(Spawn), "Finished spawning container.");
+
+			return newContainer.Instance;
+		}
+
+		/// <summary>
+		/// Handles the world loaded event
+		/// </summary>
+		/// <param name="e">The event args</param>
+		public void World_HandleLoaded(object sender, EventArgs e)
+		{
+			if (sender != null && sender.GetType() == typeof(World))
+			{
+				var entities = _entityList.ToList();
+
+				RemoveAllEntities(false);
+
+				foreach (var en in entities)
+					AddEntity(en, DataAccess.Get<CacheableObject>(en, CacheType), false);
+			}
 		}
 	}
 }

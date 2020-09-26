@@ -35,7 +35,7 @@ namespace Hedron.Core.Commands.Shopping
 				return ex.CommandResult;
 			}
 
-			var room = EntityContainer.GetInstanceParent<Room>(commandEventArgs.Entity.Instance);
+			var room = commandEventArgs.Entity.GetInstanceParentRoom();
 			if (room == null)
 				return CommandResult.Failure("You must be in a shop first.");
 
@@ -43,7 +43,7 @@ namespace Hedron.Core.Commands.Shopping
 				return CommandResult.Failure("There is no shop available here.");
 
 			var output = new OutputBuilder();
-			var items = room.GetShopItems<EntityInanimate>();
+			var items = room.ShopItems.GetAllEntitiesAsObjects<EntityInanimate>();
 
 			if (items.Count == 0)
 			{
@@ -76,7 +76,7 @@ namespace Hedron.Core.Commands.Shopping
 				output.Append($"You buy {item.ShortDescription} for {item.Value}!");
 
 				// Move item and subtract currency
-				room.RemoveShopItem(item);
+				room.ShopItems.RemoveEntity(item.Instance, item);
 				commandEventArgs.Entity.AddInventoryItem(item.Instance);
 				commandEventArgs.Entity.Currency -= item.Value;
 			}

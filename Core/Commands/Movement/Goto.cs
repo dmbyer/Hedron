@@ -1,9 +1,9 @@
-﻿using Hedron.Core.Container;
-using Hedron.Core.Locale;
+﻿using Hedron.Core.Entities.Base;
 using Hedron.Core.Entities.Properties;
-using Hedron.Data;
+using Hedron.Core.Locale;
 using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Command;
+using Hedron.Data;
 using System;
 using System.Collections.Generic;
 
@@ -61,10 +61,10 @@ namespace Hedron.Core.Commands.Movement
 				if (targetRoom != null)
 				{
 					// Move entity
-					var sourceRoom = EntityContainer.GetInstanceParent<Room>(entity.Instance);
+					var sourceRoom = entity.GetInstanceParentRoom();
 
-					sourceRoom?.RemoveEntity(entity.Instance, entity);
-					targetRoom.AddEntity(entity.Instance, entity);
+					sourceRoom?.Animates.RemoveEntity(entity.Instance, entity);
+					targetRoom.Animates.AddEntity(entity.Instance, entity, false);
 
 					output.Append(
 						new Look()

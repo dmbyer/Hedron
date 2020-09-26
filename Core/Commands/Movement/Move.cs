@@ -1,4 +1,5 @@
 ﻿using Hedron.Core.Container;
+using Hedron.Core.Entities.Base;
 using Hedron.Core.Entities.Living;
 using Hedron.Core.Entities.Properties;
 using Hedron.Core.Locale;
@@ -42,7 +43,7 @@ namespace Hedron.Core.Commands.Movement
 			var output = new OutputBuilder();
 			var entity = commandEventArgs.Entity;
 
-			Room sourceRoom = EntityContainer.GetInstanceParent<Room>(entity.Instance);
+			Room sourceRoom = entity.GetInstanceParentRoom();
 
 			// Don't move entity if it's not already in a room
 			if (sourceRoom != null && entity != null)
@@ -77,8 +78,8 @@ namespace Hedron.Core.Commands.Movement
 
 				if (destRoom != null)
 				{
-					sourceRoom.RemoveEntity(entity.Instance, entity);
-					destRoom.AddEntity(entity.Instance, entity);
+					sourceRoom.Animates.RemoveEntity(entity.Instance, entity);
+					destRoom.Animates.AddEntity(entity.Instance, entity, false);
 
 					output.Append(
 						new Look()
@@ -96,24 +97,28 @@ namespace Hedron.Core.Commands.Movement
 
 						if (player.Configuration.Autodig)
 						{
-							destRoom = Room.NewPrototype();
-							var sourceArea = EntityContainer.GetInstanceParent<Area>(sourceRoom.Instance);
-
-							destRoom.Spawn(false, sourceArea.Instance);
-
 							sourceRoom = DataAccess.Get<Room>(sourceRoom.Prototype, CacheType.Prototype);
-							DataAccess.Get<Area>(sourceArea.Prototype, CacheType.Prototype).AddEntity(destRoom.Prototype, destRoom);
+
+							if (sourceRoom == null)
+								return CommandResult.Failure("You must be in a room with a saved prototype before you may dig.");
+
+							var sourceArea = entity.GetInstanceParentArea();
+							if (sourceArea == null)
+								return CommandResult.Failure("You must be in an area before you may dig.");
+
+							var protoArea = DataAccess.Get<Area>(sourceArea.Prototype, CacheType.Prototype);
+							if (protoArea == null)
+								return CommandResult.Failure("You must be in an area with a saved prototype before you may dig.");
+
+							destRoom = Room.NewPrototype((uint)protoArea.Prototype);
+							destRoom.Spawn(false, (uint)sourceArea.Instance);
 
 							RoomExits.ConnectRoomExits(sourceRoom, destRoom, direction, true, true);
 
-							// Immediately save changes
-							DataPersistence.SaveObject(DataAccess.Get<Room>(sourceRoom.Prototype, CacheType.Prototype));
-							DataPersistence.SaveObject(destRoom);
-
+							// Now move the entity to the new room
 							output.Append($"You dig {direction.ToString().ToLower()}.");
 							output.Append(new MoveEntity().Execute(commandEventArgs).ResultMessage);
 
-							// Now move the entity to the new room
 							return CommandResult.Success(output.Output);
 						}
 					}

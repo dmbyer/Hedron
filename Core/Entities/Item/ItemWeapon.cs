@@ -87,40 +87,44 @@ namespace Hedron.Core.Entities.Item
 		}
 
 		/// <summary>
-		/// Creates a new weapon and adds it to the Prototype cache
+		/// Creates a new static item and adds it to the Prototype cache
 		/// </summary>
-		/// <param name="prototypeID">An optional PrototypeID. Used when loading.</param>
-		/// <returns>The new prototype weapon</returns>
-		public static ItemWeapon NewPrototype(uint? prototypeID = null)
+		/// <returns>The new prototype item</returns>
+		public static ItemWeapon NewPrototype()
 		{
-			var newWeapon = new ItemWeapon();
-
-			DataAccess.Add<ItemWeapon>(newWeapon, CacheType.Prototype, prototypeID);
-
-			return newWeapon;
+			var newItem = new ItemWeapon();
+			DataAccess.Add<ItemWeapon>(newItem, CacheType.Prototype);
+			return newItem;
 		}
 
 		/// <summary>
 		/// Creates a new weapon and adds it to the Instance cache
 		/// </summary>
-		/// <param name="withPrototype">Whether to also create a backing prototype</param>
-		/// <param name="prototypeID">An optional PrototypeID to use if also creating a backing prototype. Used when loading.</param>
-		/// <returns>The new instanced weapon</returns>
-		public static ItemWeapon NewInstance(bool withPrototype = false, uint? prototypeID = null)
+		/// <param name="withPrototype">Whether to also create a backing prototype.</param>
+		/// <returns>The new instanced item</returns>
+		public static ItemWeapon NewInstance(bool withPrototype)
 		{
-			return withPrototype
-				? DataAccess.Get<ItemWeapon>(NewPrototype(prototypeID).Spawn(false), CacheType.Instance)
-				: DataAccess.Get<ItemWeapon>(DataAccess.Add<ItemWeapon>(new ItemWeapon(), CacheType.Instance), CacheType.Instance);
+			ItemWeapon newItem = new ItemWeapon();
+
+			if (withPrototype)
+			{
+				var newProto = NewPrototype();
+				newItem.Prototype = newProto.Prototype;
+			}
+
+			DataAccess.Add<ItemWeapon>(newItem, CacheType.Instance);
+
+			return newItem;
 		}
 
 		/// <summary>
 		/// Spawns an instance of the weapon from prototype and adds it to the cache.
 		/// </summary>
 		/// <param name="withEntities">Whether to also spawn contained entities.</param>
-		/// <param name="parent">The ID the the parent.</param>
+		/// <param name="parent">The ID the the parent container.</param>
 		/// <returns>The spawned weapon. Will return null if the method is called from an instanced object.</returns>
 		/// <remarks>Parent may be null. Adds new item to parent, if specified.</remarks>
-		public override T SpawnAsObject<T>(bool withEntities, uint? parent = null)
+		public override T SpawnAsObject<T>(bool withEntities, uint parent)
 		{
 			return DataAccess.Get<T>(Spawn(withEntities, parent), CacheType.Instance);
 		}
@@ -129,10 +133,10 @@ namespace Hedron.Core.Entities.Item
 		/// Spawns an instance of the weapon from prototype and adds it to the cache.
 		/// </summary>
 		/// <param name="withEntities">Whether to also spawn contained entities.</param>
-		/// <param name="parent">The ID the the parent.</param>
+		/// <param name="parent">The ID the the parent container.</param>
 		/// <returns>The ID of the spawned weapon. Will return null if the method is called from an instanced object.</returns>
 		/// <remarks>Parent may be null. Adds new item to parent, if specified.</remarks>
-		public override uint? Spawn(bool withEntities, uint? parent = null)
+		public override uint? Spawn(bool withEntities, uint parent)
 		{
 			if (CacheType != CacheType.Prototype)
 				return null;
@@ -143,13 +147,7 @@ namespace Hedron.Core.Entities.Item
 			var newWeapon = NewInstance(false);
 
 			// Retrieve parent container and add entity
-			var parentContainer = DataAccess.Get<ICacheableObject>(parent, CacheType.Instance);
-
-			if (parentContainer?.GetType() == typeof(Room))
-				((Room)parentContainer).AddEntity(newWeapon.Instance, newWeapon);
-
-			if (parentContainer?.GetType() == typeof(Inventory))
-				((Inventory)parentContainer).AddEntity(newWeapon.Instance, newWeapon);
+			DataAccess.Get<EntityContainer>(parent, CacheType.Instance).AddEntity(newWeapon.Instance, newWeapon, false);
 
 			// Copy remaining properties
 			newWeapon.Prototype = Prototype;

@@ -38,12 +38,12 @@ namespace Hedron.Core.Commands.Building
 			}
 
 			var name = commandEventArgs.Argument;
-			var room = EntityContainer.GetInstanceParent<Room>(commandEventArgs.Entity.Instance);
+			var room = commandEventArgs.Entity.GetInstanceParentRoom();
 			
 			// Argument checking to ensure a name was provided
 			if (name == null || name == "")
 			{
-				return CommandResult.InvalidSyntax($"{nameof(Mgenerate)}", "Please enter the base name of the mob you wish to create." ,new List<string>() { "name" });
+				return CommandResult.InvalidSyntax($"{nameof(Mgenerate)}", "Please enter the base name of the mob you wish to create.", new List<string>() { "name" });
 			}
 
 			// Ensure the player is in a room so the mobs can be created here

@@ -66,7 +66,7 @@ namespace Hedron.Core.Entities.Living
 		/// <param name="withEntities">Whether to also spawn contained entities</param>
 		/// <param name="parent">The parent room instance ID</param>
 		/// <returns>The spawned player. Will return null if the method is called from an instanced object.</returns>
-		public override T SpawnAsObject<T>(bool withEntities, uint? parent = null)
+		public override T SpawnAsObject<T>(bool withEntities, uint parent)
 		{
 			return DataAccess.Get<T>(Spawn(withEntities, parent), CacheType.Instance);
 		}
@@ -77,17 +77,11 @@ namespace Hedron.Core.Entities.Living
 		/// <param name="withEntities">Whether to also spawn contained entities</param>
 		/// <param name="parent">The parent room instance ID</param>
 		/// <returns>The instance ID of the spawned player. Will return null if the method is called from an instanced object.</returns>
-		public override uint? Spawn(bool withEntities, uint? parent = null)
+		public override uint? Spawn(bool withEntities, uint parent)
 		{
 			Guard.ThrowNotImplemented(nameof(Spawn));
 
 			return null;
-		}
-
-
-		override protected void OnCacheObjectRemoved(object source, CacheObjectEventArgs args)
-		{
-
 		}
 
 		override protected void OnObjectDestroyed(object source, CacheObjectEventArgs args)

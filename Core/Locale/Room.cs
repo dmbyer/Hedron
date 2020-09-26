@@ -2,18 +2,48 @@
 using Hedron.Core.Entities.Base;
 using Hedron.Core.Entities.Living;
 using Hedron.Core.Entities.Properties;
-using Hedron.Data;
 using Hedron.Core.Factory;
 using Hedron.Core.System;
+using Hedron.Core.System.Exceptions.Locale;
+using Hedron.Data;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Hedron.Core.Locale
 {
 
-	public class Room : EntityContainer, ICopyableObject<Room>, ISpawnableObject
+	public class Room : CacheableObject, ICopyableObject<Room>, IEntityChildOfArea
 	{
+		/// <summary>
+		/// The room's living entities
+		/// </summary>
+		[JsonConverter(typeof(EntityContainerPropertyConverter))]
+		[JsonProperty]
+		public EntityContainer Animates { get; protected set; } = new EntityContainer();
+
+		/// <summary>
+		/// The room's objects
+		/// </summary>
+		[JsonConverter(typeof(EntityContainerPropertyConverter))]
+		[JsonProperty]
+		public EntityContainer Items { get; protected set; } = new EntityContainer();
+
+		/// <summary>
+		/// The room's shop items
+		/// </summary>
+		[JsonConverter(typeof(EntityContainerPropertyConverter))]
+		[JsonProperty]
+		public EntityContainer ShopItems { get; protected set; } = new EntityContainer();
+
+		/// <summary>
+		/// The room's storage items
+		/// </summary>
+		[JsonConverter(typeof(EntityContainerPropertyConverter))]
+		[JsonProperty]
+		public EntityContainer StorageItems { get; protected set; } = new EntityContainer();
+
 		[JsonProperty]
 		public RoomExits Exits { get; private set; } = new RoomExits();
 
@@ -25,10 +55,6 @@ namespace Hedron.Core.Locale
 
 		[JsonProperty]
 		public string Description { get; set; }
-
-		[JsonConverter(typeof(InventoryPropertyConverter))]
-		[JsonProperty]
-		private Inventory ShopItems { get; set; } = new Inventory();
 
 		[JsonProperty]
 		public bool IsShop { get; set; }
@@ -45,35 +71,81 @@ namespace Hedron.Core.Locale
 		/// <summary>
 		/// Creates a new room and adds it to the Prototype cache
 		/// </summary>
-		/// <param name="prototypeID">An optional PrototypeID. Used when loading.</param>
+		/// <param name="parentID">The parent ID of the area to add this room to.</param>
 		/// <returns>The new prototype room</returns>
-		public static Room NewPrototype(uint? prototypeID = null, uint? shopInventoryID = null)
+		public static Room NewPrototype(uint parentID)
 		{
 			var newRoom = new Room();
+			newRoom.Animates.CacheType = CacheType.Prototype;
+			newRoom.Items.CacheType = CacheType.Prototype;
+			newRoom.ShopItems.CacheType = CacheType.Prototype;
+			newRoom.StorageItems.CacheType = CacheType.Prototype;
 
-			DataAccess.Add<Room>(newRoom, CacheType.Prototype, prototypeID);
-			DataAccess.Add<Inventory>(newRoom.ShopItems, CacheType.Prototype, shopInventoryID);
+			var area = DataAccess.Get<Area>(parentID, CacheType.Prototype);
 
+			if (area == null)
+				throw new LocaleException($"Failed to locate parent ID ({parentID}) when generating new room protoype.");
+
+			DataAccess.Add<Room>(newRoom, CacheType.Prototype);
+
+			newRoom.Animates.PrototypeParents.Add((uint)newRoom.Prototype);
+			newRoom.Items.PrototypeParents.Add((uint)newRoom.Prototype);
+			newRoom.ShopItems.PrototypeParents.Add((uint)newRoom.Prototype);
+			newRoom.StorageItems.PrototypeParents.Add((uint)newRoom.Prototype);
+
+			DataAccess.Add<EntityContainer>(newRoom.Animates, CacheType.Prototype);
+			DataAccess.Add<EntityContainer>(newRoom.Items, CacheType.Prototype);
+			DataAccess.Add<EntityContainer>(newRoom.ShopItems, CacheType.Prototype);
+			DataAccess.Add<EntityContainer>(newRoom.StorageItems, CacheType.Prototype);
+
+			area.Rooms.AddEntity(newRoom.Prototype, newRoom, true);
+
+			DataPersistence.SaveObject(newRoom);
 			return newRoom;
 		}
 
 		/// <summary>
 		/// Creates a new room and adds it to the Instance cache
 		/// </summary>
-		/// <param name="withPrototype">Whether to also create a backing prototype</param>
-		/// <param name="prototypeID">An optional PrototypeID to use if also creating a backing prototype. Used when loading.</param>
-		/// <returns>The new instanced area</returns>
-		public static Room NewInstance(bool withPrototype = false, uint? prototypeID = null, uint? shopInventoryID = null)
+		/// <param name="withPrototype">Whether to also create a backing prototype. If so, the Prototype Area will also have the
+		/// prototype room added.</param>
+		/// <param name="parentID">The parent area Instance ID.</param>
+		/// <returns>The new instanced room</returns>
+		public static Room NewInstance(bool withPrototype, uint parentID)
 		{
 			Room newRoom;
 
 			if (withPrototype)
-				newRoom = DataAccess.Get<Room>(NewPrototype(prototypeID, shopInventoryID).Spawn(false), CacheType.Instance);
+			{
+				var instanceArea = DataAccess.Get<Area>(parentID, CacheType.Instance);
+				if (instanceArea == null)
+					throw new LocaleException($"{nameof(Room)}.{nameof(NewInstance)}: parentID retrieved null instance area.");
+
+				var protoArea = DataAccess.Get<Area>(instanceArea.Prototype, CacheType.Prototype);
+				if (protoArea == null)
+					throw new LocaleException($"{nameof(Room)}.{nameof(NewInstance)}: parentID retrieved null prototype area.");
+
+				newRoom = DataAccess.Get<Room>(NewPrototype((uint)protoArea.Prototype).Spawn(false, parentID), CacheType.Instance);
+			}
 			else
 			{
+				var area = DataAccess.Get<Area>(parentID, CacheType.Instance);
+				if (area == null)
+					throw new LocaleException($"{nameof(Room)}.{nameof(NewInstance)}: parentID retrieved null instance area.");
+
 				newRoom = DataAccess.Get<Room>(DataAccess.Add<Room>(new Room(), CacheType.Instance), CacheType.Instance);
-				DataAccess.Add<Inventory>(newRoom.ShopItems, CacheType.Instance);
+				DataAccess.Add<EntityContainer>(newRoom.Animates, CacheType.Instance);
+				DataAccess.Add<EntityContainer>(newRoom.Items, CacheType.Instance);
+				DataAccess.Add<EntityContainer>(newRoom.ShopItems, CacheType.Instance);
+				DataAccess.Add<EntityContainer>(newRoom.StorageItems, CacheType.Instance);
+
+				area.Rooms.AddEntity(newRoom.Instance, newRoom, false);
 			}
+
+			newRoom.Animates.InstanceParent = newRoom.Instance;
+			newRoom.Items.InstanceParent = newRoom.Instance;
+			newRoom.ShopItems.InstanceParent = newRoom.Instance;
+			newRoom.StorageItems.InstanceParent = newRoom.Instance;
 
 			return newRoom;
 		}
@@ -112,46 +184,34 @@ namespace Hedron.Core.Locale
 				DataPersistence.SaveObject(this);
 		}
 
-		/// <summary>
-		/// Provides a list of all items in the shop
-		/// </summary>
-		/// <typeparam name="T">The type of item to retrieve</typeparam>
-		/// <returns>A list of items</returns>
-		public List<T> GetShopItems<T>() where T: EntityInanimate
+		public Area GetInstanceParentArea()
 		{
-			return ShopItems.GetAllEntitiesAsObjects<T>();
+			if (CacheType != CacheType.Instance)
+				return null;
+
+			var parentContainer = DataAccess.Get<EntityContainer>(InstanceParent, CacheType.Instance);
+			return DataAccess.Get<Area>(parentContainer?.InstanceParent, CacheType.Instance);
 		}
 
 		/// <summary>
-		/// Adds an item to the shop
+		/// Retrieves a combined list of all entities in this room excluding shop items
 		/// </summary>
-		/// <param name="item">The item to add</param>
-		public void AddShopItem(EntityInanimate item)
+		/// <returns>A list of entities</returns>
+		public List<T> GetAllEntities<T>() where T: IEntity
 		{
-			if (item != null)
-			{
-				if (CacheType == CacheType.Prototype)
-				{
-					ShopItems.AddEntity(item.Prototype, item, true);
-					DataPersistence.SaveObject(this);
-				}
-				else
-					ShopItems.AddEntity(item.Instance, item, false);
-			}
+			var animates = Animates.GetAllEntities<EntityAnimate>().Cast<IEntity>();
+			var items = Items.GetAllEntities<EntityInanimate>().Cast<IEntity>();
+
+			return animates.Concat(items).Where(i => i.GetType() == typeof(T)).Cast<T>().ToList();
 		}
 
-		/// <summary>
-		/// Removes an item from the shop
-		/// </summary>
-		/// <param name="item">The item to remove</param>
-		public void RemoveShopItem(EntityInanimate item)
+		public List<Area> GetPrototypeParentAreas()
 		{
-			if (item != null)
-			{
-				ShopItems.RemoveEntity(item.CacheType == CacheType.Prototype ? item.Prototype : item.Instance, item);
-				if (CacheType == CacheType.Prototype)
-					DataPersistence.SaveObject(this);
-			}
+			var areas = new List<Area>();
+			var proto = DataAccess.Get<Area>(Prototype, CacheType.Prototype);
+
+			var parentContainers = DataAccess.GetMany<EntityContainer>(proto?.PrototypeParents, CacheType.Prototype);
+			return DataAccess.GetMany<Area>(parentContainers.Select(a => a.Prototype).Cast<uint>().ToList(), CacheType.Prototype);
 		}
 
 		/// <summary>
@@ -161,7 +221,7 @@ namespace Hedron.Core.Locale
 		/// <param name="parent">The parent area instance ID</param>
 		/// <returns>The spawned room. Will return null if the method is called from an instanced object.</returns>
 		/// <remarks>Exits will all be null and must be fixed from prototype. Parent cannot be null. Adds new room to instanced area.</remarks>
-		public T SpawnAsObject<T>(bool withEntities, uint? parent = null) where T : CacheableObject
+		public override T SpawnAsObject<T>(bool withEntities, uint parent)
 		{
 			return DataAccess.Get<T>(Spawn(withEntities, parent), CacheType.Instance);
 		}
@@ -173,19 +233,22 @@ namespace Hedron.Core.Locale
 		/// <param name="parent">The parent area instance ID</param>
 		/// <returns>The instance ID of the spawned room. Will return null if the method is called from an instanced object.</returns>
 		/// <remarks>Exits will all be null and must be fixed from prototype. Parent cannot be null. Adds new room to instanced area.</remarks>
-		public uint? Spawn(bool withEntities, uint? parent = null)
+		public override uint? Spawn(bool withEntities, uint parent)
 		{
 			if (CacheType != CacheType.Prototype)
 				return null;
 
-			if (parent == null)
-				throw new ArgumentNullException(nameof(parent), "Parent cannot be null when spawning a room.");
+			var parentContainer = DataAccess.Get<EntityContainer>(parent, CacheType.Instance);
+			var parentArea = DataAccess.Get<Area>(parentContainer.InstanceParent, CacheType.Instance);
+
+			if (parentContainer == null || parentArea == null)
+				throw new LocaleException("Parent cannot be null when spawning a room.");
 
 			Logger.Info(nameof(Room), nameof(Spawn), "Spawning room: " + Name + ": ProtoID=" + Prototype.ToString());
 
 			// Create new instance room and add to parent area
-			var newRoom = NewInstance(false);
-			DataAccess.Get<Area>(parent, CacheType.Instance).AddEntity(newRoom.Instance, newRoom);
+			var newRoom = DataAccess.Get<Room>(DataAccess.Add<Room>(new Room(), CacheType.Instance), CacheType.Instance);
+			parentArea.Rooms.AddEntity(newRoom.Instance, newRoom, false);
 
 			// Set remaining properties
 			newRoom.Prototype = Prototype;
@@ -194,17 +257,28 @@ namespace Hedron.Core.Locale
 			// Spawn contained entities
 			if (withEntities)
 			{
-				var entities = DataAccess.GetMany<ISpawnableObject>(_entityList, CacheType.Prototype);
-				foreach (var entity in entities)
-					entity.Spawn(withEntities, newRoom.Instance);
+				newRoom.Animates = Animates.SpawnAsObject<EntityContainer>(!withEntities, (uint)newRoom.Instance);
+				foreach (var animate in Animates.GetAllEntitiesAsObjects<EntityAnimate>())
+					animate.Spawn(withEntities, (uint)newRoom.Animates.Instance);
 
-				// Because NewInstance also adds ShopItems as an instance but we want to spawn it, we need to remove the
-				// the default new Inventory instance from the cache
-				DataAccess.Remove<Inventory>(DataAccess.Get<Inventory>(newRoom.ShopItems.Instance, CacheType.Instance).Instance, CacheType.Instance);
+				newRoom.Items = Items.SpawnAsObject<EntityContainer>(!withEntities, (uint)newRoom.Instance);
+				foreach (var item in Items.GetAllEntitiesAsObjects<EntityInanimate>())
+					item.Spawn(withEntities, (uint)newRoom.Items.Instance);
 
-				// Now spawn the ShopItems
-				ShopItems.Spawn(withEntities);
-				newRoom.ShopItems = DataAccess.Get<Inventory>(ShopItems.Spawn(withEntities, ShopItems.Prototype), CacheType.Instance);
+				newRoom.ShopItems = ShopItems.SpawnAsObject<EntityContainer>(!withEntities, (uint)newRoom.Instance);
+				foreach (var item in ShopItems.GetAllEntitiesAsObjects<EntityInanimate>())
+					item.Spawn(withEntities, (uint)newRoom.ShopItems.Instance);
+
+				newRoom.StorageItems = StorageItems.SpawnAsObject<EntityContainer>(!withEntities, (uint)newRoom.Instance);
+				foreach (var item in StorageItems.GetAllEntitiesAsObjects<EntityInanimate>())
+					item.Spawn(withEntities, (uint)newRoom.StorageItems.Instance);
+			}
+			else
+			{
+				newRoom.Animates = Animates.SpawnAsObject<EntityContainer>(!withEntities, (uint)newRoom.Instance);
+				newRoom.Items = Items.SpawnAsObject<EntityContainer>(!withEntities, (uint)newRoom.Instance);
+				newRoom.ShopItems = ShopItems.SpawnAsObject<EntityContainer>(!withEntities, (uint)newRoom.Instance);
+				newRoom.StorageItems = StorageItems.SpawnAsObject<EntityContainer>(!withEntities, (uint)newRoom.Instance);
 			}
 
 			Logger.Info(nameof(Room), nameof(Spawn), "Finished spawning room.");
@@ -235,13 +309,15 @@ namespace Hedron.Core.Locale
 		override protected void OnObjectDestroyed(object source, CacheObjectEventArgs args)
 		{
 			// Safely remove players without deleting/disconnecting them
-			var players = GetAllEntities<Player>();
+			var players = Animates.GetAllEntitiesAsObjects<Player>();
 
 			foreach (var player in players)
-				_entityList.Remove(player);
+				Animates.RemoveEntity(player?.Instance, player);
 
-			if (args.CacheType == CacheType.Instance)
-				DataAccess.RemoveMany(_entityList, args.CacheType);
+			DataAccess.Remove<EntityContainer>(args.CacheType == CacheType.Instance ? Animates.Instance : Animates.Prototype, args.CacheType);
+			DataAccess.Remove<EntityContainer>(args.CacheType == CacheType.Instance ? Items.Instance : Items.Prototype, args.CacheType);
+			DataAccess.Remove<EntityContainer>(args.CacheType == CacheType.Instance ? ShopItems.Instance : ShopItems.Prototype, args.CacheType);
+			DataAccess.Remove<EntityContainer>(args.CacheType == CacheType.Instance ? StorageItems.Instance : StorageItems.Prototype, args.CacheType);
 		}
 	}
 }

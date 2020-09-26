@@ -12,8 +12,10 @@ using System.IO;
 
 namespace Hedron.Core.Locale
 {
-	public class World : EntityContainer, ICopyableObject<World>, ISpawnableObject
+	public class World : CacheableObject, ICopyableObject<World>
 	{
+		private event EventHandler<EventArgs> WorldLoaded;
+
 		/// <summary>
 		/// Provides a global random object to use
 		/// </summary>
@@ -22,13 +24,24 @@ namespace Hedron.Core.Locale
 		public static Random Random = new Random();
 
 		[JsonIgnore]
-		public bool IsLoading { get; private set; }
+		public bool IsLoading { get; protected set; }
 
 		[JsonIgnore]
 		public static bool Shutdown { get; set; }
 
 		public string Name { get; set; }
+
+		/// <summary>
+		/// The room ID for new players entering the world
+		/// </summary>
 		public uint? StartingLocation { get; set; } = null;
+
+		/// <summary>
+		/// The area list for the world
+		/// </summary>
+		[JsonConverter(typeof(EntityContainerPropertyConverter))]
+		[JsonProperty]
+		public EntityContainer Areas { get; protected set; } = new EntityContainer();
 
 		/// <summary>
 		/// Default constructor
@@ -41,14 +54,17 @@ namespace Hedron.Core.Locale
 		/// <summary>
 		/// Creates a new world and adds it to the Prototype cache
 		/// </summary>
-		/// <param name="prototypeID">An optional PrototypeID. Used when loading.</param>
 		/// <returns>The new prototype world</returns>
-		public static World NewPrototype(uint? prototypeID = null)
+		public static World NewPrototype()
 		{
 			var newWorld = new World();
+			newWorld.Areas.CacheType = CacheType.Prototype;
 
-			DataAccess.Add<Area>(newWorld, CacheType.Prototype, prototypeID);
+			DataAccess.Add<World>(newWorld, CacheType.Prototype);
+			newWorld.Areas.PrototypeParents.Add((uint)newWorld.Prototype);
+			DataAccess.Add<EntityContainer>(newWorld.Areas, CacheType.Prototype);
 
+			DataPersistence.SaveObject(newWorld);
 			return newWorld;
 		}
 
@@ -56,47 +72,23 @@ namespace Hedron.Core.Locale
 		/// Creates a new world and adds it to the Instance cache
 		/// </summary>
 		/// <param name="withPrototype">Whether to also create a backing prototype</param>
-		/// <param name="prototypeID">An optional PrototypeID to use if also creating a backing prototype. Used when loading.</param>
 		/// <returns>The new instanced world</returns>
-		public static World NewInstance(bool withPrototype = false, uint? prototypeID = null)
+		public static World NewInstance(bool withPrototype)
 		{
-			return withPrototype
-				? DataAccess.Get<World>(NewPrototype(prototypeID).Spawn(false), CacheType.Instance)
-				: DataAccess.Get<World>(DataAccess.Add<World>(new World(), CacheType.Instance), CacheType.Instance);
-		}
+			World newWorld;
 
-		/// <summary>
-		/// Saves the world to the filesystem
-		/// </summary>
-		/// <param name="path">The folder path to save to. Uses default location if unspecified.</param>
-		public void SaveWorld()
-		{
-			// Write world
-			DataPersistence.SaveObject(this);
+			if (withPrototype)
+			{
+				newWorld = DataAccess.Get<World>(NewPrototype().Spawn(false, 0), CacheType.Instance);
+			}
+			else
+			{
+				newWorld = DataAccess.Get<World>(DataAccess.Add<World>(new World(), CacheType.Instance), CacheType.Instance);
+				DataAccess.Add<EntityContainer>(newWorld.Areas, CacheType.Instance);
+			}
 
-			// Write areas
-			foreach (var area in DataAccess.GetAll<Area>(CacheType.Prototype))
-				DataPersistence.SaveObject(area);
-
-			// Write rooms
-			foreach (var room in DataAccess.GetAll<Room>(CacheType.Prototype))
-				DataPersistence.SaveObject(room);
-
-			// Write mobs
-			foreach (var mob in DataAccess.GetAll<Mob>(CacheType.Prototype))
-				DataPersistence.SaveObject(mob);
-
-			// Write inventories
-			foreach (var inventory in DataAccess.GetAll<Inventory>(CacheType.Prototype))
-				DataPersistence.SaveObject(inventory);
-
-			// Write static items
-			foreach (var istatic in DataAccess.GetAll<ItemStatic>(CacheType.Prototype))
-				DataPersistence.SaveObject(istatic);
-
-			// Write weapons
-			foreach (var iweapon in DataAccess.GetAll<ItemWeapon>(CacheType.Prototype))
-				DataPersistence.SaveObject(iweapon);
+			newWorld.Areas.InstanceParent = newWorld.Instance;
+			return newWorld;
 		}
 
 		/// <summary>
@@ -105,22 +97,18 @@ namespace Hedron.Core.Locale
 		/// <param name="instantiate">Whether to also instantiate all loaded prototypes</param>
 		/// <param name="basePath">The location of the world to load</param>
 		/// <remarks>If this is called on a world that has already been loaded, it will be wiped from the cache and reloaded.</remarks>
-		public static World LoadWorld(bool instantiate, string basePath = null)
+		public World LoadWorld(bool instantiate, string basePath = null)
 		{
+			// Remove the current world from the prototype cache in case it is being reloaded
+			DataAccess.Remove<World>(Prototype, CacheType.Prototype);
+
 			World newWorld = new World
 			{
 				IsLoading = true,
 				CacheType = CacheType.Prototype
 			};
 
-			// Clear the current cache
-			DataAccess.WipeCache();
-
-			// Provision data container to load items into rooms once all data has been loaded
-			Dictionary<uint?, List<uint>> entitiesToLoadInRooms = new Dictionary<uint?, List<uint>>();
-
-			// Provision data container to load inventory items into mobs once all data has been loaded
-			Dictionary<uint?, List<uint>> itemsToLoadInInventory = new Dictionary<uint?, List<uint>>();
+			newWorld.Areas.CacheType = CacheType.Prototype;
 
 			// Set read path
 			if (basePath == "" || basePath == null)
@@ -129,17 +117,28 @@ namespace Hedron.Core.Locale
 			if (!basePath.EndsWith(@"\"))
 				basePath += @"\";
 
-			// Initialize collections for adding entities to their parents post-load
-			// Intentionally allow throwing an exception if the path doesn't exist
-			var world = Directory.GetFiles(basePath + typeof(World).ToString(), @"*.json");
+			string[] world;
+
+			try
+			{
+				world = Directory.GetFiles(basePath + typeof(World).ToString(), @"*.json");
+			}
+			catch
+			{
+				// No world was found in the filesystem
+				newWorld = NewPrototype();
+				newWorld.IsLoading = true;
+
+				world = Directory.GetFiles(basePath + typeof(World).ToString(), @"*.json");
+			}
 
 			var areas = new string[0];
 			var rooms = new string[0];
-			var inventories = new string[0];
+			var containers = new string[0];
 			var mobs = new string[0];
-			var itemPotions = new string[0];
-			var itemStatics = new string[0];
-			var itemWeapons = new string[0];
+			var potions = new string[0];
+			var statics = new string[0];
+			var weapons = new string[0];
 
 			if (Directory.Exists(basePath + typeof(Area).ToString()))
 				areas = Directory.GetFiles(basePath + typeof(Area).ToString(), @"*.json");
@@ -147,56 +146,55 @@ namespace Hedron.Core.Locale
 			if (Directory.Exists(basePath + typeof(Room).ToString()))
 				rooms = Directory.GetFiles(basePath + typeof(Room).ToString(), @"*.json");
 
-			if (Directory.Exists(basePath + typeof(Inventory).ToString()))
-				inventories = Directory.GetFiles(basePath + typeof(Inventory).ToString(), @"*.json");
+			if (Directory.Exists(basePath + typeof(EntityContainer).ToString()))
+				containers = Directory.GetFiles(basePath + typeof(EntityContainer).ToString(), @"*.json");
 
 			if (Directory.Exists(basePath + typeof(Mob).ToString()))
 				mobs = Directory.GetFiles(basePath + typeof(Mob).ToString(), @"*.json");
 
 			if (Directory.Exists(basePath + typeof(ItemPotion).ToString()))
-				itemPotions = Directory.GetFiles(basePath + typeof(ItemPotion).ToString(), @"*.json");
+				potions = Directory.GetFiles(basePath + typeof(ItemPotion).ToString(), @"*.json");
 
 			if (Directory.Exists(basePath + typeof(ItemStatic).ToString()))
-				itemStatics = Directory.GetFiles(basePath + typeof(ItemStatic).ToString(), @"*.json");
+				statics = Directory.GetFiles(basePath + typeof(ItemStatic).ToString(), @"*.json");
 
 			if (Directory.Exists(basePath + typeof(ItemWeapon).ToString()))
-				itemWeapons = Directory.GetFiles(basePath + typeof(ItemWeapon).ToString(), @"*.json");
+				weapons = Directory.GetFiles(basePath + typeof(ItemWeapon).ToString(), @"*.json");
+
+			// Load containers
+			foreach (var container in containers)
+			{
+				// Add container prototype
+				var newContainer = new EntityContainer();
+				DataPersistence.LoadObject(container, out newContainer);
+
+				newWorld.WorldLoaded += newContainer.World_HandleLoaded;
+
+				// Add to cache
+				try
+				{
+					DataAccess.Add<EntityContainer>(newContainer, CacheType.Prototype, newContainer.Prototype, false);
+				}
+				catch (ArgumentException ex)
+				{
+					// The container was already added to the cache as a result of creating a new world
+					continue;
+				}
+			}
 
 			// Load world
-			if (world.Length > 0)
+			foreach (var w in world)
 			{
-				DataPersistence.LoadObject(world[0], out newWorld);
-
-				// Areas will be repopulated via AddArea method
-				newWorld.RemoveAllEntities(false);
-
-				// Add to cache
-				DataAccess.Add<World>(newWorld, CacheType.Prototype, newWorld.Prototype, false);
-			}
-			else
-			{
-				// No <worldname>.json found
-				Logger.Error(nameof(World),
-					nameof(LoadWorld),
-					string.Format(@"No .json file found to load in {0}\{1}", basePath, typeof(World).ToString()));
-				return default;
-			}
-
-			// Load inventories
-			foreach (var inventory in inventories)
-			{
-				// Add inventory prototype
-				var newInventory = new Inventory();
-				DataPersistence.LoadObject(inventory, out newInventory);
-
-				// Populate items to load in inventories
-				itemsToLoadInInventory.Add(newInventory.Prototype, newInventory.GetAllEntities());
-
-				// Clear all item IDs so they can be added post-load
-				newInventory.RemoveAllEntities(false);
-
-				// Add to cache
-				DataAccess.Add<Inventory>(newInventory, CacheType.Prototype, newInventory.Prototype, false);
+				DataPersistence.LoadObject(w, out newWorld);
+				try
+				{
+					DataAccess.Add<World>(newWorld, CacheType.Prototype, newWorld.Prototype, false);
+				}
+				catch (ArgumentException ex)
+				{
+					// The world was already added to the cache as a result of creating a new world
+					continue;
+				}
 			}
 
 			// Load rooms
@@ -205,12 +203,6 @@ namespace Hedron.Core.Locale
 				// Add room prototype
 				var newRoom = new Room();
 				DataPersistence.LoadObject(room, out newRoom);
-
-				// Populate room->entity map for post-loading
-				entitiesToLoadInRooms.Add(newRoom.Prototype, newRoom.GetAllEntities());
-
-				// Clear all room IDs so they can be added post-load
-				newRoom.RemoveAllEntities(false);
 
 				// Add to cache
 				DataAccess.Add<Room>(newRoom, CacheType.Prototype, newRoom.Prototype, false);
@@ -225,22 +217,6 @@ namespace Hedron.Core.Locale
 
 				// Add to cache
 				DataAccess.Add<Area>(newArea, CacheType.Prototype, newArea.Prototype, false);
-
-				// Create temporary list of all rooms to add to area
-				var roomsToAdd = newArea.GetAllEntities<Room>();
-
-				// Clear all room IDs so they can be added and attached to event handling
-				newArea.RemoveAllEntities(false);
-
-				// Add area to world
-				newWorld.AddEntity(newArea.Prototype, newArea, false);
-
-				// Add rooms to area
-				foreach (var room in roomsToAdd)
-				{
-					var addRoom = DataAccess.Get<Room>(room, CacheType.Prototype);
-					newArea.AddEntity(addRoom.Prototype, addRoom, false);
-				}
 			}
 
 			// Load mobs
@@ -254,7 +230,7 @@ namespace Hedron.Core.Locale
 			}
 
 			// Load items
-			foreach (var item in itemStatics)
+			foreach (var item in statics)
 			{
 				var newItem = new ItemStatic();
 				DataPersistence.LoadObject(item, out newItem);
@@ -263,8 +239,18 @@ namespace Hedron.Core.Locale
 				DataAccess.Add<ItemStatic>(newItem, CacheType.Prototype, newItem.Prototype, false);
 			}
 
+			// Load potions
+			foreach (var item in potions)
+			{
+				var newPotion = new ItemPotion();
+				DataPersistence.LoadObject(item, out newPotion);
+
+				// Add to cache
+				DataAccess.Add<ItemStatic>(newPotion, CacheType.Prototype, newPotion.Prototype, false);
+			}
+
 			// Load weapons
-			foreach (var weapon in itemWeapons)
+			foreach (var weapon in weapons)
 			{
 				var newWeapon = new ItemWeapon();
 				DataPersistence.LoadObject(weapon, out newWeapon);
@@ -273,52 +259,24 @@ namespace Hedron.Core.Locale
 				DataAccess.Add<ItemWeapon>(newWeapon, CacheType.Prototype, newWeapon.Prototype, false);
 			}
 
-			// Add entities to rooms
-			foreach (var kvp in entitiesToLoadInRooms)
-			{
-				var room = DataAccess.Get<Room>(kvp.Key, CacheType.Prototype);
-				foreach (var item in kvp.Value)
-				{
-					var i = DataAccess.Get<Entity>(item, CacheType.Prototype);
-					room.AddEntity(item, i, false);
-				}
-			}
-
-			// Add items to inventories
-			foreach (var kvp in itemsToLoadInInventory)
-			{
-				var inventory = DataAccess.Get<Inventory>(kvp.Key, CacheType.Prototype);
-				foreach (var item in kvp.Value)
-				{
-					var i = DataAccess.Get<EntityInanimate>(item, CacheType.Prototype);
-					inventory.AddEntity(item, i, false);
-				}
-			}
+			// Add entities to containers
+			// OnWorldLoaded(new EventArgs());
 
 			// Fix prototype null exits
 			RoomExits.FixNullExits(CacheType.Prototype);
 
+			newWorld.IsLoading = false;
+
 			if (instantiate)
 			{
 				Logger.Info(nameof(World), nameof(LoadWorld), "Instantiating world.");
-				newWorld.Spawn(instantiate);
-
-				// Fix room links
-				Logger.Info(nameof(World), nameof(LoadWorld), "Linking instanced room exits.");
-				RoomExits.LinkInstancedRoomExits();
-
-				// Final pass at fixing null exits for instanced rooms
-				Logger.Info(nameof(World), nameof(LoadWorld), "Fixing null exits.");
-				RoomExits.FixNullExits(CacheType.Instance);
+				newWorld = newWorld.SpawnAsObject<World>(instantiate, 0);
 
 				Logger.Info(nameof(World), nameof(LoadWorld), "Finished instantiating world.");
 			}
 
-			newWorld.IsLoading = false;
-
 			return newWorld;
 		}
-
 		/// <summary>
 		/// Spawns an instance of the world from prototype and adds it to the cache.
 		/// </summary>
@@ -326,7 +284,7 @@ namespace Hedron.Core.Locale
 		/// <param name="parent">The parent instance ID; ignored</param>
 		/// <returns>The spawned world. Will return null if the method is called from an instanced object.</returns>
 		/// <remarks>Exits of rools will all be null and must be fixed from prototype.</remarks>
-		public T SpawnAsObject<T>(bool withEntities, uint? parent = null) where T : CacheableObject
+		public override T SpawnAsObject<T>(bool withEntities, uint parent)
 		{
 			return DataAccess.Get<T>(Spawn(withEntities, parent), CacheType.Instance);
 		}
@@ -337,7 +295,7 @@ namespace Hedron.Core.Locale
 		/// <param name="withEntities">Whether to also spawn contained areas.</param>
 		/// <param name="parent">The parent instance ID; ignored</param>
 		/// <returns>The instance ID of the spawned world. Will return null if the method is called from an instanced object.</returns>
-		public uint? Spawn(bool withEntities, uint? parent = null)
+		public override uint? Spawn(bool withEntities, uint parent)
 		{
 			if (CacheType != CacheType.Prototype)
 				return null;
@@ -345,21 +303,30 @@ namespace Hedron.Core.Locale
 			Logger.Info(nameof(World), nameof(Spawn), "Spawning world: " + Name + ": ProtoID=" + Prototype.ToString());
 
 			// Create new instance world
-			var newWorld = NewInstance(false);
+			var newWorld = DataAccess.Get<World>(DataAccess.Add<World>(new World(), CacheType.Instance), CacheType.Instance);
 
 			// Set remaining properties
 			newWorld.Prototype = Prototype;
-			// newWorld.Parent = null;
 			CopyTo(newWorld);
 
-			// Spawn contained rooms
+			// Spawn contained areas
 			if (withEntities)
 			{
-				foreach (var area in DataAccess.GetMany<Area>(_entityList, CacheType.Prototype))
-					area.Spawn(withEntities, newWorld.Instance);
+				newWorld.Areas = Areas.SpawnAsObject<EntityContainer>(!withEntities, (uint)newWorld.Instance);
+				foreach (var area in Areas.GetAllEntitiesAsObjects<Area>())
+					area.Spawn(withEntities, (uint)newWorld.Areas.Instance);
+			}
+			else
+			{
+				newWorld.Areas = Areas.SpawnAsObject<EntityContainer>(!withEntities, (uint)newWorld.Instance);
 			}
 
+			newWorld.StartingLocation = DataAccess.GetInstancesOfPrototype<Room>(StartingLocation)?[0].Instance;
+
+			Logger.Info(nameof(World), nameof(LoadWorld), "Linking instanced room exits.");
 			RoomExits.LinkInstancedRoomExits();
+
+			Logger.Info(nameof(World), nameof(LoadWorld), "Fixing null exits.");
 			RoomExits.FixNullExits(CacheType.Instance);
 
 			Logger.Info(nameof(World), nameof(Spawn), "Finished spawning world.");
@@ -378,6 +345,17 @@ namespace Hedron.Core.Locale
 
 			world.Name = Name;
 			world.StartingLocation = StartingLocation;
+		}
+
+		/// <summary>
+		/// Handles the world loaded event
+		/// </summary>
+		/// <param name="e">The event args</param>
+		protected virtual void OnWorldLoaded(EventArgs e)
+		{
+			// TODO: Implement true observer pattern
+			WorldLoaded?.Invoke(this, new EventArgs());
+			WorldLoaded = null;
 		}
 	}
 }

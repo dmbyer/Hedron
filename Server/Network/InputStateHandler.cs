@@ -46,12 +46,9 @@ namespace Hedron.Network
                     if (result.ResultCode == ResultCode.SUCCESS)
                     {
                         entity.IOHandler?.QueueRawOutput(result.ResultMessage);
-                        var startingRooms = DataAccess.GetInstancesOfPrototype<Room>(DataAccess.Get<World>(0, CacheType.Instance).StartingLocation);
+                        var startingRoom = DataAccess.GetAll<World>(CacheType.Instance)[0].StartingLocation;
 
-                        var args = new CommandEventArgs(
-                            startingRooms.Count > 0 ? startingRooms[0].Instance.ToString() : "0",
-                            entity,
-                            null);
+                        var args = new CommandEventArgs(startingRoom.ToString(), entity, null);
 
                         State = EntityState.Active;
                         result = new Goto().Execute(args);

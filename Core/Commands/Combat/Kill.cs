@@ -51,15 +51,15 @@ namespace Hedron.Core.Commands.Combat
                 return ex.CommandResult;
             }
 
-            var room = EntityContainer.GetInstanceParent<Room>(commandEventArgs.Entity.Instance);
-            var entities = DataAccess.GetMany<EntityAnimate>(room.GetAllEntities<EntityAnimate>(), CacheType.Instance);
-            Player player = (Player)commandEventArgs.Entity;
+            var room = commandEventArgs.Entity.GetInstanceParentRoom();
+            var entities = room.Animates.GetAllEntities<EntityAnimate>();
+            EntityAnimate entity = commandEventArgs.Entity;
             uint? targetID = null;
 
             // Find first matching target
             targetID = Parse.MatchOnEntityNameByOrder(commandEventArgs.Argument, entities.Cast<IEntity>().ToList())?.Instance;
 
-            if (targetID == player?.Instance)
+            if (targetID == entity?.Instance)
             {
                 return CommandResult.Failure("You cannot kill yourself.");
             }

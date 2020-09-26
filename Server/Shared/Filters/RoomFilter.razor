@@ -1,7 +1,7 @@
 ﻿@inherits ComponentBase
 @using Hedron.Core.Locale;
 
-    <label for="roomSelect" class="col-xl-1 col-form-label"><strong>Room</strong></label>
+    <label for="roomSelect" class="col-xl-1 col-form-label"><strong>@FilterLabel</strong></label>
     <select id="roomSelect" class="col-xl-2 col-form-label" @bind="RoomID">
         <option value="-1">None</option>
         @foreach (var room in Rooms)
@@ -26,6 +26,9 @@
 
     [Parameter]
     public uint? SelectedRoom { get; set; }
+
+    [Parameter]
+    public string FilterLabel { get; set; } = "Room";
 
     private int _roomID;
     private int RoomID

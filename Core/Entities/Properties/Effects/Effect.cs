@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 
 namespace Hedron.Core.Entities.Properties
 {
-	public class Affect
+	public class Effect
 	{
 		/// <summary>
 		/// Armor modifier
@@ -30,7 +30,7 @@ namespace Hedron.Core.Entities.Properties
 		public Attributes Attributes { get; set; }
 
 		/// <summary>
-		/// Whether the affect can be dispelled
+		/// Whether the Effect can be dispelled
 		/// </summary>
 		[JsonProperty]
 		public bool CanDispel { get; set; }
@@ -48,21 +48,21 @@ namespace Hedron.Core.Entities.Properties
 		public DamageModifier DamageMultiplier { get; set; }
 
 		/// <summary>
-		/// The display of the affect
+		/// The display of the Effect
 		/// </summary>
 		/// <remarks>This should be a shorthand display that can be applied to entity descriptions.
-		/// For example, "(H)" would work for a haste affect that can be prepended to a character's description.</remarks>
+		/// For example, "(H)" would work for a haste Effect that can be prepended to a character's description.</remarks>
 		[JsonProperty]
 		public string Display { get; set; }
 
 		/// <summary>
-		/// The lifespan of the affect, in ticks. A null lifespan is permament.
+		/// The lifespan of the Effect, in ticks. A null lifespan is permament.
 		/// </summary>
 		[JsonProperty]
 		public int? Lifespan { get; set; }
 
 		/// <summary>
-		/// The name of the affect
+		/// The name of the Effect
 		/// </summary>
 		[JsonProperty]
 		public string Name { get; set; }
@@ -74,44 +74,44 @@ namespace Hedron.Core.Entities.Properties
 		public Qualities Qualities { get; set; }
 
 		/// <summary>
-		/// The description to provide the affected entity when the affect is added
+		/// The description to provide the Effected entity when the Effect is added
 		/// </summary>
-		/// <remarks>This should be the full description to be passed to the affected entity.
-		/// For example, "You feel yourself speed up!" would be used for a haste affect being applied.</remarks>
+		/// <remarks>This should be the full description to be passed to the Effected entity.
+		/// For example, "You feel yourself speed up!" would be used for a haste Effect being applied.</remarks>
 		[JsonProperty]
 		public string ApplyDescriptionSelf { get; set; }
 
 		/// <summary>
-		/// The description to provide other entities when the affect is added
+		/// The description to provide other entities when the Effect is added
 		/// </summary>
 		/// <remarks>This should be a partial description so an entity's proper name can be applied accordingly.
-		/// For example, "speeds up." could be used for a haste affect being applied, and the caller can prepend EntityAnimate.Name.</remarks>
+		/// For example, "speeds up." could be used for a haste Effect being applied, and the caller can prepend EntityAnimate.Name.</remarks>
 		[JsonProperty]
 		public string ApplyDescriptionOther { get; set; }
 
 		/// <summary>
-		/// The description to provide the affected entity when the affect is removed
+		/// The description to provide the Effected entity when the Effect is removed
 		/// </summary>
-		/// <remarks>This should be the full description to be passed to the affected entity.
-		/// For example, "You feel yourself slow down." would be used for a haste affect wearing off.</remarks>
+		/// <remarks>This should be the full description to be passed to the Effected entity.
+		/// For example, "You feel yourself slow down." would be used for a haste Effect wearing off.</remarks>
 		[JsonProperty]
 		public string RemoveDescriptionSelf { get; set; }
 
 		/// <summary>
-		/// The description to provide other entities when the affect is removed
+		/// The description to provide other entities when the Effect is removed
 		/// </summary>
 		/// <remarks>This should be a partial description so an entity's proper name can be applied accordingly.
-		/// For example, "slows down." could be used for a haste affect wearing off, and the caller can prepend EntityAnimate.Name.</remarks>
+		/// For example, "slows down." could be used for a haste Effect wearing off, and the caller can prepend EntityAnimate.Name.</remarks>
 		[JsonProperty]
 		public string RemoveDescriptionOther { get; set; }
 
 		/// <summary>
-		/// Creates a new affect as a multiplier
+		/// Creates a new Effect as a multiplier
 		/// </summary>
 		/// <param name="multiplier">The multiplier to set all properties to</param>
-		public static Affect NewMultiplier(float multiplier)
+		public static Effect NewMultiplier(float multiplier)
 		{
-			return new Affect
+			return new Effect
 			{
 				ArmorMultiplier = multiplier,
 				Pools = Pools.NewMultiplier(multiplier),

@@ -2,19 +2,23 @@
 @inherits ComponentBase
 @using Hedron.Core.Locale;
 @using Hedron.Data;
-@using Hedron.Core.Entities.Properties;
 @using Hedron.Core.System;
 @using Server.Shared.Filters;
+@using Server.Shared.Lists;
 
 <div>
     <form>
         <div class="form-group row">
+            <WorldFilter OnWorldFilterChanged="@WorldFilterChanged" Worlds="@Worlds" SelectedWorld="@_currentWorld?.Prototype" />
             <AreaFilter OnAreaFilterChanged="@AreaFilterChanged" Areas="@Areas" SelectedArea="@_currrentArea?.Prototype" />
             <div class="col-xl-1">
                 <!-- empty -->
             </div>
             <div class="col-xl-2 pl-0">
-                <button @onclick="NewArea" class="btn btn-primary col-form-label mr-3 text-center" style="width: 75px">New</button>
+                @if (_currentWorld != null)
+                {
+                    <button @onclick="NewArea" class="btn btn-primary col-form-label mr-3 text-center" style="width: 75px">New</button>
+                }
                 @if (_currrentArea != null)
                 {
                     <button @onclick="DeleteArea" class="btn btn-danger col-form-label text-center" style="width: 75px">Delete</button>
@@ -70,25 +74,40 @@
         <RoomList Rooms="@Rooms" />
     </div>
     <div class="row mt-5 pt-xl-5 pr-xl-5 pl-xl-3">
-        
+
     </div>
 }
 
 
 @code {
-    public EventCallback<uint?> OnAreaFilterChanged { get; set; }
-    public EventCallback<uint?> OnRoomClicked { get; set; }
+    private uint? _selectedWorld;
+    private World _currentWorld;
 
     private uint? _selectedArea;
     private Area _currrentArea;
-    private uint? _selectedRoom;
 
+    // private uint? _selectedRoom;
+
+    public List<World> Worlds { get; set; }
     public List<Area> Areas { get; set; }
     public List<Room> Rooms { get; set; }
 
     protected override void OnInitialized()
     {
+        Worlds = DataAccess.GetAll<World>(CacheType.Prototype);
         Console.WriteLine("AreaEditor:OnInitialized");
+        RefreshAreas();
+        RefreshRooms();
+    }
+
+    protected void WorldFilterChanged(uint? worldID)
+    {
+        _selectedWorld = worldID;
+        _currentWorld = DataAccess.Get<World>(_selectedWorld, CacheType.Prototype);
+        if (_currentWorld == null)
+        {
+            _selectedArea = null;
+        }
         RefreshAreas();
         RefreshRooms();
     }
@@ -100,10 +119,12 @@
         RefreshRooms();
     }
 
+    /*
     protected void RoomClicked(uint? roomID)
     {
         _selectedRoom = roomID;
     }
+    */
 
     private void RefreshAreas()
     {
@@ -113,14 +134,14 @@
     private void RefreshRooms()
     {
         if (_selectedArea != null)
-            Rooms = DataAccess.Get<Area>(_selectedArea, CacheType.Prototype).GetAllEntitiesAsObjects<Room>();
+            Rooms = DataAccess.Get<Area>(_selectedArea, CacheType.Prototype).Rooms.GetAllEntitiesAsObjects<Room>();
         else
             Rooms = new List<Room>();
     }
 
     private void NewArea()
     {
-        var newArea = Area.NewPrototype();
+        var newArea = Area.NewPrototype((uint)_selectedWorld);
         _currrentArea = newArea;
         RefreshAreas();
     }

@@ -119,7 +119,7 @@ namespace Hedron.Data
 			{
 				// Call CacheDestroy to trigger event
 				var entity = _cached_objects[(uint)id];
-				((CacheableObjectEvents)entity).CacheDestroy((uint)id, cacheType);
+				((CacheableObject)entity).CacheDestroy((uint)id, cacheType);
 
 				// Remove from cache
 				_cached_objects.Remove((uint)id);
@@ -169,7 +169,7 @@ namespace Hedron.Data
 		/// <returns>a unique ID</returns>
 		private uint ConsumeFirstAvailableID()
 		{
-						uint nsize = (uint)_id_list.Count;
+			uint nsize = (uint)_id_list.Count;
 			if (nsize == int.MaxValue) { throw new IndexOutOfRangeException("Maximum cache size reached."); }
 
 			if (nsize == 0)
@@ -191,29 +191,19 @@ namespace Hedron.Data
 		/// </summary>
 		private uint ConsumeSpecifiedID(uint id)
 		{
+			if (_id_list.Count == int.MaxValue)
+				throw new IndexOutOfRangeException("Maximum world size reached.");
 
-			uint nsize = (uint)_id_list.Count;
-			if (nsize == int.MaxValue) { throw new IndexOutOfRangeException("Maximum world size reached."); }
-
-			if (nsize == 0)
+			if (!_id_list.Contains(id))
 			{
-				_id_list.Add(0);
-				return 0;
+				_id_list.Add(id);
+				_id_list.Sort();
+				return id;
 			}
 			else
 			{
-				if (_id_list.Contains(id))
-				{
-					throw new ArgumentOutOfRangeException("Cannot add existing GUID.");
-				}
-				else
-				{
-					_id_list.Add(id);
-					_id_list.Sort();
-				}
+				throw new ArgumentOutOfRangeException("Cannot add existing GUID.");
 			}
-
-			return id;
 		}
 
 		/// <summary>

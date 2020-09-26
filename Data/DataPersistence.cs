@@ -5,7 +5,7 @@ namespace Hedron.Data
 {
 	public static class DataPersistence
 	{
-		public static string PersistencePath { get; set; } = "";
+		public static string PersistencePath { get; set; }
 
 		/// <summary>
 		/// Saves an object to the filesystem in json format
@@ -41,7 +41,7 @@ namespace Hedron.Data
 		/// </summary>
 		/// <param name="obj">The object to delete</param>
 		/// <returns>Whether the save action succeeded</returns>
-		public static bool DeleteObject(ICacheableObject obj)
+		internal static bool DeleteObject(ICacheableObject obj)
 		{
 			try
 			{
@@ -77,7 +77,7 @@ namespace Hedron.Data
 			}
 			catch
 			{
-				objectToLoad = default(T);
+				objectToLoad = default;
 				return false;
 			}
 		}

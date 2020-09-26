@@ -36,7 +36,7 @@ namespace Hedron.Core.Commands.Shopping
 				return ex.CommandResult;
 			}
 
-			var room = EntityContainer.GetInstanceParent<Room>(commandEventArgs.Entity.Instance);
+			var room = commandEventArgs.Entity.GetInstanceParentRoom();
 			if (room == null)
 				return CommandResult.Failure("You must be in a shop first.");
 

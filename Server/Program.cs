@@ -22,9 +22,11 @@ namespace Server
 		{
 			DataPersistence.PersistencePath = Constants.DEFAULT_WORLD_FOLDER;
 
+			var world = new World();
+
 			try
 			{
-				World.LoadWorld(false);
+				world = world.LoadWorld(true);
 			}
 			catch
 			{
@@ -38,7 +40,7 @@ namespace Server
 				DataAccess.WipeCache();
 
 				// Create a new world and save to disk
-				World.NewPrototype();
+				world = World.NewPrototype().SpawnAsObject<World>(true, 0);
 			}
 
 			/*
@@ -62,7 +64,6 @@ namespace Server
 			}
 			*/
 
-			DataAccess.GetAll<World>(CacheType.Prototype)?[0].Spawn(true);
 			CommandService.Initialize();
 			Task.Run(TelnetHub.Instance.ProcessConnections);
 			CreateHostBuilder(args).Build().Run();

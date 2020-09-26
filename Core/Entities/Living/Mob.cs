@@ -1,10 +1,13 @@
 ﻿using Hedron.Core.Container;
 using Hedron.Core.Entities.Base;
 using Hedron.Core.Entities.Properties;
+using Hedron.Core.Factory;
 using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.Core.System;
+using Hedron.Core.System.Exceptions.Locale;
 using Newtonsoft.Json;
+using System;
 
 namespace Hedron.Core.Entities.Living
 {
@@ -16,14 +19,12 @@ namespace Hedron.Core.Entities.Living
 		public MobBehavior Behavior { get; set; } = new MobBehavior();
 
 		/// <summary>
-		/// The affect for the mob's level
+		/// The Effect for the mob's level
 		/// </summary>
 		[JsonProperty]
-		private Affect LevelAffect { get; set; } = new Affect();
-
+		private Effect LevelEffect { get; set; } = new Effect();
 
 		private MobLevel _level;
-
 
 		/// <summary>
 		/// Default constructor
@@ -31,7 +32,7 @@ namespace Hedron.Core.Entities.Living
 		public Mob() 
 			: base()
 		{
-			LevelAffect = Affect.NewMultiplier(MobLevelModifier.Map(MobLevel.Fair));
+			LevelEffect = Effect.NewMultiplier(MobLevelModifier.Map(MobLevel.Fair));
 			ModifiedPools.CopyTo(CurrentPools);
 		}
 
@@ -43,7 +44,7 @@ namespace Hedron.Core.Entities.Living
 			: base()
 		{
 			Level = level;
-			LevelAffect = Affect.NewMultiplier(MobLevelModifier.Map(level));
+			LevelEffect = Effect.NewMultiplier(MobLevelModifier.Map(level));
 			ModifiedPools.CopyTo(CurrentPools);
 		}
 
@@ -60,12 +61,12 @@ namespace Hedron.Core.Entities.Living
             {
 				try
 				{
-					LevelAffect = Affect.NewMultiplier(MobLevelModifier.Map(value));
+					LevelEffect = Effect.NewMultiplier(MobLevelModifier.Map(value));
 					_level = value;
 				}
 				catch
 				{
-					LevelAffect = Affect.NewMultiplier(MobLevelModifier.Map(MobLevel.Fair));
+					LevelEffect = Effect.NewMultiplier(MobLevelModifier.Map(MobLevel.Fair));
 					_level = MobLevel.Fair;
 				}
             }
@@ -79,7 +80,7 @@ namespace Hedron.Core.Entities.Living
 		{
 			get
 			{
-				return base.ModifiedAttributes * LevelAffect.Attributes;
+				return base.ModifiedAttributes * LevelEffect.Attributes;
 			}
 		}
 
@@ -91,7 +92,7 @@ namespace Hedron.Core.Entities.Living
 		{
 			get
 			{
-				return base.ModifiedPools * LevelAffect.Pools;
+				return base.ModifiedPools * LevelEffect.Pools;
 			}
 		}
 
@@ -103,25 +104,31 @@ namespace Hedron.Core.Entities.Living
 		{
 			get
 			{
-				return base.ModifiedQualities * LevelAffect.Qualities;
+				return base.ModifiedQualities * LevelEffect.Qualities;
 			}
 		}
 
 		/// <summary>
 		/// Creates a new mob and adds it to the Prototype cache
 		/// </summary>
-		/// <param name="prototypeID">An optional PrototypeID. Used when loading.</param>
-		/// <param name="inventoryPrototypeID">An optional PrototypeID for Inventory. Used when loading.</param>
-		/// <param name="equipmentPrototypeID">An optional PrototypeID for WornEquipment. Used when loading.</param>
+		/// <param name="parentID">The parent ID of the room to add this mob to; may be null</param>
+		/// <param name="level">The optional level of the mob</param>
 		/// <returns>The new prototype mob</returns>
-		public static Mob NewPrototype(MobLevel level = MobLevel.Fair, uint? prototypeID = null, uint? inventoryPrototypeID = null, uint? equipmentPrototypeID = null)
+		public static Mob NewPrototype(uint? parentID, MobLevel level = MobLevel.Fair)
 		{
 			var newMob = new Mob(level);
+			newMob._inventory.CacheType = CacheType.Prototype;
+			newMob._equipment.CacheType = CacheType.Prototype;
 
-			DataAccess.Add<Mob>(newMob, CacheType.Prototype, prototypeID);
-			DataAccess.Add<Inventory>(newMob.Inventory, CacheType.Prototype, inventoryPrototypeID);
-			DataAccess.Add<Inventory>(newMob.WornEquipment, CacheType.Prototype, equipmentPrototypeID);
+			var room = DataAccess.Get<Room>(parentID, CacheType.Prototype);
+			DataAccess.Add<EntityContainer>(newMob._inventory, CacheType.Prototype);
+			DataAccess.Add<EntityContainer>(newMob._equipment, CacheType.Prototype);
+			DataAccess.Add<Mob>(newMob, CacheType.Prototype);
 
+			if (room != null)
+				room.Animates.AddEntity(newMob.Prototype, newMob, true);
+
+			DataPersistence.SaveObject(newMob);
 			return newMob;
 		}
 
@@ -129,21 +136,30 @@ namespace Hedron.Core.Entities.Living
 		/// Creates a new mob and adds it to the Instance cache
 		/// </summary>
 		/// <param name="withPrototype">Whether to also create a backing prototype</param>
-		/// <param name="prototypeID">An optional PrototypeID to use if also creating a backing prototype. Used when loading.</param>
+		/// <param name="parentID">The parent ID of the room to add this mob to; may be null</param>
 		/// <returns>The new instanced mob</returns>
-		public static Mob NewInstance(MobLevel level, bool withPrototype = false, uint? prototypeID = null, uint? inventoryPrototypeID = null, uint? equipmentPrototypeID = null)
+		public static Mob NewInstance(bool withPrototype, uint? parentID, MobLevel level = MobLevel.Fair)
 		{
 			Mob newMob;
+			var instanceRoom = DataAccess.Get<Room>(parentID, CacheType.Instance);
 
 			if (withPrototype)
-				newMob = DataAccess.Get<Mob>(NewPrototype(level, prototypeID, inventoryPrototypeID, equipmentPrototypeID).Spawn(level, false), CacheType.Instance);
+			{
+				var protoRoom = DataAccess.Get<Room>(instanceRoom.Prototype, CacheType.Prototype);
+
+				var newProtoMob = NewPrototype((uint)protoRoom.Prototype, level);
+				protoRoom?.Animates.AddEntity(newProtoMob.Prototype, newProtoMob, true);
+
+				newMob = newProtoMob.SpawnWithoutParent(level, false);
+			}
 			else
 			{
-				newMob = DataAccess.Get<Mob>(DataAccess.Add<Mob>(new Mob(level), CacheType.Instance), CacheType.Instance);
-				DataAccess.Add<Inventory>(newMob.Inventory, CacheType.Instance);
-				DataAccess.Add<Inventory>(newMob.WornEquipment, CacheType.Instance);
+				newMob = DataAccess.Get<Mob>(DataAccess.Add<Mob>(new Mob(), CacheType.Instance), CacheType.Instance);
+				DataAccess.Add<EntityContainer>(newMob._inventory, CacheType.Instance);
+				DataAccess.Add<EntityContainer>(newMob._equipment, CacheType.Instance);
 			}
 
+			instanceRoom?.Animates.AddEntity(newMob.Instance, newMob, false);
 			return newMob;
 		}
 
@@ -154,7 +170,7 @@ namespace Hedron.Core.Entities.Living
 		/// <param name="parent">The parent room instance ID</param>
 		/// <returns>The spawned mob. Will return null if the method is called from an instanced object.</returns>
 		/// <remarks>Parent cannot be null. Adds new mob to instanced room.</remarks>
-		public override T SpawnAsObject<T>(bool withEntities, uint? parent = null)
+		public override T SpawnAsObject<T>(bool withEntities, uint parent)
 		{
 			return SpawnAsObject<T>(Level, withEntities, parent);
 		}
@@ -167,7 +183,7 @@ namespace Hedron.Core.Entities.Living
 		/// <param name="parent">The parent room instance ID</param>
 		/// <returns>The spawned mob. Will return null if the method is called from an instanced object.</returns>
 		/// <remarks>Parent cannot be null. Adds new mob to instanced room.</remarks>
-		public T SpawnAsObject<T>(MobLevel level, bool withEntities, uint? parent = null) where T: ICacheableObject
+		public T SpawnAsObject<T>(MobLevel level, bool withEntities, uint parent) where T: CacheableObject
 		{
 			return DataAccess.Get<T>(Spawn(level, withEntities, parent), CacheType.Instance);
 		}
@@ -179,7 +195,7 @@ namespace Hedron.Core.Entities.Living
 		/// <param name="parent">The parent room instance ID</param>
 		/// <returns>The instance ID of the spawned mob. Will return null if the method is called from an instanced object.</returns>
 		/// <remarks>Parent may be null. Adds new mob to parent room, if specified.</remarks>
-		public override uint? Spawn(bool withEntities, uint? parent = null)
+		public override uint? Spawn(bool withEntities, uint parent)
 		{
 			return Spawn(Level, withEntities, parent);
 		}
@@ -191,19 +207,40 @@ namespace Hedron.Core.Entities.Living
 		/// <param name="withEntities">Whether to also spawn contained entities</param>
 		/// <param name="parent">The parent room instance ID</param>
 		/// <returns>The instance ID of the spawned mob. Will return null if the method is called from an instanced object.</returns>
-		/// <remarks>Parent may be null. Adds new mob to parent room, if specified.</remarks>
-		public uint? Spawn(MobLevel level, bool withEntities, uint? parent = null)
+		public uint? Spawn(MobLevel level, bool withEntities, uint parent)
 		{
 			if (CacheType != CacheType.Prototype)
 				return null;
 
+			var parentContainer = DataAccess.Get<EntityContainer>(parent, CacheType.Instance);
+			var parentRoom = DataAccess.Get<Room>(parentContainer.InstanceParent, CacheType.Instance);
+
+			if (parentContainer == null || parentRoom == null)
+				throw new LocaleException("Parent cannot be null when spawning a mob.");
+
 			Logger.Info(nameof(Mob), nameof(Spawn), "Spawning mob: " + Name + ": ProtoID=" + Prototype.ToString());
 
-			// Create new instance mob
-			var newMob = NewInstance(level, false);
+			// Create new instance mob and add to parent room
+			var newMob = SpawnWithoutParent(level, withEntities);
+			DataAccess.Get<Room>(parentRoom.Instance, CacheType.Instance).Animates.AddEntity(newMob.Instance, newMob, false);
 
-			// Retrieve parent room and add mob
-			DataAccess.Get<Room>(parent, CacheType.Instance)?.AddEntity(newMob.Instance, newMob);
+			Logger.Info(nameof(Mob), nameof(Spawn), "Finished spawning mob.");
+
+			return newMob.Instance;
+		}
+
+		/// <summary>
+		/// Spawns a mob from a prototype without a parent
+		/// </summary>
+		/// <param name="level">The level of the mob to spawn</param>
+		/// <param name="withEntities">Whether to also spawn contained entities</param>
+		/// <returns>The new mob</returns>
+		private Mob SpawnWithoutParent(MobLevel level, bool withEntities)
+		{
+			if (CacheType != CacheType.Prototype)
+				return null;
+
+			var newMob = DataAccess.Get<Mob>(DataAccess.Add<Mob>(new Mob(level), CacheType.Instance), CacheType.Instance);
 
 			// Set remaining properties
 			newMob.Prototype = Prototype;
@@ -212,19 +249,21 @@ namespace Hedron.Core.Entities.Living
 			// Spawn contained entities
 			if (withEntities)
 			{
-				// Because NewInstance also adds Inventory and WornEquipment as instances but we want to spawn them, we need to remove the
-				// the default new Inventory instances from the cache
-				DataAccess.Remove<Inventory>(DataAccess.Get<Inventory>(newMob.Inventory.Instance, CacheType.Instance).Instance, CacheType.Instance);
-				DataAccess.Remove<Inventory>(DataAccess.Get<Inventory>(newMob.WornEquipment.Instance, CacheType.Instance).Instance, CacheType.Instance);
+				newMob._inventory = _inventory.SpawnAsObject<EntityContainer>(!withEntities, (uint)newMob.Instance);
+				foreach (var animate in _inventory.GetAllEntitiesAsObjects<EntityAnimate>())
+					animate.Spawn(withEntities, (uint)newMob._inventory.Instance);
 
-				// Now spawn the Inventory and Equipment
-				newMob.Inventory = DataAccess.Get<Inventory>(Inventory.Spawn(withEntities, Inventory.Prototype), CacheType.Instance);
-				newMob.WornEquipment = DataAccess.Get<Inventory>(WornEquipment.Spawn(withEntities, Inventory.Prototype), CacheType.Instance);
+				newMob._equipment = _equipment.SpawnAsObject<EntityContainer>(!withEntities, (uint)newMob.Instance);
+				foreach (var animate in _equipment.GetAllEntitiesAsObjects<EntityAnimate>())
+					animate.Spawn(withEntities, (uint)newMob._equipment.Instance);
+			}
+			else
+			{
+				newMob._inventory = _inventory.SpawnAsObject<EntityContainer>(!withEntities, (uint)newMob.Instance);
+				newMob._equipment = _equipment.SpawnAsObject<EntityContainer>(!withEntities, (uint)newMob.Instance);
 			}
 
-			Logger.Info(nameof(Mob), nameof(Spawn), "Finished spawning mob.");
-
-			return newMob.Instance;
+			return newMob;
 		}
 
 		/// <summary>
@@ -242,31 +281,10 @@ namespace Hedron.Core.Entities.Living
 			mob.Level = Level;
 		}
 
-		protected override void OnCacheObjectRemoved(object source, CacheObjectEventArgs args)
-		{
-			// Check if the object removed was the Inventory or WornEquipment. If so, create a new cached object respectively.
-			if (args.CacheType == CacheType.Instance)
-			{
-				if (Inventory.Instance == args.ID)
-					Inventory = DataAccess.Get<Inventory>(DataAccess.Add<Inventory>(new Inventory(), CacheType.Instance), CacheType.Instance);
-
-				if (WornEquipment.Instance == args.ID)
-					WornEquipment = DataAccess.Get<Inventory>(DataAccess.Add<Inventory>(new Inventory(), CacheType.Instance), CacheType.Instance);
-			}
-			else
-			{
-				if (Inventory.Prototype == args.ID)
-					Inventory = DataAccess.Get<Inventory>(DataAccess.Add<Inventory>(new Inventory(), CacheType.Prototype), CacheType.Prototype);
-
-				if (WornEquipment.Prototype == args.ID)
-					WornEquipment = DataAccess.Get<Inventory>(DataAccess.Add<Inventory>(new Inventory(), CacheType.Prototype), CacheType.Prototype);
-			}
-		}
-
 		protected override void OnObjectDestroyed(object source, CacheObjectEventArgs args)
 		{
-			DataAccess.Remove<Inventory>(args.CacheType == CacheType.Instance ? Inventory.Instance : Inventory.Prototype, args.CacheType);
-			DataAccess.Remove<Inventory>(args.CacheType == CacheType.Instance ? WornEquipment.Instance : WornEquipment.Prototype, args.CacheType);
+			DataAccess.Remove<EntityContainer>(args.CacheType == CacheType.Instance ? _inventory.Instance : _inventory.Prototype, args.CacheType);
+			DataAccess.Remove<EntityContainer>(args.CacheType == CacheType.Instance ? _equipment.Instance : _equipment.Prototype, args.CacheType);
 		}
 	}
 }

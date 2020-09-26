@@ -44,8 +44,8 @@ namespace Hedron.Core.Commands.Item
 				return new CommandResult(ResultCode.ERR_SYNTAX, "What would you like to get?");
 
 			// Search room for a match
-			var room = EntityContainer.GetInstanceParent<Room>(commandEventArgs.Entity.Instance);
-			var roomEntities = DataAccess.GetMany<EntityInanimate>(room?.GetAllEntities(), CacheType.Instance);
+			var room = commandEventArgs.Entity.GetInstanceParentRoom();
+			var roomEntities = room.Items.GetAllEntitiesAsObjects<EntityInanimate>();
 
 			if (roomEntities.Count == 0)
 			{
@@ -76,7 +76,7 @@ namespace Hedron.Core.Commands.Item
 
 			foreach (var item in matchedItems)
 			{
-				room.RemoveEntity(item.Instance, item);
+				room.Items.RemoveEntity(item.Instance, item);
 				commandEventArgs.Entity.AddInventoryItem(item.Instance);
 			}
 

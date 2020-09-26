@@ -1,7 +1,10 @@
 ﻿using Hedron.Core.Entities.Properties;
 using Hedron.Data;
+using Hedron.Core.Container;
 using Hedron.Core.Factory;
+using Hedron.Core.Locale;
 using Hedron.Core.System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -10,18 +13,22 @@ namespace Hedron.Core.Entities.Base
 	/// <summary>
 	/// Base entity class for common attributes
 	/// </summary>
-	abstract public class Entity : EntityEvents, ISpawnableObject, ICopyableObject<Entity>, IEntity
+	public abstract class Entity : CacheableObject, ICopyableObject<Entity>, IEntity, IEffectObservable, IEntityChildOfRoom, IEntityChildOfArea
 	{
-		protected List<Affect> _affects = new List<Affect>();
+		protected List<Effect> _effects = new List<Effect>();
+
+		public event EventHandler<EffectEventArgs> EffectAdded;
+
+		public event EventHandler<EffectEventArgs> EffectRemoved;
 
 		/// <summary>
-		/// The affects on the entity
+		/// The Effects on the entity
 		/// </summary>
-		public IReadOnlyCollection<Affect> Affects
+		public IReadOnlyCollection<Effect> Effects
 		{
 			get
 			{
-				return _affects.AsReadOnly();
+				return _effects.AsReadOnly();
 			}
 		}
 
@@ -59,46 +66,57 @@ namespace Hedron.Core.Entities.Base
 		}
 
 		/// <summary>
-		/// Adds an affect to the entity
+		/// Adds an Effect to the entity
 		/// </summary>
-		/// <param name="affect">The affect to add</param>
-		/// <param name="stack">Whether to stack the affect. If false, the affect will overwrite any affect(s) of the same name.</param>
-		public virtual void AddAffect(Affect affect, bool stack)
+		/// <param name="Effect">The Effect to add</param>
+		/// <param name="stack">Whether to stack the Effect. If false, the Effect will overwrite any Effect(s) of the same name.</param>
+		public virtual void AddEffect(Effect Effect, bool stack)
 		{
-			OnAffectAdded(new AffectEventArgs(affect));
+			OnEffectAdded(new EffectEventArgs(Effect));
 		}
 
 		/// <summary>
-		/// Removes all affects of the given name
+		/// Invokes the EffectAdded event
 		/// </summary>
-		/// <param name="affectName">The affect name to remove</param>
-		public void RemoveAffect(string affectName)
+		/// <param name="args">The event args</param>
+		protected virtual void OnEffectAdded(EffectEventArgs args)
+		{
+			var handler = EffectAdded;
+			if (handler != null)
+				handler.Invoke(this, args);
+		}
+
+		/// <summary>
+		/// Removes all Effects of the given name
+		/// </summary>
+		/// <param name="EffectName">The Effect name to remove</param>
+		public void RemoveEffect(string EffectName)
 		{
 			var indexes = new List<int>();
 
-			indexes = Enumerable.Range(0, _affects.Count)
-				.Where(i => _affects[i].Name == affectName)
+			indexes = Enumerable.Range(0, _effects.Count)
+				.Where(i => _effects[i].Name == EffectName)
 				.ToList();
 
 			for (var i = indexes.Count; i > 0; i--)
 			{
-				var affectRemoved = _affects[i - 1];
-				RemoveAffectAt(i - 1);
-				OnAffectRemoved(new AffectEventArgs(affectRemoved));
+				var EffectRemoved = _effects[i - 1];
+				RemoveEffectAt(i - 1);
+				OnEffectRemoved(new EffectEventArgs(EffectRemoved));
 			}
 		}
 
 		/// <summary>
-		/// Removes a specific affect at the given index in Affects
+		/// Removes a specific Effect at the given index in Effects
 		/// </summary>
-		/// <param name="index">The index of the affect to remove</param>
-		public virtual void RemoveAffectAt(int index)
+		/// <param name="index">The index of the Effect to remove</param>
+		public virtual void RemoveEffectAt(int index)
 		{
 			try
 			{
-				var affectRemoved = _affects[index];
-				_affects.RemoveAt(index);
-				OnAffectRemoved(new AffectEventArgs(affectRemoved));
+				var EffectRemoved = _effects[index];
+				_effects.RemoveAt(index);
+				OnEffectRemoved(new EffectEventArgs(EffectRemoved));
 			}
 			catch
 			{
@@ -107,22 +125,77 @@ namespace Hedron.Core.Entities.Base
 		}
 
 		/// <summary>
-		/// Removes all affects from the entity
+		/// Removes all Effects from the entity
 		/// </summary>
-		public virtual void RemoveAllAffects()
+		public virtual void RemoveAllEffects()
 		{
-			for (var i = _affects.Count; i > 0; i--)
-				RemoveAffectAt(i - 1);
+			for (var i = _effects.Count; i > 0; i--)
+				RemoveEffectAt(i - 1);
+		}
+
+		public Room GetInstanceParentRoom()
+		{
+			if (CacheType != CacheType.Instance)
+				return null;
+
+			var parentContainer = DataAccess.Get<EntityContainer>(InstanceParent, CacheType.Instance);
+			return DataAccess.Get<Room>(parentContainer?.InstanceParent, CacheType.Instance);
+		}
+
+		public List<Room> GetPrototypeParentRooms()
+		{
+			var rooms = new List<Room>();
+			var proto = DataAccess.Get<Room>(Prototype, CacheType.Prototype);
+
+			var parentContainers = DataAccess.GetMany<EntityContainer>(proto?.PrototypeParents, CacheType.Prototype);
+			return DataAccess.GetMany<Room>(parentContainers.Select(r => r.Prototype).Cast<uint>().ToList(), CacheType.Prototype);
+		}
+
+		public Area GetInstanceParentArea()
+		{
+			if (CacheType != CacheType.Instance)
+				return null;
+
+			return GetInstanceParentRoom()?.GetInstanceParentArea();
+		}
+
+		public List<Area> GetPrototypeParentAreas()
+		{
+			var areas = new List<Area>();
+
+			if (CacheType != CacheType.Prototype)
+				return areas;
+
+			var parentRooms = GetPrototypeParentRooms();
+			foreach (var room in parentRooms)
+			{
+				var pAreas = room.GetPrototypeParentAreas();
+				foreach (var a in pAreas)
+					areas.Add(a);
+			}
+
+			return areas;
 		}
 
 		/// <summary>
-		/// Override OnObjectDestroyed to ensure all affects are removed upon entity deletion
+		/// Invokes the EffectRemoved event
+		/// </summary>
+		/// <param name="args">The event args</param>
+		protected virtual void OnEffectRemoved(EffectEventArgs args)
+		{
+			var handler = EffectRemoved;
+			if (handler != null)
+				handler.Invoke(this, args);
+		}
+
+		/// <summary>
+		/// Override OnObjectDestroyed to ensure all Effects are removed upon entity deletion
 		/// </summary>
 		/// <param name="source"></param>
 		/// <param name="args"></param>
 		protected override void OnObjectDestroyed(object source, CacheObjectEventArgs args)
 		{
-			RemoveAllAffects();
+			RemoveAllEffects();
 			base.OnObjectDestroyed(source, args);
 		}
 
@@ -142,8 +215,5 @@ namespace Hedron.Core.Entities.Base
 			entity.Tier.Level = Tier.Level;
 			entity.WasAutoGenerated = WasAutoGenerated;
 		}
-
-		public abstract T SpawnAsObject<T>(bool withEntities, uint? parent = null) where T : CacheableObject;
-		public abstract uint? Spawn(bool withEntities, uint? parent = null);
 	}
 }

@@ -8,7 +8,7 @@
 		Attributes BaseAttributes { get; set; }
 
 		/// <summary>
-		/// Retrieve modified attributes after affects
+		/// Retrieve modified attributes after Effects
 		/// </summary>
 		/// <returns>The modified attributes</returns>
 		Attributes ModifiedAttributes { get; }
