@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace Hedron.Core.Locale
 {
@@ -321,7 +322,7 @@ namespace Hedron.Core.Locale
 				newWorld.Areas = Areas.SpawnAsObject<EntityContainer>(!withEntities, (uint)newWorld.Instance);
 			}
 
-			newWorld.StartingLocation = DataAccess.GetInstancesOfPrototype<Room>(StartingLocation)?[0].Instance;
+			newWorld.StartingLocation = DataAccess.GetInstancesOfPrototype<Room>(StartingLocation).FirstOrDefault()?.Instance;
 
 			Logger.Info(nameof(World), nameof(LoadWorld), "Linking instanced room exits.");
 			RoomExits.LinkInstancedRoomExits();
