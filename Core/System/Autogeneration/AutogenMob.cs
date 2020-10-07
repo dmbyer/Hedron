@@ -44,7 +44,7 @@ namespace Hedron.Core.System.Autogeneration
 
                 DataPersistence.SaveObject(mob);
 
-                mobs.Add(mob.Spawn(true, (uint)parentRoom.Instance));
+                mobs.Add(mob.Spawn(true, (uint)parentRoom.Animates.Instance));
             }
 
             DataPersistence.SaveObject(protoRoom);

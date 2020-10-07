@@ -39,7 +39,7 @@ namespace Hedron.Core.Commands.Movement
 			var argument = commandEventArgs.Argument;
 			var entity = commandEventArgs.Entity;
 
-			if (argument.Length > 0 && entity != null)
+			if (!string.IsNullOrEmpty(argument) && entity != null)
 			{
 				int iRoom = -1;
 				try
@@ -49,7 +49,7 @@ namespace Hedron.Core.Commands.Movement
 				}
 				catch (FormatException)
 				{
-					return CommandResult.InvalidSyntax(nameof(Goto), new List<string> { "room number" });
+					return CommandResult.InvalidSyntax(nameof(Goto), new List<string> { "list", "[room number]" });
 				}
 				catch (OverflowException)
 				{
@@ -81,7 +81,19 @@ namespace Hedron.Core.Commands.Movement
 			}
 			else
 			{
-				return CommandResult.InvalidSyntax(nameof(Goto), new List<string> { "room number" });
+				if (!string.IsNullOrEmpty(argument) && argument.ToLower() == "list")
+				{
+					var rooms = DataAccess.GetAll<Room>(CacheType.Instance);
+					foreach (var r in rooms)
+					{
+						output.Append($"({r.Instance}): {r.GetInstanceParentArea().Name}/{r.Name}");
+					}
+					return CommandResult.Success(output.Output);
+				}
+				else
+				{
+					return CommandResult.InvalidSyntax(nameof(Goto), new List<string> {"list", "[room number]" });
+				}
 			}
 		}
 	}

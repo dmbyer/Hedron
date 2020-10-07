@@ -45,13 +45,15 @@ namespace Hedron.Network
 
                     if (result.ResultCode == ResultCode.SUCCESS)
                     {
-                        entity.IOHandler?.QueueRawOutput(result.ResultMessage);
                         var startingRoom = DataAccess.GetAll<World>(CacheType.Instance)[0].StartingLocation;
-
-                        var args = new CommandEventArgs(startingRoom.ToString(), entity, null);
-
                         State = EntityState.Active;
-                        result = new Goto().Execute(args);
+
+                        if (startingRoom != null)
+                        {
+                            var args = new CommandEventArgs(startingRoom.ToString(), entity, null);
+                            entity.IOHandler?.QueueRawOutput(result.ResultMessage);
+                            result = new Goto().Execute(args);
+                        }
                     }
 
                     return result;
