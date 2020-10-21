@@ -5,22 +5,23 @@
 @using Hedron.Core.Entities.Living;
 @using Hedron.Core.System;
 @using Server.Shared.Filters;
+@inject LocaleEditorState EditorState;
 
 <div>
     <form>
         <div class="form-group row">
-            <WorldFilter OnWorldFilterChanged="@WorldFilterChanged" Worlds="@Worlds" SelectedWorld="@_currentWorld?.Prototype" />
-            <AreaFilter OnAreaFilterChanged="@AreaFilterChanged" Areas="@Areas" SelectedArea="@_currentArea?.Prototype" />
-            <RoomFilter OnRoomFilterChanged="@RoomFilterChanged" Rooms="@Rooms" SelectedRoom="@_currentRoom?.Prototype" />
+            <WorldFilter OnWorldFilterChanged="@WorldFilterChanged" Worlds="@Worlds" />
+            <AreaFilter OnAreaFilterChanged="@AreaFilterChanged" Areas="@Areas" />
+            <RoomFilter OnRoomFilterChanged="@RoomFilterChanged" Rooms="@Rooms" />
             <div class="col-xl-1">
                 <!-- empty -->
             </div>
             <div class="col-xl-2 pl-0">
-                @if (_currentArea != null)
+                @if (EditorState.CurrentArea != null)
                 {
                     <button @onclick="NewRoom" class="btn btn-primary col-form-label mr-3 text-center" style="width: 75px">New</button>
                 }
-                @if (_currentRoom != null)
+                @if (EditorState.CurrentRoom != null)
                 {
                     <button @onclick="DeleteRoom" class="btn btn-danger col-form-label text-center" style="width: 75px">Delete</button>
                 }
@@ -31,25 +32,25 @@
     <form>
         <div class="form-group row">
             <label for="roomName" class="col-xl-1 col-form-label">Name</label>
-            @if (_currentRoom != null)
+            @if (EditorState.CurrentRoom != null)
             {
-                <input id="roomName" class="col-xl-2 col-form-label" @bind="_currentRoom.Name" />
-                DataPersistence.SaveObject(_currentRoom);
+                <input id="roomName" class="col-xl-2 col-form-label" @bind="EditorState.CurrentRoom.Name" />
+                DataPersistence.SaveObject(EditorState.CurrentRoom);
             }
             else
             {
                 <input id="roomName" class="col-xl-2 col-form-label" disabled />
             }
             <label for="roomTier" class="col-xl-1 col-form-label">Tier</label>
-            @if (_currentRoom != null)
+            @if (EditorState.CurrentRoom != null)
             {
-                <select id="roomTier" class="col-xl-2 col-form-label" @bind="_currentRoom.Tier.Level">
+                <select id="roomTier" class="col-xl-2 col-form-label" @bind="EditorState.CurrentRoom.Tier.Level">
                     @for (var i = Constants.MIN_TIER; i <= Constants.MAX_TIER; i++)
                     {
                         <option value="@i">@i</option>
                     }
                 </select>
-                DataPersistence.SaveObject(_currentRoom);
+                DataPersistence.SaveObject(EditorState.CurrentRoom);
             }
             else
             {
@@ -57,9 +58,9 @@
                 </select>
             }
             <label for="roomPrototype" class="col-xl-1 col-form-label">Prototype</label>
-            @if (_currentRoom != null)
+            @if (EditorState.CurrentRoom != null)
             {
-                <input id="roomPrototype" class="col-xl-2 col-form-label" @bind="_currentRoom.Prototype" disabled />
+                <input id="roomPrototype" class="col-xl-2 col-form-label" @bind="EditorState.CurrentRoom.Prototype" disabled />
             }
             else
             {
@@ -68,10 +69,10 @@
         </div>
         <div class="form-group row">
             <label for="roomDescription" class="col-xl-1 col-form-label">Name</label>
-            @if (_currentRoom != null)
+            @if (EditorState.CurrentRoom != null)
             {
-                <textarea id="roomDesc" class="col-xl-5 col-form-label" @bind="_currentRoom.Description" rows="4" />
-                DataPersistence.SaveObject(_currentRoom);
+                <textarea id="roomDesc" class="col-xl-5 col-form-label" @bind="EditorState.CurrentRoom.Description" rows="4" />
+                DataPersistence.SaveObject(EditorState.CurrentRoom);
             }
             else
             {
@@ -79,10 +80,10 @@
             }
             <label for="roomShop" class="col-xl-1 col-form-label">Shop</label>
             <div class="col-xl-1 pl-0 pt-1">
-                @if (_currentRoom != null)
+                @if (EditorState.CurrentRoom != null)
                 {
-                    <input type="checkbox" id="roomShop" @bind="_currentRoom.IsShop" rows="4" />
-                    DataPersistence.SaveObject(_currentRoom);
+                    <input type="checkbox" id="roomShop" @bind="EditorState.CurrentRoom.IsShop" rows="4" />
+                    DataPersistence.SaveObject(EditorState.CurrentRoom);
                 }
                 else
                 {
@@ -92,38 +93,38 @@
         </div>
     </form>
 </div>
-@if (_currentRoom != null)
+@if (EditorState.CurrentRoom != null)
 {
     <div>
         <form>
             <div class="form-group row">
                 <label for="exitNorth" class="col-xl-1 col-form-label">North</label>
-                <input id="exitNorth" class="col-xl-1 col-form-label" @bind="_currentRoom.Exits.North" />
+                <input id="exitNorth" class="col-xl-1 col-form-label" @bind="EditorState.CurrentRoom.Exits.North" />
                 <label for="exitEast" class="col-xl-1 col-form-label">East</label>
-                <input id="exitEast" class="col-xl-1 col-form-label" @bind="_currentRoom.Exits.East" />
+                <input id="exitEast" class="col-xl-1 col-form-label" @bind="EditorState.CurrentRoom.Exits.East" />
                 <label for="exitSouth" class="col-xl-1 col-form-label">South</label>
-                <input id="exitSouth" class="col-xl-1 col-form-label" @bind="_currentRoom.Exits.South" />
+                <input id="exitSouth" class="col-xl-1 col-form-label" @bind="EditorState.CurrentRoom.Exits.South" />
                 <label for="exitWest" class="col-xl-1 col-form-label">West</label>
-                <input id="exitWest" class="col-xl-1 col-form-label" @bind="_currentRoom.Exits.West" />
+                <input id="exitWest" class="col-xl-1 col-form-label" @bind="EditorState.CurrentRoom.Exits.West" />
             </div>
             <div class="form-group row">
                 <label for="exitUp" class="col-xl-1 col-form-label">Up</label>
-                <input id="exitUp" class="col-xl-1 col-form-label" @bind="_currentRoom.Exits.Up" />
+                <input id="exitUp" class="col-xl-1 col-form-label" @bind="EditorState.CurrentRoom.Exits.Up" />
                 <label for="exitDown" class="col-xl-1 col-form-label">Down</label>
-                <input id="exitDown" class="col-xl-1 col-form-label" @bind="_currentRoom.Exits.Down" />
+                <input id="exitDown" class="col-xl-1 col-form-label" @bind="EditorState.CurrentRoom.Exits.Down" />
             </div>
         </form>
     </div>
-    DataPersistence.SaveObject(_currentRoom);
+    DataPersistence.SaveObject(EditorState.CurrentRoom);
 }
-@if (_currentRoom != null)
+@if (EditorState.CurrentRoom != null)
 {
     <div>
         <div class="row mt-4 pt-xl-4 pr-xl-5 pl-xl-3">
             <p>
                 <h3 class="pl-xl-5"><strong>Mobs</strong></h3>
             </p>
-            <MobList Mobs="@(_currentRoom.Animates.GetAllEntitiesAsObjects<Mob>())" />
+            <MobList Mobs="@(EditorState.CurrentRoom.Animates.GetAllEntitiesAsObjects<Mob>())" />
         </div>
         <div class="row mt-5 pt-xl-4 pr-xl-5 pl-xl-3">
 
@@ -133,15 +134,6 @@
 
 
 @code {
-    private uint? _selectedWorld;
-    private World _currentWorld;
-
-    private uint? _selectedArea;
-    private Area _currentArea;
-
-    private uint? _selectedRoom;
-    private Room _currentRoom;
-
     public List<World> Worlds { get; set; }
     public List<Area> Areas { get; set; }
     public List<Room> Rooms { get; set; }
@@ -156,12 +148,12 @@
 
     protected void WorldFilterChanged(uint? worldID)
     {
-        _selectedWorld = worldID;
-        _currentWorld = DataAccess.Get<World>(_selectedWorld, CacheType.Prototype);
-        if (_currentWorld == null)
+        EditorState.SelectedWorld = worldID;
+        EditorState.CurrentWorld = DataAccess.Get<World>(EditorState.SelectedWorld, CacheType.Prototype);
+        if (EditorState.CurrentWorld == null)
         {
-            _selectedArea = null;
-            _currentArea = null;
+            EditorState.SelectedArea = null;
+            EditorState.CurrentArea = null;
         }
         RefreshAreas();
         RefreshRooms();
@@ -169,62 +161,59 @@
 
     protected void AreaFilterChanged(uint? areaID)
     {
-        _selectedArea = areaID;
-        _currentArea = DataAccess.Get<Area>(_selectedArea, CacheType.Prototype);
-        if (_currentArea == null)
-        {
-            _selectedRoom = null;
-            _currentRoom = null;
-        }
+        EditorState.SelectedArea = areaID;
+        EditorState.CurrentArea = DataAccess.Get<Area>(EditorState.SelectedArea, CacheType.Prototype);
+
+        EditorState.SelectedRoom = null;
+        EditorState.CurrentRoom = null;
+
         RefreshRooms();
     }
 
     private void RefreshAreas()
     {
-        if (_selectedWorld != null)
-            Areas = DataAccess.Get<World>(_selectedWorld, CacheType.Prototype).Areas.GetAllEntitiesAsObjects<Area>();
+        if (EditorState.SelectedWorld != null)
+            Areas = DataAccess.Get<World>(EditorState.SelectedWorld, CacheType.Prototype).Areas.GetAllEntitiesAsObjects<Area>();
         else
             Areas = new List<Area>();
     }
 
     protected void RoomFilterChanged(uint? roomID)
     {
-        _selectedRoom = roomID;
-        _currentRoom = DataAccess.Get<Room>(_selectedRoom, CacheType.Prototype);
-        if (_currentRoom == null)
-        {
-            _selectedRoom = null;
-        }
+        EditorState.SelectedRoom = roomID;
+        EditorState.CurrentRoom = DataAccess.Get<Room>(EditorState.SelectedRoom, CacheType.Prototype);
         RefreshMobs();
     }
 
     private void RefreshRooms()
     {
-        if (_selectedArea != null)
-            Rooms = DataAccess.Get<Area>(_selectedArea, CacheType.Prototype).Rooms.GetAllEntitiesAsObjects<Room>();
+        if (EditorState.SelectedArea != null)
+            Rooms = DataAccess.Get<Area>(EditorState.SelectedArea, CacheType.Prototype).Rooms.GetAllEntitiesAsObjects<Room>();
         else
             Rooms = new List<Room>();
     }
 
     private void RefreshMobs()
     {
-        if (_currentRoom != null)
-            Mobs = _currentRoom.Animates.GetAllEntitiesAsObjects<Mob>();
+        if (EditorState.CurrentRoom != null)
+            Mobs = EditorState.CurrentRoom.Animates.GetAllEntitiesAsObjects<Mob>();
         else
             Mobs = new List<Mob>();
     }
 
     private void NewRoom()
     {
-        var newRoom = Room.NewPrototype((uint)_currentArea.Prototype);
-        _currentRoom = newRoom;
+        var newRoom = Room.NewPrototype((uint)EditorState.CurrentArea.Prototype);
+        EditorState.SelectedRoom = newRoom.Prototype;
+        EditorState.CurrentRoom = newRoom;
         RefreshRooms();
     }
 
     private void DeleteRoom()
     {
-        DataAccess.Remove<Room>(_currentRoom.Prototype, CacheType.Prototype);
-        _currentRoom = null;
+        DataAccess.Remove<Room>(EditorState.CurrentRoom.Prototype, CacheType.Prototype);
+        EditorState.SelectedRoom = null;
+        EditorState.CurrentRoom = null;
         RefreshRooms();
     }
 

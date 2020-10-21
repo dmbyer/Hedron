@@ -6,20 +6,21 @@
 @using Hedron.Core.System;
 @using Server.Shared.Filters;
 @using Server.Shared.Lists;
+@inject LocaleEditorState EditorState;
 
     <div>
         <form>
             <div class="form-group row">
-                <WorldFilter OnWorldFilterChanged="@WorldFilterChanged" Worlds="@Worlds" SelectedWorld="@_currentWorld?.Prototype" />
+                <WorldFilter OnWorldFilterChanged="@WorldFilterChanged" Worlds="@Worlds" />
                 <div class="col-xl-1">
                     <!-- empty -->
                 </div>
                 <div class="col-xl-2 pl-0">
-                    @if (_currentWorld != null)
+                    @if (EditorState.CurrentWorld != null)
                     {
                         <button @onclick="NewWorld" class="btn btn-primary col-form-label mr-3 text-center" style="width: 75px">New</button>
                     }
-                    @if (_currentWorld != null)
+                    @if (EditorState.CurrentWorld != null)
                     {
                         <button @onclick="DeleteWorld" class="btn btn-danger col-form-label text-center" style="width: 75px">Delete</button>
                     }
@@ -30,19 +31,19 @@
         <form>
             <div class="form-group row">
                 <label for="worldName" class="col-xl-1 col-form-label">Name</label>
-                @if (_currentWorld != null)
+                @if (EditorState.CurrentWorld != null)
                 {
-                    <input id="worldName" class="col-xl-2 col-form-label" @bind="_currentWorld.Name" />
-                    DataPersistence.SaveObject(_currentWorld);
+                    <input id="worldName" class="col-xl-2 col-form-label" @bind="EditorState.CurrentWorld.Name" />
+                    DataPersistence.SaveObject(EditorState.CurrentWorld);
                 }
                 else
                 {
                     <input id="worldName" class="col-xl-2 col-form-label" disabled />
                 }
                 <label for="worldProtoype" class="col-xl-1 col-form-label">Prototype</label>
-                @if (_currentWorld != null)
+                @if (EditorState.CurrentWorld != null)
                 {
-                    <input id="worldPrototype" class="col-xl-2 col-form-label" @bind="_currentWorld.Prototype" disabled />
+                    <input id="worldPrototype" class="col-xl-2 col-form-label" @bind="EditorState.CurrentWorld.Prototype" disabled />
                 }
                 else
                 {
@@ -51,17 +52,17 @@
             </div>
         </form>
 
-        @if (_currentWorld != null)
+        @if (EditorState.CurrentWorld != null)
         {
             <form>
                 <div class="form-group row">
-                    <RoomFilter OnRoomFilterChanged="@RoomFilterChanged" SelectedRoom="@_selectedRoom" Rooms="@Rooms" FilterLabel="Start"/>
+                    <RoomFilter OnRoomFilterChanged="@RoomFilterChanged" Rooms="@Rooms" FilterLabel="Start"/>
                 </div>
             </form>
         }
     </div>
 
-@if (_currentWorld != null)
+@if (EditorState.CurrentWorld != null)
 {
     <div class="row mt-5 pt-xl-5 pr-xl-5 pl-xl-3">
         <AreaList Areas="@Areas" />
@@ -73,9 +74,6 @@
 
 
 @code {
-    private uint? _selectedWorld;
-    private World _currentWorld;
-
     private uint? _selectedRoom;
 
     public List<World> Worlds { get; set; }
@@ -92,9 +90,8 @@
 
     protected void WorldFilterChanged(uint? worldID)
     {
-        _selectedWorld = worldID;
-        _currentWorld = DataAccess.Get<World>(_selectedWorld, CacheType.Prototype);
-        _selectedRoom = _currentWorld.StartingLocation;
+        EditorState.SelectedWorld = worldID;
+        EditorState.CurrentWorld = DataAccess.Get<World>(EditorState.SelectedWorld, CacheType.Prototype);
         RefreshAreas();
         RefreshRooms();
     }
@@ -106,20 +103,22 @@
 
     private void RefreshAreas()
     {
-        if (_selectedWorld != null)
-            Areas = DataAccess.Get<World>(_selectedWorld, CacheType.Prototype).Areas.GetAllEntitiesAsObjects<Area>();
+        if (EditorState.SelectedWorld != null)
+            Areas = DataAccess.Get<World>(EditorState.SelectedWorld, CacheType.Prototype).Areas.GetAllEntitiesAsObjects<Area>();
         else
             Areas = new List<Area>();
     }
 
     private void RefreshRooms()
     {
-        if (_currentWorld != null)
+        if (EditorState.CurrentWorld != null)
         {
+            var rooms = new List<Room>();
             foreach (var area in Areas)
             {
-                Rooms.AddRange(area.Rooms.GetAllEntitiesAsObjects<Room>());
+                rooms.AddRange(area.Rooms.GetAllEntitiesAsObjects<Room>());
             }
+            Rooms = rooms;
         }
         else
             Areas = new List<Area>();
@@ -137,9 +136,8 @@
 
     protected void RoomFilterChanged(uint? roomID)
     {
-        _selectedRoom = roomID;
-        _currentWorld.StartingLocation = roomID;
-        DataPersistence.SaveObject(_currentWorld);
+        EditorState.CurrentWorld.StartingLocation = roomID;
+        DataPersistence.SaveObject(EditorState.CurrentWorld);
     }
 
 }

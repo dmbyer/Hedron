@@ -1,12 +1,13 @@
 ﻿@inherits ComponentBase
 @using Hedron.Core.Locale;
+@inject LocaleEditorState EditorState;
 
 <label for="worldSelect" class="col-xl-1 col-form-label text-lg-left"><strong>World</strong></label>
-<select id="worldSelect" class="col-xl-2 col-form-label" @bind="WorldID">
+<select id="worldSelect" class="col-xl-2 col-form-label" @bind=WorldID>
     <option value="-1">None</option>
     @foreach (var world in Worlds)
     {
-        if (world.Prototype == SelectedWorld)
+        if (world.Prototype == EditorState.SelectedWorld)
         {
             <option value="@world.Prototype" selected>@world.Name</option>
         }
@@ -24,23 +25,19 @@
     [Parameter]
     public List<World> Worlds { get; set; }
 
-    [Parameter]
-    public uint? SelectedWorld { get; set; }
-
-    private int _worldID;
+    private int _worldID = -1;
     private int WorldID
     {
         get => _worldID;
         set
         {
-            _worldID = value;
-            OnWorldFilterChanged.InvokeAsync(_worldID == -1 ? null : (uint?)_worldID);
+            OnWorldFilterChanged.InvokeAsync(value == -1 ? null : (uint?)value);
         }
     }
 
     protected override void OnInitialized()
     {
-        _worldID = -1;
+
     }
 
 }

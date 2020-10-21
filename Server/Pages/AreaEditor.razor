@@ -5,21 +5,22 @@
 @using Hedron.Core.System;
 @using Server.Shared.Filters;
 @using Server.Shared.Lists;
+@inject LocaleEditorState EditorState;
 
 <div>
     <form>
         <div class="form-group row">
-            <WorldFilter OnWorldFilterChanged="@WorldFilterChanged" Worlds="@Worlds" SelectedWorld="@_currentWorld?.Prototype" />
-            <AreaFilter OnAreaFilterChanged="@AreaFilterChanged" Areas="@Areas" SelectedArea="@_currrentArea?.Prototype" />
+            <WorldFilter OnWorldFilterChanged="@WorldFilterChanged" Worlds="@Worlds" />
+            <AreaFilter OnAreaFilterChanged="@AreaFilterChanged" Areas="@Areas" />
             <div class="col-xl-1">
                 <!-- empty -->
             </div>
             <div class="col-xl-2 pl-0">
-                @if (_currentWorld != null)
+                @if (EditorState.CurrentWorld != null)
                 {
                     <button @onclick="NewArea" class="btn btn-primary col-form-label mr-3 text-center" style="width: 75px">New</button>
                 }
-                @if (_currrentArea != null)
+                @if (EditorState.CurrentArea != null)
                 {
                     <button @onclick="DeleteArea" class="btn btn-danger col-form-label text-center" style="width: 75px">Delete</button>
                 }
@@ -30,25 +31,25 @@
     <form>
         <div class="form-group row">
             <label for="areaName" class="col-xl-1 col-form-label">Name</label>
-            @if (_currrentArea != null)
+            @if (EditorState.CurrentArea != null)
             {
-                <input id="areaName" class="col-xl-2 col-form-label" @bind="_currrentArea.Name" />
-                DataPersistence.SaveObject(_currrentArea);
+                <input id="areaName" class="col-xl-2 col-form-label" @bind="EditorState.CurrentArea.Name" />
+                DataPersistence.SaveObject(EditorState.CurrentArea);
             }
             else
             {
                 <input id="areaName" class="col-xl-2 col-form-label" disabled />
             }
             <label for="areaTier" class="col-xl-1 col-form-label">Tier</label>
-            @if (_currrentArea != null)
+            @if (EditorState.CurrentArea != null)
             {
-                <select id="areaTier" class="col-xl-2 col-form-label" @bind="_currrentArea.Tier.Level">
+                <select id="areaTier" class="col-xl-2 col-form-label" @bind="EditorState.CurrentArea.Tier.Level">
                     @for (var i = Constants.MIN_TIER; i <= Constants.MAX_TIER; i++)
                     {
                         <option value="@i">@i</option>
                     }
                 </select>
-                DataPersistence.SaveObject(_currrentArea);
+                DataPersistence.SaveObject(EditorState.CurrentArea);
             }
             else
             {
@@ -56,9 +57,9 @@
                 </select>
             }
             <label for="areaPrototype" class="col-xl-1 col-form-label">Prototype</label>
-            @if (_currrentArea != null)
+            @if (EditorState.CurrentArea != null)
             {
-                <input id="areaPrototype" class="col-xl-2 col-form-label" @bind="_currrentArea.Prototype" disabled />
+                <input id="areaPrototype" class="col-xl-2 col-form-label" @bind="EditorState.CurrentArea.Prototype" disabled />
             }
             else
             {
@@ -68,7 +69,7 @@
     </form>
 </div>
 
-@if (_selectedArea != null)
+@if (EditorState.SelectedArea != null)
 {
     <div class="row mt-5 pt-xl-5 pr-xl-5 pl-xl-3">
         <RoomList Rooms="@Rooms" />
@@ -80,14 +81,6 @@
 
 
 @code {
-    private uint? _selectedWorld;
-    private World _currentWorld;
-
-    private uint? _selectedArea;
-    private Area _currrentArea;
-
-    // private uint? _selectedRoom;
-
     public List<World> Worlds { get; set; }
     public List<Area> Areas { get; set; }
     public List<Room> Rooms { get; set; }
@@ -102,11 +95,12 @@
 
     protected void WorldFilterChanged(uint? worldID)
     {
-        _selectedWorld = worldID;
-        _currentWorld = DataAccess.Get<World>(_selectedWorld, CacheType.Prototype);
-        if (_currentWorld == null)
+        EditorState.SelectedWorld = worldID;
+        EditorState.CurrentWorld = DataAccess.Get<World>(EditorState.SelectedWorld, CacheType.Prototype);
+        if (EditorState.CurrentWorld == null)
         {
-            _selectedArea = null;
+            EditorState.SelectedArea = null;
+            EditorState.CurrentArea = null;
         }
         RefreshAreas();
         RefreshRooms();
@@ -114,43 +108,43 @@
 
     protected void AreaFilterChanged(uint? areaID)
     {
-        _selectedArea = areaID;
-        _currrentArea = DataAccess.Get<Area>(_selectedArea, CacheType.Prototype);
+        EditorState.SelectedArea = areaID;
+        EditorState.CurrentArea = DataAccess.Get<Area>(EditorState.SelectedArea, CacheType.Prototype);
         RefreshRooms();
     }
 
-    /*
-    protected void RoomClicked(uint? roomID)
-    {
-        _selectedRoom = roomID;
-    }
-    */
-
     private void RefreshAreas()
     {
-        Areas = DataAccess.GetAll<Area>(CacheType.Prototype);
+        if (EditorState.SelectedWorld != null)
+            Areas = DataAccess.Get<World>(EditorState.SelectedWorld, CacheType.Prototype).Areas.GetAllEntitiesAsObjects<Area>();
+        else
+            Areas = new List<Area>();
     }
 
     private void RefreshRooms()
     {
-        if (_selectedArea != null)
-            Rooms = DataAccess.Get<Area>(_selectedArea, CacheType.Prototype).Rooms.GetAllEntitiesAsObjects<Room>();
+        if (EditorState.SelectedArea != null)
+            Rooms = DataAccess.Get<Area>(EditorState.SelectedArea, CacheType.Prototype).Rooms.GetAllEntitiesAsObjects<Room>();
         else
             Rooms = new List<Room>();
     }
 
     private void NewArea()
     {
-        var newArea = Area.NewPrototype((uint)_selectedWorld);
-        _currrentArea = newArea;
+        var newArea = Area.NewPrototype((uint)EditorState.SelectedWorld);
+        EditorState.SelectedArea = newArea.Prototype;
+        EditorState.CurrentArea = newArea;
         RefreshAreas();
+        RefreshRooms();
     }
 
     private void DeleteArea()
     {
-        DataAccess.Remove<Area>(_currrentArea.Prototype, CacheType.Prototype);
-        _currrentArea = null;
+        DataAccess.Remove<Area>(EditorState.CurrentArea.Prototype, CacheType.Prototype);
+        EditorState.SelectedArea = null;
+        EditorState.CurrentArea = null;
         RefreshAreas();
+        RefreshRooms();
     }
 
 }

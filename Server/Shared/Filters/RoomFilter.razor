@@ -1,21 +1,22 @@
 ﻿@inherits ComponentBase
 @using Hedron.Core.Locale;
+@inject LocaleEditorState EditorState;
 
-    <label for="roomSelect" class="col-xl-1 col-form-label"><strong>@FilterLabel</strong></label>
-    <select id="roomSelect" class="col-xl-2 col-form-label" @bind="RoomID">
-        <option value="-1">None</option>
-        @foreach (var room in Rooms)
+<label for="roomSelect" class="col-xl-1 col-form-label"><strong>@FilterLabel</strong></label>
+<select id="roomSelect" class="col-xl-2 col-form-label" @bind="RoomID">
+    <option value="-1">None</option>
+    @foreach (var room in Rooms)
+    {
+        if (room.Prototype == EditorState.SelectedRoom)
         {
-            if (room.Prototype == SelectedRoom)
-            {
-                <option value="@room.Prototype" selected>@room.Name</option>
-            }
-            else
-            {
-                <option value="@room.Prototype">@room.Name</option>
-            }
+            <option value="@room.Prototype" selected>@room.Name</option>
         }
-    </select>
+        else
+        {
+            <option value="@room.Prototype">@room.Name</option>
+        }
+    }
+</select>
 
 @code {
     [Parameter]
@@ -25,25 +26,21 @@
     public List<Room> Rooms { get; set; }
 
     [Parameter]
-    public uint? SelectedRoom { get; set; }
-
-    [Parameter]
     public string FilterLabel { get; set; } = "Room";
 
-    private int _roomID;
+    private int _roomID = -1;
     private int RoomID
     {
         get => _roomID;
         set
         {
-            _roomID = value;
-            OnRoomFilterChanged.InvokeAsync(_roomID == -1 ? null : (uint?)_roomID);
+            OnRoomFilterChanged.InvokeAsync(value == -1 ? null : (uint?)value);
         }
     }
 
     protected override void OnInitialized()
     {
-        _roomID = -1;
+
     }
 
 }

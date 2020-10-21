@@ -27,6 +27,7 @@ namespace Server
 		{
 			services.AddRazorPages();
 			services.AddServerSideBlazor();
+			services.AddScoped<LocaleEditorState>();
 		}
 
 		// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
