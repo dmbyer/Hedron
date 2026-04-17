@@ -1,8 +1,8 @@
-﻿using Hedron.Core.Entities.Base;
-using Hedron.Core.Entities.Item;
-using Hedron.Core.Entities.Properties;
-using Hedron.Core.Skills;
-using Hedron.Core.Skills.Passive;
+﻿using Core.ECS.Entities.Base;
+using Core.ECS.Entities.Item;
+using Core.ECS.Properties;
+using Core.Modules.Skills;
+using Core.Modules.Skills.Passive;
 using System;
 using System.Collections.Generic;
 using System.Linq;

@@ -1,8 +1,8 @@
-﻿using Hedron.Core.Entities.Living;
-using Hedron.Core.System;
+﻿using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Command;
 using System.Collections.Generic;
-using Hedron.Core.Entities.Properties;
+using Core.ECS.Properties;
+using Core.ECS.Entities.Living;
 
 namespace Hedron.Core.Commands.Building
 {

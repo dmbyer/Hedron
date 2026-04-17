@@ -1,4 +1,4 @@
-﻿using Hedron.Core.Entities.Base;
+﻿using Core.ECS.Entities.Base;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -60,17 +60,6 @@ namespace Hedron.Core.System
 			}
 
 			return mappedObjects;
-		}
-
-		/// <summary>
-		/// Maps a description of entities to the number of times the entity appears in the list.
-		/// </summary>
-		/// <param name="entities">The list of entities to parse</param>
-		/// <param name="descriptionType">The type of description to parse</param>
-		/// <returns>A map of the quantity and description, such as [["a short sword"][2]]</returns>
-		public static Dictionary<Tuple<string, uint?>, int> ParseEntityQuantitiesAsMap<T>(List<T> entities, MapStringTypes descriptionType) where T: IEntity
-		{
-			return MapEntityDescriptionQuantites(entities, descriptionType);
 		}
 
 		/// <summary>

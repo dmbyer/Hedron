@@ -1,6 +1,5 @@
 using Hedron.Data;
 using Hedron.Core.Commands;
-using Hedron.Core.Locale;
 using Hedron.Core.System;
 using Hedron.Network;
 using System;
@@ -13,6 +12,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Core.Modules.Locale;
 
 namespace Server
 {

@@ -1,4 +1,4 @@
-﻿using Hedron.Core.Entities.Properties;
+﻿using Core.ECS.Properties;
 using Hedron.Core.System;
 
 namespace Hedron.Core.Commands.Movement

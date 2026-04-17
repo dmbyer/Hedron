@@ -1,11 +1,11 @@
-﻿using Hedron.Core.Entities.Base;
-using Hedron.Core.Container;
-using Hedron.Core.Entities.Living;
-using Hedron.Core.Entities.Properties;
-using Hedron.Core.System;
+﻿using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Command;
 using Hedron.Core.System.Text;
 using System.Collections.Generic;
+using Core.ECS.Properties;
+using Core.ECS.Entities.Base;
+using Core.ECS.Entities.Container;
+using Core.ECS.Entities.Living;
 
 namespace Hedron.Core.Commands.Movement
 {

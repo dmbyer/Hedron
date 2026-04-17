@@ -1,7 +1,7 @@
-﻿using Hedron.Core.Locale;
-using Hedron.Core.Entities.Properties;
-using Hedron.Core.System;
+﻿using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Command;
+using Core.Modules.Locale;
+using Core.ECS.Properties;
 
 namespace Hedron.Core.Commands.System
 {

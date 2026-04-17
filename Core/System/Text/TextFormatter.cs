@@ -1,4 +1,4 @@
-﻿using Hedron.Core.Locale;
+﻿using Core.Modules.Locale;
 using System;
 using System.Collections.Generic;
 

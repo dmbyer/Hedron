@@ -45,6 +45,12 @@ namespace Hedron.Data
 		public CacheType CacheType { get; set; }
 
 		/// <summary>
+		/// Whether this object is a prototype (template) or an instance
+		/// </summary>
+		[JsonIgnore]
+		public bool IsPrototype => CacheType == CacheType.Prototype;
+
+		/// <summary>
 		/// Eventhandler for child objects being removed from cache
 		/// </summary>
 		public event EventHandler<CacheObjectEventArgs> CacheObjectRemoved;

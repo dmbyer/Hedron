@@ -1,5 +1,5 @@
-﻿using Hedron.Core.Entities.Base;
-using Hedron.Core.Entities.Properties;
+﻿using Core.ECS.Entities.Base;
+using Core.ECS.Properties;
 using System;
 using System.Collections.Generic;
 using System.Linq;

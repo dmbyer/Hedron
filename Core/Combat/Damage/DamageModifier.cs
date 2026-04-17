@@ -1,5 +1,5 @@
 ﻿using Hedron.Data;
-using Hedron.Core.Factory;
+using Core.Modules.Factory;
 
 namespace Hedron.Core.Damage
 {

@@ -1,4 +1,4 @@
-﻿using Hedron.Core.Entities.Base;
+﻿using Core.ECS.Entities.Base;
 using System;
 using System.Collections.Generic;
 using System.Linq;

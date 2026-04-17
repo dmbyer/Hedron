@@ -1,5 +1,5 @@
-﻿using Hedron.Core.Entities.Base;
-using Hedron.Core.Entities.Properties;
+﻿using Core.ECS.Entities.Base;
+using Core.ECS.Properties;
 using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Command;
 using Hedron.Core.System.Text;

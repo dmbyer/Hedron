@@ -1,4 +1,4 @@
-﻿using Hedron.Core.Entities.Properties;
+﻿using Core.ECS.Properties;
 
 namespace Hedron.Core.System
 {

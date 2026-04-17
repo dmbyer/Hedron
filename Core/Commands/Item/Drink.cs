@@ -1,13 +1,13 @@
-﻿using Hedron.Core.Entities.Base;
-using Hedron.Core.Entities.Item;
-using Hedron.Core.Entities.Properties;
-using Hedron.Data;
+﻿using Hedron.Data;
 using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Command;
 using Hedron.Core.System.Text;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Core.ECS.Properties;
+using Core.ECS.Entities.Base;
+using Core.ECS.Entities.Item;
 
 namespace Hedron.Core.Commands.Item
 {

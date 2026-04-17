@@ -1,10 +1,10 @@
 ﻿using Hedron.Core.Container;
-using Hedron.Core.Locale;
 using Hedron.Data;
-using Hedron.Core.Entities.Properties;
 using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Command;
 using System.Collections.Generic;
+using Core.Modules.Locale;
+using Core.ECS.Properties;
 
 namespace Hedron.Core.Commands.Building
 {

@@ -12,9 +12,9 @@ namespace Hedron.Data
 		private readonly Dictionary<uint, ICacheableObject> _cached_objects = new Dictionary<uint, ICacheableObject>();
 
 		/// <summary>
-		/// The list of unique IDs in the cache.
+		/// Simple ID counter for generating new IDs
 		/// </summary>
-		private readonly List<uint> _id_list = new List<uint>();
+		private uint _nextId = 1;
 
 		public DataCache()
 		{
@@ -71,23 +71,35 @@ namespace Hedron.Data
 		}
 
 		/// <summary>
-		/// Adds an object to the cache. You MUST first check to see if the cache contains a duplicate key.
+		/// Adds an object to the cache.
 		/// </summary>
 		/// <param name="entity">The object to add.</param>
-		/// <param name="specificID">The specific ID to add. If -1, find first available ID.</param>
+		/// <param name="cacheType">Whether this is a prototype or instance</param>
+		/// <param name="specificID">The specific ID to use (for loading existing objects)</param>
+		/// <param name="persist">Whether to persist to disk</param>
 		/// <returns>The ID of the added object</returns>
 		public uint Add(ICacheableObject entity, CacheType cacheType, uint? specificID = null, bool persist = false)
 		{
 			if (entity == null)
-				throw new ArgumentNullException(nameof(Add));
+				throw new ArgumentNullException(nameof(entity));
 
 			uint id;
 
-			// Consume the appropriate ID
-			if (specificID == null)
-				id = ConsumeFirstAvailableID();
+			// Use specific ID if provided (for loading), otherwise generate new ID
+			if (specificID != null)
+			{
+				id = (uint)specificID;
+				if (_cached_objects.ContainsKey(id))
+					throw new ArgumentException($"ID {id} already exists in cache");
+				
+				// Update next ID if necessary
+				if (id >= _nextId)
+					_nextId = id + 1;
+			}
 			else
-				id = ConsumeSpecifiedID((uint)specificID);
+			{
+				id = _nextId++;
+			}
 
 			_cached_objects.Add(id, entity);
 
@@ -123,7 +135,6 @@ namespace Hedron.Data
 
 				// Remove from cache
 				_cached_objects.Remove((uint)id);
-				_id_list.Remove((uint)id);
 
 				if (cacheType == CacheType.Prototype)
 					DataPersistence.DeleteObject(entity);
@@ -161,68 +172,6 @@ namespace Hedron.Data
 				return false;
 
 			return _cached_objects.ContainsKey((uint)id);
-		}
-
-		/// <summary>
-		/// Consumes the first available unique ID.
-		/// </summary>
-		/// <returns>a unique ID</returns>
-		private uint ConsumeFirstAvailableID()
-		{
-			uint nsize = (uint)_id_list.Count;
-			if (nsize == int.MaxValue) { throw new IndexOutOfRangeException("Maximum cache size reached."); }
-
-			if (nsize == 0)
-			{
-				_id_list.Add(0);
-				return 0;
-			}
-			else
-			{
-				uint id = FindFirstAvailableID(0, nsize - 1);
-				_id_list.Add(id);
-				_id_list.Sort();
-				return id;
-			}
-		}
-
-		/// <summary>
-		/// Consumes a specified unique ID. Should only be used when loading initial data.
-		/// </summary>
-		private uint ConsumeSpecifiedID(uint id)
-		{
-			if (_id_list.Count == int.MaxValue)
-				throw new IndexOutOfRangeException("Maximum world size reached.");
-
-			if (!_id_list.Contains(id))
-			{
-				_id_list.Add(id);
-				_id_list.Sort();
-				return id;
-			}
-			else
-			{
-				throw new ArgumentOutOfRangeException("Cannot add existing GUID.");
-			}
-		}
-
-		/// <summary>
-		/// Recursive helper method to find the first available ID.
-		/// </summary>
-		private uint FindFirstAvailableID(uint start, uint end)
-		{
-			if (start > end)
-				return end + 1;
-
-			if (start != _id_list[(int)start])
-				return start;
-
-			uint mid = (start + end) / 2;
-
-			if (_id_list[(int)mid] > mid)
-				return FindFirstAvailableID(start, mid);
-			else
-				return FindFirstAvailableID(mid + 1, end);
 		}
 	}
 }

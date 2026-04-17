@@ -1,4 +1,4 @@
-﻿using Hedron.Core.Entities.Living;
+﻿using Core.ECS.Entities.Living;
 using System;
 
 namespace Hedron.Core.System

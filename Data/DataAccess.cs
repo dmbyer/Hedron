@@ -11,21 +11,19 @@ using System.Linq;
 namespace Hedron.Data
 {
 	/// <summary>
-	/// Grants access to object caches.
+	/// Grants access to unified object cache.
 	/// </summary>
 	/// <remarks>Only allows objects implementing ICacheableObject and ICopyableObject to be cached.</remarks>
 	public static class DataAccess
 	{
-		private static DataCache _instanced = new DataCache();
-		private static DataCache _prototype = new DataCache();
+		private static DataCache _cache = new DataCache();
 
 		/// <summary>
-		/// Wipe the instance and prototype caches. ONLY use when loading a world from scratch.
+		/// Wipe the cache. ONLY use when loading a world from scratch.
 		/// </summary>
 		public static void WipeCache()
 		{
-			_instanced = new DataCache();
-			_prototype = new DataCache();
+			_cache = new DataCache();
 		}
 
 		/// <summary>
@@ -38,64 +36,57 @@ namespace Hedron.Data
 		/// <returns>The ID of the added object</returns>
 		public static uint Add<T>(CacheableObject entity, CacheType cacheType, uint? specificID = null, bool persist = true) where T : CacheableObject
 		{
-			if (cacheType == CacheType.Instance)
-			{
-				if (_instanced.ContainsID(entity.Instance))
-					throw new ArgumentException("Cannot add duplicate object to instance cache.", nameof(entity));
+			// Check for duplicate IDs
+			uint? existingId = cacheType == CacheType.Instance ? entity.Instance : entity.Prototype;
+			if (existingId != null && _cache.ContainsID(existingId))
+				throw new ArgumentException($"Cannot add duplicate object with ID {existingId} to cache.", nameof(entity));
 
-				// Add to Instance cache
-				_instanced.Add(entity, cacheType, null, false);
+			// Add to unified cache
+			bool shouldPersist = persist && cacheType == CacheType.Prototype;
+			uint id = _cache.Add(entity, cacheType, specificID, shouldPersist);
 
-				return (uint)entity.Instance;
-			}
-			else
-			{
-				if (_prototype.ContainsID(entity.Prototype))
-					throw new ArgumentException("Cannot add duplicate object to prototype cache.", nameof(entity));
-
-				// Add to Prototype cache
-				_prototype.Add(entity, cacheType, specificID, persist);
-
-				return (uint)entity.Prototype;
-			}
+			return id;
 		}
 
 		/// <summary>
-		/// Gets an object from the live data cache.
+		/// Gets an object from the data cache.
 		/// </summary>
 		/// <param name="id">The ID of the object to get.</param>
 		/// <param name="cacheType">The cache type to retrieve from</param>
 		/// <typeparam name="T">The type of the objects</typeparam>
-		/// <returns>The instanced object</returns>
+		/// <returns>The cached object</returns>
 		public static T Get<T>(uint? id, CacheType cacheType) where T : ICacheableObject, ISpawnableObject
 		{
-			DataCache dc = cacheType == CacheType.Instance ? _instanced : _prototype;
-			return dc.Get<T>(id);
+			var obj = _cache.Get<T>(id);
+			// Verify the object matches the requested cache type
+			return obj?.CacheType == cacheType ? obj : default(T);
 		}
 
 		/// <summary>
-		/// Gets many objects from the live data cache.
+		/// Gets many objects from the data cache.
 		/// </summary>
 		/// <param name="ids">The IDs of the objects to get.</param>
 		/// <param name="cacheType">The cache type to retrieve from</param>
 		/// <typeparam name="T">The type of the objects</typeparam>
-		/// <returns>The instanced object</returns>
+		/// <returns>The cached objects</returns>
 		public static List<T> GetMany<T>(List<uint> ids, CacheType cacheType) where T : ICacheableObject, ISpawnableObject
 		{
-			DataCache dc = cacheType == CacheType.Instance ? _instanced : _prototype;
-			return dc.GetMany<T>(ids);
+			var objects = _cache.GetMany<T>(ids);
+			// Filter by cache type
+			return objects.Where(obj => obj?.CacheType == cacheType).ToList();
 		}
 
 		/// <summary>
-		/// Gets all objects of a given type from the instanced data cache.
+		/// Gets all objects of a given type from the data cache.
 		/// </summary>
 		/// <param name="cacheType">The cache type to retrieve from</param>
 		/// <typeparam name="T">The type of the objects</typeparam>
-		/// <returns>A list of the instanced objects</returns>
+		/// <returns>A list of the cached objects</returns>
 		public static List<T> GetAll<T>(CacheType cacheType) where T : ICacheableObject, ISpawnableObject
 		{
-			DataCache dc = cacheType == CacheType.Instance ? _instanced : _prototype;
-			return dc.GetAll<T>();
+			var objects = _cache.GetAll<T>();
+			// Filter by cache type
+			return objects.Where(obj => obj?.CacheType == cacheType).ToList();
 		}
 
 		/// <summary>
@@ -127,30 +118,26 @@ namespace Hedron.Data
 		/// <param name="cacheType">The cache type to remove from</param>
 		/// <typeparam name="T">The type of the object</typeparam>
 		/// <returns>Whether the object was successfully removed</returns>
-		public static bool Remove<T>(uint? id, CacheType cacheType) where T : ICacheableObject
+		public static bool Remove<T>(uint? id, CacheType cacheType) where T : ICacheableObject, ISpawnableObject
 		{
 			if (id == null)
 				return false;
 
-			if (cacheType == CacheType.Instance)
+			if (cacheType == CacheType.Prototype)
 			{
-				return _instanced.Remove(id, CacheType.Instance);
+				// Remove all instances that reference this prototype
+				var instancedItems = GetAll<T>(CacheType.Instance)
+					.Where(obj => obj.Prototype == id)
+					.Select(obj => obj.Instance)
+					.Where(instanceId => instanceId.HasValue)
+					.Select(instanceId => instanceId.Value)
+					.ToList();
+
+				foreach (var instanceId in instancedItems)
+					Remove<T>(instanceId, CacheType.Instance);
 			}
-			else
-			{
-				// Populate list of instanced items referencing the prototype
-				List<uint> InstancedItemsToRemove = new List<uint>();
 
-				foreach (var obj in _instanced.GetAll<T>())
-					if (obj.Prototype == id)
-						InstancedItemsToRemove.Add((uint)obj.Instance);
-
-				// Remove instanced objects referencing the prototype
-				foreach (var i in InstancedItemsToRemove)
-					Remove<T>(i, CacheType.Instance);
-
-				return _prototype.Remove(id, CacheType.Prototype);
-			}
+			return _cache.Remove(id, cacheType);
 		}
 
 		/// <summary>
@@ -160,8 +147,7 @@ namespace Hedron.Data
 		/// <param name="cacheType">The cache type to remove from</param>
 		public static void RemoveMany(List<uint> ids, CacheType cacheType)
 		{
-			DataCache dc = cacheType == CacheType.Instance ? _instanced : _prototype;
-			dc.RemoveMany(ids, cacheType);
+			_cache.RemoveMany(ids, cacheType);
 		}
 	}
 }

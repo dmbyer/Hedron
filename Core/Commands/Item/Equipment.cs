@@ -1,4 +1,4 @@
-﻿using Hedron.Core.Entities.Properties;
+﻿using Core.ECS.Properties;
 using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Command;
 using System;

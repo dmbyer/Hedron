@@ -1,6 +1,6 @@
-﻿using Hedron.Core.Entities.Base;
-using Hedron.Core.Entities.Properties;
-using Hedron.Core.Locale;
+﻿using Core.ECS.Properties;
+using Core.Modules.Locale;
+using Hedron.Core.Entities.Base;
 using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Command;
 using Hedron.Data;

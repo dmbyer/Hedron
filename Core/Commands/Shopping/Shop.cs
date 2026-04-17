@@ -1,11 +1,11 @@
 ﻿using Hedron.Core.Container;
 using Hedron.Core.Locale;
-using Hedron.Core.Entities.Base;
-using Hedron.Core.Entities.Properties;
 using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Command;
 using Hedron.Core.System.Text;
 using System.Collections.Generic;
+using Core.ECS.Properties;
+using Core.ECS.Entities.Base;
 
 namespace Hedron.Core.Commands.Shopping
 {

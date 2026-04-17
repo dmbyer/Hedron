@@ -1,18 +1,17 @@
-﻿using Hedron.Core.Commands;
-using Hedron.Core.Commands.Movement;
-using Hedron.Core.Entities.Base;
-using Hedron.Core.Entities.Item;
-using Hedron.Core.Entities.Living;
-using Hedron.Core.Entities.Properties;
-using Hedron.Core.Locale;
+﻿using Hedron.Core.Commands.Movement;
 using Hedron.Data;
-using Hedron.Core.Skills;
-using Hedron.Core.Skills.Passive;
 using Hedron.Core.System;
 using Hedron.Core.System.Text;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Core.Modules.Skills;
+using Core.Modules.Skills.Passive;
+using Core.Modules.Locale;
+using Core.ECS.Properties;
+using Core.ECS.Entities.Base;
+using Core.ECS.Entities.Item;
+using Core.ECS.Entities.Living;
 
 namespace Hedron.Core.Combat
 {

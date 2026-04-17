@@ -1,8 +1,9 @@
-﻿using Hedron.Core.Entities.Properties;
-using Hedron.Core.System.Exceptions.Command;
+﻿using Hedron.Core.System.Exceptions.Command;
 using System.Collections.Generic;
-using Hedron.Core.Skills.Passive;
-using Hedron.Core.Entities.Base;
+using Core.Modules.Skills;
+using Core.Modules.Skills.Passive;
+using Core.ECS.Properties;
+using Core.ECS.Entities.Base;
 
 namespace Hedron.Core.Commands.Skill
 {

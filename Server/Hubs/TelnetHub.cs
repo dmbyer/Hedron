@@ -1,6 +1,6 @@
-﻿using Hedron.Core.Commands;
-using Hedron.Core.Entities.Base;
-using Hedron.Core.Entities.Living;
+﻿using Core.ECS.Entities.Base;
+using Core.ECS.Entities.Living;
+using Hedron.Core.Commands;
 using Hedron.Core.System;
 using Hedron.Data;
 using System;
@@ -118,7 +118,7 @@ namespace Hedron.Network
                             continue;
                     }
 
-                    if (entity.GetType() == typeof(Player) && entity.State != Core.Entities.Properties.EntityState.NameSelection)
+                    if (entity.GetType() == typeof(Player) && entity.State != Core.ECS.Properties.EntityState.NameSelection)
                     {
                         entity.IOHandler?.QueueRawOutput("\n" + ((Player)entity).GetParsedPrompt());
                     }

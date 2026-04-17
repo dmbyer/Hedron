@@ -1,14 +1,14 @@
 ﻿using Hedron.Core.Combat;
 using Hedron.Core.Container;
-using Hedron.Core.Entities.Base;
 using Hedron.Core.Entities.Living;
-using Hedron.Core.Entities.Properties;
 using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Command;
 using Hedron.Core.System.Text;
 using System.Linq;
+using Core.ECS.Properties;
+using Core.ECS.Entities.Base;
 
 namespace Hedron.Core.Commands.Combat
 {

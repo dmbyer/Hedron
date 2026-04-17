@@ -1,11 +1,11 @@
 ﻿using Hedron.Core.Commands;
 using Hedron.Core.Commands.Movement;
-using Hedron.Core.Entities.Base;
-using Hedron.Core.Locale;
 using Hedron.Data;
 using Hedron.Core.System;
 using System.Collections.Generic;
-using Hedron.Core.Entities.Properties;
+using Core.Modules.Locale;
+using Core.ECS.Properties;
+using Core.ECS.Entities.Base;
 
 namespace Hedron.Network
 {
