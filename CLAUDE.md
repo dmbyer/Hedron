@@ -4,45 +4,50 @@ Primary entry point for Claude Code (and any agent) working in this repository. 
 
 ## What Hedron is
 
-C# MUD (Multi-User Dungeon) game engine on .NET Core 3.1. Two surfaces:
+C# MUD (Multi-User Dungeon) game engine targeting .NET 8. The codebase is under active rebuild — the [roadmap](docs/roadmap/plan.md) supersedes any legacy code you encounter.
 
-- **Server** (`Server/`) — Blazor Server admin UI + telnet game server, running in one process. Admin edits hit a shared cache and take effect live in the running game.
-- **Core** (`Core/`) — entities, ECS, gameplay logic, persistence contracts.
-- **Data** (`Data/`) — JSON persistence.
-- **Bot** (`Bot/`) — telnet bot for testing.
+Project layout (as projects are rebuilt, see [`docs/roadmap/plan.md`](docs/roadmap/plan.md) for the keep list):
+
+- **Core** (`Core/`) — components, ECS primitives, systems, handlers, events, commands
+- **Server** (`Server/`) — generic-host console app that runs the telnet listener and owns DI composition
+- **Data** (`Data/`) — persistence (deferred; not needed for MVP)
+- **Bot** (`Bot/`) — telnet test bot (deferred)
 
 ## Commands
 
 ```bash
 dotnet build Hedron.sln
-dotnet run --project Server        # web admin at https://localhost:5001
+dotnet run --project Server
 ```
 
-No test framework is wired up yet — see [`docs/roadmap/backlog.md`](docs/roadmap/backlog.md).
+The project is mid-rebuild; the build may be red between phase-exit points. See [`docs/roadmap/plan.md`](docs/roadmap/plan.md). No test framework yet — tracked in [`docs/roadmap/backlog.md`](docs/roadmap/backlog.md).
 
 ## Where to read next
 
 Read these in order the first time:
 
-1. [`docs/architecture/00-overview.md`](docs/architecture/00-overview.md) — the 4-layer model and where code lives
-2. [`docs/architecture/02-ecs.md`](docs/architecture/02-ecs.md) — canonical ECS reference
-3. [`docs/architecture/03-events.md`](docs/architecture/03-events.md) — event bus and handler ordering
-4. [`docs/architecture/04-pitfalls.md`](docs/architecture/04-pitfalls.md) — what to avoid and why
+1. [`docs/roadmap/plan.md`](docs/roadmap/plan.md) — current phase, what's stripped, what's next
+2. [`docs/roadmap/mvp.md`](docs/roadmap/mvp.md) — the frozen Phase 2 target
+3. [`docs/architecture/00-overview.md`](docs/architecture/00-overview.md) — the 4-layer model and where code lives
+4. [`docs/architecture/02-ecs.md`](docs/architecture/02-ecs.md) — canonical ECS reference
+5. [`docs/architecture/03-events.md`](docs/architecture/03-events.md) — event bus and handler ordering
+6. [`docs/architecture/04-pitfalls.md`](docs/architecture/04-pitfalls.md) — what to avoid and why
 
 **Reference catalogs** (look up specific pieces):
 - [`docs/reference/systems.md`](docs/reference/systems.md) · [`docs/reference/handlers.md`](docs/reference/handlers.md) · [`docs/reference/components.md`](docs/reference/components.md) · [`docs/reference/archetypes.md`](docs/reference/archetypes.md)
 
 **Use cases** (designer scenarios traced through events/handlers/systems): [`docs/use-cases/README.md`](docs/use-cases/README.md)
 
-**Roadmap:** [`docs/roadmap/api-alignment-plan.md`](docs/roadmap/api-alignment-plan.md) · [`docs/roadmap/ecs-migration-status.md`](docs/roadmap/ecs-migration-status.md) · [`docs/roadmap/backlog.md`](docs/roadmap/backlog.md)
+**Roadmap:** [`docs/roadmap/plan.md`](docs/roadmap/plan.md) · [`docs/roadmap/mvp.md`](docs/roadmap/mvp.md) · [`docs/roadmap/backlog.md`](docs/roadmap/backlog.md)
 
 ## Ground rules when writing code
 
-1. **Match the idealized API.** `docs/architecture/` and `docs/use-cases/` describe the **target** shape (`EntityService`, `IEventBus`, domain systems as classes, handlers publish events). Some code still uses legacy patterns — see the alignment plan for how to migrate rather than matching the legacy style.
+1. **Match the idealized API.** `docs/architecture/` and `docs/use-cases/` describe the **target**. New code is written against the target on first attempt. If the target needs to change, update the doc first.
 2. **4-layer discipline.** Handlers orchestrate → domain systems decide → core systems compute → components hold data. Never skip layers upward. See [`docs/architecture/01-layers.md`](docs/architecture/01-layers.md).
-3. **Component queries, not `is`/`as`.** `entityService.HasComponent<PlayerDataComponent>(id)` — never `entity is Player`.
+3. **Component queries, not `is`/`as`.** `entityService.HasComponent<PlayerComponent>(id)` — never `entity is Player`.
 4. **Services return results; handlers publish events.** Systems are pure where possible.
-5. **Prototype vs instance is a `PrototypeComponent`, not a type.** Persistence only touches prototypes.
+5. **Prototype vs instance is a component, not a type.** Persistence only touches prototypes (when persistence exists).
+6. **Legacy code is reference, not contract.** Existing `Core/` code outside the keep list in [`plan.md`](docs/roadmap/plan.md) describes intent only. Don't preserve it — rewrite against the target.
 
 When adding a new feature:
 - New component → `Core/ECS/Components/<Feature>Component.cs` or `Core/Modules/<Feature>/Components/`
@@ -57,4 +62,4 @@ The `.claude/` directory provides Claude-Code-native helpers (skills, subagents,
 
 ## If docs and code disagree
 
-The docs describe the target. The alignment plan ([`docs/roadmap/api-alignment-plan.md`](docs/roadmap/api-alignment-plan.md)) tracks the gap and the sequencing to close it. When implementing against the docs, prefer moving code toward the docs rather than rewriting docs to match legacy code. If a specific design decision in docs turns out to be wrong, update the doc first and call out the change in the PR.
+The docs describe the target. The roadmap ([`docs/roadmap/plan.md`](docs/roadmap/plan.md)) tracks the phase and keep list. Move code toward the docs; don't rewrite docs to match legacy code. If a design decision in docs turns out to be wrong, update the doc first and call out the change in the PR.

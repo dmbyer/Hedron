@@ -2,7 +2,7 @@
 
 This is the **canonical** ECS reference. It supersedes the legacy root `ENTITIES.md` and `DESIGN_DOCS/ENTITIES.md`.
 
-> Code examples use the **idealized API** (`EcsManager.World`, `EntityWorld`, `ref T` component access). See [../roadmap/api-alignment-plan.md](../roadmap/api-alignment-plan.md) for how the current `EntityService`/`ComponentRepository` implementation maps to it.
+> Code examples use the **idealized API** (`EcsManager.World`, `EntityWorld`, `ref T` component access). The implementation sits behind `EntityService`/`ComponentRepository`; see [../roadmap/plan.md](../roadmap/plan.md) for the current rebuild phase.
 
 ---
 
@@ -162,7 +162,7 @@ if (world.HasComponent<PlayerDataComponent>(entityId)) { ... }
 if (world.TryGet<WeaponDataComponent>(entityId, out var weapon)) { ... }
 ```
 
-This is a hard rule — the entity class hierarchy is being phased out (see [../roadmap/ecs-migration-status.md](../roadmap/ecs-migration-status.md)).
+This is a hard rule — the legacy entity class hierarchy was stripped in Phase 1 of the rebuild (see [../roadmap/plan.md](../roadmap/plan.md)).
 
 ---
 

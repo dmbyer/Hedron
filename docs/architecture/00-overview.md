@@ -2,7 +2,7 @@
 
 Hedron is a C# MUD engine targeting .NET Core 3.1, composed of a Blazor Server admin UI and a game-loop thread that share a data cache. The architecture is **event-driven, ECS-based, and layered**.
 
-> **Note on idealized API.** The architecture docs describe the target API (e.g. `EcsManager.World`, `EntityWorld`, `IEventBus`). Parts of the current codebase diverge — see [docs/roadmap/api-alignment-plan.md](../roadmap/api-alignment-plan.md) for the gap inventory and the migration to reach this target. **Write new code against the idealized API; migrate legacy code forward.**
+> **Note on idealized API.** The architecture docs describe the target API (e.g. `EcsManager.World`, `EntityWorld`, `IEventBus`). The codebase is being rebuilt against this target — see [docs/roadmap/plan.md](../roadmap/plan.md) for the phase sequence. **Write new code against the idealized API; legacy code outside the keep list is reference material only.**
 
 ---
 
@@ -74,4 +74,5 @@ Dependencies flow **downward only**. See [01-layers.md](01-layers.md) for full d
 | [../reference/archetypes.md](../reference/archetypes.md) | Living catalog of every archetype |
 | [../use-cases/](../use-cases/) | Designer-level feature specs |
 | [../roadmap/backlog.md](../roadmap/backlog.md) | Prioritized work queue |
-| [../roadmap/api-alignment-plan.md](../roadmap/api-alignment-plan.md) | Bringing code up to idealized API |
+| [../roadmap/plan.md](../roadmap/plan.md) | Phase plan — what's stripped, what's being built |
+| [../roadmap/mvp.md](../roadmap/mvp.md) | Frozen MVP target for Phase 2 |

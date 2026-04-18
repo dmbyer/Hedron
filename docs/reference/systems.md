@@ -2,7 +2,7 @@
 
 Living catalog of every system (core and domain). Update this file whenever a system is added, removed, or renamed.
 
-> Interfaces below use the **idealized API**. See [../roadmap/api-alignment-plan.md](../roadmap/api-alignment-plan.md).
+> Interfaces below use the **idealized API** — the target the codebase is being rebuilt against. See [../roadmap/plan.md](../roadmap/plan.md).
 
 ---
 

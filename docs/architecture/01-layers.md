@@ -2,7 +2,7 @@
 
 This document details each layer, its responsibilities, and how layers interact.
 
-> Code in this doc uses the **idealized API**. See [../roadmap/api-alignment-plan.md](../roadmap/api-alignment-plan.md) for how it maps to the current codebase.
+> Code in this doc uses the **idealized API** — the target the codebase is being rebuilt against. See [../roadmap/plan.md](../roadmap/plan.md) for phase sequencing.
 
 ---
 

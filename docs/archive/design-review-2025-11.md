@@ -1,6 +1,6 @@
 # Design Review (archived, November 2025)
 
-> **Archived — November 2025.** This is a point-in-time audit that drove the restructure into `docs/architecture/`, `docs/reference/`, and the alignment plan in `docs/roadmap/api-alignment-plan.md`. Kept for historical reference. For the current architecture, start at [`docs/architecture/00-overview.md`](../architecture/00-overview.md). Paths and line numbers below reflect the codebase as of late 2025 and may have shifted.
+> **Archived — November 2025.** This is a point-in-time audit that drove the restructure into `docs/architecture/`, `docs/reference/`, and an alignment plan that has since been retired in favor of the phase-based rebuild in [`docs/roadmap/plan.md`](../roadmap/plan.md). Kept for historical reference. For the current architecture, start at [`docs/architecture/00-overview.md`](../architecture/00-overview.md). Paths and line numbers below reflect the codebase as of late 2025 and no longer match the working tree.
 
 ## Executive Summary
 
