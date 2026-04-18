@@ -1,1 +1,0 @@
-Code under this folder utilized a non-ECS system and is now deprecated for reference only during code refactor.

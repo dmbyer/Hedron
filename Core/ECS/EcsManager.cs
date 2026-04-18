@@ -4,10 +4,13 @@ namespace Hedron.Core.ECS
 {
     /// <summary>
     /// Global access point for the app-lifetime <see cref="EntityService"/>.
-    /// Exists so existing call sites can reach the ECS world via <c>EcsManager.World</c>
-    /// while the migration toward fully DI-injected <see cref="EntityService"/> is still in progress
-    /// (see <c>docs/roadmap/api-alignment-plan.md</c>, Wave 0).
     /// </summary>
+    /// <remarks>
+    /// DI registers the world instance via <see cref="SetWorld"/> at startup so the static
+    /// accessor and any injected <see cref="EntityService"/> resolve to the same object.
+    /// Doc-example code in <c>docs/architecture/</c> uses <c>EcsManager.World</c> as shorthand;
+    /// the real implementation type is <see cref="EntityService"/>.
+    /// </remarks>
     public static class EcsManager
     {
         private static EntityService _world;

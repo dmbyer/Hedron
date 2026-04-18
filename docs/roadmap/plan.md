@@ -20,9 +20,9 @@ Demolish everything not on the keep list. Single transactional commit so the new
 
 **Keep list:**
 - `docs/`
-- `Hedron.sln` and the four csproj shells (rewritten as part of this phase — see below)
+- `Hedron.sln`, `Core.csproj`, `Server.csproj` (retargeted to `net8.0` as part of this phase — see below). `Data.csproj` and `Bot.csproj` are deleted; their projects come back later (persistence in Phase 3 slice 1, bot whenever useful).
 - Git history (for reference lookup only; we do not rewrite it)
-- `Core/ECS/EntityService.cs`, `ComponentRepository.cs`, `IComponent.cs`, `EcsManager.cs`, `ICopyableObject.cs` **only if** an audit in Phase 2 confirms they already match the idealized API. If any has drifted, it gets rewritten in Phase 2 — do not preserve drift.
+- `Core/ECS/EntityService.cs`, `ComponentRepository.cs`, `IComponent.cs`, `EcsManager.cs` **only if** they match the idealized API. Where they've drifted (e.g. `EntityService`'s `IModule`/`RegisterModule`/`GetModule` machinery referencing a now-deleted interface), drift is stripped as part of this commit.
 
 **Demolition list (non-exhaustive):**
 - `Core/Commands/` — all commands
@@ -30,11 +30,11 @@ Demolish everything not on the keep list. Single transactional commit so the new
 - `Core/Modules/` — all modules (skills, locale wrappers, etc.)
 - `Core/ECS/DEPRECATED - Entities/` — entire folder
 - `Core/ECS/Components/` — all components (rewritten fresh in Phase 2)
-- `Core/ECS/EntityFactory.cs`, `EntityArchetype.cs`, `ArchetypeRegistry.cs`, `ArchetypeDefinition.cs` — archetype system gets rewritten against correct component shapes in Phase 2
+- `Core/ECS/EntityFactory.cs`, `EntityArchetype.cs`, `ArchetypeRegistry.cs`, `ArchetypeDefinition.cs`, `IModule.cs`, `ICopyableObject.cs`, `Properties/` — archetype and module scaffolding rewritten against the target API in Phase 2
 - `Core/System/` helpers that only existed to serve legacy types
-- `Data/` persistence code (no persistence in MVP)
+- `Data/` — entire project (no persistence in MVP; project reintroduced for Phase 3 slice 1)
 - `Server/Pages/` Blazor admin UI; `Server/` converted from Blazor Server to a plain .NET generic-host console app
-- `Bot/` — telnet test bot (can be rebuilt later; not needed for MVP)
+- `Bot/` — entire project (not needed for MVP; rebuildable when manual multi-client testing gets painful)
 
 **Other Phase 1 actions, same commit:**
 - Bump target framework from `netcoreapp3.1` to `net8.0` across all csproj files
@@ -48,7 +48,7 @@ Demolish everything not on the keep list. Single transactional commit so the new
 
 Build the target architecture from scratch, tuned for MVP. Each numbered item is a commit-sized chunk. Order matters only where noted.
 
-1. **Audit kept ECS primitives.** Verify `EntityService`, `ComponentRepository`, `IComponent`, `EcsManager`, `ICopyableObject` match the shapes described in [`architecture/02-ecs.md`](../architecture/02-ecs.md). Rewrite any that have drifted. Do not preserve drift.
+1. **Audit kept ECS primitives.** Verify `EntityService`, `ComponentRepository`, `IComponent`, `EcsManager` match the shapes described in [`architecture/02-ecs.md`](../architecture/02-ecs.md). Rewrite any that have drifted. Do not preserve drift.
 2. **Event bus.** `IEventBus`, in-memory `EventBus` implementation, `IGameEvent`, `IEventHandler<T>`, `HandlerPriority` per [`architecture/03-events.md`](../architecture/03-events.md). Registered as a DI singleton.
 3. **Handler and system contracts.** Base interfaces/abstracts for handlers and domain/core systems per [`architecture/01-layers.md`](../architecture/01-layers.md).
 4. **Command dispatcher.** Verb parser + per-verb handler registration. Does not care about gameplay; just "given a session and a line of text, route to the right handler."
@@ -117,4 +117,4 @@ Best addressed once a handful of Phase 3 slices have stressed the architecture:
 - Phase 3: not started
 - Phase 4: not started
 
-Wave 0 and Sub-Wave 1A artifacts from the old plan (`EcsManager.cs`, `ICopyableObject.cs`, namespace touches) will be evaluated in Phase 2 step 1 like any other kept code. The rest of the old plan is retired.
+Wave 0 and Sub-Wave 1A artifacts from the old plan (`EcsManager.cs`, `ICopyableObject.cs`, namespace touches) are handled in Phase 1: `EcsManager.cs` stays as a kept primitive, `ICopyableObject.cs` is deleted along with everything it served, namespace touches are mooted by the strip. The rest of the old plan is retired.
