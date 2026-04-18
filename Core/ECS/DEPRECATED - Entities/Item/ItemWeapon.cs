@@ -1,9 +1,9 @@
-using Hedron.Core.Container;
+using Core.ECS.Entities.Container;
 using Hedron.Core.Damage;
-using Hedron.Core.Entities.Properties;
+using Core.ECS.Properties;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.ECS;
-using Hedron.Core.Locale;
+using Core.Modules.Locale;
 using Hedron.Data;
 using Hedron.Core.System;
 using Newtonsoft.Json;

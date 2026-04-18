@@ -1,18 +1,19 @@
-﻿using Hedron.Core.Container;
-using Hedron.Core.Locale;
-using Hedron.Data;
+using Core.ECS.Properties;
 using Hedron.Core.System;
-using Hedron.Core.System.Autogeneration;
 using Hedron.Core.System.Exceptions.Command;
 using System.Collections.Generic;
-using Core.ECS.Properties;
-using Core.ECS.Entities.Living;
 
 namespace Hedron.Core.Commands.Building
 {
 	/// <summary>
-	/// Lists entities
+	/// Lists entities (temporarily disabled).
 	/// </summary>
+	/// <remarks>
+	/// This command previously relied on <c>Hedron.Core.System.Autogeneration.AutogenMob</c>
+	/// which was removed during the ECS restructuring. The admin surface is kept so that
+	/// Wave 1 can reinstate it against the ECS-native mob generator without needing to
+	/// re-register the command. See <c>docs/roadmap/api-alignment-plan.md</c>.
+	/// </remarks>
 	public class Mgenerate : Command
 	{
 		/// <summary>
@@ -37,32 +38,8 @@ namespace Hedron.Core.Commands.Building
 				return ex.CommandResult;
 			}
 
-			var name = commandEventArgs.Argument;
-			var room = commandEventArgs.Entity.GetInstanceParentRoom();
-			
-			// Argument checking to ensure a name was provided
-			if (name == null || name == "")
-			{
-				return CommandResult.InvalidSyntax($"{nameof(Mgenerate)}", "Please enter the base name of the mob you wish to create.", new List<string>() { "name" });
-			}
-
-			// Ensure the player is in a room so the mobs can be created here
-			if (room == null)
-			{
-				return CommandResult.Failure("You must be in a room to execute this command.");
-			}
-
-			// Create new mobs of all levels and instantiate them in this room
-			var mobs = AutogenMob.CreateAndInstantiateAllLevels(name, room.Instance);
-
-			var output = new OutputBuilder();
-
-			foreach (var mob in mobs)
-            {
-				output.Append($"You have created {DataAccess.Get<Mob>(mob, CacheType.Instance).ShortDescription}");
-            }
-
-			return CommandResult.Success(output.Output);
+			return CommandResult.Failure(
+				"mgenerate is temporarily disabled pending the ECS autogeneration port.");
 		}
 	}
 }

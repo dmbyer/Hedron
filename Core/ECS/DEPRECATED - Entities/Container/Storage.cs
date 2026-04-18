@@ -1,6 +1,6 @@
 ﻿using Core.ECS.Entities.Base;
 using Core.ECS.Properties;
-using Core.Modules.Factory;
+using Hedron.Core.ECS;
 
 namespace Core.ECS.Entities.Container
 {

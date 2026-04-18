@@ -1,5 +1,5 @@
-using Hedron.Core.Container;
-using Hedron.Core.Entities.Properties;
+using Core.ECS.Entities.Container;
+using Core.ECS.Properties;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.ECS;
 using Hedron.Data;

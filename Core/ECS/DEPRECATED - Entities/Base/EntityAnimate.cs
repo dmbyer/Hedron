@@ -1,5 +1,4 @@
 ﻿using Hedron.Core.Commands;
-using Hedron.Core.Entities.Properties;
 using Hedron.Data;
 using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Slot;

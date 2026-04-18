@@ -1,6 +1,5 @@
 ﻿using Core.ECS.Properties;
 using Core.Modules.Skills.Passive;
-using Hedron.Core.Skills;
 using System;
 using System.Collections.Generic;
 using System.Linq;

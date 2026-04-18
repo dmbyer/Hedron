@@ -1,6 +1,5 @@
 ﻿using Hedron.Data;
 using Hedron.Core.System;
-using Hedron.Core.Factory;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.ECS;
 using Newtonsoft.Json;

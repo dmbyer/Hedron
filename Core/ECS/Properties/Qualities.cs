@@ -1,4 +1,4 @@
-﻿using Core.Modules.Factory;
+﻿using Hedron.Core.ECS;
 using Hedron.Core.System;
 
 namespace Core.ECS.Properties

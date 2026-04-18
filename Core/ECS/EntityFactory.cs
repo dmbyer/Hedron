@@ -1,12 +1,11 @@
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
-using Hedron.Core.Entities.Properties;
+using Core.ECS.Properties;
 using Hedron.Core.Damage;
 using Hedron.Core.System;
 using Hedron.Data;
 using System;
 using System.Collections.Generic;
-using Core.ECS.Properties;
 using Core.ECS.Properties.Effects;
 
 namespace Core.ECS

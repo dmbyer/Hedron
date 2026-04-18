@@ -5,7 +5,6 @@ using Hedron.Core.ECS.Components;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Core.Modules.Factory;
 using Core.Modules.Locale;
 using Core.ECS;
 using Core.ECS.Properties;

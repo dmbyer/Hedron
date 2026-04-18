@@ -1,8 +1,8 @@
 ﻿using Hedron.Core.Commands;
 using Hedron.Core.Combat;
-using Hedron.Core.Container;
-using Hedron.Core.Entities.Base;
-using Hedron.Core.Locale;
+using Core.ECS.Entities.Container;
+using Core.ECS.Entities.Base;
+using Core.Modules.Locale;
 using Hedron.Data;
 using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Command;

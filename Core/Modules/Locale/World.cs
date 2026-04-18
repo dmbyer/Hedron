@@ -1,4 +1,5 @@
-﻿using Hedron.Core.Entities.Base;
+﻿using Core.ECS.Entities.Base;
+using Hedron.Core.ECS;
 using Hedron.Data;
 using Hedron.Core.System;
 using Newtonsoft.Json;
@@ -6,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Core.Modules.Factory;
 using Core.ECS.Entities.Container;
 using Core.ECS.Entities.Item;
 using Core.ECS.Entities.Living;

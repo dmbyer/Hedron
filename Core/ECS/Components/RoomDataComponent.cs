@@ -1,4 +1,4 @@
-using Hedron.Core.Entities.Properties;
+using Core.ECS.Properties;
 using Hedron.Core.ECS;
 using Core.Modules.Locale;
 

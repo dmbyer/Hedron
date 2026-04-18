@@ -1,5 +1,5 @@
-﻿using Hedron.Core.Container;
-using Hedron.Core.Entities.Base;
+﻿using Core.ECS.Entities.Container;
+using Core.ECS.Entities.Base;
 using Hedron.Data;
 using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Command;

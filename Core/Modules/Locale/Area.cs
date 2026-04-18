@@ -2,7 +2,7 @@
 using Core.ECS.Entities.Container;
 using Core.ECS.Entities.Living;
 using Core.ECS.Properties;
-using Core.Modules.Factory;
+using Hedron.Core.ECS;
 using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Locale;
 using Hedron.Data;

@@ -1,5 +1,4 @@
-﻿using Hedron.Core.Factory;
-using Hedron.Data;
+﻿using Hedron.Data;
 using Hedron.Core.System;
 using Hedron.Core.System.Exceptions.Locale;
 using Hedron.Core.ECS;
