@@ -112,9 +112,13 @@ Best addressed once a handful of Phase 3 slices have stressed the architecture:
 
 ## Current status
 
-- Phase 1: not started (this doc is the gate)
-- Phase 2: not started
+- **Phase 1: complete** — commit `107b27d` stripped the tree to the keep list, bumped to `net8.0`, scrapped Blazor, removed `Data` and `Bot` projects, trimmed `EntityService`'s module machinery. `dotnet build Hedron.sln` is green with 4 nullability warnings in the kept ECS files (folded into Phase 2 step 1).
+- **Phase 2: ready to start.** First step is the audit of kept ECS primitives against [`architecture/02-ecs.md`](../architecture/02-ecs.md). Per-item divergence report: docs vs. code win decided case-by-case.
 - Phase 3: not started
 - Phase 4: not started
 
-Wave 0 and Sub-Wave 1A artifacts from the old plan (`EcsManager.cs`, `ICopyableObject.cs`, namespace touches) are handled in Phase 1: `EcsManager.cs` stays as a kept primitive, `ICopyableObject.cs` is deleted along with everything it served, namespace touches are mooted by the strip. The rest of the old plan is retired.
+### Next-session pickup
+
+A new session can resume by reading this file + [`mvp.md`](mvp.md) and starting at **Phase 2 step 1**. Everything the next session needs is committed; no in-flight work to reconstruct. The four nullability warnings in the kept ECS files are not a blocker — they surface as part of the audit.
+
+Wave 0 and Sub-Wave 1A artifacts from the retired plan were resolved in Phase 1: `EcsManager.cs` stayed, `ICopyableObject.cs` was deleted with everything it served, namespace touches were mooted by the strip.
