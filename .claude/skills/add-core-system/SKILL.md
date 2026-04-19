@@ -44,9 +44,8 @@ public class SkillSystem : ISkillSystem
 ## Steps
 
 1. Create `Core/Systems/<X>System.cs` + interface `I<X>System.cs`.
-2. Register as a singleton in the root DI composition.
+2. Register as a singleton in the root DI composition (`Server/Program.cs`, or a dedicated `AddCoreSystems(IServiceCollection)` extension invoked from it).
 3. Add signature to [docs/reference/systems.md](../../../docs/reference/systems.md) under the **Core systems** heading.
-4. If the new core system replaces legacy static helpers, track the removal in the API alignment plan or backlog.
 
 ## Anti-patterns
 

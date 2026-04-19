@@ -233,22 +233,28 @@ if (_world.TryGet<WeaponDataComponent>(entityId, out var weapon)) { /* use weapo
 
 ---
 
-## Forgetting the Prototype/Instance Distinction
+## Treating Templates Like Entities (or Vice Versa)
 
-**The problem:** An operation intended for gameplay accidentally fires against a prototype (or vice versa), corrupting the editor data or failing silently.
+**The problem:** A `TemplateRegistry` entry is a declarative blueprint, not an entity. It does not live in `EntityService`; it has no id that `HasComponent<T>` can query; it cannot be damaged, moved, or saved as a live entity. Code that forgets this usually manifests as "why does this template id return nothing from `GetComponent`?" or "why did my spawn loop destroy the template?"
 
-**Fix:** Assert at the entry point of each system method.
+**Fix:** Keep the boundary in the types:
+- `TemplateRegistry.Spawn(templateId) → Entity` is the only way to turn a template into a live entity.
+- Domain systems only operate on `Entity` / `uint` — they never take a template id.
+- When something designer-facing edits a template, it goes through `TemplateRegistry`, not `EntityService`.
 
-```csharp
-public void ApplyDamage(uint entityId, int damage)
-{
-    ref var cache = ref _world.Get<PrototypeComponent>(entityId);
-    Debug.Assert(cache.CacheType == CacheType.Instance, "ApplyDamage is an instance-only operation");
-    // ...
-}
-```
+If a system takes "either a template or an entity," it has two jobs and should be split.
 
-Prefer separating into two classes (`PrototypeHealthSystem` vs `CombatSystem`) so the type system enforces the split. See [02-ecs.md](02-ecs.md#prototype-vs-instance-operations-share-logic-not-side-effects).
+## Building Entities Outside Their Owning Feature
+
+**The problem:** A handler or unrelated system knows too much about how to construct a specific archetype (attaching 8 components in the right order, setting defaults the caller shouldn't know about). Construction logic scattered across the codebase drifts out of sync.
+
+**Fix:** Bespoke construction belongs to the feature that owns the entity's semantics:
+- `ItemGeneratorSystem` builds crafted items.
+- `PlayerCreationSystem` builds new player characters.
+- `LootSystem` builds generated loot.
+- `TemplateRegistry.Spawn` handles authored content.
+
+Handlers orchestrate; they call one of the above. They do not themselves call `CreateEntity` + six `AddComponent`s.
 
 ---
 
@@ -264,4 +270,5 @@ Before merging a change that adds or modifies a system/handler/event, verify:
 - [ ] Handler ordering is explicit if it matters
 - [ ] Each handler has a single clear responsibility
 - [ ] Component queries (not `is`/`as`) identify entity type
-- [ ] Prototype vs instance is explicit at every system entry point
+- [ ] Entities and templates are not confused at system boundaries
+- [ ] Persistence shape is correct — components that must survive restart carry `[Persistent]`, session-only components don't

@@ -45,7 +45,7 @@ If you find yourself reaching for a fine-grained priority (like 37), it's a sign
 ## Steps
 
 1. File location: `Core/Modules/<Feature>/Handlers/<X>Handler.cs`.
-2. Subscribe in the module's `IModule.Register` via `eventBus.Subscribe<Event>(handler, priority)`.
+2. Register the handler in the feature's `AddXModule(IServiceCollection)` extension (e.g. `Core/Modules/<Feature>/<Feature>Module.cs`), and subscribe it via `eventBus.Subscribe<Event>(handler, priority)` in the same place.
 3. Inject only the systems you actually need.
 4. Update [docs/reference/handlers.md](../../../docs/reference/handlers.md) with a one-line row for the new handler.
 5. If this handler is the orchestrator for a use case, update the use-case file's "Systems / handlers" section.

@@ -1,20 +1,22 @@
-# ECS, Components, Archetypes, Prototypes & Instances
+# ECS, Components, Archetypes, Templates & Persistence
 
 This is the **canonical** ECS reference. It supersedes the legacy root `ENTITIES.md` and `DESIGN_DOCS/ENTITIES.md`.
 
-> Code examples use the **idealized API** (`EcsManager.World`, `EntityWorld`, `ref T` component access). The implementation sits behind `EntityService`/`ComponentRepository`; see [../roadmap/plan.md](../roadmap/plan.md) for the current rebuild phase.
+> Code examples use the **idealized API** (`EntityService`, `TemplateRegistry`, `Entity` wrapper). The implementation sits behind `EntityService`/`ComponentRepository`/`EcsManager`; see [../roadmap/plan.md](../roadmap/plan.md) for the current rebuild phase.
 
 ---
 
 ## ECS Concepts
 
-- **Entity** — a unique `uint` ID. Has no data or behavior of its own.
+- **Entity** — an identity. Represented at runtime as a `readonly record struct Entity(uint Id)`. No data, no behaviour.
 - **Component** — a pure data container attached to an entity. No logic.
 - **System** — contains logic; operates on entities via component queries.
 
 ```csharp
-// Entity is an ID
-uint entityId = world.CreateEntity();
+// Entity is an ID, wrapped for readability
+public readonly record struct Entity(uint Id);
+
+Entity player = entityService.CreateEntity();
 
 // Component is data
 public class HealthComponent : IComponent
@@ -24,64 +26,67 @@ public class HealthComponent : IComponent
 }
 
 // System contains logic
-public class HealthSystem
+public class CombatSystem
 {
-    public void ApplyDamage(uint entity, int damage) { /* ... */ }
+    public DamageResult ApplyDamage(Entity target, int damage) { /* ... */ }
 }
 ```
+
+`Entity` is a wrapper around `uint` for flavour and call-site readability. All persistent references between entities still use the `uint` id (stored on components). The wrapper is a convenience, not an object reference — lifetime is tracked by `EntityService`, not by holding an `Entity` value.
 
 See [../reference/components.md](../reference/components.md) for the living component catalog.
 
 ---
 
-## Prototype vs Instance
+## One World, No Cache Split
 
-The game maintains two categories of entity:
+Hedron has **one world**. There is no separate prototype cache and instance cache. Every entity that exists at runtime lives in the same `EntityService`, and every entity has the same shape as any other of its archetype.
 
-| Prototype | Instance |
-|---|---|
-| Design-time template | Runtime entity in the game world |
-| Used by editors and persistence | Spawned from a prototype |
-| Edits mark the prototype dirty for save | Edits publish gameplay events |
-| No gameplay events fired | Transient; not directly persisted |
-
-Every entity carries a `PrototypeComponent` (current name) / `CacheInfo` (idealized name) that records this plus the link back to its prototype:
+Authored content (rooms, mobs, items — anything a designer writes) is expressed as **templates**. A template is a declarative spec, not an entity. `TemplateRegistry.Spawn(templateId, ...)` builds a live entity from a template when the world starts or when something needs to be respawned.
 
 ```csharp
-public class PrototypeComponent : IComponent
-{
-    public CacheType CacheType;        // Prototype | Instance
-    public uint? PrototypeSource;       // Instance: which prototype spawned this
-    public string PersistenceKey;       // Prototype: storage identifier
-}
+// Template lives in the registry; world holds only live entities
+Entity sword = templateRegistry.Spawn("iron_sword");
 
-public enum CacheType { Prototype, Instance }
+// For bespoke construction (player characters, shop-purchased items),
+// domain systems build entities directly
+Entity newPlayer = entityService.CreateEntity();
+entityService.AddComponent(newPlayer.Id, new IdentityComponent { Name = "Gelthor" });
+entityService.AddComponent(newPlayer.Id, new PoolsComponent { /* ... */ });
+// ...
 ```
 
-**Query examples:**
-
-```csharp
-// All prototype mobs
-foreach (var id in world.Query<PrototypeComponent, MobDataComponent>())
-{
-    ref var cache = ref world.Get<PrototypeComponent>(id);
-    if (cache.CacheType == CacheType.Prototype) { /* ... */ }
-}
-
-// All active mob instances in a room
-foreach (var id in world.Query<PrototypeComponent, TransformComponent, MobDataComponent>())
-{
-    ref var cache = ref world.Get<PrototypeComponent>(id);
-    ref var xform = ref world.Get<TransformComponent>(id);
-    if (cache.CacheType == CacheType.Instance && xform.RoomId == roomId) { /* ... */ }
-}
-```
+The old prototype/instance distinction is gone. There is no `PrototypeComponent`, no `CacheType`, no `CreateInstanceFromPrototype`. If code needs to know "is this a canonical template or a running entity," the answer is: templates aren't entities, so the question doesn't arise.
 
 ---
 
-## Archetypes
+## Entity Construction
 
-An **archetype** defines a standard component composition for a common entity type (Player, Mob, Weapon, Room…). Archetypes describe *required* vs *optional* components and power validation + spawning.
+Two paths, chosen by intent:
+
+**1. Template spawn** — for authored content with known shape.
+```csharp
+Entity mob = templateRegistry.Spawn("goblin_scout");
+```
+`TemplateRegistry` owns the template → component translation. Templates can carry optional overrides (tier, custom name, location).
+
+**2. Bespoke construction** — for entities whose shape is computed at runtime.
+```csharp
+// Inside ItemGeneratorSystem
+Entity item = entityService.CreateEntity();
+entityService.AddComponent(item.Id, new IdentityComponent { Name = $"{quality} {recipe.Name}" });
+entityService.AddComponent(item.Id, new ItemDataComponent { /* derived from recipe + skill */ });
+entityService.AddComponent(item.Id, new WeaponDataComponent { /* ... */ });
+```
+Domain systems build directly against `EntityService`. There is no `EntityFactory` god-class — each feature owns its own construction code (`ItemGeneratorSystem`, `PlayerCreationSystem`, `LootSystem`).
+
+The `Custom` archetype exists as an escape hatch: an entity that doesn't match any archetype composition but still needs to participate in queries.
+
+---
+
+## Archetypes: Validation and Detection, Not Creation
+
+An **archetype** defines a standard component composition for a common entity type (Player, Mob, Weapon, Room…). Archetypes describe *required* vs *optional* components. They are a **validation and introspection tool** — they are not used to construct entities.
 
 ```csharp
 public class ArchetypeDefinition
@@ -90,32 +95,57 @@ public class ArchetypeDefinition
     public Type[] Required { get; init; }
     public Type[] Optional { get; init; }
 }
+
+public interface IArchetypeRegistry
+{
+    IReadOnlyList<Type> RequiredComponents(EntityArchetype archetype);
+    bool Validate(uint entityId, EntityArchetype expected);
+    EntityArchetype Detect(uint entityId);
+}
 ```
 
-The full registry lives in `Core/ECS/ArchetypeRegistry.cs`. See [../reference/archetypes.md](../reference/archetypes.md) for every archetype and its composition.
+The registry lives in `Core/ECS/ArchetypeRegistry.cs`. See [../reference/archetypes.md](../reference/archetypes.md) for every archetype and its composition.
 
 **Current archetypes** (enum `EntityArchetype`): Player, Mob, Weapon, Armor, Potion, StaticItem, Consumable, Room, Area, World, Storage, Inventory, Portal, Trigger, Custom.
 
-### Creating an entity from an archetype
+### Archetype validation + detection
 
 ```csharp
-// Prototype (editor, persistence)
-uint swordPrototypeId = EntityFactory.CreateEntity(
-    EntityArchetype.Weapon, CacheType.Prototype, name: "Iron Sword");
+// "This entity was built as a Weapon — are all the required components present?"
+bool valid = archetypes.Validate(entityId, EntityArchetype.Weapon);
 
-var weaponData = world.Get<WeaponDataComponent>(swordPrototypeId);
-weaponData.WeaponType = WeaponType.Sword;
-
-// Instance (runtime, spawned from prototype)
-uint swordInstanceId = EntityFactory.CreateInstanceFromPrototype(swordPrototypeId);
+// "Given an unknown entity, which archetype does it look like?"
+EntityArchetype detected = archetypes.Detect(entityId);
 ```
 
-### Archetype validation
+Use `Validate` in asserts and editor tooling. Use `Detect` when a handler receives an entity of unknown archetype and needs to branch (most handlers won't — prefer `HasComponent<T>` queries).
+
+---
+
+## Components Describe What an Entity IS
+
+The sharpest archetype rule: **components describe what an entity is, not what it interacts with**.
+
+**Worked example — a healing potion:**
 
 ```csharp
-bool valid = EntityFactory.ValidateEntityArchetype(entityId, EntityArchetype.Weapon);
-EntityArchetype detected = EntityFactory.GetEntityArchetype(entityId);
+// Potion template
+entityService.AddComponent(potion.Id, new IdentityComponent { Name = "Lesser Healing Potion" });
+entityService.AddComponent(potion.Id, new ItemDataComponent { /* ... */ });
+entityService.AddComponent(potion.Id, new PotionDataComponent
+{
+    EffectsOnUse = new[] { new HealEffect(amount: 25) }
+});
+
+// The potion does NOT have a PoolsComponent or HealthComponent.
+// Those belong to Players/Mobs. The potion describes what happens when someone drinks it.
 ```
+
+When a player drinks the potion, `PotionSystem` reads the potion's `PotionDataComponent.EffectsOnUse` and applies those effects to the *drinker's* `PoolsComponent` / `EffectsComponent`. The potion is consumed (destroyed).
+
+The reverse also holds: if a mob has an inventory, the mob has an `InventoryComponent`. The items inside the inventory are their own entities with their own components — they don't get bolted onto the mob.
+
+See [../reference/archetypes.md](../reference/archetypes.md) for every archetype's required/optional composition.
 
 ---
 
@@ -123,7 +153,7 @@ EntityArchetype detected = EntityFactory.GetEntityArchetype(entityId);
 
 **Living entities (Player, Mob)**
 ```
-Identity + Transform + Prototype + Effects
+Identity + Transform + Effects
 + Attributes + Pools + Currency + Skills + Qualities
 + Inventory + Equipment
 + PlayerData / MobData
@@ -132,15 +162,15 @@ Identity + Transform + Prototype + Effects
 
 **Items**
 ```
-Identity + Transform + Prototype + Effects + ItemData
+Identity + Transform + Effects + ItemData
 + WeaponData (for weapons)
 + PotionData (for potions)
 ```
 
 **World containers**
 ```
-Identity + Transform + Prototype + Effects + ContainerData
-+ RoomData (rooms) + InventoryComponent (for ground items)
+Identity + Transform + Effects + ContainerData
++ RoomData (rooms) + Inventory (for ground items)
 + AreaData (areas)
 ```
 
@@ -158,92 +188,72 @@ if (entity is Player) { ... }
 if (entity is ItemWeapon weapon) { weapon.Something(); }
 
 // ✅ Do
-if (world.HasComponent<PlayerDataComponent>(entityId)) { ... }
-if (world.TryGet<WeaponDataComponent>(entityId, out var weapon)) { ... }
+if (entityService.HasComponent<PlayerDataComponent>(entityId)) { ... }
+if (entityService.TryGet<WeaponDataComponent>(entityId, out var weapon)) { ... }
 ```
 
 This is a hard rule — the legacy entity class hierarchy was stripped in Phase 1 of the rebuild (see [../roadmap/plan.md](../roadmap/plan.md)).
 
 ---
 
-## Spawning: Prototype → Instance
+## Effects: Computed Stats, Split Persistence
+
+Stat modifications — from equipment, temporary buffs, auras, skill passives — are modelled as **effects**, not as cached mutations on the base stat. Systems compute the effective value on read:
 
 ```csharp
-public class SpawnSystem
+public int GetEffectiveMaxHealth(uint entityId)
 {
-    public uint SpawnFromPrototype(uint prototypeId, uint locationRoomId)
-    {
-        ref var protoCache = ref _world.Get<PrototypeComponent>(prototypeId);
-        Debug.Assert(protoCache.CacheType == CacheType.Prototype);
-
-        var instanceId = EntityFactory.CreateInstanceFromPrototype(prototypeId);
-
-        ref var xform = ref _world.Get<TransformComponent>(instanceId);
-        xform.RoomId = locationRoomId;
-
-        return instanceId;
-    }
+    ref var pools = ref entityService.Get<PoolsComponent>(entityId);
+    int total = pools.BaseMaxHp;
+    foreach (var effect in effectTracker.EffectsOn(entityId))
+        total += effect.MaxHpModifier;
+    return total;
 }
 ```
 
-`EntityFactory.CreateInstanceFromPrototype` handles component copy + cache-info swap.
+This sidesteps the classic "equipment changed / effect expired / did I remember to recalc?" family of bugs. The base value is the only persistent truth; everything else is recomputed.
+
+To keep persistence clean, active effects live in **two separate components**:
+
+| Component | Content | Persisted? |
+|---|---|---|
+| `PersistentEffectsComponent` | Long-term effects a player expects to survive restart: curses, disease, quest-tied debuffs. | Yes |
+| `TransientEffectsComponent` | Short-term effects tied to the session: buffs from potions, combat buffs, spell durations. | No |
+
+When an effect wears off, `EffectTracker` removes it from whichever component it lives in — no further side effects needed, because stat recomputation on read is automatic.
 
 ---
 
-## Prototype vs Instance Operations: Share Logic, Not Side Effects
+## Persistence: `[Persistent]` on Component Types
 
-Systems that operate on both prototypes and instances use the **shared core** pattern: pure, side-effect-free static helpers encapsulate the actual data transform; two system classes (or two methods) wrap it with their respective side effects.
-
-### Pattern: Static Core + Two Systems
+Persistence operates at the **component-type** level, not the entity level. Tag a component class with `[Persistent]` and `PersistenceSystem` includes it when serializing an entity; omit the attribute and the component is transient.
 
 ```csharp
-// Pure logic — no DI, no side effects, no I/O
-public static class HealthCore
-{
-    public static void SetHealth(ref HealthComponent health, int value)
-        => health.Current = Math.Clamp(value, 0, health.Max);
+[Persistent]
+public class IdentityComponent : IComponent { /* saved */ }
 
-    public static bool IsDead(in HealthComponent health) => health.Current <= 0;
+[Persistent]
+public class PoolsComponent : IComponent { /* saved */ }
 
-    public static float GetPercent(in HealthComponent health)
-        => health.Max > 0 ? (float)health.Current / health.Max : 0;
-}
-
-// Prototype operations: editor-facing, persist changes, no events
-public class PrototypeHealthSystem
-{
-    public void SetHealth(uint prototypeId, int value)
-    {
-        AssertPrototype(prototypeId);
-        ref var h = ref _world.Get<HealthComponent>(prototypeId);
-        HealthCore.SetHealth(ref h, value);
-        _persistence.MarkDirty(prototypeId);
-    }
-}
-
-// Instance operations: gameplay-facing, publish events via handler layer
-public class CombatSystem : ICombatSystem
-{
-    public DamageResult ApplyDamage(uint instanceId, int damage, DamageType type)
-    {
-        AssertInstance(instanceId);
-        ref var h = ref _world.Get<HealthComponent>(instanceId);
-        var oldHp = h.Current;
-        HealthCore.SetHealth(ref h, h.Current - damage);
-
-        return new DamageResult
-        {
-            Target = instanceId,
-            OldHp = oldHp,
-            NewHp = h.Current,
-            Killed = HealthCore.IsDead(h)
-        };
-        // Handler receives this result and publishes DamageEvent / PlayerDeathEvent.
-    }
-}
+public class TransientEffectsComponent : IComponent { /* NOT saved */ }
+public class CombatStateComponent : IComponent       { /* NOT saved */ }
 ```
 
-The rule: **services return results; handlers publish events.** See [03-events.md](03-events.md#services-return-results-handlers-publish-events).
+An entity is persisted if it has **any** `[Persistent]` component. On save, only the `[Persistent]` components are written. On load, `PersistenceSystem` rebuilds the entity from the stored components; any transient components are re-attached by the systems that own them (the combat system re-attaches `CombatStateComponent` when combat starts, etc.).
+
+### Blueprint-seeds-world for authored content
+
+For rooms/areas a designer authors, the data flow is:
+
+1. Authored blueprint (JSON / YAML / code) → `TemplateRegistry.Spawn` on world boot creates the entity.
+2. The entity lives in the world. Players interact with it. If they modify it (e.g. change a room description via an admin command, or a door's locked state flips permanently), the modified `[Persistent]` components are saved.
+3. On next boot: `PersistenceSystem` loads the persisted components first; only entities that weren't persisted are reseeded from blueprints. Persisted changes win over blueprint defaults.
+
+The blueprint is the seed. The persisted components are the authority. This handles the "player modified a pre-authored room permanently" case without a special cache layer.
+
+### Silent load path
+
+During `PersistenceSystem` hydration, components are restored **without firing events**. Systems subscribe to change events (`PlayerMovedEvent`, `PoolsChangedEvent`, etc.) to react to runtime changes — hydration is not a runtime change, so it must not trigger those. Hydration uses `entityService.AddComponent` directly and never touches the event bus.
 
 ---
 
@@ -253,9 +263,10 @@ The rule: **services return results; handlers publish events.** See [03-events.m
 Core/ECS/Components/              # cross-cutting components
   IdentityComponent.cs            # Name, descriptions, tier
   TransformComponent.cs           # Parent/child, room/area
-  PrototypeComponent.cs           # CacheType + PrototypeSource (the "CacheInfo")
   AttributesComponent.cs          # Might, Finesse, Will, …
   PoolsComponent.cs               # HP / Stamina / Energy
+  PersistentEffectsComponent.cs   # survives save/load
+  TransientEffectsComponent.cs    # session-only
   ...
 
 Core/Modules/<Feature>/Components/   # feature-owned components
@@ -271,9 +282,11 @@ A component belongs **under a module** only if it's exclusively used by that fea
 
 | Concept | Purpose |
 |---|---|
-| `PrototypeComponent` / `CacheInfo` | Distinguishes prototype vs instance |
-| Archetype | Required/optional component composition for a standard entity type |
-| `EntityFactory` | Creation; enforces archetype composition |
-| `*Core` static class | Shared, side-effect-free logic between prototype & instance systems |
-| Prototype systems | Editor operations, persistence |
-| Runtime systems | Gameplay operations; return results that handlers turn into events |
+| `Entity` | `readonly record struct` wrapper around `uint`; identity with flavour |
+| `EntityService` | Creates, destroys, and composes entities; adds/reads/removes components |
+| `TemplateRegistry` | Authored content → live entity on spawn |
+| Archetype | Required/optional component composition for validation + detection |
+| `[Persistent]` attribute | Marks component types as save-worthy; entity persistence is derived |
+| `PersistentEffectsComponent` / `TransientEffectsComponent` | Splits effects by lifetime so persistence is automatic |
+| Computed stats | Effective values recomputed on read; base + effects |
+| Blueprint-seeds-world | Authored templates seed; persisted components win on reload |

@@ -6,7 +6,7 @@
 
 ## Description
 
-A player buys an item from a shop. Currency is deducted; a fresh item instance is spawned from the shop's catalog (prototype reference), not moved from the shop's inventory, so stock can be infinite or finite per config.
+A player buys an item from a shop. Currency is deducted; a fresh item entity is spawned from the shop's catalog (template reference), not moved from the shop's inventory, so stock can be infinite or finite per config.
 
 ## Preconditions
 
@@ -19,7 +19,7 @@ A player buys an item from a shop. Currency is deducted; a fresh item instance i
 
 - Player's `CurrencyComponent` is debited by the item price
 - Shop's `CurrencyComponent` is credited (if tracked)
-- A new instance of the item is spawned and added to the player's inventory
+- A new item entity is spawned and added to the player's inventory
 - Shop stock is decremented (if finite)
 
 ## Main flow
@@ -29,7 +29,7 @@ A player buys an item from a shop. Currency is deducted; a fresh item instance i
 3. `ShopSystem.FindCatalogEntry(shop, itemName)` — match item
 4. `CurrencySystem.CanAfford(player, price)` — gate
 5. `CurrencySystem.Transfer(player, shop, price)`
-6. `EntityFactory.SpawnInstance(catalogEntry.PrototypeId)` → item instance
+6. `TemplateRegistry.Spawn(catalogEntry.TemplateId)` → item entity
 7. `InventorySystem.AddItem(player, item)`
 8. `ShopHandler` publishes `ItemPurchasedEvent`
 9. `NotificationHandler` messages the player
@@ -47,7 +47,7 @@ A player buys an item from a shop. Currency is deducted; a fresh item instance i
 
 ## Design notes
 
-- **Spawn, don't move.** Shop inventory is a catalog (prototype references), not instance storage. This keeps restocking and pricing logic simple.
+- **Spawn, don't move.** Shop inventory is a catalog (template references), not live stock. This keeps restocking and pricing logic simple.
 - Dynamic pricing (haggling, reputation) is a later enhancement via `PricingSystem`.
 
 ## Related

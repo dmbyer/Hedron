@@ -173,10 +173,10 @@ public class SkillSystem : ISkillSystem
 **Characteristics:**
 - Components are pure data containers
 - No business logic in components
-- World (`EntityWorld` / `EntityService`) manages entity-component relationships
-- Prototype and instance caches store entities
+- `EntityService` manages entity-component relationships for the single live world
+- Entities are identified by `uint` ids, wrapped as `Entity(uint Id)` at call sites for readability
 
-See [02-ecs.md](02-ecs.md) for ECS patterns, component design, and archetype rules.
+See [02-ecs.md](02-ecs.md) for ECS patterns, component design, template spawning, and archetype rules.
 
 ---
 
@@ -206,7 +206,7 @@ Handlers    →  Domain Systems  →  Core Systems  →  Components/World
 
 ## Modules: Feature Cohesion
 
-Each gameplay feature lives under `Core/Modules/<Feature>/` and contains the systems, handlers, events, and feature-specific components for that feature. This keeps slices discoverable as the project grows.
+A **module** and a **feature** are the same thing in Hedron — a module is a feature slice. Each one lives under `Core/Modules/<Feature>/` and groups the systems, handlers, events, and feature-specific components that belong to it. This keeps slices discoverable as the project grows.
 
 ```
 Core/Modules/Combat/
@@ -216,16 +216,20 @@ Core/Modules/Combat/
 │   └── PlayerDeathEvent.cs
 ├── Handlers/
 │   └── CombatHandler.cs
-├── Core/                   # core systems specific to this module
-│   └── DamageCore.cs
-├── Domain/
+├── Systems/                # feature-owned (domain) systems
 │   ├── CombatSystem.cs
 │   └── DeathSystem.cs
 └── Components/             # components only used by this module
     └── CombatStateComponent.cs
 ```
 
+**Where systems live:**
+- **Domain (feature) systems** — inside the module at `Core/Modules/<Feature>/Systems/`.
+- **Core (cross-cutting) systems** — outside any module at `Core/Systems/` (e.g. `DiceSystem`, `TimeSystem`, `SkillSystem`). Usable by multiple features.
+
 Cross-cutting components (Identity, Transform, Pools, Attributes) stay under `Core/ECS/Components/`.
+
+**Registration.** There is no `IModule` interface. Each module exposes a single `AddXModule(IServiceCollection)` extension method (e.g. `Core/Modules/Combat/CombatModule.cs`) that registers that feature's systems, handlers, and event subscriptions. `Server/Program.cs` composes the host by calling each feature's extension. Handlers are registered via DI and subscribed to the event bus through the same extension.
 
 ---
 

@@ -30,7 +30,8 @@ Demolish everything not on the keep list. Single transactional commit so the new
 - `Core/Modules/` — all modules (skills, locale wrappers, etc.)
 - `Core/ECS/DEPRECATED - Entities/` — entire folder
 - `Core/ECS/Components/` — all components (rewritten fresh in Phase 2)
-- `Core/ECS/EntityFactory.cs`, `EntityArchetype.cs`, `ArchetypeRegistry.cs`, `ArchetypeDefinition.cs`, `IModule.cs`, `ICopyableObject.cs`, `Properties/` — archetype and module scaffolding rewritten against the target API in Phase 2
+- `Core/ECS/EntityFactory.cs`, `IModule.cs`, `ICopyableObject.cs`, `Properties/` — retired permanently (construction moves into feature systems; modules are DI extensions, not an interface)
+- `Core/ECS/EntityArchetype.cs`, `ArchetypeRegistry.cs`, `ArchetypeDefinition.cs` — rebuilt against the target API in Phase 2 in their new **validation + detection only** role
 - `Core/System/` helpers that only existed to serve legacy types
 - `Data/` — entire project (no persistence in MVP; project reintroduced for Phase 3 slice 1)
 - `Server/Pages/` Blazor admin UI; `Server/` converted from Blazor Server to a plain .NET generic-host console app
@@ -48,7 +49,7 @@ Demolish everything not on the keep list. Single transactional commit so the new
 
 Build the target architecture from scratch, tuned for MVP. Each numbered item is a commit-sized chunk. Order matters only where noted.
 
-1. **Audit kept ECS primitives.** Verify `EntityService`, `ComponentRepository`, `IComponent`, `EcsManager` match the shapes described in [`architecture/02-ecs.md`](../architecture/02-ecs.md). Rewrite any that have drifted. Do not preserve drift.
+1. **Audit kept ECS primitives.** Verify `EntityService`, `ComponentRepository`, `IComponent`, `EcsManager` match the shapes described in [`architecture/02-ecs.md`](../architecture/02-ecs.md) after the Ticket A redesign (one world; `Entity` wrapper; `CreateEntity` / `TryGet` / `Query` surface; no prototype/instance cache). Rewrite any that have drifted. Do not preserve drift. Fold in the 4 nullability warnings from the kept files.
 2. **Event bus.** `IEventBus`, in-memory `EventBus` implementation, `IGameEvent`, `IEventHandler<T>`, `HandlerPriority` per [`architecture/03-events.md`](../architecture/03-events.md). Registered as a DI singleton.
 3. **Handler and system contracts.** Base interfaces/abstracts for handlers and domain/core systems per [`architecture/01-layers.md`](../architecture/01-layers.md).
 4. **Command dispatcher.** Verb parser + per-verb handler registration. Does not care about gameplay; just "given a session and a line of text, route to the right handler."
@@ -107,18 +108,24 @@ Best addressed once a handful of Phase 3 slices have stressed the architecture:
 2. **4-layer discipline.** Handlers orchestrate → domain systems decide → core systems compute → components hold data. See [`architecture/01-layers.md`](../architecture/01-layers.md).
 3. **Component queries, not `is`/`as`.** Never.
 4. **Past-tense thin events.** Events describe *what happened*. Logic lives in handlers/systems.
-5. **Prototype vs instance is a component, not a type.**
-6. **Docs drift is a bug.** Docs describe the target; if reality disagrees, one of them is wrong and gets fixed in the same PR.
+5. **One world; authored content spawns from `TemplateRegistry`.** No prototype/instance cache, no `EntityFactory`. See [`architecture/02-ecs.md`](../architecture/02-ecs.md).
+6. **Persistence is per-component.** `[Persistent]` on a component type marks it as save-worthy.
+7. **Docs drift is a bug.** Docs describe the target; if reality disagrees, one of them is wrong and gets fixed in the same PR.
 
 ## Current status
 
 - **Phase 1: complete** — commit `107b27d` stripped the tree to the keep list, bumped to `net8.0`, scrapped Blazor, removed `Data` and `Bot` projects, trimmed `EntityService`'s module machinery. `dotnet build Hedron.sln` is green with 4 nullability warnings in the kept ECS files (folded into Phase 2 step 1).
-- **Phase 2: ready to start.** First step is the audit of kept ECS primitives against [`architecture/02-ecs.md`](../architecture/02-ecs.md). Per-item divergence report: docs vs. code win decided case-by-case.
+- **Phase 1.5 (doc pass): complete in this branch** — resolved **Ticket A** (ECS redesign): dropped prototype/instance cache, adopted one-world model, `Entity(uint Id)` wrapper, `TemplateRegistry` for authored-content spawning, bespoke construction in domain systems (no `EntityFactory`), archetypes restricted to validation + detection, persistence via `[Persistent]` on component types, effects split into `PersistentEffectsComponent` / `TransientEffectsComponent`. Docs, skills, use cases, and CLAUDE.md updated in coordination. **Ticket B** (admin-tooling / use-cases / skills scope rethink — originally surfaced by the Blazor-editor removal) is deferred.
+- **Phase 2: ready to start.** First step is the audit of kept ECS primitives against the revised [`architecture/02-ecs.md`](../architecture/02-ecs.md). Per-item divergence report: docs vs. code win decided case-by-case.
 - Phase 3: not started
 - Phase 4: not started
 
 ### Next-session pickup
 
-A new session can resume by reading this file + [`mvp.md`](mvp.md) and starting at **Phase 2 step 1**. Everything the next session needs is committed; no in-flight work to reconstruct. The four nullability warnings in the kept ECS files are not a blocker — they surface as part of the audit.
+A new session can resume by reading this file + [`mvp.md`](mvp.md) + [`../architecture/02-ecs.md`](../architecture/02-ecs.md) and starting at **Phase 2 step 1**. Everything the next session needs is committed; no in-flight work to reconstruct. The four nullability warnings in the kept ECS files are not a blocker — they surface as part of the audit.
 
 Wave 0 and Sub-Wave 1A artifacts from the retired plan were resolved in Phase 1: `EcsManager.cs` stayed, `ICopyableObject.cs` was deleted with everything it served, namespace touches were mooted by the strip.
+
+### Open tickets
+
+- **Ticket B — admin tooling / use-cases / skills scope.** The removal of the Blazor editor in Phase 1 raised a broader question about how much of the planned admin/editor surface belongs in-scope at all, and whether the `editor-*` use cases should become telnet admin commands, a deferred web UI, or something else. Revisit before Phase 3 slice 13 (Admin UI) or whenever the first authoring workflow needs to exist.

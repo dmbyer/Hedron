@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Hedron is a C# MUD engine targeting .NET Core 3.1, composed of a Blazor Server admin UI and a game-loop thread that share a data cache. The architecture is **event-driven, ECS-based, and layered**.
+Hedron is a C# MUD engine targeting .NET 8. `Server/` is a generic-host console app that runs the telnet listener and owns DI composition; `Core/` holds the engine (ECS, systems, handlers, events, commands). The architecture is **event-driven, ECS-based, and layered**.
 
 > **Note on idealized API.** The architecture docs describe the target API (e.g. `EcsManager.World`, `EntityWorld`, `IEventBus`). The codebase is being rebuilt against this target — see [docs/roadmap/plan.md](../roadmap/plan.md) for the phase sequence. **Write new code against the idealized API; legacy code outside the keep list is reference material only.**
 
@@ -38,25 +38,29 @@ Dependencies flow **downward only**. See [01-layers.md](01-layers.md) for full d
 3. **Domain systems encode game rules.** They know game concepts (stealth, magic, crafting) and compose core systems.
 4. **Core systems are reusable mechanics.** They answer *how does X work?*, not *when should we do X?* — they could work in a different game.
 5. **Dependencies flow downward only.** No upward arrow in the system dependency graph.
-6. **Prototypes and instances share logic, not side effects.** Prototype edits persist data; instance operations publish gameplay events. Shared logic lives in `*Core` static helpers.
-7. **Modules group cohesion.** Feature slices live under `Core/Modules/<Feature>/` (services, handlers, events, components together).
+6. **One world, authored content via templates.** Every live entity lives in `EntityService`. Authored content is spawned from `TemplateRegistry`; bespoke entities are built by the feature that owns them. There is no prototype cache.
+7. **Persistence is per-component.** Tag a component type with `[Persistent]` and it's saved; untagged components are rebuilt at runtime. An entity is persisted if it has any `[Persistent]` component.
+8. **Modules group cohesion.** Feature slices live under `Core/Modules/<Feature>/` (services, handlers, events, components together).
 
 ---
 
 ## Where things live
 
+Rows marked *(target)* describe locations that are rebuilt as part of Phase 2. They do not exist in the current tree yet — see [../roadmap/plan.md](../roadmap/plan.md) for the keep list and phase sequencing.
+
 | Concept | Location |
 |---|---|
-| Components (pure data) | `Core/ECS/Components/` |
-| Archetypes | `Core/ECS/ArchetypeRegistry.cs`, `EntityArchetype.cs` |
-| Entity factory | `Core/ECS/EntityFactory.cs` |
-| Feature modules | `Core/Modules/<Feature>/` |
-| Core systems | `Core/Modules/<Feature>/Core/` or `Core/Systems/Core/` |
-| Domain systems | `Core/Modules/<Feature>/Domain/` or `Core/Systems/Domain/` |
-| Event handlers | `Core/Modules/<Feature>/Handlers/` |
-| Event records | `Core/Modules/<Feature>/Events/` |
-| Player commands | `Core/Commands/<Category>/` |
-| Web admin UI | `Server/Pages/`, `Server/Shared/` |
+| Components (pure data) | `Core/ECS/Components/` *(target)* |
+| Archetypes (validation + detection) | `Core/ECS/ArchetypeRegistry.cs`, `EntityArchetype.cs` *(target)* |
+| Template registry (authored-content spawn) | `Core/ECS/TemplateRegistry.cs` *(target)* |
+| Feature modules | `Core/Modules/<Feature>/` *(target)* |
+| Core (cross-cutting) systems | `Core/Systems/<X>System.cs` *(target)* |
+| Domain (feature) systems | `Core/Modules/<Feature>/Systems/<X>System.cs` *(target)* |
+| Event handlers | `Core/Modules/<Feature>/Handlers/` *(target)* |
+| Event records | `Core/Modules/<Feature>/Events/` *(target)* |
+| Player commands | `Core/Modules/<Feature>/Commands/` (feature-owned) or `Core/Commands/` (cross-cutting) *(target)* |
+| Telnet / DI host | `Server/` |
+| ECS primitives (kept from pre-Phase-1) | `Core/ECS/EntityService.cs`, `ComponentRepository.cs`, `EcsManager.cs`, `IComponent.cs` |
 
 ---
 

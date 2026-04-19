@@ -10,13 +10,13 @@ A mob is killed in combat. It is removed from the world. The killing player rece
 
 ## Preconditions
 
-- Mob is an instance with `CurrentHP <= 0`
+- Mob entity has `MobDataComponent` and `PoolsComponent.CurrentHP <= 0`
 - A player was engaged in combat with the mob
 - Mob may have `CurrencyComponent` and/or items in `InventoryComponent`
 
 ## Postconditions
 
-- Mob removed from instance cache; world has no reference to it
+- Mob entity destroyed via `EntityService.DestroyEntity`; world has no reference to it
 - Currency transferred to player's `CurrencyComponent`
 - Items: transferred to player inventory (simple looting) OR dropped to `InventoryComponent` of the room (auto-drop when full) OR left in a `Storage` corpse entity (advanced looting)
 - Player exits combat state if no targets remain
@@ -46,7 +46,7 @@ A mob is killed in combat. It is removed from the world. The killing player rece
 
 ## Design notes
 
-- **Prototype vs instance**: only instances die. Prototype mob deletion is an editor concern — see [editor-mob-deletion-with-inventory.md](editor-mob-deletion-with-inventory.md).
+- **Destroy vs despawn.** A runtime kill destroys the entity. Designer-level removal of a mob *template* is an editor concern — see [editor-mob-deletion-with-inventory.md](editor-mob-deletion-with-inventory.md).
 - Loot tables live as data; the `LootSystem` is generic (domain), and the rules (weighted rolls, luck) live in `RandomGeneratorSystem` (core).
 
 ## Related

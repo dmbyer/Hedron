@@ -16,7 +16,6 @@ Invoke via model-selected skill triggers or directly in prompts. Each one docume
 | [`add-core-system`](skills/add-core-system/SKILL.md) | Adding a cross-cutting core system |
 | [`add-command`](skills/add-command/SKILL.md) | Adding a player or admin command |
 | [`implement-use-case`](skills/implement-use-case/SKILL.md) | Implementing a full use case end-to-end |
-| [`migrate-legacy-to-ecs`](skills/migrate-legacy-to-ecs/SKILL.md) | Converting legacy inheritance-based code to ECS |
 
 ## Subagents (`agents/`)
 

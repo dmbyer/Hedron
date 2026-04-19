@@ -18,11 +18,10 @@ A player uses a crafting skill (armorsmithing, weaponsmithing, alchemy, etc.) to
 ## Postconditions
 
 - Materials are removed from `InventoryComponent` and destroyed
-- A new item is spawned via `EntityFactory` from the appropriate archetype
-- Item stats are scaled by recipe + skill level + material quality
+- A new item entity is built bespoke by `ItemGeneratorSystem` (recipe + skill + material quality determine shape)
 - Item is added to player inventory
 - Player's `SkillComponent` may increase (difficulty-gated via `SkillSystem`)
-- Result is persisted if the item is instance-persisted
+- Result is persisted automatically because the item carries `[Persistent]` components
 
 ## Main flow
 
@@ -49,7 +48,8 @@ A player uses a crafting skill (armorsmithing, weaponsmithing, alchemy, etc.) to
 
 ## Design notes
 
-- Recipes live as `RecipeComponent` on prototype entities in a `recipes` area or catalog, not hard-coded.
+- Recipes live as templates in `TemplateRegistry` (a `recipes` catalog), not hard-coded; the in-world recipe entity carries a `RecipeComponent`.
+- Crafted items are built bespoke by `ItemGeneratorSystem` via `EntityService.CreateEntity()` + `AddComponent` — they are not spawned from a pre-authored item template, because their stats vary per craft.
 - The rule "who can craft what" lives in `CraftingSystem`, not in the handler.
 
 ## Related

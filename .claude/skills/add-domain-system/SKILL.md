@@ -47,7 +47,7 @@ Then the handler calls the pure resolver, decides what to do with the result, an
 ## Steps
 
 1. Create the module folder if new: `Core/Modules/<Feature>/Systems/<X>System.cs` + interface `I<X>System.cs`.
-2. Register in the module's `IModule.Register` via DI.
+2. Register in the feature's `AddXModule(IServiceCollection)` extension (e.g. `Core/Modules/<Feature>/<Feature>Module.cs`). The extension is called from `Server/Program.cs` during host composition.
 3. Keep the constructor's dependencies tight — only core systems and `EntityService`.
 4. Add the system's signature to [docs/reference/systems.md](../../../docs/reference/systems.md).
 5. If a use case now relies on this system, update its "Systems / handlers" list.

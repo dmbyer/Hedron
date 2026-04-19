@@ -37,7 +37,7 @@ Do **not**:
 ## Steps
 
 1. Create the file at the chosen location.
-2. Decide the archetype set that requires this component. Update `Core/ECS/ArchetypeRegistry.cs` (or the module's registrar once modules exist) so the right archetypes include it as required or optional.
+2. Decide the archetype set that requires this component. Update `Core/ECS/ArchetypeRegistry.cs` so the right archetypes include it as required or optional.
 3. If it's a shared component, add a one-line row to [docs/reference/components.md](../../../docs/reference/components.md) with its shape and owner.
 4. If any existing system will now read/write it, note the dependency in [docs/reference/systems.md](../../../docs/reference/systems.md).
 5. Archetype composition docs: update [docs/reference/archetypes.md](../../../docs/reference/archetypes.md) if a standard archetype changes.

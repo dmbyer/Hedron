@@ -12,7 +12,6 @@ A player's health drops to zero in combat. They are removed from combat, suffer 
 
 ## Preconditions
 
-- Target is an instance (not a prototype) — see `PrototypeComponent.CacheType`
 - Target has `PlayerDataComponent`
 - `PoolsComponent.CurrentHP <= 0` after damage application
 - A valid respawn location exists (world default if nothing bound)
