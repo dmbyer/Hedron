@@ -60,7 +60,11 @@ public class AttackHandler : IEventHandler<AttackEvent>
 
 **Example:** `NotificationHandler` reads the player's location; `RespawnHandler` moves the player. If respawn runs first, the notification goes to the wrong room.
 
-### Solution 1: Capture point-in-time data in the event
+Two tools resolve ordering; a third avoids the stale-read failure that causes most "ordering" bugs. See [03-events.md#handler-priorities--ordering](03-events.md#handler-priorities--ordering) for the full guidance.
+
+### Capture point-in-time data in the event
+
+Many "ordering" bugs are really stale-read bugs: a later handler recomputes something that an earlier handler already mutated. Fix it by putting the captured fact on the event.
 
 ```csharp
 public record PlayerDeathEvent(Player Victim, Entity? Killer, Location DeathLocation) : IEvent;
@@ -75,24 +79,28 @@ public class NotificationHandler : IEventHandler<PlayerDeathEvent>
 }
 ```
 
-### Solution 2: Explicit handler priorities
+### Sequential event phases — for phase sequencing
 
-```csharp
-public class NotificationHandler : IEventHandler<PlayerDeathEvent> { public int Priority => 10; }
-public class RespawnHandler     : IEventHandler<PlayerDeathEvent> { public int Priority => 100; }
-```
-
-### Solution 3: Sequential event phases (preferred)
+If the work has distinct phases, split the event. Each phase fires its own event; the next phase only runs after the prior phase's handlers finish. This is the canonical answer when "handler B needs to run after handler A" means "after phase A completes."
 
 ```
-PlayerDyingEvent  → NotificationHandler, InterventionHandler
-PlayerDeathEvent  → PenaltyHandler, LootHandler
+PlayerDyingEvent     → NotificationHandler, InterventionHandler
+PlayerDeathEvent     → PenaltyHandler, LootHandler
 PlayerRespawnedEvent → SpawnHandler, UIHandler
 ```
 
-### Solution 4: Orchestration handler
+### Explicit handler priorities — for intra-event tie-breaking
 
-See [03-events.md](03-events.md#option-3-orchestration-handler).
+Within a single event, when multiple handlers legitimately subscribe and one concern must resolve before another, use `Priority`. Not a substitute for phased events — use phases when the ordering represents phases.
+
+```csharp
+public class CombatHandler : IEventHandler<PlayerDeathEvent>       { public int Priority => 10; }
+public class NotificationHandler : IEventHandler<PlayerDeathEvent> { public int Priority => 80; }
+```
+
+### Anti-pattern: single orchestration handler
+
+Collapsing the whole flow into one handler that calls every service in sequence reintroduces the god-handler problem this architecture exists to avoid. See [#god-handlers](#god-handlers).
 
 ---
 

@@ -178,48 +178,35 @@ public class CombatHandler : IEventHandler<AttackEvent>
 
 ## Handler Priorities & Ordering
 
-By default, handlers for the same event execute in **priority order** (lower first). When ordering matters, prefer event design over priority tricks:
+Within a single event, the bus dispatches handlers in **priority order** (lower first). Two tools solve the two distinct ordering problems:
 
-### Option 1: Handler Priority
+### Phase sequencing — sequential phased events
 
-```csharp
-public class CombatCleanupHandler : IEventHandler<PlayerDeathEvent>
-{
-    public int Priority => 10;     // early
-}
-public class NotificationHandler : IEventHandler<PlayerDeathEvent>
-{
-    public int Priority => 90;     // late
-}
-```
-
-### Option 2: Sequential Phased Events (preferred)
-
-Split into distinct phases; handlers for later events can assume earlier processing is done.
+**When distinct phases of work must run in order** (die → notify → loot → respawn), split the work across multiple past-tense events. Each handler subscribes to the phase it cares about; the next phase fires its event when the prior phase finishes.
 
 ```
 AttackEvent → DamageEvent → PlayerDyingEvent → PlayerDeathEvent → PlayerRespawnedEvent
 ```
 
-### Option 3: Orchestration Handler
+This is the default tool. It keeps each handler narrow, makes ordering explicit in the event graph, and lets a later phase assume the earlier phase completed.
 
-One handler owns the full sequence and calls services explicitly. More coupled, but testable and linear.
+### Intra-event tie-breaking — handler priority
+
+**When several handlers legitimately subscribe to the same event** and one concern must resolve before another (e.g. combat-state cleanup before notification), set explicit `Priority` values. Pick numbers with gaps so future handlers can slot in.
 
 ```csharp
-public class DeathOrchestrationHandler : IEventHandler<PlayerDeathEvent>
-{
-    public async Task HandleAsync(PlayerDeathEvent e)
-    {
-        await _combat.RemoveFromCombat(e.Victim);
-        await _death.ApplyPenalties(e.Victim);
-        var witnesses = _visibility.GetWitnesses(e.Victim, _locations.GetNearby(e.Location));
-        await _notifications.NotifyDeath(e.Victim, witnesses);
-        await _death.Respawn(e.Victim);
-    }
-}
+public class CombatHandler : IEventHandler<PlayerDeathEvent>        { public int Priority => 10; }
+public class PlayerConditionHandler : IEventHandler<PlayerDeathEvent> { public int Priority => 20; }
+public class NotificationHandler : IEventHandler<PlayerDeathEvent>  { public int Priority => 80; }
 ```
 
-See [04-pitfalls.md](04-pitfalls.md#handler-ordering-issues) for tradeoffs.
+Priority is not a replacement for phased events — if ordering implies phases, split the event instead.
+
+### What to avoid
+
+**Single orchestration handler that calls every service in sequence.** Collapses the graph back into a procedural god-handler, reintroduces coupling the bus is meant to break, and contradicts [04-pitfalls.md#god-handlers](04-pitfalls.md#god-handlers). Don't use this pattern.
+
+See [04-pitfalls.md#handler-ordering-issues](04-pitfalls.md#handler-ordering-issues) for the matching failure modes and the "capture point-in-time data" technique for stale-read avoidance.
 
 ---
 
@@ -273,5 +260,3 @@ public class CombatHandler : IEventHandler<AttackEvent>
 | `NotificationHandler` (priority 80) | Notify witnesses |
 | `PersistenceHandler` (priority 90) | Save state |
 | `AIHandler` (priority 95) | Update NPC threat tables |
-
-The worked example is also documented in [../use-cases/player-death-and-respawn.md](../use-cases/player-death-and-respawn.md).

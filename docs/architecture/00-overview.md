@@ -23,7 +23,7 @@ Hedron is a C# MUD engine targeting .NET 8. `Server/` is a generic-host console 
 │  without game-specific knowledge.                           │
 ├─────────────────────────────────────────────────────────────┤
 │                   Components / World                        │
-│  ECS components, entity cache, world state.                 │
+│  ECS components and world state held by `EntityService`.    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -38,7 +38,7 @@ Dependencies flow **downward only**. See [01-layers.md](01-layers.md) for full d
 3. **Domain systems encode game rules.** They know game concepts (stealth, magic, crafting) and compose core systems.
 4. **Core systems are reusable mechanics.** They answer *how does X work?*, not *when should we do X?* — they could work in a different game.
 5. **Dependencies flow downward only.** No upward arrow in the system dependency graph.
-6. **One world, authored content via templates.** Every live entity lives in `EntityService`. Authored content is spawned from `TemplateRegistry`; bespoke entities are built by the feature that owns them. There is no prototype cache.
+6. **One world, authored content via templates.** Every live entity lives in `EntityService`. Authored content is spawned from `TemplateRegistry`; bespoke entities are built by the feature that owns them.
 7. **Persistence is per-component.** Tag a component type with `[Persistent]` and it's saved; untagged components are rebuilt at runtime. An entity is persisted if it has any `[Persistent]` component.
 8. **Modules group cohesion.** Feature slices live under `Core/Modules/<Feature>/` (services, handlers, events, components together).
 

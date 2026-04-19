@@ -78,10 +78,10 @@ Ask:
 > Usually a *secondary* handler alongside the primary domain handler. Focuses on "who sees what".
 
 ### PersistenceHandler
-**Events:** state-changing events
-**Responsibilities:** queue state changes; batch writes; graceful failure; data consistency.
-**Uses:** `IPersistenceService`, repositories
-> Evaluate event-driven vs explicit persistence case by case; event-driven is cleaner but needs careful failure handling.
+**Events:** `EntityMutatedEvent` and other state-change events; shutdown and timer triggers.
+**Responsibilities:** dirty-track via event subscription; batch writes on flush; atomic write-and-rename; log and retry on partial failure.
+**Uses:** `IPersistenceSystem`
+> Persistence is event-driven dirty-tracking — handlers never call persistence directly.
 
 ### AIHandler
 **Events:** `PlayerEnteredRoomEvent`, `PlayerAttackedNPCEvent`, `NPCHealthLowEvent`, `TimeTickEvent`

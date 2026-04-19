@@ -18,7 +18,7 @@ Phase 4. Build-and-test on PR once the test framework lands.
 Becomes meaningful once `LocationSystem` and `CombatSystem` exist and profiling shows real cost. Not an MVP concern — MVP's hot path is three rooms.
 
 ### 🟡 Persistence substrate
-First slice of Phase 3. Event-driven dirty tracking, atomic writes. Design sketched in [`../use-cases/game-state-persistence.md`](../use-cases/game-state-persistence.md).
+First slice of Phase 3. Event-driven dirty tracking, atomic writes. Use case to be re-authored against the current architecture when the slice begins.
 
 ### 🔵 Heartbeat / TimeSystem
 Needed for combat pulses, mob AI ticks, effect expiries. Not an MVP concern — MVP is event-driven-on-input only. Lands as part of the first Phase 3 slice that needs scheduled work (probably combat or mob wandering).
@@ -35,7 +35,7 @@ If a web client becomes a goal, unify telnet sessions and web sessions behind a 
 Evaluate after `TimeSystem` exists and concurrency shape is known. May not be needed if the heartbeat stays single-threaded with an event queue.
 
 ### 🔵 Admin UI
-Either rebuild Blazor Server atop the new architecture, or pick something else. Deferred to Phase 4 or a dedicated Phase 3 slice once we know what authoring operations we actually need.
+Parked on **Ticket B** (see [`plan.md`](plan.md#open-tickets)): admin-tooling scope must be settled before a tech choice is made. Deferred to Phase 4 or a dedicated Phase 3 slice once the first real authoring workflow forces the question.
 
 ## Docs
 

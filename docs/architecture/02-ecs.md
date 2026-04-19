@@ -1,6 +1,6 @@
 # ECS, Components, Archetypes, Templates & Persistence
 
-This is the **canonical** ECS reference. It supersedes the legacy root `ENTITIES.md` and `DESIGN_DOCS/ENTITIES.md`.
+This is the **canonical** ECS reference.
 
 > Code examples use the **idealized API** (`EntityService`, `TemplateRegistry`, `Entity` wrapper). The implementation sits behind `EntityService`/`ComponentRepository`/`EcsManager`; see [../roadmap/plan.md](../roadmap/plan.md) for the current rebuild phase.
 
@@ -38,9 +38,9 @@ See [../reference/components.md](../reference/components.md) for the living comp
 
 ---
 
-## One World, No Cache Split
+## One World Model
 
-Hedron has **one world**. There is no separate prototype cache and instance cache. Every entity that exists at runtime lives in the same `EntityService`, and every entity has the same shape as any other of its archetype.
+Hedron has **one world**. Every entity that exists at runtime lives in the same `EntityService`, and every entity of a given archetype has the same shape.
 
 Authored content (rooms, mobs, items — anything a designer writes) is expressed as **templates**. A template is a declarative spec, not an entity. `TemplateRegistry.Spawn(templateId, ...)` builds a live entity from a template when the world starts or when something needs to be respawned.
 
@@ -56,7 +56,7 @@ entityService.AddComponent(newPlayer.Id, new PoolsComponent { /* ... */ });
 // ...
 ```
 
-The old prototype/instance distinction is gone. There is no `PrototypeComponent`, no `CacheType`, no `CreateInstanceFromPrototype`. If code needs to know "is this a canonical template or a running entity," the answer is: templates aren't entities, so the question doesn't arise.
+Templates aren't entities — they live in `TemplateRegistry` and are consumed by `Spawn` to build runtime entities. The question "is this entity a canonical template or a running instance?" doesn't arise: if you hold an `Entity`, it's live.
 
 ---
 
@@ -78,7 +78,7 @@ entityService.AddComponent(item.Id, new IdentityComponent { Name = $"{quality} {
 entityService.AddComponent(item.Id, new ItemDataComponent { /* derived from recipe + skill */ });
 entityService.AddComponent(item.Id, new WeaponDataComponent { /* ... */ });
 ```
-Domain systems build directly against `EntityService`. There is no `EntityFactory` god-class — each feature owns its own construction code (`ItemGeneratorSystem`, `PlayerCreationSystem`, `LootSystem`).
+Domain systems build directly against `EntityService`. Each feature owns its own construction code (`ItemGeneratorSystem`, `PlayerCreationSystem`, `LootSystem`) — construction is never centralised in a single factory.
 
 The `Custom` archetype exists as an escape hatch: an entity that doesn't match any archetype composition but still needs to participate in queries.
 
@@ -249,7 +249,7 @@ For rooms/areas a designer authors, the data flow is:
 2. The entity lives in the world. Players interact with it. If they modify it (e.g. change a room description via an admin command, or a door's locked state flips permanently), the modified `[Persistent]` components are saved.
 3. On next boot: `PersistenceSystem` loads the persisted components first; only entities that weren't persisted are reseeded from blueprints. Persisted changes win over blueprint defaults.
 
-The blueprint is the seed. The persisted components are the authority. This handles the "player modified a pre-authored room permanently" case without a special cache layer.
+The blueprint is the seed. The persisted components are the authority. This handles the "player modified a pre-authored room permanently" case in one model: save what changed, reseed what wasn't touched.
 
 ### Silent load path
 

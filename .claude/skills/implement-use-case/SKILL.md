@@ -48,4 +48,4 @@ Use cases are living documents. If reality differs from the doc in a non-trivial
 - If an event name changes, update every doc that referenced it (search `docs/` for the old name).
 - If a system signature changes, update [docs/reference/systems.md](../../../docs/reference/systems.md).
 
-See the worked player-death example: [docs/architecture/03-events.md](../../../docs/architecture/03-events.md) + [docs/use-cases/player-death-and-respawn.md](../../../docs/use-cases/player-death-and-respawn.md) — that's the gold-standard trace from use case → handler ordering → systems touched.
+See the worked player-death example in [docs/architecture/03-events.md](../../../docs/architecture/03-events.md) — the handler-ordering table there is the gold-standard trace from event → priorities → systems touched.
