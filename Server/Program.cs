@@ -1,80 +1,30 @@
-using Hedron.Data;
-using Hedron.Core.Commands;
-using Hedron.Core.Locale;
-using Hedron.Core.System;
-using Hedron.Network;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
+using Hedron.Core.ECS;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
-namespace Server
+namespace Hedron.Server;
+
+/// <summary>
+/// Composition root for the Hedron host. Phase 1 wires only the ECS primitives;
+/// the telnet listener, event bus, handler registry, and command dispatcher are
+/// added in Phase 2 (see <c>docs/roadmap/plan.md</c>).
+/// </summary>
+public static class Program
 {
-	public class Program
-	{
-		public static void Main(string[] args)
-		{
-			DataPersistence.PersistencePath = Constants.DEFAULT_WORLD_FOLDER;
+    public static Task Main(string[] args)
+    {
+        var host = Host.CreateDefaultBuilder(args)
+            .ConfigureServices(services =>
+            {
+                // ECS world — singleton, shared between the static EcsManager bridge and
+                // any DI-injected consumer. Registering the same instance on both sides
+                // keeps Phase 2 free to remove the static bridge without a flag day.
+                var world = new EntityService();
+                EcsManager.SetWorld(world);
+                services.AddSingleton(world);
+            })
+            .Build();
 
-			var world = new World();
-
-			try
-			{
-				world = world.LoadWorld(true);
-			}
-			catch
-			{
-				// Throw error if the world directory exists but some error still occurred
-				if (Directory.Exists(DataPersistence.PersistencePath))
-					throw;
-
-				// .. otherwise, there was no world to load, so create a new one
-
-				// Wipe cache for safety
-				DataAccess.WipeCache();
-
-				// Create a new world and save to disk
-				world = World.NewPrototype().SpawnAsObject<World>(true, 0);
-			}
-
-			/*
-			// Declare tick timers
-			// ...
-			var tickTimer = DateTime.UtcNow;
-
-			// TODO: Update to use an event-driven heartbeat
-			// TODO: Update area respawn to function based off heartbeat
-			// TODO: Implement synchronous event handling
-			// Send player output again
-			if ((DateTime.UtcNow - tickTimer).TotalSeconds >= 1)
-			{
-				tickTimer = DateTime.UtcNow;
-				Combat.CombatHandler.ProcessAllEntityCombatRound();
-
-				var areas = DataAccess.GetAll<Area>(CacheType.Instance);
-
-				foreach (var area in areas)
-					area.Respawn();
-			}
-			*/
-
-			CommandService.Initialize();
-			Task.Run(TelnetHub.Instance.ProcessConnections);
-			CreateHostBuilder(args).Build().Run();
-
-		}
-
-		public static IHostBuilder CreateHostBuilder(string[] args) =>
-			Host.CreateDefaultBuilder(args)
-				.ConfigureWebHostDefaults(webBuilder =>
-				{
-					webBuilder.UseStartup<Startup>();
-				});
-	}
+        return host.RunAsync();
+    }
 }
