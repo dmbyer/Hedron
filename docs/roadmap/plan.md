@@ -49,7 +49,7 @@ Demolish everything not on the keep list. Single transactional commit so the new
 
 Build the target architecture from scratch, tuned for MVP. Each numbered item is a commit-sized chunk. Order matters only where noted.
 
-1. **Audit kept ECS primitives.** Verify `EntityService`, `ComponentRepository`, `IComponent`, `EcsManager` match the shapes described in [`architecture/02-ecs.md`](../architecture/02-ecs.md) after the Ticket A redesign (one world; `Entity` wrapper; `CreateEntity` / `TryGet` / `Query` surface; no prototype/instance cache). Rewrite any that have drifted. Do not preserve drift. Fold in the 4 nullability warnings from the kept files.
+1. **Audit kept ECS primitives.** Verify `EntityService`, `ComponentRepository`, `IComponent`, `EcsManager` match the shapes described in [`architecture/02-ecs.md`](../architecture/02-ecs.md): one world, `Entity` wrapper, `CreateEntity` / `TryGet` / `Query` surface. Rewrite any that have drifted. Do not preserve drift. Fold in the 4 nullability warnings from the kept files.
 2. **Event bus.** `IEventBus`, in-memory `EventBus` implementation, `IGameEvent`, `IEventHandler<T>`, `HandlerPriority` per [`architecture/03-events.md`](../architecture/03-events.md). Registered as a DI singleton.
 3. **Handler and system contracts.** Base interfaces/abstracts for handlers and domain/core systems per [`architecture/01-layers.md`](../architecture/01-layers.md).
 4. **Command dispatcher.** Verb parser + per-verb handler registration. Does not care about gameplay; just "given a session and a line of text, route to the right handler."
@@ -99,7 +99,7 @@ Best addressed once a handful of Phase 3 slices have stressed the architecture:
 - Test framework (xUnit) and initial system-level test coverage
 - CI wiring (build + tests on PR)
 - Performance passes where profiling shows real cost
-- Admin UI (Blazor or other) if Phase 3 slice 13 hasn't already covered it
+- Admin UI if Phase 3 slice 13 hasn't already covered it (tech choice follows Ticket B resolution)
 - Thread-safety review once `TimeSystem` and concurrency shape are real
 
 ## Ground rules across all phases
@@ -108,7 +108,7 @@ Best addressed once a handful of Phase 3 slices have stressed the architecture:
 2. **4-layer discipline.** Handlers orchestrate → domain systems decide → core systems compute → components hold data. See [`architecture/01-layers.md`](../architecture/01-layers.md).
 3. **Component queries, not `is`/`as`.** Never.
 4. **Past-tense thin events.** Events describe *what happened*. Logic lives in handlers/systems.
-5. **One world; authored content spawns from `TemplateRegistry`.** No prototype/instance cache, no `EntityFactory`. See [`architecture/02-ecs.md`](../architecture/02-ecs.md).
+5. **One world; authored content spawns from `TemplateRegistry`.** Feature systems own bespoke construction. See [`architecture/02-ecs.md`](../architecture/02-ecs.md).
 6. **Persistence is per-component.** `[Persistent]` on a component type marks it as save-worthy.
 7. **Docs drift is a bug.** Docs describe the target; if reality disagrees, one of them is wrong and gets fixed in the same PR.
 

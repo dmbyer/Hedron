@@ -46,7 +46,7 @@ Read these in order the first time:
 2. **4-layer discipline.** Handlers orchestrate → domain systems decide → core systems compute → components hold data. Never skip layers upward. See [`docs/architecture/01-layers.md`](docs/architecture/01-layers.md).
 3. **Component queries, not `is`/`as`.** `entityService.HasComponent<PlayerComponent>(id)` — never `entity is Player`.
 4. **Services return results; handlers publish events.** Systems are pure where possible.
-5. **One world, no cache split.** Every live entity lives in `EntityService`. Authored content is spawned via `TemplateRegistry`; bespoke entities are built with `EntityService.CreateEntity()` + `AddComponent` by the owning feature. There is no `EntityFactory`, no prototype cache, no `PrototypeComponent`.
+5. **One world model.** Every live entity lives in `EntityService`. Authored content is spawned via `TemplateRegistry`; bespoke entities are built with `EntityService.CreateEntity()` + `AddComponent` by the owning feature that needs them.
 6. **Entity identity is a wrapper.** `readonly record struct Entity(uint Id)` — the `uint` is authoritative; `Entity` is for flavour at call sites. Components still store `uint` ids when referencing other entities.
 7. **Persistence is per-component.** Tag a component type with `[Persistent]` and `PersistenceSystem` includes it on save. An entity is persisted if it has any `[Persistent]` component. Effects split into `PersistentEffectsComponent` (saved) and `TransientEffectsComponent` (session-only).
 8. **Legacy code is reference, not contract.** Existing `Core/` code outside the keep list in [`plan.md`](docs/roadmap/plan.md) describes intent only. Don't preserve it — rewrite against the target.

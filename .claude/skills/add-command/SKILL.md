@@ -49,4 +49,4 @@ Target size: **≤ 30 lines**. If it grows, the logic belongs in a system, not i
 
 ## Access control
 
-Commands that mutate restricted state (admin verbs, container access) must call `AccessControlSystem.CanAccess` **before** any mutation. See [docs/use-cases/access-control-violation.md](../../../docs/use-cases/access-control-violation.md).
+Commands that mutate restricted state (admin verbs, container access) must call `AccessControlSystem.CanAccess` **before** any mutation.
