@@ -13,8 +13,8 @@ namespace Hedron.Core.ECS
     /// </remarks>
     public static class EcsManager
     {
-        private static EntityService _world;
-        private static readonly object _lock = new object();
+        private static EntityService? _world;
+        private static readonly object _lock = new();
 
         /// <summary>
         /// Returns the process-wide <see cref="EntityService"/>. If DI has registered one via
@@ -25,13 +25,12 @@ namespace Hedron.Core.ECS
         {
             get
             {
-                if (_world != null)
+                if (_world is not null)
                     return _world;
 
                 lock (_lock)
                 {
-                    if (_world == null)
-                        _world = new EntityService();
+                    _world ??= new EntityService();
                     return _world;
                 }
             }
@@ -44,7 +43,7 @@ namespace Hedron.Core.ECS
         /// </summary>
         public static void SetWorld(EntityService world)
         {
-            if (world == null) throw new ArgumentNullException(nameof(world));
+            if (world is null) throw new ArgumentNullException(nameof(world));
             lock (_lock)
             {
                 _world = world;

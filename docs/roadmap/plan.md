@@ -50,8 +50,8 @@ Demolish everything not on the keep list. Single transactional commit so the new
 Build the target architecture from scratch, tuned for MVP. Each numbered item is a commit-sized chunk. Order matters only where noted.
 
 1. **Audit kept ECS primitives.** Verify `EntityService`, `ComponentRepository`, `IComponent`, `EcsManager` match the shapes described in [`architecture/02-ecs.md`](../architecture/02-ecs.md): one world, `Entity` wrapper, `CreateEntity` / `TryGet` / `Query` surface. Rewrite any that have drifted. Do not preserve drift. Fold in the 4 nullability warnings from the kept files.
-2. **Event bus.** `IEventBus`, in-memory `EventBus` implementation, `IGameEvent`, `IEventHandler<T>`, `HandlerPriority` per [`architecture/03-events.md`](../architecture/03-events.md). Registered as a DI singleton.
-3. **Handler and system contracts.** Base interfaces/abstracts for handlers and domain/core systems per [`architecture/01-layers.md`](../architecture/01-layers.md).
+2. **Event bus.** `IEventBus`, in-memory `EventBus` implementation, `IEvent`, `IEventHandler<T>`, `HandlerPriority` per [`architecture/03-events.md`](../architecture/03-events.md). Registered as a DI singleton.
+3. **Handler and system contracts.** Already subsumed — step 2 delivers the handler contract (`IEventHandler<T>`), and the architecture docs deliberately don't define shared `ISystem`/`ICoreSystem`/`IDomainSystem` bases. Each system declares its own per-feature interface (`IDiceSystem`, `ICombatSystem`, …) alongside its implementation when the system is built. No separate commit required.
 4. **Command dispatcher.** Verb parser + per-verb handler registration. Does not care about gameplay; just "given a session and a line of text, route to the right handler."
 5. **Telnet session layer.** TCP listener, per-connection session object, line-based I/O, session → player-entity binding. Rebuilt from scratch, not ported.
 6. **MVP components.** `PlayerComponent`, `LocationComponent`, `RoomComponent` as defined in `mvp.md`. Pure data, nested properties where appropriate.
@@ -116,13 +116,19 @@ Best addressed once a handful of Phase 3 slices have stressed the architecture:
 
 - **Phase 1: complete** — commit `107b27d` stripped the tree to the keep list, bumped to `net8.0`, scrapped Blazor, removed `Data` and `Bot` projects, trimmed `EntityService`'s module machinery. `dotnet build Hedron.sln` is green with 4 nullability warnings in the kept ECS files (folded into Phase 2 step 1).
 - **Phase 1.5 (doc pass): complete in this branch** — resolved **Ticket A** (ECS redesign): dropped prototype/instance cache, adopted one-world model, `Entity(uint Id)` wrapper, `TemplateRegistry` for authored-content spawning, bespoke construction in domain systems (no `EntityFactory`), archetypes restricted to validation + detection, persistence via `[Persistent]` on component types, effects split into `PersistentEffectsComponent` / `TransientEffectsComponent`. Docs, skills, use cases, and CLAUDE.md updated in coordination. **Ticket B** (admin-tooling / use-cases / skills scope rethink — originally surfaced by the Blazor-editor removal) is deferred.
-- **Phase 2: ready to start.** First step is the audit of kept ECS primitives against the revised [`architecture/02-ecs.md`](../architecture/02-ecs.md). Per-item divergence report: docs vs. code win decided case-by-case.
+- **Phase 2: in progress.** Steps 1, 2, 3, and 4 complete on this branch:
+  - **Step 1 (ECS primitives audit):** added `Entity` record-struct wrapper, added `EntityService.CreateEntity()` with a monotonic id allocator (0 reserved), renamed `GetComponent<T>` → `Get<T>` and added `TryGet<T>`, cleared all four nullability warnings, and trimmed the spurious `ref` in the computed-stats example in [`architecture/02-ecs.md`](../architecture/02-ecs.md).
+  - **Step 2 (event bus):** added `Core/Events/` with `IEvent`, `IEventHandler<T>`, `IEventBus`, in-memory `EventBus` (priority-ordered dispatch, snapshot-under-lock so handlers can sub/unsub during dispatch), and `HandlerPriority` constants (State / Domain / Notification / Persistence / Ai). Registered as a DI singleton in [`Server/Program.cs`](../../Server/Program.cs). Also fixed a doc drift on this line: was `IGameEvent`, should be `IEvent` per [`architecture/03-events.md`](../architecture/03-events.md).
+  - **Step 3 (handler / system contracts):** no code landed — step absorbed into step 2 (handler contract) and the later system-building steps (each system defines its own interface). Step 3 entry above updated to explain.
+  - **Step 4 (command dispatcher):** added `Core/Sessions/ISession.cs` (concrete telnet impl comes in step 5), plus `Core/Commands/` with `ICommand`, `ICommandDispatcher`, and `CommandDispatcher` (case-insensitive verb map, duplicate-verb guard, "Unknown command" fallback). Registered as a DI singleton.
+  - Build is green with zero warnings.
+  - Next step: **Phase 2 step 5 — telnet session layer** (TCP listener, per-connection session object implementing `ISession`, line-based I/O, session → player-entity binding).
 - Phase 3: not started
 - Phase 4: not started
 
 ### Next-session pickup
 
-A new session can resume by reading this file + [`mvp.md`](mvp.md) + [`../architecture/02-ecs.md`](../architecture/02-ecs.md) and starting at **Phase 2 step 1**. Everything the next session needs is committed; no in-flight work to reconstruct. The four nullability warnings in the kept ECS files are not a blocker — they surface as part of the audit.
+A new session can resume by reading this file + [`mvp.md`](mvp.md) and starting at **Phase 2 step 5** (telnet session layer). Steps 1–4 already landed: `Entity`/`CreateEntity`/`Get`/`TryGet` under `Core/ECS/`, `IEvent`/`IEventHandler<T>`/`IEventBus`/`EventBus`/`HandlerPriority` under `Core/Events/`, and `ISession`/`ICommand`/`ICommandDispatcher`/`CommandDispatcher` under `Core/Sessions/` and `Core/Commands/` — all wired through DI.
 
 Wave 0 and Sub-Wave 1A artifacts from the retired plan were resolved in Phase 1: `EcsManager.cs` stayed, `ICopyableObject.cs` was deleted with everything it served, namespace touches were mooted by the strip.
 
