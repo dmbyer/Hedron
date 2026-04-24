@@ -5,134 +5,115 @@ using System.Linq;
 namespace Hedron.Core.ECS
 {
     /// <summary>
-    /// Repository for component storage and retrieval in the ECS system
+    /// Repository for component storage and retrieval in the ECS system.
     /// </summary>
     public class ComponentRepository
     {
-        private readonly Dictionary<Type, Dictionary<uint, IComponent>> _components = new Dictionary<Type, Dictionary<uint, IComponent>>();
+        private readonly Dictionary<Type, Dictionary<uint, IComponent>> _components = new();
 
         /// <summary>
-        /// Adds a component to an entity
+        /// Adds (or replaces) a component on an entity.
         /// </summary>
-        /// <typeparam name="T">The component type</typeparam>
-        /// <param name="entityId">The entity ID</param>
-        /// <param name="component">The component instance</param>
         public void AddComponent<T>(uint entityId, T component) where T : IComponent
         {
             var componentType = typeof(T);
-            
-            if (!_components.ContainsKey(componentType))
-                _components[componentType] = new Dictionary<uint, IComponent>();
-                
-            _components[componentType][entityId] = component;
-        }
 
-        /// <summary>
-        /// Gets a component from an entity
-        /// </summary>
-        /// <typeparam name="T">The component type</typeparam>
-        /// <param name="entityId">The entity ID</param>
-        /// <returns>The component instance or null if not found</returns>
-        public T GetComponent<T>(uint entityId) where T : class, IComponent
-        {
-            var componentType = typeof(T);
-            
-            if (_components.TryGetValue(componentType, out var componentDict) &&
-                componentDict.TryGetValue(entityId, out var component))
+            if (!_components.TryGetValue(componentType, out var componentDict))
             {
-                return component as T;
+                componentDict = new Dictionary<uint, IComponent>();
+                _components[componentType] = componentDict;
             }
-            
-            return null;
+
+            componentDict[entityId] = component!;
         }
 
         /// <summary>
-        /// Checks if an entity has a specific component type
+        /// Gets a component from an entity. Throws <see cref="KeyNotFoundException"/> if missing —
+        /// use <see cref="TryGet{T}"/> when absence is expected.
         /// </summary>
-        /// <typeparam name="T">The component type</typeparam>
-        /// <param name="entityId">The entity ID</param>
-        /// <returns>True if the entity has the component</returns>
-        public bool HasComponent<T>(uint entityId) where T : IComponent
+        public T Get<T>(uint entityId) where T : class, IComponent
         {
-            var componentType = typeof(T);
-            return _components.TryGetValue(componentType, out var componentDict) && 
-                   componentDict.ContainsKey(entityId);
+            if (TryGet<T>(entityId, out var component))
+                return component;
+
+            throw new KeyNotFoundException(
+                $"Entity {entityId} does not have component {typeof(T).Name}.");
         }
 
         /// <summary>
-        /// Checks if an entity has a specific component type
+        /// Gets a component from an entity if present.
         /// </summary>
-        /// <param name="entityId">The entity ID</param>
-        /// <param name="componentType">The component type</param>
-        /// <returns>True if the entity has the component</returns>
-        public bool HasComponent(uint entityId, Type componentType)
+        public bool TryGet<T>(uint entityId, out T component) where T : class, IComponent
         {
-            return _components.TryGetValue(componentType, out var componentDict) && 
-                   componentDict.ContainsKey(entityId);
-        }
-
-        /// <summary>
-        /// Removes a component from an entity
-        /// </summary>
-        /// <typeparam name="T">The component type</typeparam>
-        /// <param name="entityId">The entity ID</param>
-        /// <returns>True if the component was removed</returns>
-        public bool RemoveComponent<T>(uint entityId) where T : IComponent
-        {
-            var componentType = typeof(T);
-            
-            if (_components.TryGetValue(componentType, out var componentDict))
+            if (_components.TryGetValue(typeof(T), out var componentDict) &&
+                componentDict.TryGetValue(entityId, out var stored))
             {
-                return componentDict.Remove(entityId);
+                component = (T)stored;
+                return true;
             }
-            
+
+            component = null!;
             return false;
         }
 
         /// <summary>
-        /// Gets all entities that have a specific component type
+        /// Checks if an entity has a specific component type.
         /// </summary>
-        /// <typeparam name="T">The component type</typeparam>
-        /// <returns>Collection of entity IDs</returns>
+        public bool HasComponent<T>(uint entityId) where T : IComponent
+        {
+            return _components.TryGetValue(typeof(T), out var componentDict) &&
+                   componentDict.ContainsKey(entityId);
+        }
+
+        /// <summary>
+        /// Checks if an entity has a specific component type.
+        /// </summary>
+        public bool HasComponent(uint entityId, Type componentType)
+        {
+            return _components.TryGetValue(componentType, out var componentDict) &&
+                   componentDict.ContainsKey(entityId);
+        }
+
+        /// <summary>
+        /// Removes a component from an entity. Returns <c>true</c> if a component was removed.
+        /// </summary>
+        public bool RemoveComponent<T>(uint entityId) where T : IComponent
+        {
+            if (_components.TryGetValue(typeof(T), out var componentDict))
+                return componentDict.Remove(entityId);
+
+            return false;
+        }
+
+        /// <summary>
+        /// Gets all entity IDs that have a specific component type.
+        /// </summary>
         public IEnumerable<uint> GetEntitiesWith<T>() where T : IComponent
         {
-            var componentType = typeof(T);
-            
-            if (_components.TryGetValue(componentType, out var componentDict))
-            {
+            if (_components.TryGetValue(typeof(T), out var componentDict))
                 return componentDict.Keys;
-            }
-            
+
             return Enumerable.Empty<uint>();
         }
 
         /// <summary>
-        /// Gets all components of a specific type
+        /// Gets all components of a specific type paired with their entity IDs.
         /// </summary>
-        /// <typeparam name="T">The component type</typeparam>
-        /// <returns>Collection of component instances with their entity IDs</returns>
         public IEnumerable<(uint EntityId, T Component)> GetAllComponents<T>() where T : class, IComponent
         {
-            var componentType = typeof(T);
-            
-            if (_components.TryGetValue(componentType, out var componentDict))
-            {
-                return componentDict.Select(kvp => (kvp.Key, kvp.Value as T)).Where(x => x.Item2 != null);
-            }
-            
+            if (_components.TryGetValue(typeof(T), out var componentDict))
+                return componentDict.Select(kvp => (kvp.Key, (T)kvp.Value));
+
             return Enumerable.Empty<(uint, T)>();
         }
 
         /// <summary>
-        /// Removes all components for a given entity
+        /// Removes all components for a given entity.
         /// </summary>
-        /// <param name="entityId">The entity ID</param>
         public void RemoveAllComponents(uint entityId)
         {
             foreach (var componentDict in _components.Values)
-            {
                 componentDict.Remove(entityId);
-            }
         }
     }
 }

@@ -203,7 +203,7 @@ Stat modifications â€” from equipment, temporary buffs, auras, skill passives â€
 ```csharp
 public int GetEffectiveMaxHealth(uint entityId)
 {
-    ref var pools = ref entityService.Get<PoolsComponent>(entityId);
+    var pools = entityService.Get<PoolsComponent>(entityId);
     int total = pools.BaseMaxHp;
     foreach (var effect in effectTracker.EffectsOn(entityId))
         total += effect.MaxHpModifier;

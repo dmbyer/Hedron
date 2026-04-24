@@ -7,28 +7,48 @@ namespace Hedron.Core.ECS
     /// Service that manages entities and components in the ECS architecture.
     /// </summary>
     /// <remarks>
-    /// Entities are plain <c>uint</c> IDs; state lives in components stored on a
-    /// <see cref="ComponentRepository"/>. Systems and handlers consume this service rather
-    /// than holding their own world state.
+    /// Entities are monotonically-allocated <c>uint</c> IDs, wrapped in <see cref="Entity"/> for
+    /// call-site readability; state lives in components stored on a <see cref="ComponentRepository"/>.
+    /// Systems and handlers consume this service rather than holding their own world state.
+    /// Id <c>0</c> is reserved as a sentinel ("no entity") — allocation starts at <c>1</c>.
     /// </remarks>
     public class EntityService
     {
-        private readonly ComponentRepository _componentRepository = new ComponentRepository();
+        private readonly ComponentRepository _componentRepository = new();
+        private uint _nextId = 1;
 
         /// <summary>
-        /// Gets a component from an entity.
+        /// Allocates a new entity id. The returned <see cref="Entity"/> has no components yet —
+        /// callers add the component composition appropriate to the archetype being built.
         /// </summary>
-        public T GetComponent<T>(uint entityId) where T : class, IComponent
+        public Entity CreateEntity()
         {
-            return _componentRepository.GetComponent<T>(entityId);
+            return new Entity(_nextId++);
         }
 
         /// <summary>
-        /// Adds a component to an entity.
+        /// Adds (or replaces) a component on an entity.
         /// </summary>
         public void AddComponent<T>(uint entityId, T component) where T : IComponent
         {
             _componentRepository.AddComponent(entityId, component);
+        }
+
+        /// <summary>
+        /// Gets a component from an entity. Throws <see cref="KeyNotFoundException"/> if the
+        /// component is not present — use <see cref="TryGet{T}"/> when absence is expected.
+        /// </summary>
+        public T Get<T>(uint entityId) where T : class, IComponent
+        {
+            return _componentRepository.Get<T>(entityId);
+        }
+
+        /// <summary>
+        /// Gets a component from an entity if present.
+        /// </summary>
+        public bool TryGet<T>(uint entityId, out T component) where T : class, IComponent
+        {
+            return _componentRepository.TryGet(entityId, out component);
         }
 
         /// <summary>
