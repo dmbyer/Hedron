@@ -108,6 +108,41 @@ namespace Hedron.Core.ECS
         }
 
         /// <summary>
+        /// Adds (or replaces) a component on an entity using a runtime <see cref="Type"/>.
+        /// Used during deserialization when the concrete type is only known at runtime.
+        /// </summary>
+        /// <exception cref="ArgumentException">
+        /// Thrown if <paramref name="componentType"/> does not implement <see cref="IComponent"/>.
+        /// </exception>
+        public void AddComponent(uint entityId, Type componentType, IComponent component)
+        {
+            if (!typeof(IComponent).IsAssignableFrom(componentType))
+                throw new ArgumentException(
+                    $"{componentType.FullName} does not implement IComponent.", nameof(componentType));
+
+            if (!_components.TryGetValue(componentType, out var componentDict))
+            {
+                componentDict = new Dictionary<uint, IComponent>();
+                _components[componentType] = componentDict;
+            }
+
+            componentDict[entityId] = component;
+        }
+
+        /// <summary>
+        /// Returns all components attached to the given entity as (Type, IComponent) pairs.
+        /// Used by <c>PersistenceSystem</c> to enumerate an entity's full component set.
+        /// </summary>
+        public IEnumerable<(Type ComponentType, IComponent Component)> GetAllForEntity(uint entityId)
+        {
+            foreach (var (type, dict) in _components)
+            {
+                if (dict.TryGetValue(entityId, out var component))
+                    yield return (type, component);
+            }
+        }
+
+        /// <summary>
         /// Removes all components for a given entity.
         /// </summary>
         public void RemoveAllComponents(uint entityId)

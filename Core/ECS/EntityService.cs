@@ -92,6 +92,42 @@ namespace Hedron.Core.ECS
         }
 
         /// <summary>
+        /// Adds (or replaces) a component on an entity using a runtime <see cref="Type"/>.
+        /// Used by <c>PersistenceSystem</c> during hydration when the concrete type is only
+        /// known at runtime.
+        /// </summary>
+        public void AddComponent(uint entityId, Type componentType, IComponent component)
+        {
+            _componentRepository.AddComponent(entityId, componentType, component);
+        }
+
+        /// <summary>
+        /// Returns all components attached to the given entity as (Type, IComponent) pairs.
+        /// Used by <c>PersistenceSystem</c> to enumerate an entity's full component set before
+        /// serialization.
+        /// </summary>
+        public IEnumerable<(Type ComponentType, IComponent Component)> GetAllComponentsForEntity(uint entityId)
+        {
+            return _componentRepository.GetAllForEntity(entityId);
+        }
+
+        /// <summary>
+        /// Restores an entity with a specific <paramref name="id"/> (e.g. loaded from disk).
+        /// Advances the internal counter past <paramref name="id"/> so that subsequent
+        /// <see cref="CreateEntity"/> calls never collide with a restored entity.
+        /// </summary>
+        /// <remarks>
+        /// Call this during hydration (<c>PersistenceSystem.LoadAllAsync</c>) instead of
+        /// <see cref="CreateEntity"/> so that persisted entity IDs are preserved.
+        /// </remarks>
+        public Entity RestoreEntity(uint id)
+        {
+            if (id >= _nextId)
+                _nextId = id + 1;
+            return new Entity(id);
+        }
+
+        /// <summary>
         /// Removes all components for a given entity.
         /// </summary>
         public void DestroyEntity(uint entityId)
