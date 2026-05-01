@@ -45,6 +45,18 @@ All cross-cutting components live under `Core/ECS/Components/`.
 
 ---
 
+## MVP components (Phase 2)
+
+Minimal components required for the MVP walking simulator. These live under `Core/ECS/Components/` and will evolve into the full component set via Phase 3 slices.
+
+| Component | Shape | Used by | Persisted? |
+|---|---|---|---|
+| `PlayerComponent` | `DisplayName`, `Session` (transient ref) | Player entity | no |
+| `LocationComponent` | `RoomEntityId` (current room) | any mobile entity | no |
+| `RoomComponent` | `Name`, `Description`, `Exits` (Dictionary<Direction, uint>) | Room entity | no |
+
+---
+
 ## Module-owned components
 
 Components that are used by only one feature slice live under `Core/Modules/<Feature>/Components/`. None exist yet — add as new feature modules are built out.
