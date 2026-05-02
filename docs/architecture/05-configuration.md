@@ -107,19 +107,19 @@ The data directory path (`"Persistence:DataDirectory"`, default `"data/entities/
 
 These questions are **recorded but not resolved**. Resolution belongs in the phase or slice that first needs the answer.
 
-### OD-1 — Content data file format (Phase 3 slice 3)
+### OD-1 — Content data file format (Phase 3 slice 2)
 
-What format do authored templates live in? Candidates: JSON (simple, standard, verbose), YAML (readable, whitespace-sensitive), a hand-rolled DSL, or a hybrid. The choice affects `TemplateRegistry`'s loader, schema validation, hot-reload feasibility, and the admin tooling story. Decide before slice 3 implementation begins.
+What format do authored templates live in? Candidates: JSON (simple, standard, verbose), YAML (readable, whitespace-sensitive), a hand-rolled DSL, or a hybrid. The choice affects `TemplateRegistry`'s loader, schema validation, hot-reload feasibility, and the admin tooling story. Decide before slice 2 (world content loading + admin substrate) implementation begins. See [`../roadmap/plan.md`](../roadmap/plan.md) for the slice queue.
 
 ### OD-2 — Balance constant promotion threshold (Phase 3 slices 8–12)
 
 At what point, if ever, should balance constants be promoted from sealed C# classes to externally tunable data files? The threshold is "when a designer needs to iterate without a recompile." This is a product decision, not an architectural one. Until it is triggered, constants stay in code.
 
-### OD-3 — Area-level respawn rate ownership (Phase 3 slice 7 — Mobs)
+### OD-3 — Area-level respawn rate ownership (Phase 3 slice 6 — Mobs)
 
 Area respawn rates sit on the boundary of Category 2 (content) and Category 3 (balance math). A global base rate is Category 3 (constant). A per-area override is Category 2 (authored data on the area template). The split should be formalized when the mob/respawn slice is planned.
 
-### OD-4 — RNG weight tables: authored vs. hardcoded (Phase 3 slice 7 and beyond)
+### OD-4 — RNG weight tables: authored vs. hardcoded (Phase 3 slice 6 and beyond)
 
 `RandomGeneratorSystem` operates on `LootTable<T>` values. Where do those tables originate? If they are authored per area/mob, they are Category 2 data-file content. If they are fixed system defaults, they are Category 3 constants. The answer may differ by table type. Decide per feature slice.
 

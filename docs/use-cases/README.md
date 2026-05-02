@@ -2,7 +2,7 @@
 
 Gameplay scenarios that describe *what the game should do* at the designer level. Each file captures one scenario with a consistent template that agents can trace into events → handlers → systems → components.
 
-> **Currently empty.** The earlier 17 use cases were authored against a legacy code surface and were stripped alongside the Phase 1 code strip so they wouldn't mislead new work. Rebuild them one at a time as Phase 3 slices land (see [`../roadmap/plan.md`](../roadmap/plan.md)) — each vertical slice gets its use case re-authored against the current architecture before implementation begins.
+> **Authored on demand.** The earlier 17 use cases were stripped alongside the Phase 1 code strip so they wouldn't mislead new work. Use cases are now re-authored one at a time as each Phase 3 slice begins, against the current architecture. The use-case doc *is* the per-slice plan: it is the single source of truth for what is being built right now and is the input to the `use-case-planner` and `implement-use-case` agents. See [`../roadmap/plan.md`](../roadmap/plan.md) for the slice queue and current focus.
 
 ## Template
 
@@ -17,19 +17,22 @@ Every use-case file contains:
 - **Main flow** — numbered steps
 - **Events fired** — so an agent can find publishers/subscribers
 - **Systems / handlers involved** — traceable to the reference catalogs
+- **Content tooling impact** — required: list every data-file shape, admin command, and `TemplateRegistry` entry the slice introduces or extends. If the slice adds gameplay state, this section must describe how a designer authors and inspects that state in the same PR. Pure-infrastructure slices (no new gameplay state) may state "none" with one sentence of justification. See [`../roadmap/plan.md`](../roadmap/plan.md) ground-rule 8 ("Content-tooling discipline").
 
 ## Index
 
-_(no use cases currently authored — add via `implement-use-case` skill or `/new-use-case`)_
+| Status | Use case | Slice |
+|---|---|---|
+| `implemented` | [`persistence-substrate.md`](persistence-substrate.md) | Phase 3 slice 1 |
 
-Suggested categories when rebuilding:
+Suggested categories as new slices are authored:
 
 - **Gameplay — combat** (pulse processing, skill vs defense, death and respawn, mob death and loot, group combat, spell casting)
 - **Gameplay — movement & world** (entity movement, mob wandering)
 - **Gameplay — items & inventory** (equipment swap, potion consumption, container looting, access control)
 - **Gameplay — economy & skills** (shop purchase, crafting)
-- **Editor (admin)** (area deletion, mob deletion, tied to Ticket B scope)
-- **System** (game-state persistence)
+- **Admin / authoring** (area edit, mob edit, content reload — telnet admin commands per the resolved Ticket B in [`../roadmap/plan.md`](../roadmap/plan.md))
+- **System** (game-state persistence, content loading)
 
 ## Adding a new use case
 

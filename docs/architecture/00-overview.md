@@ -78,6 +78,6 @@ Rows marked *(target)* describe locations that are rebuilt as part of Phase 2. T
 | [../reference/components.md](../reference/components.md) | Living catalog of every component |
 | [../reference/archetypes.md](../reference/archetypes.md) | Living catalog of every archetype |
 | [../use-cases/](../use-cases/) | Designer-level feature specs |
-| [../roadmap/backlog.md](../roadmap/backlog.md) | Prioritized work queue |
-| [../roadmap/plan.md](../roadmap/plan.md) | Phase plan — what's stripped, what's being built |
-| [../roadmap/mvp.md](../roadmap/mvp.md) | Frozen MVP target for Phase 2 |
+| [../roadmap/plan.md](../roadmap/plan.md) | Strategy, end goal, phase summary, current focus |
+| [../roadmap/done.md](../roadmap/done.md) | Short ledger of completed phases / slices |
+| [../roadmap/backlog.md](../roadmap/backlog.md) | Deferred work queue |

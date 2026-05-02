@@ -141,6 +141,8 @@ Lives at `Core/Handlers/PersistenceHandler.cs`.
 
 ## Related
 
-- `account-character-creation.md` — slice 2; player entities created here will be the first real `[Persistent]` entities.
-- `world-content-loading.md` — slice 3; introduces the blueprint-seeds-world conflict model deferred above.
+- `world-content-loading.md` — slice 2; introduces the blueprint-seeds-world conflict model deferred above, and the in-game admin substrate (Ticket B resolution).
+- `account-character-creation.md` — slice 3; player entities created here will be the first real `[Persistent]` entities.
 - `inventory-get-drop.md` — slice 4; `InventoryComponent` will carry `[Persistent]` and trigger dirty-marking on pick-up/drop.
+
+For the current slice queue and ordering rationale, see [`../roadmap/plan.md`](../roadmap/plan.md).
