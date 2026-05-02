@@ -10,8 +10,8 @@ Project layout (as projects are rebuilt, see [`docs/roadmap/plan.md`](docs/roadm
 
 - **Core** (`Core/`) — components, ECS primitives, systems, handlers, events, commands
 - **Server** (`Server/`) — generic-host console app that runs the telnet listener and owns DI composition
-- **Data** (`Data/`) — persistence (deferred; not needed for MVP)
-- **Bot** (`Bot/`) — telnet test bot (deferred)
+- **Data** (`Data/`) — persistence layer; the substrate landed in Phase 3 slice 1 (see [`docs/roadmap/done.md`](docs/roadmap/done.md))
+- **Bot** (`Bot/`) — telnet test bot (deferred; rebuildable when manual multi-client testing gets painful)
 
 ## Commands
 
@@ -26,8 +26,8 @@ The project is mid-rebuild; the build may be red between phase-exit points. See 
 
 Read these in order the first time:
 
-1. [`docs/roadmap/plan.md`](docs/roadmap/plan.md) — current phase, what's stripped, what's next
-2. [`docs/roadmap/mvp.md`](docs/roadmap/mvp.md) — the frozen Phase 2 target
+1. [`docs/roadmap/plan.md`](docs/roadmap/plan.md) — strategy, end goal, phase summary, current focus
+2. [`docs/roadmap/done.md`](docs/roadmap/done.md) — short ledger of completed phases/slices (full detail in [`docs/roadmap/completed/`](docs/roadmap/completed/))
 3. [`docs/architecture/00-overview.md`](docs/architecture/00-overview.md) — the 4-layer model and where code lives
 4. [`docs/architecture/02-ecs.md`](docs/architecture/02-ecs.md) — canonical ECS reference
 5. [`docs/architecture/03-events.md`](docs/architecture/03-events.md) — event bus and handler ordering
@@ -36,9 +36,9 @@ Read these in order the first time:
 **Reference catalogs** (look up specific pieces):
 - [`docs/reference/systems.md`](docs/reference/systems.md) · [`docs/reference/handlers.md`](docs/reference/handlers.md) · [`docs/reference/components.md`](docs/reference/components.md) · [`docs/reference/archetypes.md`](docs/reference/archetypes.md)
 
-**Use cases** (designer scenarios traced through events/handlers/systems): [`docs/use-cases/README.md`](docs/use-cases/README.md)
+**Use cases** (designer scenarios traced through events/handlers/systems — also the per-slice spec): [`docs/use-cases/README.md`](docs/use-cases/README.md)
 
-**Roadmap:** [`docs/roadmap/plan.md`](docs/roadmap/plan.md) · [`docs/roadmap/mvp.md`](docs/roadmap/mvp.md) · [`docs/roadmap/backlog.md`](docs/roadmap/backlog.md)
+**Roadmap:** [`docs/roadmap/plan.md`](docs/roadmap/plan.md) · [`docs/roadmap/done.md`](docs/roadmap/done.md) · [`docs/roadmap/backlog.md`](docs/roadmap/backlog.md)
 
 ## Ground rules when writing code
 
@@ -50,6 +50,7 @@ Read these in order the first time:
 6. **Entity identity is a wrapper.** `readonly record struct Entity(uint Id)` — the `uint` is authoritative; `Entity` is for flavour at call sites. Components still store `uint` ids when referencing other entities.
 7. **Persistence is per-component.** Tag a component type with `[Persistent]` and `PersistenceSystem` includes it on save. An entity is persisted if it has any `[Persistent]` component. Effects split into `PersistentEffectsComponent` (saved) and `TransientEffectsComponent` (session-only).
 8. **Legacy code is reference, not contract.** Existing `Core/` code outside the keep list in [`plan.md`](docs/roadmap/plan.md) describes intent only. Don't preserve it — rewrite against the target.
+9. **Content-tooling discipline.** Any slice that adds gameplay state must also land the tooling needed to author and exercise that state — data-file shape, admin commands, `TemplateRegistry` entries, etc. The slice's use-case doc must include a **Content tooling impact** section, and the PR must ship the tooling alongside the gameplay code. No gameplay slice merges without a way to populate and inspect the state it adds. See [`docs/roadmap/plan.md`](docs/roadmap/plan.md) ground rules.
 
 When adding a new feature:
 - New component → `Core/ECS/Components/<Feature>Component.cs` or `Core/Modules/<Feature>/Components/`
@@ -61,7 +62,7 @@ When adding a new feature:
 
 ## Agent tooling available in this repo
 
-The `.claude/` directory provides Claude-Code-native helpers (skills, subagents, slash commands) tuned for this codebase. See [`.claude/README.md`](.claude/README.md) for the index (coming in a follow-up).
+The `.claude/` directory provides Claude-Code-native helpers (skills, subagents, slash commands) tuned for this codebase. See [`.claude/README.md`](.claude/README.md) for the index.
 
 ## If docs and code disagree
 
