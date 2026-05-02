@@ -102,6 +102,63 @@ public interface IRandomGeneratorSystem
 }
 ```
 
+### BroadcastSystem
+**Purpose:** Deliver messages to players and rooms.
+**Location:** `Core/Systems/BroadcastSystem.cs`
+**Dependencies:** `EntityService`, `ISessionManager`.
+```csharp
+public interface IBroadcastSystem
+{
+    Task SendToPlayerAsync(uint playerEntityId, string message);
+    Task SendToRoomAsync(uint roomEntityId, string message, uint? excludeEntityId = null);
+    Task SendRoomDescriptionAsync(uint playerEntityId);
+}
+```
+Implemented (Phase 2).
+
+### ComponentTypeRegistry
+**Purpose:** Reflection-built map of every `IComponent` implementor; records which types carry `[Persistent]`.
+**Location:** `Core/Systems/ComponentTypeRegistry.cs`
+**Dependencies:** none (reflection over Core assembly).
+```csharp
+public interface IComponentTypeRegistry
+{
+    bool IsPersistent(Type componentType);
+    Type? Resolve(string typeName);
+    IReadOnlyList<Type> AllPersistentTypes();
+}
+```
+Built once at construction; immutable thereafter. Implemented (Phase 3 slice 1).
+
+### ComponentSerializer
+**Purpose:** Serialize/deserialize individual `IComponent` instances to/from JSON.
+**Location:** `Core/Systems/ComponentSerializer.cs`
+**Dependencies:** `IComponentTypeRegistry`.
+```csharp
+public interface IComponentSerializer
+{
+    string Serialize(IComponent component);
+    IComponent? Deserialize(string typeName, string data);
+}
+```
+Uses `System.Text.Json` with camelCase policy and `JsonStringEnumConverter`. Implemented (Phase 3 slice 1).
+
+### PersistenceSystem
+**Purpose:** Save and load `[Persistent]`-tagged components for every dirty entity.
+**Location:** `Core/Systems/PersistenceSystem.cs`
+**Dependencies:** `EntityService`, `IComponentTypeRegistry`, `IComponentSerializer`, `IConfiguration`, `ILogger<PersistenceSystem>`. No `IEventBus` dependency — all event publishing is the caller's responsibility.
+```csharp
+public interface IPersistenceSystem
+{
+    void MarkDirty(uint entityId);
+    bool IsDirty(uint entityId);
+    Task FlushAsync(CancellationToken ct = default);
+    Task SaveEntityAsync(uint entityId, CancellationToken ct = default);
+    Task LoadAllAsync(CancellationToken ct = default);
+}
+```
+Entity files: `data/entities/entity-{id}.json`. Atomic write (`.tmp` → rename). Best-effort flush. Implemented (Phase 3 slice 1).
+
 ---
 
 ## Domain Systems

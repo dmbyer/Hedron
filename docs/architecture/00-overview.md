@@ -72,6 +72,7 @@ Rows marked *(target)* describe locations that are rebuilt as part of Phase 2. T
 | [02-ecs.md](02-ecs.md) | Before adding a component, archetype, or entity operation |
 | [03-events.md](03-events.md) | Before defining a new event or subscription |
 | [04-pitfalls.md](04-pitfalls.md) | When tempted to shortcut the layering |
+| [05-configuration.md](05-configuration.md) | Before wiring any setting to `IConfiguration` or adding a constant |
 | [../reference/systems.md](../reference/systems.md) | Living catalog of every system |
 | [../reference/handlers.md](../reference/handlers.md) | Living catalog of every handler |
 | [../reference/components.md](../reference/components.md) | Living catalog of every component |

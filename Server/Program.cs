@@ -9,6 +9,7 @@ using Hedron.Core.Modules.Movement.Commands;
 using Hedron.Core.Modules.Movement.Events;
 using Hedron.Core.Modules.Movement.Handlers;
 using Hedron.Core.Modules.Movement.Systems;
+using Hedron.Core.Modules.Persistence;
 using Hedron.Core.Modules.Session.Events;
 using Hedron.Core.Modules.Session.Handlers;
 using Hedron.Core.Modules.World.Commands;
@@ -65,6 +66,13 @@ public static class Program
                         sp.GetRequiredService<IEventBus>()));
                 }
 
+                // Persistence substrate (Phase 3 slice 1)
+                services.AddPersistenceModule();
+
+                // Hosted services — order matters: PersistenceBootstrap must complete StartAsync
+                // before TelnetServer begins accepting connections.
+                services.AddHostedService<PersistenceBootstrap>();
+                services.AddHostedService<PersistenceFlushTimer>();
                 services.AddHostedService<TelnetServer>();
             })
             .Build();
