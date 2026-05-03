@@ -159,6 +159,42 @@ public interface IPersistenceSystem
 ```
 Entity files: `data/entities/entity-{id}.json`. Atomic write (`.tmp` → rename). Best-effort flush. Implemented (Phase 3 slice 1).
 
+### TemplateRegistry
+**Purpose:** Cross-cutting registry of authored `IEntityTemplate`s. Every content-bearing module (world, mobs, items, shops) registers into the same registry.
+**Location:** `Core/Systems/TemplateRegistry.cs`
+**Dependencies:** `EntityService`.
+```csharp
+public interface ITemplateRegistry
+{
+    void Register(string blueprintId, IEntityTemplate template);
+    bool TryGet(string blueprintId, out IEntityTemplate? template);
+    Entity Spawn(string blueprintId);
+    Entity Spawn(string blueprintId, IDictionary<string, object>? overrides);
+    IReadOnlyCollection<string> AllBlueprintIds();
+    void Clear();
+}
+```
+On `Spawn`, the registry allocates an entity, attaches a `BlueprintComponent` recording the blueprint id, then invokes `IEntityTemplate.Apply` to add archetype-specific components. No events published — callers (e.g. admin `@spawn`) publish their own past-tense events. Implemented (Phase 3 slice 2).
+
+### YamlContentSerializer
+**Purpose:** Cross-cutting kind-dispatcher that routes YAML file bodies to the right `ITemplateDeserializer`. Owns no module knowledge — modules register their own per-kind deserializers via DI.
+**Location:** `Core/Systems/YamlContentSerializer.cs` (interface `IContentSerializer`).
+**Dependencies:** `IEnumerable<ITemplateDeserializer>` (DI-collected).
+```csharp
+public interface IContentSerializer
+{
+    IEntityTemplate Deserialize(string kind, string fileBody);
+    string FormatExtension { get; }   // ".yaml"
+}
+
+public interface ITemplateDeserializer
+{
+    string Kind { get; }                            // e.g. "room", "area", "mob"
+    IEntityTemplate Deserialize(string fileBody);
+}
+```
+Persistence (slice 1) keeps `System.Text.Json` on a separate code path — content authoring (designer-write) and runtime persistence (machine round-trip) coexist by design and do not share serializer code. The World module registers `RoomTemplateDeserializer` and `AreaTemplateDeserializer`; future content modules register their own kinds the same way. Implemented (Phase 3 slice 2).
+
 ---
 
 ## Domain Systems
@@ -395,6 +431,35 @@ public interface INotificationSystem
     void SendFormatted(Entity recipient, MessageTemplate template, params object[] args);
 }
 ```
+
+### WorldContentLoader
+**Purpose:** Scans the configured content directory, registers authored YAML templates with `ITemplateRegistry`, and seeds room/area entities for blueprints not already represented by a hydrated entity. Wraps `LoadAndSpawnAsync` in a hosted-service shell (`Server/WorldContentBootstrap`) to enforce startup ordering after `PersistenceBootstrap`.
+**Location:** `Core/Modules/World/Systems/WorldContentLoader.cs`
+**Dependencies:** `EntityService`, `ITemplateRegistry`, `IContentSerializer`, `WorldConfiguration`, `IConfiguration`, `ILogger`.
+```csharp
+public interface IWorldContentLoader
+{
+    Task LoadAndSpawnAsync(CancellationToken ct = default);
+    Task<ContentReloadResult> ReloadAsync(CancellationToken ct = default);
+}
+
+public readonly record struct ContentReloadResult(
+    int TemplatesLoaded, int TemplatesUnchanged, int TemplatesRemoved);
+```
+Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Implemented (Phase 3 slice 2).
+
+### AdminAuthorizer
+**Purpose:** Policy seam for admin command authorization. Each admin `ICommand.Execute` calls `IsPrivileged` as its first line; non-privileged sessions get a single rejection line and the command body short-circuits.
+**Location:** `Core/Modules/Admin/Systems/AdminAuthorizer.cs`
+**Dependencies:** `EntityService`, `IConfiguration`.
+```csharp
+public interface IAdminAuthorizer
+{
+    bool IsPrivileged(ISession session);
+    bool IsPrivileged(uint playerEntityId);
+}
+```
+**Layered authorization model.** Bootstrap layer (slice 2): reads `Admin:PrivilegedNames` (string array) from `IConfiguration` and matches against the player's `PlayerComponent.DisplayName`. Persisted layer (deferred — see [`../use-cases/admin-privilege-elevation.md`](../use-cases/admin-privilege-elevation.md)): an `AdminPrivilegeComponent` (`[Persistent]`) on a player entity also grants admin rights. Settings is the floor — anyone in `Admin:PrivilegedNames` is always admin even without the component. Implemented (Phase 3 slice 2; component layer deferred).
 
 ---
 

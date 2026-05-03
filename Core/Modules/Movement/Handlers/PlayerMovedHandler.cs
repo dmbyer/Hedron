@@ -2,12 +2,26 @@ using System.Threading.Tasks;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
+using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Movement.Events;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Movement.Handlers
 {
-    public class PlayerMovedHandler : IEventHandler<PlayerMovedEvent>
+    /// <summary>
+    /// Translates a successful move (player-initiated or admin-teleport) into the visible
+    /// effects: departure broadcast on the source room, arrival broadcast on the destination,
+    /// and a <c>look</c> sent to the moved player.
+    /// </summary>
+    /// <remarks>
+    /// Both <see cref="PlayerMovedEvent"/> and <see cref="PlayerTeleportedByAdminEvent"/>
+    /// funnel through the same private helper to avoid drift between regular movement and
+    /// admin teleport. Teleports use direction-agnostic flavour text since teleport has no
+    /// natural direction.
+    /// </remarks>
+    public class PlayerMovedHandler :
+        IEventHandler<PlayerMovedEvent>,
+        IEventHandler<PlayerTeleportedByAdminEvent>
     {
         private readonly EntityService _entityService;
         private readonly IBroadcastSystem _broadcast;
@@ -20,23 +34,43 @@ namespace Hedron.Core.Modules.Movement.Handlers
             _broadcast = broadcast;
         }
 
-        public async Task HandleAsync(PlayerMovedEvent @event)
-        {
-            var playerName = GetDisplayName(@event.PlayerEntityId);
-            var opposite = Opposite(@event.Direction);
-
-            await _broadcast.SendToRoomAsync(
+        public Task HandleAsync(PlayerMovedEvent @event) =>
+            BroadcastTransitionAsync(
+                @event.PlayerEntityId,
                 @event.FromRoomEntityId,
-                $"{playerName} leaves {DirectionName(@event.Direction)}.",
-                excludeEntityId: @event.PlayerEntityId).ConfigureAwait(false);
-
-            await _broadcast.SendToRoomAsync(
                 @event.ToRoomEntityId,
-                $"{playerName} arrives from the {DirectionName(opposite)}.",
-                excludeEntityId: @event.PlayerEntityId).ConfigureAwait(false);
+                $"leaves {DirectionName(@event.Direction)}.",
+                $"arrives from the {DirectionName(Opposite(@event.Direction))}.");
 
-            await _broadcast.SendRoomDescriptionAsync(@event.PlayerEntityId, @event.ToRoomEntityId)
-                .ConfigureAwait(false);
+        public Task HandleAsync(PlayerTeleportedByAdminEvent @event) =>
+            BroadcastTransitionAsync(
+                @event.TargetEntityId,
+                @event.FromRoomEntityId,
+                @event.ToRoomEntityId,
+                "vanishes in a puff of admin smoke.",
+                "appears in a puff of admin smoke.");
+
+        private async Task BroadcastTransitionAsync(
+            uint movedEntityId, uint fromRoomId, uint toRoomId,
+            string departureSuffix, string arrivalSuffix)
+        {
+            var name = GetDisplayName(movedEntityId);
+
+            if (fromRoomId != 0)
+                await _broadcast.SendToRoomAsync(
+                    fromRoomId,
+                    $"{name} {departureSuffix}",
+                    excludeEntityId: movedEntityId).ConfigureAwait(false);
+
+            if (toRoomId != 0)
+                await _broadcast.SendToRoomAsync(
+                    toRoomId,
+                    $"{name} {arrivalSuffix}",
+                    excludeEntityId: movedEntityId).ConfigureAwait(false);
+
+            if (toRoomId != 0)
+                await _broadcast.SendRoomDescriptionAsync(movedEntityId, toRoomId)
+                    .ConfigureAwait(false);
         }
 
         private string GetDisplayName(uint entityId) =>

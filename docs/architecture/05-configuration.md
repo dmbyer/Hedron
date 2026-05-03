@@ -29,6 +29,9 @@ Rationale: These settings are environment-specific, operator-controlled, and alr
 ```
 "Persistence:FlushIntervalSeconds"   (default 60)
 "Persistence:DataDirectory"          (default "data/entities/")
+"World:ContentDirectory"             (default "data/content/")
+"World:StartingRoomBlueprintId"      (default "room.crossroads")
+"Admin:PrivilegedNames"              (default [], string array — bootstrap admin allowlist)
 "Server:Port"                        (default 4000)
 ```
 
@@ -40,11 +43,15 @@ Defaults live in `appsettings.json`. Overrides live in environment variables or 
 
 **Examples:** Area respawn rates, mob stat blocks, loot tables, shop inventories, item definitions, room descriptions, spell lists.
 
-**Recommended tool: Data files in a versioned format (JSON/YAML) under `data/`, loaded via `TemplateRegistry`**
+**Recommended tool: YAML data files under `data/content/`, loaded via `TemplateRegistry`**
 
-Rationale: Content is authored by designers, not operators. It doesn't belong in appsettings.json (wrong audience, wrong diff noise, wrong access model). It should be versioned alongside code, live-reloadable in a future admin tooling slice, and have a clear schema independent of the C# type system. `TemplateRegistry.Spawn` is the bridge between these files and live entities; the format is the concern of Phase 3 slice 3 (world-content loading).
+Rationale: Content is authored by designers, not operators. It doesn't belong in appsettings.json (wrong audience, wrong diff noise, wrong access model). It is versioned alongside code, live-reloadable via `@reload`, and has a schema independent of the C# type system. `TemplateRegistry.Spawn` is the bridge between these files and live entities.
 
-> Note: The exact file format (JSON, YAML, or a custom DSL), the schema versioning approach, and the hot-reload story are **open decisions** deferred to Phase 3 slice 3. See [Open Decisions](#open-decisions) below.
+**Format: YAML via `YamlDotNet`.** Resolved by Phase 3 slice 2 ([`../use-cases/world-content-loading-and-admin-substrate.md`](../use-cases/world-content-loading-and-admin-substrate.md)). Persistence component snapshots use `System.Text.Json` on a separate code path — content authoring (designer-write, comment-friendly) and runtime persistence (round-trip-fidelity, machine-write) coexist by design and do not share serializer code.
+
+The cross-cutting `IContentSerializer` (in `Core/Systems/`) is a thin kind-dispatcher; per-module `ITemplateDeserializer` implementations live next to the templates they translate (e.g. `RoomTemplateDeserializer` in the World module). Adding a new templated archetype in a future slice means registering a new deserializer in the owning module — not editing the cross-cutting serializer.
+
+The `data/` tree is gitignored. A `seed-content/` directory for first-run bootstrap is deferred — see the slice 2 use-case for the empty-content fallback (single hardcoded "void" room).
 
 ---
 
@@ -107,9 +114,9 @@ The data directory path (`"Persistence:DataDirectory"`, default `"data/entities/
 
 These questions are **recorded but not resolved**. Resolution belongs in the phase or slice that first needs the answer.
 
-### OD-1 — Content data file format (Phase 3 slice 2)
+### ~~OD-1 — Content data file format~~ (resolved by Phase 3 slice 2)
 
-What format do authored templates live in? Candidates: JSON (simple, standard, verbose), YAML (readable, whitespace-sensitive), a hand-rolled DSL, or a hybrid. The choice affects `TemplateRegistry`'s loader, schema validation, hot-reload feasibility, and the admin tooling story. Decide before slice 2 (world content loading + admin substrate) implementation begins. See [`../roadmap/plan.md`](../roadmap/plan.md) for the slice queue.
+**Resolved: YAML via `YamlDotNet`.** Phase 3 slice 2 picked YAML for designer-friendliness (comments, less punctuation, indentation-driven structure). Persistence (slice 1) keeps `System.Text.Json` for component snapshots — different audience, different change cadence, no shared serializer code. See Category 2 above and the slice 2 use-case ([`../use-cases/world-content-loading-and-admin-substrate.md`](../use-cases/world-content-loading-and-admin-substrate.md)) for the implementation shape (`IContentSerializer` + per-module `ITemplateDeserializer`).
 
 ### OD-2 — Balance constant promotion threshold (Phase 3 slices 8–12)
 

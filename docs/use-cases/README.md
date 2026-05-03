@@ -24,6 +24,8 @@ Every use-case file contains:
 | Status | Use case | Slice |
 |---|---|---|
 | `implemented` | [`persistence-substrate.md`](persistence-substrate.md) | Phase 3 slice 1 |
+| `implemented` | [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) | Phase 3 slice 2 |
+| `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 
 Suggested categories as new slices are authored:
 

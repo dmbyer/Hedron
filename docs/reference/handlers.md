@@ -26,9 +26,9 @@ Ask:
 **Uses:** `IDeathSystem`, `IVisibilitySystem`, `INotificationSystem`, `ILocationSystem`, `IAttributeSystem`
 
 ### PlayerMovementHandler
-**Events:** `PlayerMoveEvent`, `PlayerTeleportEvent`, `PlayerEnterRoomEvent`, `PlayerExitRoomEvent`
-**Responsibilities:** validate movement; update location; trigger room descriptions; notify origin/destination rooms; fire movement triggers (traps, ambushes).
-**Uses:** `IMovementSystem`, `ILocationSystem`, `IVisibilitySystem`, `INotificationSystem`
+**Events:** `PlayerMovedEvent`, `PlayerTeleportedByAdminEvent` (Phase 3 slice 2), `PlayerEnterRoomEvent`, `PlayerExitRoomEvent`
+**Responsibilities:** translate a successful move (player-initiated or admin-teleport) into the visible effects: departure broadcast on source room, arrival broadcast on destination, `look` to the moved player; fire movement triggers (traps, ambushes). Both move and teleport events funnel through the same private helper to avoid drift; teleport uses direction-agnostic flavour text.
+**Uses:** `IMovementSystem`, `ILocationSystem`, `IVisibilitySystem`, `IBroadcastSystem`
 
 ### CombatHandler
 **Events:** `AttackEvent`, `DamageEvent`, `PlayerDeathEvent`, `FleeEvent`, `CombatStartedEvent`, `CombatEndedEvent`
@@ -78,10 +78,18 @@ Ask:
 > Usually a *secondary* handler alongside the primary domain handler. Focuses on "who sees what".
 
 ### PersistenceHandler
-**Events:** `EntityMutatedEvent` and other state-change events; shutdown and timer triggers.
-**Responsibilities:** dirty-track via event subscription; batch writes on flush; atomic write-and-rename; log and retry on partial failure.
-**Uses:** `IPersistenceSystem`
+**Events (currently subscribed):** `EntitySpawnedByAdminEvent`, `RoomExitAuthoredByAdminEvent` (Phase 3 slice 2). New slices add their state-change events here.
+**Priority:** 90 (`HandlerPriority.Persistence`).
+**Responsibilities:** mark entities dirty when an event mutates `[Persistent]` data; the system flushes on its own timer. Cross-cutting handler — lives at `Core/Handlers/` and may subscribe to events from any module.
+**Uses:** `IPersistenceSystem`, `IComponentTypeRegistry`, `EntityService`
 > Persistence is event-driven dirty-tracking — handlers never call persistence directly.
+
+### AdminAuditHandler
+**Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (all Phase 3 slice 2).
+**Priority:** 80 (`HandlerPriority.Notification`) — runs after gameplay handlers, before persistence dirty-marking.
+**Responsibilities:** writes one structured-log entry per admin action via `ILogger<AdminAuditHandler>`. Uses a stable structured event name (`AdminCommandExecuted`) so log scrapers can filter without parsing free text. No dedicated audit-file sink in this slice.
+**Location:** `Core/Modules/Admin/Handlers/AdminAuditHandler.cs`
+**Uses:** `EntityService` (display-name resolution), `ILogger<AdminAuditHandler>`
 
 ### AIHandler
 **Events:** `PlayerEnteredRoomEvent`, `PlayerAttackedNPCEvent`, `NPCHealthLowEvent`, `TimeTickEvent`
