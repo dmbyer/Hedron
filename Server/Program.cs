@@ -2,6 +2,10 @@ using Hedron.Core;
 using Hedron.Core.Commands;
 using Hedron.Core.ECS;
 using Hedron.Core.Events;
+using Hedron.Core.Handlers;
+using Hedron.Core.Modules.Admin;
+using Hedron.Core.Modules.Admin.Events;
+using Hedron.Core.Modules.Admin.Handlers;
 using Hedron.Core.Modules.Chat.Commands;
 using Hedron.Core.Modules.Chat.Events;
 using Hedron.Core.Modules.Chat.Handlers;
@@ -12,7 +16,8 @@ using Hedron.Core.Modules.Movement.Systems;
 using Hedron.Core.Modules.Persistence;
 using Hedron.Core.Modules.Session.Events;
 using Hedron.Core.Modules.Session.Handlers;
-using Hedron.Core.Modules.World.Commands;
+using Hedron.Core.Modules.World;
+using Hedron.Core.Modules.World.Events;
 using Hedron.Core.Sessions;
 using Hedron.Core.Systems;
 using Hedron.Server.Sessions;
@@ -22,7 +27,7 @@ using Microsoft.Extensions.Hosting;
 namespace Hedron.Server;
 
 /// <summary>
-/// Composition root. Phase 2 steps 1–9 are wired here; step 10 is the live smoke test.
+/// Composition root.
 /// </summary>
 public static class Program
 {
@@ -45,7 +50,7 @@ public static class Program
                 services.AddSingleton<IBroadcastSystem, BroadcastSystem>();
                 services.AddSingleton<IMovementSystem, MovementSystem>();
 
-                // World configuration — populated by the world bootstrap before RunAsync
+                // World configuration — populated by WorldContentLoader before the listener starts.
                 var worldConfig = new WorldConfiguration();
                 services.AddSingleton(worldConfig);
 
@@ -54,8 +59,7 @@ public static class Program
                 services.AddSingleton<PlayerMovedHandler>();
                 services.AddSingleton<PlayerSaidHandler>();
 
-                // Commands — registered as ICommand so CommandDispatcher discovers them all
-                services.AddSingleton<ICommand, LookCommand>();
+                // Player-facing commands
                 services.AddSingleton<ICommand, SayCommand>();
                 foreach (var dir in Enum.GetValues<Direction>())
                 {
@@ -66,28 +70,40 @@ public static class Program
                         sp.GetRequiredService<IEventBus>()));
                 }
 
-                // Persistence substrate (Phase 3 slice 1)
+                // Modules — World registers TemplateRegistry, ContentSerializer, ContentLoader,
+                // and the LookCommand. Admin registers the authorizer, four admin commands,
+                // and the audit handler.
                 services.AddPersistenceModule();
+                services.AddWorldModule();
+                services.AddAdminModule();
 
-                // Hosted services — order matters: PersistenceBootstrap must complete StartAsync
-                // before TelnetServer begins accepting connections.
+                // Hosted services — order matters. PersistenceBootstrap loads persisted entities
+                // and publishes WorldLoadedEvent; WorldContentBootstrap then registers authored
+                // templates and seeds any missing entities; TelnetServer accepts connections last.
                 services.AddHostedService<PersistenceBootstrap>();
+                services.AddHostedService<WorldContentBootstrap>();
                 services.AddHostedService<PersistenceFlushTimer>();
                 services.AddHostedService<TelnetServer>();
             })
             .Build();
 
-        // Subscribe handlers to the event bus before accepting connections
+        // Subscribe handlers to the event bus before accepting connections.
         var bus = host.Services.GetRequiredService<IEventBus>();
         bus.Subscribe<PlayerConnectedEvent>(host.Services.GetRequiredService<PlayerSessionHandler>());
         bus.Subscribe<PlayerDisconnectedEvent>(host.Services.GetRequiredService<PlayerSessionHandler>());
         bus.Subscribe<PlayerMovedEvent>(host.Services.GetRequiredService<PlayerMovedHandler>());
+        bus.Subscribe<PlayerTeleportedByAdminEvent>(host.Services.GetRequiredService<PlayerMovedHandler>());
         bus.Subscribe<PlayerSaidEvent>(host.Services.GetRequiredService<PlayerSaidHandler>());
 
-        // World bootstrap — build the three-room world before accepting connections
-        WorldBootstrap.Initialize(
-            host.Services.GetRequiredService<EntityService>(),
-            host.Services.GetRequiredService<WorldConfiguration>());
+        var audit = host.Services.GetRequiredService<AdminAuditHandler>();
+        bus.Subscribe<EntitySpawnedByAdminEvent>(audit);
+        bus.Subscribe<PlayerTeleportedByAdminEvent>(audit);
+        bus.Subscribe<RoomExitAuthoredByAdminEvent>(audit);
+        bus.Subscribe<ContentReloadedEvent>(audit);
+
+        var persistenceHandler = host.Services.GetRequiredService<PersistenceHandler>();
+        bus.Subscribe<EntitySpawnedByAdminEvent>(persistenceHandler);
+        bus.Subscribe<RoomExitAuthoredByAdminEvent>(persistenceHandler);
 
         await host.RunAsync();
     }

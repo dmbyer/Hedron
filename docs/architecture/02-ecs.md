@@ -245,7 +245,7 @@ An entity is persisted if it has **any** `[Persistent]` component. On save, only
 
 For rooms/areas a designer authors, the data flow is:
 
-1. Authored blueprint (JSON / YAML / code) → `TemplateRegistry.Spawn` on world boot creates the entity.
+1. Authored blueprint (YAML files under `data/content/`, deserialized via per-module `ITemplateDeserializer`s) → `TemplateRegistry.Spawn` on world boot creates the entity. Persistence runs on a separate code path using `System.Text.Json`; the two formats coexist by design — YAML is designer-write, JSON is machine round-trip.
 2. The entity lives in the world. Players interact with it. If they modify it (e.g. change a room description via an admin command, or a door's locked state flips permanently), the modified `[Persistent]` components are saved.
 3. On next boot: `PersistenceSystem` loads the persisted components first; only entities that weren't persisted are reseeded from blueprints. Persisted changes win over blueprint defaults.
 

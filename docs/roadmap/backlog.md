@@ -42,6 +42,21 @@ The archetype list in [`../reference/archetypes.md`](../reference/archetypes.md)
 
 The 17 scenarios from before the strip were retired. Use cases are now authored one at a time as each slice begins. Periodically audit the catalogue for gaps or scenarios that have become obsolete.
 
+### 🔵 On-demand "architectural-debt sweep" agent
+
+A `.claude/agents/debt-sweep.md` (or similar name) that walks the codebase looking for repeated hand-rolled patterns that should be promoted to a framework. Heavy-context agent; **on-demand only** — not part of the per-slice loop. Periodic sanity check, not an integral development gate.
+
+Detection heuristics it should run:
+
+- ≥3 files with the same shape of inline argument parsing (`Trim()`/`Split()`/manual `Enum.TryParse`) → command-framework regression candidate.
+- ≥3 files with the same shape of session output formatting (`session.SendLineAsync($"{prefix} {body}")`) → output-framework promotion candidate.
+- ≥3 files iterating `[Persistent]`-tagged components with identical loops → core-helper candidate.
+- New player-facing surface (verb, prompt, output type) introduced without an `ICommand` / `ICommandDispatcher` / `IOutputMessage` / equivalent registration → infrastructure-discipline-parity violation.
+
+Output: a punch list of promotion candidates with evidence (file:line for each instance) and a recommended slice to absorb the work. Does **not** modify code or docs — surface only.
+
+The slice-by-slice ground rule 9 check (use-case-planner + architecture-reviewer) is the integral development-cycle defence; this agent is the periodic backstop for whatever slips through. Build when there's been enough drift to make it useful — likely after several Phase 3 slices have shipped.
+
 ## Done — moved out of this file
 
 The following items were on the backlog and have shipped or been superseded. Kept here as a brief note so old links resolve cleanly:

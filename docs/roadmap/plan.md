@@ -27,14 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slice 1 done; **next: slice 2 — world content loading + admin substrate**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1 & 2 done; **next: slice 3 — account / character creation**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 2 — world content loading + admin substrate.** Use case to be authored next via the `new-use-case` skill; planning via `use-case-planner`; implementation via `implement-use-case`; review via `architecture-reviewer` before merge.
+**Phase 3 slice 3 — account / character creation.** Use case to be authored next via the `new-use-case` skill; planning via `use-case-planner`; implementation via `implement-use-case`; review via `architecture-reviewer` before merge.
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -56,8 +56,8 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | # | Slice | Unlocks | Status |
 |---|---|---|---|
 | 1 | Persistence substrate | Any slice that wants state to survive restart | ✅ done |
-| 2 | **World content loading + admin substrate** | Authored rooms/areas from data files; in-game admin command framework (`@spawn`, `@teleport`, `@dig`, `@reload`); resolves Ticket B | 🟢 next |
-| 3 | Account / character creation | Real identity instead of throwaway names; first `[Persistent]` user-facing component | 🟢 ready |
+| 2 | World content loading + admin substrate | Authored rooms/areas from data files; in-game admin command framework (`@spawn`, `@teleport`, `@dig`, `@reload`); resolves Ticket B | ✅ done |
+| 3 | **Account / character creation** | Real identity instead of throwaway names; first `[Persistent]` user-facing component | 🟢 next |
 | 4 | Items + inventory + `get`/`drop`/`look <item>` | Object interaction and inspection (originally two slices; merged so the content tooling for items lands once) | 🟢 ready |
 | 5 | Equipment + `wear`/`remove` | Gear | 🟢 ready |
 | 6 | Mobs + wandering | Populated world; first `TimeSystem` use | 🟢 ready |

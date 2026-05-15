@@ -42,6 +42,8 @@ All cross-cutting components live under `Core/ECS/Components/`.
 | `ContainerDataComponent` | capacity, contained entity list, access permissions | Room, Area, Storage | yes |
 | `RoomDataComponent` | `Exits`, `IsShop`, `Environment`, `IsSafe`, `LightLevel` | Room | yes |
 | `AreaDataComponent` | `RespawnRate`, `SpawnableMobs`, `CuratedItems`, `Weather`, `PvP` | Area | yes |
+| `BlueprintComponent` | `BlueprintId : string` — records the authored template id this entity was spawned from | every templated archetype (Phase 3 slice 2+) | yes |
+| `AreaComponent` | `AreaId`, `Name`, `Description`, `RespawnRate`, `Pvp` — minimal area metadata seeded by `AreaTemplate` | Area | yes |
 
 ---
 
