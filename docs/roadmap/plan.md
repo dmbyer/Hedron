@@ -27,14 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1 & 2 done; **next: slice 3 — account / character creation**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1 & 2 done; **next: slice 3 — command framework**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 3 — account / character creation.** Use case to be authored next via the `new-use-case` skill; planning via `use-case-planner`; implementation via `implement-use-case`; review via `architecture-reviewer` before merge.
+**Phase 3 slice 3 — command framework.** Use case planned: [`../use-cases/command-framework.md`](../use-cases/command-framework.md). Slice 4 (output framework, [`../use-cases/output-framework.md`](../use-cases/output-framework.md)) follows immediately and discharges the minimal-output-seam debt slice 3 leaves. Implementation via `implement-use-case`; review via `architecture-reviewer` before merge.
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -57,18 +57,20 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 |---|---|---|---|
 | 1 | Persistence substrate | Any slice that wants state to survive restart | ✅ done |
 | 2 | World content loading + admin substrate | Authored rooms/areas from data files; in-game admin command framework (`@spawn`, `@teleport`, `@dig`, `@reload`); resolves Ticket B | ✅ done |
-| 3 | **Account / character creation** | Real identity instead of throwaway names; first `[Persistent]` user-facing component | 🟢 next |
-| 4 | Items + inventory + `get`/`drop`/`look <item>` | Object interaction and inspection (originally two slices; merged so the content tooling for items lands once) | 🟢 ready |
-| 5 | Equipment + `wear`/`remove` | Gear | 🟢 ready |
-| 6 | Mobs + wandering | Populated world; first `TimeSystem` use | 🟢 ready |
-| 7 | Combat | Core gameplay loop | 🟡 blocked on 6 |
-| 8 | Death and respawn | Combat is terminal until this exists | 🟡 blocked on 7 |
-| 9 | Skills | Character progression | 🟢 ready after 7 |
-| 10 | Shopping | Economy | 🟢 ready after 4 |
-| 11 | Crafting, potions | Content depth | 🟢 ready after 4 |
-| 12 | Web/SignalR client (deferred) | Dual-client transport | 🔵 deferred — see [`backlog.md`](backlog.md) |
+| 3 | **Command framework** | Typed `CommandContext`, declarative arg parsing, structural privilege gate, `help`/`commands`, `CommandExecutedEvent`; ships the minimal output seam | 🟢 next |
+| 4 | **Output framework** | Full `IOutputMessage` catalog, `IOutputFormatter`/telnet ANSI, `SupportsColor`, formatter-backed writer, broadcast audience-filter + system-wide; discharges slice-3 output debt | 🟢 ready after 3 |
+| 5 | Account / character creation | Real identity instead of throwaway names; first `[Persistent]` user-facing component | 🟢 ready after 4 |
+| 6 | Items + inventory + `get`/`drop`/`look <item>` | Object interaction and inspection (originally two slices; merged so the content tooling for items lands once) | 🟢 ready |
+| 7 | Equipment + `wear`/`remove` | Gear | 🟢 ready |
+| 8 | Mobs + wandering | Populated world; first `TimeSystem` use | 🟢 ready |
+| 9 | Combat | Core gameplay loop | 🟡 blocked on 8 |
+| 10 | Death and respawn | Combat is terminal until this exists | 🟡 blocked on 9 |
+| 11 | Skills | Character progression | 🟢 ready after 9 |
+| 12 | Shopping | Economy | 🟢 ready after 6 |
+| 13 | Crafting, potions | Content depth | 🟢 ready after 6 |
+| 14 | Web/SignalR client (deferred) | Dual-client transport | 🔵 deferred — see [`backlog.md`](backlog.md) |
 
-Order is flexible past slice 3; some slices can run in parallel branches. Each slice gets a use-case doc *before* implementation starts.
+The command/output framework was split from a single combined draft into slices 3 and 4 (the slice-numbering question was resolved: "slice 3 and shift"). Account / character creation moved from slice 3 to slice 5; every downstream slice shifted **+2**. Order is flexible past slice 5; some slices can run in parallel branches. Each slice gets a use-case doc *before* implementation starts.
 
 ## Phase 4 — Hardening
 
