@@ -34,6 +34,10 @@ Needed for combat pulses, mob AI ticks, effect expiries. Lands as part of the fi
 
 If a web client becomes a goal, unify telnet sessions and web sessions behind the existing `ISession` abstraction so handlers don't care about transport. Listed as the deferred slice in [`plan.md`](plan.md). The admin-tooling resolution (in-game commands, not a web UI) makes this strictly optional rather than blocking.
 
+### 🔵 Broadcast channel mode (global / newbie chat)
+
+Acknowledged debt from Phase 3 slice 4 ([`../use-cases/output-framework.md`](../use-cases/output-framework.md)). Slice 4's broadcast expansion ships room-scope-with-audience-filter and system-wide `SendToAllAsync`, but **channel mode** (global/newbie chat membership) is deferred: it requires per-entity channel-membership state that no slice has introduced yet. Lands with whichever later slice introduces channel membership (likely alongside or after account / character creation, slice 5). The `IBroadcastSystem` interface shaped in slice 4 should accommodate a `SendToChannelAsync` addition without breaking the room/system modes.
+
 ### 🔵 Archetype catalogue refresh
 
 The archetype list in [`../reference/archetypes.md`](../reference/archetypes.md) was written against the old component shapes. Re-audit once a few Phase 3 slices have landed real components.

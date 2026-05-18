@@ -12,9 +12,10 @@
 |---|---|---|---|
 | 1 | [Server startup](#flow-1--server-startup) | `dotnet run --project Server` | Phase 2 (extended in slice 2) |
 | 2 | [Player connection](#flow-2--player-connection) | TCP client connects on the configured port | Phase 2 |
-| 3 | [Player command lifecycle](#flow-3--player-command-lifecycle) | Player sends a line of input | Phase 2 (replaced by slice 3 framework) |
+| 3 | [Player command lifecycle](#flow-3--player-command-lifecycle) | Player sends a line of input | Phase 2 (replaced by slice 3 command framework; output leg re-traced again by slice 4) |
 | 4 | [Persistence flush cycle](#flow-4--persistence-flush-cycle) | `PersistenceFlushTimer` ticks, or shutdown | Phase 3 slice 1 |
 | 5 | [Content reload](#flow-5--content-reload-reload) | Privileged session sends `@reload` | Phase 3 slice 2 |
+| 6 | Output rendering | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4 (added by that slice's PR) |
 
 Flows that don't yet exist (combat round, player death, item pickup, mob wander tick, etc.) get added by the slice that introduces them.
 
@@ -133,7 +134,7 @@ sequenceDiagram
 
 **Summary.** Input bytes become a verb + raw argument string; the dispatcher routes to an `ICommand`; the command parses its own arguments, calls a system, and publishes events; subscribed handlers run in priority order; output is written via the session.
 
-> **Slice 3 will replace this flow.** The current MVP shape (this section) does per-command argument parsing, per-command privilege checks, and per-command output formatting. Slice 3 introduces a `CommandContext` with parsed arguments, a structural privilege gate enforced by the dispatcher, and a `CommandExecutedEvent` covering every dispatch. **Re-trace this flow as part of slice 3's PR** and replace the section below with the framework-driven version.
+> **Slice 3 replaces this flow; slice 4 re-traces its output leg.** The current MVP shape (this section) does per-command argument parsing, per-command privilege checks, and per-command output formatting. Slice 3 ([`../use-cases/command-framework.md`](../use-cases/command-framework.md)) introduces a `CommandContext` with parsed arguments, a structural privilege gate (`IAuthorizationChecker` over `RequiredPrivileges`) enforced by the dispatcher, and a `CommandExecutedEvent` covering every dispatch — and ships a minimal stringify-and-forward output writer. Slice 4 ([`../use-cases/output-framework.md`](../use-cases/output-framework.md)) then re-traces only the output leg (formatter-backed, color, capability strip) and adds Flow 6. **Re-trace this flow as part of slice 3's PR** (replace the section below with the framework-driven version) and **update the output step again in slice 4's PR**.
 
 **Trigger.** A line of input arrives on a session's read stream.
 
@@ -188,7 +189,7 @@ sequenceDiagram
 
 **Cross-references.**
 - [`Core/Commands/CommandDispatcher.cs`](../../Core/Commands/CommandDispatcher.cs), [`Core/Commands/ICommand.cs`](../../Core/Commands/ICommand.cs)
-- [`docs/use-cases/command-and-output-framework.md`](../use-cases/command-and-output-framework.md) — slice 3 spec (currently being split into command-framework.md + output-framework.md)
+- [`docs/use-cases/command-framework.md`](../use-cases/command-framework.md) — slice 3 spec (rewrites this flow); [`docs/use-cases/output-framework.md`](../use-cases/output-framework.md) — slice 4 spec (re-traces the output leg, adds Flow 6)
 - [`docs/reference/handlers.md`](../reference/handlers.md) — handler priority tiers
 
 ---

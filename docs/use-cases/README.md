@@ -32,8 +32,11 @@ Every use-case file contains:
 |---|---|---|
 | `implemented` | [`persistence-substrate.md`](persistence-substrate.md) | Phase 3 slice 1 |
 | `implemented` | [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) | Phase 3 slice 2 |
-| `planned` | [`command-and-output-framework.md`](command-and-output-framework.md) | Phase 3 slice 3 (proposed — inserted ahead of account / character creation; final slice number pending open question 7) |
+| `planned` | [`command-framework.md`](command-framework.md) | Phase 3 slice 3 |
+| `planned` | [`output-framework.md`](output-framework.md) | Phase 3 slice 4 |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
+
+> The slice-numbering question was resolved ("slice 3 and shift"): the previously-combined `command-and-output-framework.md` is split into slice 3 (command framework) and slice 4 (output framework). "Account / character creation" is now **slice 5**, and all downstream slices shift **+2**. See [`../roadmap/plan.md`](../roadmap/plan.md) for the renumbered slice queue.
 
 Suggested categories as new slices are authored:
 
