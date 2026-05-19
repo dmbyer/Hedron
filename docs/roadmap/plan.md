@@ -34,20 +34,24 @@ For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 3 — command framework.** Use case planned: [`../use-cases/command-framework.md`](../use-cases/command-framework.md). Slice 4 (output framework, [`../use-cases/output-framework.md`](../use-cases/output-framework.md)) follows immediately and discharges the minimal-output-seam debt slice 3 leaves. Implementation via `implement-use-case`; review via `architecture-reviewer` before merge.
+**Phase 3 slice 3 — command framework.** Use case planned: [`../use-cases/command-framework.md`](../use-cases/command-framework.md). Slice 4 (output framework, [`../use-cases/output-framework.md`](../use-cases/output-framework.md)) follows immediately and discharges the minimal-output-seam debt slice 3 leaves. The spec was corrected after a spec-mode `architecture-reviewer` pass exposed the command-tier gap (now resolved in [`../architecture/01-layers.md`](../architecture/01-layers.md) — Initiators tier); implementation via `implement-use-case` against the corrected spec, then code-mode review before merge.
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
 ## Phase 3 ground rules
 
-Each slice:
+Each slice runs this loop. There are **two** `architecture-reviewer` gates — one before code exists, one before merge. The spec gate exists because spec-level violations (a plan that directs a layer to break an invariant, or preserves a latent one) are invisible to a code-only reviewer until implementation is already built on the flaw — the failure that produced the slice-3 command-tier rework.
 
 1. Pick the next use-case file from [`../use-cases/`](../use-cases/), or author a new one (`new-use-case` skill).
-2. Plan via the `use-case-planner` agent — produces the component / system / handler / event list and file plan.
-3. Implement.
-4. Review via the `architecture-reviewer` agent before merge.
-5. Update [`done.md`](done.md) and add a `completed/<slice>.md` note when the slice merges.
-6. Ship green.
+2. Plan via the `use-case-planner` agent — produces the component / system / handler / event list and file plan, and fills the use-case doc's **Cross-cutting surfaces stressed** and **Flows introduced or modified** sections.
+3. Resolve open questions with the user.
+4. **Spec-review gate** — `architecture-reviewer` in **spec mode** against the use-case doc. Blocking findings are fixed *in the doc* before any code is written. Re-run until the verdict is clean.
+5. Implement (`implement-use-case`) against the corrected spec.
+6. **Code-review gate** — `architecture-reviewer` in **code mode** against the diff, before merge.
+7. Update [`done.md`](done.md) and add a `completed/<slice>.md` note when the slice merges.
+8. Ship green.
+
+Both gates run against [`../architecture/checklist.md`](../architecture/checklist.md) — the single authoritative invariant list. A rule change lands there once; both gates and the planner pick it up.
 
 ## Slice queue
 

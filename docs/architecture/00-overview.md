@@ -74,6 +74,7 @@ Rows marked *(target)* describe locations that are rebuilt as part of Phase 2. T
 | [04-pitfalls.md](04-pitfalls.md) | When tempted to shortcut the layering |
 | [05-configuration.md](05-configuration.md) | Before wiring any setting to `IConfiguration` or adding a constant |
 | [06-flows.md](06-flows.md) | When tracing a runtime call chain (startup, command lifecycle, persistence flush, content reload, …) |
+| [checklist.md](checklist.md) | **The authoritative invariant list.** Cite `INV-n` IDs in reviews. Every other doc explains; this one enforces. |
 | [../reference/systems.md](../reference/systems.md) | Living catalog of every system |
 | [../reference/handlers.md](../reference/handlers.md) | Living catalog of every handler |
 | [../reference/components.md](../reference/components.md) | Living catalog of every component |
