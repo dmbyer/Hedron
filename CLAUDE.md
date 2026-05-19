@@ -42,10 +42,12 @@ Read these in order the first time:
 
 ## Ground rules when writing code
 
+> The authoritative, numbered list of every architectural invariant is [`docs/architecture/checklist.md`](docs/architecture/checklist.md). The ground rules below are the day-to-day summary; the checklist is what the `architecture-reviewer` agent and the per-slice gates enforce. If the two ever disagree, the checklist wins and the loser gets fixed.
+
 1. **Match the idealized API.** `docs/architecture/` and `docs/use-cases/` describe the **target**. New code is written against the target on first attempt. If the target needs to change, update the doc first.
 2. **4-layer discipline.** Handlers orchestrate → domain systems decide → core systems compute → components hold data. Never skip layers upward. See [`docs/architecture/01-layers.md`](docs/architecture/01-layers.md).
 3. **Component queries, not `is`/`as`.** `entityService.HasComponent<PlayerComponent>(id)` — never `entity is Player`.
-4. **Services return results; handlers publish events.** Systems are pure where possible.
+4. **Systems return results; Initiators and Handlers publish events.** Domain & core systems never touch the event bus (INV-5). Commands and the scheduled heartbeat are *Initiators* — the entry-point tier that, like handlers, may publish. See [`docs/architecture/01-layers.md`](docs/architecture/01-layers.md#initiators--entry-points).
 5. **One world model.** Every live entity lives in `EntityService`. Authored content is spawned via `TemplateRegistry`; bespoke entities are built with `EntityService.CreateEntity()` + `AddComponent` by the owning feature that needs them.
 6. **Entity identity is a wrapper.** `readonly record struct Entity(uint Id)` — the `uint` is authoritative; `Entity` is for flavour at call sites. Components still store `uint` ids when referencing other entities.
 7. **Persistence is per-component.** Tag a component type with `[Persistent]` and `PersistenceSystem` includes it on save. An entity is persisted if it has any `[Persistent]` component. Effects split into `PersistentEffectsComponent` (saved) and `TransientEffectsComponent` (session-only). **Two serializers, two audiences:** persistence uses `System.Text.Json` for component snapshots (machine round-trip); content authoring uses YAML via `YamlDotNet` for designer-write files under `data/content/`. They do not share serializer code.
@@ -63,6 +65,8 @@ When adding a new feature:
 ## Agent tooling available in this repo
 
 The `.claude/` directory provides Claude-Code-native helpers (skills, subagents, slash commands) tuned for this codebase. See [`.claude/README.md`](.claude/README.md) for the index.
+
+The per-slice loop runs **two** `architecture-reviewer` gates: spec-mode (against the use-case doc, before any code) and code-mode (against the diff, before merge). Both enforce [`docs/architecture/checklist.md`](docs/architecture/checklist.md). The full loop is in [`docs/roadmap/plan.md`](docs/roadmap/plan.md) "Phase 3 ground rules".
 
 ## If docs and code disagree
 

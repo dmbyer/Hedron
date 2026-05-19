@@ -38,6 +38,14 @@ If a web client becomes a goal, unify telnet sessions and web sessions behind th
 
 Acknowledged debt from Phase 3 slice 4 ([`../use-cases/output-framework.md`](../use-cases/output-framework.md)). Slice 4's broadcast expansion ships room-scope-with-audience-filter and system-wide `SendToAllAsync`, but **channel mode** (global/newbie chat membership) is deferred: it requires per-entity channel-membership state that no slice has introduced yet. Lands with whichever later slice introduces channel membership (likely alongside or after account / character creation, slice 5). The `IBroadcastSystem` interface shaped in slice 4 should accommodate a `SendToChannelAsync` addition without breaking the room/system modes.
 
+### 🔵 Command-arg log redaction (acknowledged debt from slice 3)
+
+`CommandExecutedEvent.ArgsSummary` ([`../use-cases/command-framework.md`](../use-cases/command-framework.md)) logs parsed args in plaintext. Slice 3 ships with no redaction — acceptable only because the sole free-text verb is `say` and the logger is local. **Prerequisite for any retained/forwarded log sink.** Proposed fix: a per-command `[NoLogArgs]` / `RedactArgs` declaration the dispatcher honors before building `ArgsSummary`. Lands with whichever slice first adds a non-local logging sink, an auth-bearing verb (`password`, account linking), or `tell`/private channels — whichever comes first.
+
+### 🔵 CommandPipeline middleware refactor (deferred smell from slice 3)
+
+`CommandDispatcher` carries five injected dependencies and owns authorization, parsing, output, event publication, and exception trapping (spec-mode review smell S1). A middleware/pipeline chain would isolate these concerns. Deferred from slice 3 to avoid ballooning the 12-command refactor. Revisit when a sixth concern would be added to the dispatcher, or if testing the dispatcher becomes painful.
+
 ### 🔵 Archetype catalogue refresh
 
 The archetype list in [`../reference/archetypes.md`](../reference/archetypes.md) was written against the old component shapes. Re-audit once a few Phase 3 slices have landed real components.

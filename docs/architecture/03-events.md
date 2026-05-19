@@ -133,7 +133,7 @@ public class EventBus : IEventBus
 
 ## Services return results; handlers publish events
 
-**Rule:** Services compute and return. Handlers decide what (if any) events to raise.
+**Rule ([checklist.md](checklist.md) INV-5):** *Systems* compute and return — they never touch the event bus. The tiers permitted to publish are **Initiators** (commands, scheduled ticks) and **Handlers**. This rule constrains domain & core systems specifically; it is *not* a prohibition on the orchestration boundary. A command or the heartbeat publishing its outcome event is correct and expected — see [01-layers.md](01-layers.md#initiators--entry-points). The example below uses a "Service" to show the *system* anti-pattern.
 
 ```csharp
 // ❌ Service raises events directly — hidden side effects
