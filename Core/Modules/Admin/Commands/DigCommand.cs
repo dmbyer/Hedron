@@ -2,84 +2,70 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hedron.Core.Commands;
+using Hedron.Core.Commands.Authorization;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Admin.Events;
-using Hedron.Core.Modules.Admin.Systems;
 using Hedron.Core.Modules.World.Templates;
-using Hedron.Core.Sessions;
+using Hedron.Core.Output;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Admin.Commands
 {
     /// <summary>
-    /// Admin verb <c>@dig &lt;direction&gt; &lt;targetRoomBlueprintId&gt;</c>.
-    /// Adds an exit from the invoker's current room to the target room, wires the reverse
-    /// exit on the target by default, and updates the in-memory <see cref="RoomTemplate"/>
-    /// so a same-session <c>@reload</c> won't undo the change.
+    /// Admin verb <c>dig &lt;direction&gt; &lt;targetRoomBlueprintId&gt;</c>.
+    /// Adds an exit and wires the reverse link. Source YAML is not rewritten;
+    /// durability comes from <c>PersistenceSystem</c>. Privilege enforced by dispatcher.
     /// </summary>
-    /// <remarks>
-    /// The source YAML file on disk is <i>not</i> rewritten. Durability of the room shape
-    /// comes from <c>PersistenceSystem</c> saving the live room's <c>[Persistent]</c>
-    /// components on its next timed flush.
-    /// </remarks>
     public sealed class DigCommand : ICommand
     {
         private readonly ITemplateRegistry _templateRegistry;
-        private readonly IAdminAuthorizer _authorizer;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
 
-        public string Name => "@dig";
-        public IReadOnlyList<string> Aliases { get; } = System.Array.Empty<string>();
+        public string Name => "dig";
+        public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
+        public CommandCategory Category => CommandCategory.Admin;
+        public string ShortDescription => "Dig a new exit from the current room.";
+        public string LongDescription => "Adds an exit from your current room to the target room and wires a reverse link. " +
+            "The source YAML is not rewritten; durability comes from the persistence flush.";
+        public string Usage => "dig <direction> <targetRoomBlueprintId>";
+        public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
+            new IAuthorizationRequirement[] { new AdminRequirement() };
+        public CommandArgumentSchema ArgumentSchema { get; } = new(new[]
+        {
+            new CommandArgument("direction", typeof(Direction), CommandArgumentKind.Token,
+                Required: true, "Direction to dig (north, south, east, west, up, down)."),
+            new CommandArgument("targetRoomBlueprintId", typeof(string), CommandArgumentKind.Token,
+                Required: true, "Blueprint id of the destination room."),
+        });
 
-        public DigCommand(
-            ITemplateRegistry templateRegistry,
-            IAdminAuthorizer authorizer,
-            EntityService entityService,
-            IEventBus eventBus)
+        public DigCommand(ITemplateRegistry templateRegistry, EntityService entityService, IEventBus eventBus)
         {
             _templateRegistry = templateRegistry;
-            _authorizer = authorizer;
             _entityService = entityService;
             _eventBus = eventBus;
         }
 
-        public async Task ExecuteAsync(ISession session, string arguments)
+        public async Task ExecuteAsync(CommandContext context)
         {
-            if (!_authorizer.IsPrivileged(session))
+            var direction = context.Args.Get<Direction>("direction");
+            var targetBlueprintId = context.Args.Get<string>("targetRoomBlueprintId");
+
+            if (!_entityService.TryGet<LocationComponent>(context.InvokerEntityId, out var location))
             {
-                await session.SendLineAsync("You are not authorized to use that command.")
+                await context.Output.WriteAsync(
+                    new PlainMessage("You have no location.", OutputSeverity.Error))
                     .ConfigureAwait(false);
-                return;
-            }
-
-            var parts = arguments.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 2)
-            {
-                await session.SendLineAsync("Usage: @dig <direction> <targetRoomBlueprintId>")
-                    .ConfigureAwait(false);
-                return;
-            }
-
-            if (!Enum.TryParse<Direction>(parts[0], ignoreCase: true, out var direction))
-            {
-                await session.SendLineAsync($"Unknown direction: {parts[0]}").ConfigureAwait(false);
-                return;
-            }
-
-            var targetBlueprintId = parts[1];
-            if (!_entityService.TryGet<LocationComponent>(session.PlayerEntityId, out var location))
-            {
-                await session.SendLineAsync("You have no location.").ConfigureAwait(false);
                 return;
             }
 
             var sourceRoomId = location.RoomEntityId;
             if (!_entityService.TryGet<RoomComponent>(sourceRoomId, out var sourceRoom))
             {
-                await session.SendLineAsync("Your current location is not a room.")
+                await context.Output.WriteAsync(
+                    new PlainMessage("Your current location is not a room.", OutputSeverity.Error))
                     .ConfigureAwait(false);
                 return;
             }
@@ -87,17 +73,15 @@ namespace Hedron.Core.Modules.Admin.Commands
             var targetRoomId = ResolveRoomEntityId(targetBlueprintId);
             if (targetRoomId is null)
             {
-                await session.SendLineAsync($"Cannot resolve target room: {targetBlueprintId}")
+                await context.Output.WriteAsync(
+                    new PlainMessage($"Cannot resolve target room: {targetBlueprintId}", OutputSeverity.Error))
                     .ConfigureAwait(false);
                 return;
             }
 
             sourceRoom.Exits[direction] = targetRoomId.Value;
-
-            // Update the in-memory template if we know the source room's blueprint id.
             UpdateTemplate(sourceRoomId, direction, targetBlueprintId);
 
-            // Bidirectional reverse link by default.
             var bidirectional = false;
             var opposite = Opposite(direction);
             if (opposite is not null
@@ -111,13 +95,13 @@ namespace Hedron.Core.Modules.Admin.Commands
                     UpdateTemplate(targetRoomId.Value, opposite.Value, sourceBlueprint.BlueprintId);
             }
 
-            await session.SendLineAsync(
-                $"Dug {direction.ToString().ToLower()} → {targetBlueprintId}"
-                + (bidirectional ? " (reverse exit linked)." : "."))
-                .ConfigureAwait(false);
+            await context.Output.WriteAsync(new PlainMessage(
+                $"Dug {direction.ToString().ToLower()} → {targetBlueprintId}" +
+                (bidirectional ? " (reverse exit linked)." : "."),
+                OutputSeverity.Confirmation)).ConfigureAwait(false);
 
             await _eventBus.PublishAsync(new RoomExitAuthoredByAdminEvent(
-                session.PlayerEntityId,
+                context.InvokerEntityId,
                 sourceRoomId,
                 direction,
                 targetRoomId.Value,
@@ -137,10 +121,8 @@ namespace Hedron.Core.Modules.Admin.Commands
 
         private void UpdateTemplate(uint roomEntityId, Direction direction, string targetBlueprintId)
         {
-            if (!_entityService.TryGet<BlueprintComponent>(roomEntityId, out var blueprint))
-                return;
-            if (!_templateRegistry.TryGet(blueprint.BlueprintId, out var template))
-                return;
+            if (!_entityService.TryGet<BlueprintComponent>(roomEntityId, out var blueprint)) return;
+            if (!_templateRegistry.TryGet(blueprint.BlueprintId, out var template)) return;
             if (template is RoomTemplate roomTemplate)
                 roomTemplate.Exits[direction] = targetBlueprintId;
         }

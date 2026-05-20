@@ -2,63 +2,58 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hedron.Core.Commands;
+using Hedron.Core.Commands.Authorization;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Admin.Events;
-using Hedron.Core.Modules.Admin.Systems;
-using Hedron.Core.Sessions;
+using Hedron.Core.Output;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Admin.Commands
 {
     /// <summary>
-    /// Admin verb <c>@teleport &lt;target&gt;</c>. Target is either a room blueprint id
-    /// (<c>room.east_end</c>) or a player display name. Updates the invoker's
-    /// <see cref="LocationComponent"/> and publishes <see cref="PlayerTeleportedByAdminEvent"/>.
+    /// Admin verb <c>teleport &lt;target&gt;</c>. Target is a room blueprint id or player name.
+    /// Updates the invoker's <see cref="LocationComponent"/> and publishes
+    /// <see cref="PlayerTeleportedByAdminEvent"/>. Privilege is enforced by the dispatcher.
     /// </summary>
     public sealed class TeleportCommand : ICommand
     {
         private readonly ITemplateRegistry _templateRegistry;
-        private readonly IAdminAuthorizer _authorizer;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
 
-        public string Name => "@teleport";
-        public IReadOnlyList<string> Aliases { get; } = new[] { "@tp" };
+        public string Name => "teleport";
+        public IReadOnlyList<string> Aliases { get; } = new[] { "tp" };
+        public CommandCategory Category => CommandCategory.Admin;
+        public string ShortDescription => "Teleport yourself to a room or player.";
+        public string LongDescription => "Teleports you to the specified target. " +
+            "Target can be a room blueprint id (e.g. room.crossroads) or a player's display name.";
+        public string Usage => "teleport <roomBlueprintId|playerName>";
+        public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
+            new IAuthorizationRequirement[] { new AdminRequirement() };
+        public CommandArgumentSchema ArgumentSchema { get; } = new(new[]
+        {
+            new CommandArgument("target", typeof(string), CommandArgumentKind.Token,
+                Required: true, "Room blueprint id or player display name."),
+        });
 
-        public TeleportCommand(
-            ITemplateRegistry templateRegistry,
-            IAdminAuthorizer authorizer,
-            EntityService entityService,
-            IEventBus eventBus)
+        public TeleportCommand(ITemplateRegistry templateRegistry, EntityService entityService, IEventBus eventBus)
         {
             _templateRegistry = templateRegistry;
-            _authorizer = authorizer;
             _entityService = entityService;
             _eventBus = eventBus;
         }
 
-        public async Task ExecuteAsync(ISession session, string arguments)
+        public async Task ExecuteAsync(CommandContext context)
         {
-            if (!_authorizer.IsPrivileged(session))
-            {
-                await session.SendLineAsync("You are not authorized to use that command.")
-                    .ConfigureAwait(false);
-                return;
-            }
+            var target = context.Args.Get<string>("target");
 
-            var target = arguments.Trim();
-            if (string.IsNullOrEmpty(target))
+            if (!_entityService.TryGet<LocationComponent>(context.InvokerEntityId, out var location))
             {
-                await session.SendLineAsync("Usage: @teleport <roomBlueprintId|playerName>")
+                await context.Output.WriteAsync(
+                    new PlainMessage("You have no location.", OutputSeverity.Error))
                     .ConfigureAwait(false);
-                return;
-            }
-
-            if (!_entityService.TryGet<LocationComponent>(session.PlayerEntityId, out var location))
-            {
-                await session.SendLineAsync("You have no location.").ConfigureAwait(false);
                 return;
             }
 
@@ -66,19 +61,21 @@ namespace Hedron.Core.Modules.Admin.Commands
             var resolvedRoomId = ResolveRoomEntityId(target);
             if (resolvedRoomId is null)
             {
-                await session.SendLineAsync($"Cannot resolve teleport target: {target}")
+                await context.Output.WriteAsync(
+                    new PlainMessage($"Cannot resolve teleport target: {target}", OutputSeverity.Error))
                     .ConfigureAwait(false);
                 return;
             }
 
             location.RoomEntityId = resolvedRoomId.Value;
 
-            await session.SendLineAsync($"Teleported to entity #{resolvedRoomId.Value}.")
+            await context.Output.WriteAsync(
+                new PlainMessage($"Teleported to entity #{resolvedRoomId.Value}.", OutputSeverity.Confirmation))
                 .ConfigureAwait(false);
 
             await _eventBus.PublishAsync(new PlayerTeleportedByAdminEvent(
-                session.PlayerEntityId,
-                session.PlayerEntityId,
+                context.InvokerEntityId,
+                context.InvokerEntityId,
                 fromRoomId,
                 resolvedRoomId.Value)).ConfigureAwait(false);
         }

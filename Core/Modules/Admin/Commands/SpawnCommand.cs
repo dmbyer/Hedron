@@ -1,87 +1,81 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hedron.Core.Commands;
+using Hedron.Core.Commands.Authorization;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Admin.Events;
-using Hedron.Core.Modules.Admin.Systems;
-using Hedron.Core.Sessions;
+using Hedron.Core.Output;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Admin.Commands
 {
     /// <summary>
-    /// Admin verb <c>@spawn &lt;blueprintId&gt;</c>. Resolves the blueprint via
+    /// Admin verb <c>spawn &lt;blueprintId&gt;</c>. Resolves the blueprint via
     /// <see cref="ITemplateRegistry"/>, spawns a fresh entity, and publishes
-    /// <see cref="EntitySpawnedByAdminEvent"/>.
+    /// <see cref="EntitySpawnedByAdminEvent"/>. Privilege is enforced by the dispatcher.
     /// </summary>
     public sealed class SpawnCommand : ICommand
     {
         private readonly ITemplateRegistry _templateRegistry;
-        private readonly IAdminAuthorizer _authorizer;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
 
-        public string Name => "@spawn";
-        public IReadOnlyList<string> Aliases { get; } = System.Array.Empty<string>();
+        public string Name => "spawn";
+        public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
+        public CommandCategory Category => CommandCategory.Admin;
+        public string ShortDescription => "Spawn a template entity into the world.";
+        public string LongDescription => "Spawns a templated entity into the current room. " +
+            "Use 'dig' to wire newly spawned rooms into the live world.";
+        public string Usage => "spawn <blueprintId>";
+        public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
+            new IAuthorizationRequirement[] { new AdminRequirement() };
+        public CommandArgumentSchema ArgumentSchema { get; } = new(new[]
+        {
+            new CommandArgument("blueprintId", typeof(string), CommandArgumentKind.Token,
+                Required: true, "The blueprint id to spawn (e.g. room.crossroads)."),
+        });
 
-        public SpawnCommand(
-            ITemplateRegistry templateRegistry,
-            IAdminAuthorizer authorizer,
-            EntityService entityService,
-            IEventBus eventBus)
+        public SpawnCommand(ITemplateRegistry templateRegistry, EntityService entityService, IEventBus eventBus)
         {
             _templateRegistry = templateRegistry;
-            _authorizer = authorizer;
             _entityService = entityService;
             _eventBus = eventBus;
         }
 
-        public async Task ExecuteAsync(ISession session, string arguments)
+        public async Task ExecuteAsync(CommandContext context)
         {
-            if (!_authorizer.IsPrivileged(session))
-            {
-                await session.SendLineAsync("You are not authorized to use that command.")
-                    .ConfigureAwait(false);
-                return;
-            }
-
-            var blueprintId = arguments.Trim();
-            if (string.IsNullOrEmpty(blueprintId))
-            {
-                await session.SendLineAsync("Usage: @spawn <blueprintId>").ConfigureAwait(false);
-                return;
-            }
+            var blueprintId = context.Args.Get<string>("blueprintId");
 
             if (!_templateRegistry.TryGet(blueprintId, out _))
             {
-                await session.SendLineAsync($"Unknown blueprint: {blueprintId}")
+                await context.Output.WriteAsync(
+                    new PlainMessage($"Unknown blueprint: {blueprintId}", OutputSeverity.Error))
                     .ConfigureAwait(false);
                 return;
             }
 
-            if (!_entityService.TryGet<LocationComponent>(session.PlayerEntityId, out var location))
+            if (!_entityService.TryGet<LocationComponent>(context.InvokerEntityId, out var location))
             {
-                await session.SendLineAsync("You have no location — cannot spawn here.")
+                await context.Output.WriteAsync(
+                    new PlainMessage("You have no location — cannot spawn here.", OutputSeverity.Error))
                     .ConfigureAwait(false);
                 return;
             }
 
             var spawned = _templateRegistry.Spawn(blueprintId);
 
-            // NOTE: Placement-into-the-room is deferred. The only spawnable templates in this
-            // slice are rooms and areas, neither of which warrant placement in the invoker's
-            // current room. Item and mob templates land with their slices (4 and 6) — at that
-            // point this command attaches a LocationComponent (or container reference) to the
-            // newly spawned entity. Until then, spawned rooms/areas are orphan entities; use
-            // @dig to wire a new room into the live world.
+            // NOTE: Placement into a room is deferred until item/mob templates land in slices 4+.
+            // Spawned rooms/areas are orphan entities; use 'dig' to wire a new room in.
 
-            await session.SendLineAsync($"Spawned {blueprintId} (entity #{spawned.Id}).")
+            await context.Output.WriteAsync(
+                new PlainMessage($"Spawned {blueprintId} (entity #{spawned.Id}).", OutputSeverity.Confirmation))
                 .ConfigureAwait(false);
 
             await _eventBus.PublishAsync(new EntitySpawnedByAdminEvent(
-                session.PlayerEntityId,
+                context.InvokerEntityId,
                 spawned.Id,
                 blueprintId,
                 location.RoomEntityId)).ConfigureAwait(false);

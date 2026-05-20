@@ -1,6 +1,6 @@
 # Use Case: Command Framework
 
-**Status:** planned
+**Status:** implemented
 **Actors:** Player, Administrator, System
 **Module:** `Core/Commands/`, `Core/Modules/Help/` (new); refactor touches `Core/Modules/Admin/`, `Core/Modules/Movement/`, `Core/Modules/Chat/`, `Core/Modules/World/`
 
@@ -8,7 +8,7 @@
 
 ## Description
 
-Pure-infrastructure slice that closes the command-framework gap surfaced after [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) merged. The slice-2 `ICommand` shape (`Name`, `Aliases`, `ExecuteAsync(ISession, string)`) forces every command author to roll their own argument parsing, privilege gate, and help-text wording. The four slice-2 admin commands demonstrate the cost: each duplicates `Trim()`/`Split()`, reimplements the privilege check by convention, and emits one-off rejection usage strings. There is no `help` command, no `commands` index, and the required `@reload` long-form help wording from slice 2 has nowhere to live.
+Pure-infrastructure slice that closes the command-framework gap surfaced after [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) merged. The slice-2 `ICommand` shape (`Name`, `Aliases`, `ExecuteAsync(ISession, string)`) forces every command author to roll their own argument parsing, privilege gate, and help-text wording. The four slice-2 admin commands demonstrate the cost: each duplicates `Trim()`/`Split()`, reimplements the privilege check by convention, and emits one-off rejection usage strings. There is no `help` command, no `commands` index, and the required `reload` long-form help wording from slice 2 has nowhere to live.
 
 This slice introduces a first-class **command framework**:
 
@@ -20,7 +20,7 @@ This slice introduces a first-class **command framework**:
 
 It also lands the **bare-minimum output seam** so commands have a typed sink and `help` can dogfood typed output: `IOutputMessage`, `PlainMessage`, `HelpEntryMessage`, `HelpIndexMessage`, and a stringify-and-forward `IOutputWriter`. **No formatter, no color, no `RoomDescription`/`Movement`/`Combat`/`PlayerInformation` shapes, no SignalR seam** — those are explicitly slice 4 ([`output-framework.md`](output-framework.md)). Slice 3 leaves these as named stubs so the slice-4 planner knows precisely what is owed.
 
-The 12 existing commands (`look`, `say`, six `MoveCommand` instances, `@spawn`, `@teleport`/`@tp`, `@dig`, `@reload`) are refactored onto the new shape. No gameplay change. This is an **infrastructure slice**, like [`persistence-substrate.md`](persistence-substrate.md); it introduces no new player-facing verbs beyond `help` and `commands`, and the slice-2 smoke still passes.
+The 12 existing commands (`look`, `say`, six `MoveCommand` instances, `spawn`, `teleport`/`tp`, `dig`, `reload`) are refactored onto the new shape. No gameplay change. This is an **infrastructure slice**, like [`persistence-substrate.md`](persistence-substrate.md); it introduces no new player-facing verbs beyond `help` and `commands`, and the slice-2 smoke still passes.
 
 ---
 
@@ -39,7 +39,7 @@ The 12 existing commands (`look`, `say`, six `MoveCommand` instances, `@spawn`, 
 - **No `session.SendLineAsync` survives anywhere on the dispatch path, including the dispatcher's own branches.** The existing unknown-verb call site at `Core/Commands/CommandDispatcher.cs:43` (`session.SendLineAsync($"Unknown command: {verb}")`) and any parse-error / unauthorized / exception output the dispatcher emits are routed through an `IOutputWriter` obtained via `IOutputWriterFactory.Create(session)`. This call site is named explicitly in the refactor checklist (Main Flow step 8) so it is not missed — it is *not* one of the 12 command files and would otherwise survive the refactor and break this postcondition on day one (INV-11).
 - Argument parsing is performed by a shared `ICommandArgumentParser` against each command's declarative schema. Commands no longer call `Trim()` / `Split()` in their bodies. Double-quoted arguments are supported. Enum-prefix matching works from day one (`n`/`no`/`nor` resolves to `north`).
 - Admin commands no longer call `IAdminAuthorizer.IsPrivileged` as their first line. Privilege is enforced structurally by `CommandDispatcher` consulting each command's `RequiredPrivileges` and an injected `IAuthorizationChecker`. Forgetting the gate is impossible — `RequiredPrivileges` is a required interface member; empty list = public.
-- `help` and `help <verb>` are usable from any session. `help` lists every command visible to the caller (admin commands hidden when authorization fails), grouped by `Category`, rendered via typed `HelpIndexMessage`. `help <verb>` shows `LongDescription` and `Usage` via `HelpEntryMessage`. The required `@reload` long-form wording from slice 2 is emitted by `help @reload`.
+- `help` and `help <verb>` are usable from any session. `help` lists every command visible to the caller (admin commands hidden when authorization fails), grouped by `Category`, rendered via typed `HelpIndexMessage`. `help <verb>` shows `LongDescription` and `Usage` via `HelpEntryMessage`. The required `reload` long-form wording from slice 2 is emitted by `help reload`.
 - `commands` (alias none) prints a terser category-grouped one-line index, same visibility filtering.
 - Every dispatch — success, parse-fail, unauthorized, threw — publishes a `CommandExecutedEvent`. `CommandLoggingHandler` (priority 80) writes one structured-log line per command. `AdminAuditHandler` continues to subscribe to its four slice-2 admin events; it does **not** subscribe to `CommandExecutedEvent`.
 - The rejection-branch usage strings inside the four admin commands are removed; malformed input is routed to `help <verb>` by the dispatcher's parse-error response. Slice-2 admin events still fire with identical payloads.
@@ -68,7 +68,7 @@ The 12 existing commands (`look`, `say`, six `MoveCommand` instances, `@spawn`, 
    - **`look`** — Category `Player`, empty `RequiredPrivileges`, no args. Writes whatever room-description output the command currently produces via `IBroadcastSystem` (broadcast body is untouched this slice; slice 4 reworks it).
    - **`say`** — Category `Player`, one `RestOfLine` `string` arg ("message"), publishes `PlayerSaidEvent` unchanged.
    - **`MoveCommand` (×6)** — Category `Player`, no args, publishes `PlayerMovedEvent` unchanged. Failure path writes a `PlainMessage`.
-   - **`@spawn` / `@teleport` / `@dig` / `@reload`** — Category `Admin`, `RequiredPrivileges = [AdminRequirement]`, declarative schemas (`@spawn`: one `Token` `string`; `@teleport`: one `Token` `string`; `@dig`: one `Token` `Direction`, one `Token` `string`; `@reload`: none). Slice-2 admin events still published unchanged. In-body `IsPrivileged` calls and rejection usage strings removed.
+   - **`spawn` / `teleport` / `dig` / `reload`** — Category `Admin`, `RequiredPrivileges = [AdminRequirement]`, declarative schemas (`spawn`: one `Token` `string`; `teleport`: one `Token` `string`; `dig`: one `Token` `Direction`, one `Token` `string`; `reload`: none). Slice-2 admin events still published unchanged. In-body `IsPrivileged` calls and rejection usage strings removed.
 
 9. **Audit hand-off.** `AdminAuditHandler` (existing) keeps subscribing to its four slice-2 admin events for the rich payload. `CommandLoggingHandler` (new, priority 80) consumes `CommandExecutedEvent` for a low-fidelity command trace controllable via log level.
 
@@ -83,10 +83,10 @@ The 12 existing commands (`look`, `say`, six `MoveCommand` instances, `@spawn`, 
 | `CommandExecutedEvent(uint InvokerEntityId, string Verb, string ArgsSummary, CommandOutcome Outcome)` | `CommandDispatcher` | Every dispatch (success, parse-fail, unauthorized, threw) | Cross-cutting audit/logging seam. Future telemetry subscribes without per-command code. |
 | `PlayerSaidEvent` (existing — `Core/Modules/Chat/Events/`) | `SayCommand` | Per `say` | Unchanged — refactor preserves payload exactly. |
 | `PlayerMovedEvent` (existing — `Core/Modules/Movement/Events/`) | `MoveCommand` | Per successful move | Unchanged. |
-| `EntitySpawnedByAdminEvent` (existing — slice 2) | `SpawnCommand` | Per `@spawn` | Unchanged. |
-| `PlayerTeleportedByAdminEvent` (existing — slice 2) | `TeleportCommand` | Per `@teleport` | Unchanged. |
-| `RoomExitAuthoredByAdminEvent` (existing — slice 2) | `DigCommand` | Per `@dig` | Unchanged. |
-| `ContentReloadedEvent` (existing — slice 2) | `ReloadCommand` | Per `@reload` | Unchanged. |
+| `EntitySpawnedByAdminEvent` (existing — slice 2) | `SpawnCommand` | Per `spawn` | Unchanged. |
+| `PlayerTeleportedByAdminEvent` (existing — slice 2) | `TeleportCommand` | Per `teleport` | Unchanged. |
+| `RoomExitAuthoredByAdminEvent` (existing — slice 2) | `DigCommand` | Per `dig` | Unchanged. |
+| `ContentReloadedEvent` (existing — slice 2) | `ReloadCommand` | Per `reload` | Unchanged. |
 
 ### `CommandOutcome` enum
 
@@ -96,7 +96,7 @@ Success | ParseFailed | Unauthorized | Threw
 
 ### `ArgsSummary` content
 
-A short normalized rendering of the parsed args for log readability — e.g. `@dig east room.crossroads` summarizes to `east room.crossroads`. Dispatcher truncates at 200 characters. **Known operational gap (spec-mode S4):** there is no argument-redaction mechanism this slice, so `say` content (and any future `tell` / `password` / auth-bearing verb) is written to logs in plaintext. This is acceptable for slice 3 because the only verb with free-text args is `say` and the logger is local, but it **must not** ship to any environment with retained/forwarded logs without redaction. Tracked as an explicit acknowledged-debt item in [`../roadmap/backlog.md`](../roadmap/backlog.md) ("Command-arg log redaction") with the proposed fix (a per-command `[NoLogArgs]` / `RedactArgs` declaration honored by the dispatcher before it builds `ArgsSummary`). It is a prerequisite for any non-local logging sink. Partial-success vs command-success is a layer above and stays inside the command body — it does not affect `Outcome`.
+A short normalized rendering of the parsed args for log readability — e.g. `dig east room.crossroads` summarizes to `east room.crossroads`. Dispatcher truncates at 200 characters. **Known operational gap (spec-mode S4):** there is no argument-redaction mechanism this slice, so `say` content (and any future `tell` / `password` / auth-bearing verb) is written to logs in plaintext. This is acceptable for slice 3 because the only verb with free-text args is `say` and the logger is local, but it **must not** ship to any environment with retained/forwarded logs without redaction. Tracked as an explicit acknowledged-debt item in [`../roadmap/backlog.md`](../roadmap/backlog.md) ("Command-arg log redaction") with the proposed fix (a per-command `[NoLogArgs]` / `RedactArgs` declaration honored by the dispatcher before it builds `ArgsSummary`). It is a prerequisite for any non-local logging sink. Partial-success vs command-success is a layer above and stays inside the command body — it does not affect `Outcome`.
 
 ---
 
@@ -218,7 +218,7 @@ public interface IOutputWriterFactory { IOutputWriter Create(ISession session); 
 Pure infrastructure. **No new gameplay state, no new authored data files, no new `TemplateRegistry` entries, no new admin commands beyond `help` / `commands` (tooling for the framework itself, not for content).**
 
 - The slice-2 admin commands keep their verbs, effects, and events; bodies refactor onto the framework. Their hand-written rejection-branch `"Usage: ..."` strings retire in favour of `help <verb>`.
-- The `@reload` long-form help wording required by slice 2 moves into `ReloadCommand.LongDescription`, emitted by `help @reload`.
+- The `reload` long-form help wording required by slice 2 moves into `ReloadCommand.LongDescription`, emitted by `help reload`.
 - `Admin:PrivilegedNames` and `Persistence:DataDirectory` keys unchanged. No new config keys this slice (`Output:DefaultColor` belongs to slice 4 — the slice that introduces color).
 
 Per ground rule 8: this slice introduces no new gameplay state; the tooling it adds (`help`, `commands`) inspects the framework itself.
@@ -241,7 +241,7 @@ Per ground rule 8: this slice introduces no new gameplay state; the tooling it a
 
 - **Replaces Flow 3 — Player command lifecycle** ([`../architecture/06-flows.md`](../architecture/06-flows.md)). The current Flow 3 is marked "slice 3 will replace this flow." Slice 3's PR rewrites Flow 3 to the framework-driven trace: input → verb lookup → **authorization gate (`IAuthorizationChecker` over `RequiredPrivileges`)** → **argument parse (`ICommandArgumentParser` over `ArgumentSchema`)** → `CommandContext` construction → `ExecuteAsync(context)` → output via the minimal `IOutputWriter` (stringify-and-forward) → exception trap → `CommandExecutedEvent` publish → priority-ordered handlers (`CommandLoggingHandler` at 80). The "What's hand-rolled today" subsection is deleted; replaced with the structural guarantees. The mermaid diagram is re-drawn. Slice 4 will modify the output leg of this same flow again.
 - **No new canonical flow introduced.** The command lifecycle is the replacement of an existing flow, not a new recurring chain. (Output rendering becomes its own flow in slice 4.)
-- **Flow 5 (`@reload`) — mermaid re-draw + prose, not prose-only.** `ReloadCommand`'s in-body `IsPrivileged` call moves to the dispatcher gate. Flow 5's current mermaid diagram has an explicit `RC->>Auth: IsPrivileged` participant interaction and an `alt not privileged` branch *inside the command*; those must be **removed and re-drawn** so the gate sits in the dispatcher before `ReloadCommand` is invoked — a prose-only edit would leave the diagram contradicting the code (spec-mode S2/D5). The reload mechanics (steps 3–10) are unchanged. The slice-3 PR re-draws the Flow 5 diagram and rewrites its step 2.
+- **Flow 5 (`reload`) — mermaid re-draw + prose, not prose-only.** `ReloadCommand`'s in-body `IsPrivileged` call moves to the dispatcher gate. Flow 5's current mermaid diagram has an explicit `RC->>Auth: IsPrivileged` participant interaction and an `alt not privileged` branch *inside the command*; those must be **removed and re-drawn** so the gate sits in the dispatcher before `ReloadCommand` is invoked — a prose-only edit would leave the diagram contradicting the code (spec-mode S2/D5). The reload mechanics (steps 3–10) are unchanged. The slice-3 PR re-draws the Flow 5 diagram and rewrites its step 2.
 
 ---
 
@@ -290,10 +290,10 @@ This section is the audit trail for why the spec is shaped as it is; it is not a
 
 ## Related
 
-- [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) — slice 2; established the four admin commands, the `@`-prefix convention, `IAdminAuthorizer`, and the convention-only privilege check this slice replaces with a structural gate. Defined the `@reload` help-text wording surfaced here via `help @reload`.
+- [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) — slice 2; established the four admin commands, `IAdminAuthorizer`, and the convention-only privilege check this slice replaces with a structural gate. Defined the `reload` help-text wording surfaced here via `help reload`.
 - [`output-framework.md`](output-framework.md) — slice 4; consumes the minimal output seam shaped here and replaces the stringify-and-forward writer with the formatter-backed implementation. The owed stub list in this doc is its input contract.
 - [`persistence-substrate.md`](persistence-substrate.md) — slice 1; precedent for a pure-infrastructure slice with no gameplay-visible behaviour change.
-- [`admin-privilege-elevation.md`](admin-privilege-elevation.md) — deferred; future `@grant`/`@revoke` will register new `IAuthorizationRequirement` types against this slice's checker rather than be retrofitted.
+- [`admin-privilege-elevation.md`](admin-privilege-elevation.md) — deferred; future `grant`/`revoke` will register new `IAuthorizationRequirement` types against this slice's checker rather than be retrofitted.
 - `account-character-creation.md` — slice 5 (renumbered; was slice 3). Its login-prompt verbs and character-management commands are authored against the framework landed here, not the legacy `(ISession, string)` shape.
 
 **Roadmap impact:** this is **Phase 3 slice 3**. Account / character creation becomes slice 5; downstream slices shift +2. The plan, use-case index, and `06-flows.md` are updated in this slice's PR (the slice-numbering question was resolved: "slice 3 and shift"). For the slice queue, see [`../roadmap/plan.md`](../roadmap/plan.md).

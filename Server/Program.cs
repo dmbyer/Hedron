@@ -1,5 +1,7 @@
 using Hedron.Core;
 using Hedron.Core.Commands;
+using Hedron.Core.Commands.Authorization;
+using Hedron.Core.Commands.Events;
 using Hedron.Core.ECS;
 using Hedron.Core.Events;
 using Hedron.Core.Handlers;
@@ -9,6 +11,7 @@ using Hedron.Core.Modules.Admin.Handlers;
 using Hedron.Core.Modules.Chat.Commands;
 using Hedron.Core.Modules.Chat.Events;
 using Hedron.Core.Modules.Chat.Handlers;
+using Hedron.Core.Modules.Help;
 using Hedron.Core.Modules.Movement.Commands;
 using Hedron.Core.Modules.Movement.Events;
 using Hedron.Core.Modules.Movement.Handlers;
@@ -18,6 +21,7 @@ using Hedron.Core.Modules.Session.Events;
 using Hedron.Core.Modules.Session.Handlers;
 using Hedron.Core.Modules.World;
 using Hedron.Core.Modules.World.Events;
+using Hedron.Core.Output;
 using Hedron.Core.Sessions;
 using Hedron.Core.Systems;
 using Hedron.Server.Sessions;
@@ -36,8 +40,7 @@ public static class Program
         var host = Host.CreateDefaultBuilder(args)
             .ConfigureServices(services =>
             {
-                // ECS world — singleton, shared between the static EcsManager bridge and
-                // any DI-injected consumer.
+                // ECS world
                 var world = new EntityService();
                 EcsManager.SetWorld(world);
                 services.AddSingleton(world);
@@ -45,6 +48,10 @@ public static class Program
                 services.AddSingleton<IEventBus, EventBus>();
                 services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
                 services.AddSingleton<ISessionManager, SessionManager>();
+
+                // Command framework — argument parser and output writer factory
+                services.AddSingleton<ICommandArgumentParser, CommandArgumentParser>();
+                services.AddSingleton<IOutputWriterFactory, OutputWriterFactory>();
 
                 // Systems
                 services.AddSingleton<IBroadcastSystem, BroadcastSystem>();
@@ -58,6 +65,7 @@ public static class Program
                 services.AddSingleton<PlayerSessionHandler>();
                 services.AddSingleton<PlayerMovedHandler>();
                 services.AddSingleton<PlayerSaidHandler>();
+                services.AddSingleton<CommandLoggingHandler>();
 
                 // Player-facing commands
                 services.AddSingleton<ICommand, SayCommand>();
@@ -70,16 +78,13 @@ public static class Program
                         sp.GetRequiredService<IEventBus>()));
                 }
 
-                // Modules — World registers TemplateRegistry, ContentSerializer, ContentLoader,
-                // and the LookCommand. Admin registers the authorizer, four admin commands,
-                // and the audit handler.
+                // Modules — World, Admin (registers IAuthorizationChecker), Help
                 services.AddPersistenceModule();
                 services.AddWorldModule();
                 services.AddAdminModule();
+                services.AddHelpModule();
 
-                // Hosted services — order matters. PersistenceBootstrap loads persisted entities
-                // and publishes WorldLoadedEvent; WorldContentBootstrap then registers authored
-                // templates and seeds any missing entities; TelnetServer accepts connections last.
+                // Hosted services — order matters.
                 services.AddHostedService<PersistenceBootstrap>();
                 services.AddHostedService<WorldContentBootstrap>();
                 services.AddHostedService<PersistenceFlushTimer>();
@@ -104,6 +109,9 @@ public static class Program
         var persistenceHandler = host.Services.GetRequiredService<PersistenceHandler>();
         bus.Subscribe<EntitySpawnedByAdminEvent>(persistenceHandler);
         bus.Subscribe<RoomExitAuthoredByAdminEvent>(persistenceHandler);
+
+        var commandLogging = host.Services.GetRequiredService<CommandLoggingHandler>();
+        bus.Subscribe<CommandExecutedEvent>(commandLogging);
 
         await host.RunAsync();
     }

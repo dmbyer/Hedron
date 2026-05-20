@@ -1,10 +1,12 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hedron.Core.Commands;
+using Hedron.Core.Commands.Authorization;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Movement.Events;
 using Hedron.Core.Modules.Movement.Systems;
-using Hedron.Core.Sessions;
+using Hedron.Core.Output;
 
 namespace Hedron.Core.Modules.Movement.Commands
 {
@@ -20,6 +22,13 @@ namespace Hedron.Core.Modules.Movement.Commands
 
         public string Name { get; }
         public IReadOnlyList<string> Aliases { get; }
+        public CommandCategory Category => CommandCategory.Player;
+        public string ShortDescription { get; }
+        public string LongDescription { get; }
+        public string Usage { get; }
+        public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
+            Array.Empty<IAuthorizationRequirement>();
+        public CommandArgumentSchema ArgumentSchema => CommandArgumentSchema.Empty;
 
         public MoveCommand(Direction direction, IMovementSystem movementSystem, IEventBus eventBus)
         {
@@ -28,20 +37,24 @@ namespace Hedron.Core.Modules.Movement.Commands
             _eventBus = eventBus;
             Name = direction.ToString().ToLower();
             Aliases = ShortAlias(direction);
+            ShortDescription = $"Move {direction.ToString().ToLower()}.";
+            LongDescription = $"Move in the {direction.ToString().ToLower()} direction if an exit exists.";
+            Usage = direction.ToString().ToLower();
         }
 
-        public async Task ExecuteAsync(ISession session, string arguments)
+        public async Task ExecuteAsync(CommandContext context)
         {
-            var result = _movementSystem.TryMove(session.PlayerEntityId, _direction);
+            var result = _movementSystem.TryMove(context.InvokerEntityId, _direction);
             if (!result.Success)
             {
-                await session.SendLineAsync(result.ErrorMessage ?? "You cannot go that way.")
+                await context.Output.WriteAsync(
+                    new PlainMessage(result.ErrorMessage ?? "You cannot go that way.", OutputSeverity.System))
                     .ConfigureAwait(false);
                 return;
             }
 
             await _eventBus.PublishAsync(new PlayerMovedEvent(
-                session.PlayerEntityId,
+                context.InvokerEntityId,
                 result.FromRoomEntityId,
                 result.ToRoomEntityId,
                 _direction)).ConfigureAwait(false);
@@ -55,7 +68,7 @@ namespace Hedron.Core.Modules.Movement.Commands
             Direction.West  => new[] { "w" },
             Direction.Up    => new[] { "u" },
             Direction.Down  => new[] { "d" },
-            _               => System.Array.Empty<string>(),
+            _               => Array.Empty<string>(),
         };
     }
 }

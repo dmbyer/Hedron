@@ -14,7 +14,7 @@
 | 2 | [Player connection](#flow-2--player-connection) | TCP client connects on the configured port | Phase 2 |
 | 3 | [Player command lifecycle](#flow-3--player-command-lifecycle) | Player sends a line of input | Phase 2 (replaced by slice 3 command framework; output leg re-traced again by slice 4) |
 | 4 | [Persistence flush cycle](#flow-4--persistence-flush-cycle) | `PersistenceFlushTimer` ticks, or shutdown | Phase 3 slice 1 |
-| 5 | [Content reload](#flow-5--content-reload-reload) | Privileged session sends `@reload` | Phase 3 slice 2 |
+| 5 | [Content reload](#flow-5--content-reload-reload) | Privileged session sends `reload` | Phase 3 slice 2 (gate moved to dispatcher in slice 3) |
 | 6 | Output rendering | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4 (added by that slice's PR) |
 
 Flows that don't yet exist (combat round, player death, item pickup, mob wander tick, etc.) get added by the slice that introduces them.
@@ -132,9 +132,7 @@ sequenceDiagram
 
 ## Flow 3 — Player command lifecycle
 
-**Summary.** Input bytes become a verb + raw argument string; the dispatcher routes to an `ICommand`; the command parses its own arguments, calls a system, and publishes events; subscribed handlers run in priority order; output is written via the session.
-
-> **Slice 3 replaces this flow; slice 4 re-traces its output leg.** The current MVP shape (this section) does per-command argument parsing, per-command privilege checks, and per-command output formatting. Slice 3 ([`../use-cases/command-framework.md`](../use-cases/command-framework.md)) introduces a `CommandContext` with parsed arguments, a structural privilege gate (`IAuthorizationChecker` over `RequiredPrivileges`) enforced by the dispatcher, and a `CommandExecutedEvent` covering every dispatch — and ships a minimal stringify-and-forward output writer. Slice 4 ([`../use-cases/output-framework.md`](../use-cases/output-framework.md)) then re-traces only the output leg (formatter-backed, color, capability strip) and adds Flow 6. **Re-trace this flow as part of slice 3's PR** (replace the section below with the framework-driven version) and **update the output step again in slice 4's PR**.
+**Summary.** Input bytes become a verb + raw tail; the dispatcher checks authorization via `IAuthorizationChecker`, parses arguments via `ICommandArgumentParser`, constructs a `CommandContext`, calls `ICommand.ExecuteAsync(context)`, and publishes `CommandExecutedEvent` for every outcome. Output goes through the minimal `IOutputWriter` (stringify-and-forward); slice 4 replaces the writer with a formatter-backed implementation.
 
 **Trigger.** A line of input arrives on a session's read stream.
 
@@ -143,53 +141,57 @@ sequenceDiagram
     participant Client
     participant Sess as TelnetSession
     participant CD as CommandDispatcher
+    participant Auth as IAuthorizationChecker
+    participant Parser as ICommandArgumentParser
     participant Cmd as ICommand impl
-    participant Sys as Domain system
     participant Bus as IEventBus
-    participant Hndlr as Handlers (priority order)
 
     Client->>Sess: input line
     Sess->>CD: DispatchAsync(session, input)
-    CD->>CD: trim + split first whitespace → verb, args
+    CD->>CD: trim + split → verb, rawTail
     alt verb unknown
-        CD->>Sess: SendLineAsync("Unknown command: …")
+        CD->>Sess: WriteAsync(PlainMessage "Unknown command…")
+        CD->>Bus: Publish(CommandExecutedEvent ParseFailed)
     else verb known
-        CD->>Cmd: ExecuteAsync(session, args)
-        Cmd->>Cmd: parse args (per-command, ad hoc)
-        Cmd->>Sys: domain call
-        Sys-->>Cmd: result
-        opt admin commands
-            Cmd->>Cmd: IAdminAuthorizer.IsPrivileged (per-command convention)
+        loop RequiredPrivileges
+            CD->>Auth: IsSatisfied(req, session)
         end
-        Cmd->>Bus: Publish past-tense event
-        loop priority order
-            Bus->>Hndlr: HandleAsync
+        alt unauthorized
+            CD->>Sess: WriteAsync(PlainMessage "Not authorized")
+            CD->>Bus: Publish(CommandExecutedEvent Unauthorized)
+        else authorized
+            CD->>Parser: Parse(ArgumentSchema, rawTail)
+            alt parse failed
+                CD->>Sess: WriteAsync(PlainMessage reason + help hint)
+                CD->>Bus: Publish(CommandExecutedEvent ParseFailed)
+            else parsed
+                CD->>Cmd: ExecuteAsync(CommandContext)
+                Cmd->>Cmd: domain call / event publish
+                Cmd->>Sess: WriteAsync(IOutputMessage) via IOutputWriter
+                CD->>Bus: Publish(CommandExecutedEvent Success)
+                Bus->>Bus: priority-ordered handlers (20 → 80 → 90 → 95)
+            end
         end
-        Cmd->>Sess: SendLineAsync (per-command formatting)
     end
 ```
 
-**Steps (current MVP shape).**
+**Steps.**
 
 1. `TelnetSession` reads a line and calls `CommandDispatcher.DispatchAsync(session, input)`.
-2. The dispatcher trims input, splits on the first whitespace into verb + argument string, and looks the verb up case-insensitively. Unknown verbs produce `"Unknown command: <verb>"` and the dispatch returns.
-3. The matched `ICommand.ExecuteAsync(session, arguments)` runs. The command is responsible for parsing `arguments` itself — there is no shared parser in this slice.
-4. **Admin commands** (verbs starting with `@`) call `IAdminAuthorizer.IsPrivileged(session)` as the first line of `ExecuteAsync` and short-circuit with a rejection line for non-privileged sessions. This is convention, not structure — slice 3 promotes it to a dispatcher-enforced gate.
-5. The command body calls a domain system (or core helper), formats output, and publishes any past-tense events.
-6. `IEventBus` invokes subscribed handlers in priority order (`HandlerPriority.State` 10 → `Domain` 20 → `Notification` 80 → `Persistence` 90 → `Ai` 95).
-7. Output is written via `session.SendLineAsync` (or `IBroadcastSystem` for room-wide messages).
-
-**What's hand-rolled today (slice 3 promotes each).**
-
-- Argument parsing — every command does its own `Trim()`/`Split()`.
-- Privilege checks — convention, not structure.
-- Help text — currently lives only as the rejection-branch usage line.
-- Output formatting — bespoke per command.
-- Audit logging — only admin events publish; player-facing verbs (`look`, `say`, movement) publish nothing.
+2. The dispatcher trims input and splits on the first whitespace into verb + raw tail. Unknown verbs write `PlainMessage("Unknown command: <verb>. Type 'help' for a list.")` via `IOutputWriter`, publish `CommandExecutedEvent(ParseFailed)`, and return.
+3. **Privilege gate.** The dispatcher iterates `command.RequiredPrivileges` and calls `IAuthorizationChecker.IsSatisfied(req, session)` for each. The checker is the sole policy seam — `AdminRequirement` delegates to the existing `IAdminAuthorizer`. Any unsatisfied requirement writes a rejection `PlainMessage` via `IOutputWriter` and publishes `CommandExecutedEvent(Unauthorized)`.
+4. **Argument parse.** `ICommandArgumentParser.Parse(command.ArgumentSchema, rawTail)` does single-pass tokenization (whitespace + double-quoted groups), walks the declarative argument list, and coerces each token to its CLR type (`string`, `int`, `uint`, `Direction`). Enum-prefix matching works from day one (`n`/`no`/`nor` → `North`). On failure: the reason + `"Type 'help <verb>' for usage."` is written via `IOutputWriter`; `CommandExecutedEvent(ParseFailed)` is published.
+5. **Execute.** The dispatcher constructs `CommandContext(Session, InvokerEntityId, ParsedArguments, IOutputWriter, IServiceProvider)` and calls `command.ExecuteAsync(context)`. The body reads typed args via `context.Args.Get<T>(name)`, calls domain systems or publishes events via injected `IEventBus`, and writes all output via `context.Output.WriteAsync(IOutputMessage)`. No `session.SendLineAsync` in command bodies.
+6. **Minimal output seam.** `IOutputWriter.WriteAsync` stringifies the message (`PlainMessage` → its text; `HelpIndexMessage` / `HelpEntryMessage` → plain-text rendering) and calls `session.SendLineAsync`. Slice 4 replaces this implementation with a formatter-backed one.
+7. **Exception trap.** Any uncaught exception is caught, logged at `Error` with a full stack trace, a `PlainMessage("Something went wrong. The error has been logged.")` is written, and `CommandExecutedEvent(Threw)` is published. No stack trace reaches the session.
+8. **`CommandExecutedEvent`.** Published on every dispatch path — success, parse-fail, unauthorized, threw. `CommandLoggingHandler` (priority 80) writes one structured-log line per command via `ILogger`. `AdminAuditHandler` keeps subscribing to the four richer slice-2 admin events and does **not** subscribe to `CommandExecutedEvent`.
 
 **Cross-references.**
 - [`Core/Commands/CommandDispatcher.cs`](../../Core/Commands/CommandDispatcher.cs), [`Core/Commands/ICommand.cs`](../../Core/Commands/ICommand.cs)
-- [`docs/use-cases/command-framework.md`](../use-cases/command-framework.md) — slice 3 spec (rewrites this flow); [`docs/use-cases/output-framework.md`](../use-cases/output-framework.md) — slice 4 spec (re-traces the output leg, adds Flow 6)
+- [`Core/Commands/Authorization/IAuthorizationChecker.cs`](../../Core/Commands/Authorization/IAuthorizationChecker.cs), [`Core/Commands/CommandArgumentParser.cs`](../../Core/Commands/CommandArgumentParser.cs)
+- [`Core/Output/OutputWriter.cs`](../../Core/Output/OutputWriter.cs), [`Core/Handlers/CommandLoggingHandler.cs`](../../Core/Handlers/CommandLoggingHandler.cs)
+- [`docs/architecture/06-commands.md`](06-commands.md) — command framework design
+- [`docs/use-cases/command-framework.md`](../use-cases/command-framework.md) — slice 3 spec; [`docs/use-cases/output-framework.md`](../use-cases/output-framework.md) — slice 4 spec (re-traces output leg, adds Flow 6)
 - [`docs/reference/handlers.md`](../reference/handlers.md) — handler priority tiers
 
 ---
@@ -243,29 +245,29 @@ sequenceDiagram
 
 ---
 
-## Flow 5 — Content reload (`@reload`)
+## Flow 5 — Content reload (`reload`)
 
 **Summary.** A privileged session re-scans the content directory and refreshes the template registry. Templates with no live counterpart are seeded; **existing live entities are not mutated**. The pass is additive only.
 
-**Trigger.** Privileged session sends `@reload`.
+**Trigger.** Privileged session sends `reload`.
 
 ```mermaid
 sequenceDiagram
     participant Session
     participant CD as CommandDispatcher
+    participant Auth as IAuthorizationChecker
     participant RC as ReloadCommand
-    participant Auth as IAdminAuthorizer
     participant WCL as WorldContentLoader
     participant Reg as ITemplateRegistry
     participant Bus as IEventBus
     participant Audit as AdminAuditHandler
 
-    Session->>CD: "@reload"
-    CD->>RC: ExecuteAsync
-    RC->>Auth: IsPrivileged
-    alt not privileged
-        RC->>Session: rejection line
-    else privileged
+    Session->>CD: "reload"
+    CD->>Auth: IsSatisfied(AdminRequirement, session)
+    alt unauthorized
+        CD->>Session: rejection (via IOutputWriter)
+    else authorized
+        CD->>RC: ExecuteAsync(CommandContext)
         RC->>WCL: ReloadAsync
         WCL->>Reg: snapshot previous ids
         WCL->>Reg: Clear
@@ -274,7 +276,7 @@ sequenceDiagram
         WCL->>WCL: SpawnMissingEntities (skip-on-conflict)
         WCL->>WCL: LinkRoomExits (new entities only)
         WCL-->>RC: ContentReloadResult{ loaded, unchanged, removed }
-        RC->>Session: confirmation line
+        RC->>Session: confirmation (via IOutputWriter)
         RC->>Bus: Publish(ContentReloadedEvent)
         Bus->>Audit: HandleAsync (structured log)
     end
@@ -282,18 +284,18 @@ sequenceDiagram
 
 **Steps.**
 
-1. `CommandDispatcher` routes `@reload` to `ReloadCommand`.
-2. `ReloadCommand.ExecuteAsync` calls `IAdminAuthorizer.IsPrivileged(session)` first. Non-privileged sessions get a one-line rejection and the command body returns.
+1. `CommandDispatcher` routes `reload` to `ReloadCommand`.
+2. **Authorization gate.** The dispatcher calls `IAuthorizationChecker.IsSatisfied(AdminRequirement, session)` **before** invoking `ReloadCommand`. Non-privileged sessions receive a rejection `PlainMessage` via `IOutputWriter` and `CommandExecutedEvent(Unauthorized)`; `ReloadCommand.ExecuteAsync` never runs. This is the slice-3 structural replacement for slice-2's per-command `IsPrivileged` convention.
 3. The command calls `IWorldContentLoader.ReloadAsync(ct)`.
 4. The loader snapshots the previous template ids, clears the registry, and re-scans `World:ContentDirectory`. Each YAML file is re-deserialized via the cross-cutting `IContentSerializer` → kind-specific `ITemplateDeserializer` and re-registered.
 5. Loaded / unchanged / removed counts are computed by set difference against the previous snapshot.
 6. `BuildLiveBlueprintMap` enumerates every entity that has a `BlueprintComponent`. For each registered template that has no entry in the map, `SpawnMissingEntities` calls `TemplateRegistry.Spawn(blueprintId)` (which allocates an entity, attaches `BlueprintComponent`, and runs `IEntityTemplate.Apply`).
 7. `LinkRoomExits` populates `RoomComponent.Exits` for the newly spawned entities only — existing live rooms are not touched.
 8. `ReloadAsync` returns `ContentReloadResult { loaded, unchanged, removed }`.
-9. The command writes a confirmation line to the invoker and publishes `ContentReloadedEvent` (thin payload — the three counts).
+9. The command writes a confirmation `PlainMessage` via `CommandContext.Output` (`IOutputWriter`) and publishes `ContentReloadedEvent` (thin payload — the three counts).
 10. `AdminAuditHandler` (priority `HandlerPriority.Notification` = 80) writes one structured-log entry with stable event name `AdminCommandExecuted`.
 
-**Constraint.** Live entities are never mutated by reload. To pick up edits to a live room's description or components, restart the host; or use `@dig` for exit changes that should apply immediately.
+**Constraint.** Live entities are never mutated by reload. To pick up edits to a live room's description or components, restart the host; or use `dig` for exit changes that should apply immediately.
 
 **Cross-references.**
 - [`Core/Modules/Admin/Commands/ReloadCommand.cs`](../../Core/Modules/Admin/Commands/ReloadCommand.cs), [`Core/Modules/World/Systems/WorldContentLoader.cs`](../../Core/Modules/World/Systems/WorldContentLoader.cs)
