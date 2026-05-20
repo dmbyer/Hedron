@@ -1,6 +1,6 @@
 # Use Case: Command Framework
 
-**Status:** planned
+**Status:** implemented
 **Actors:** Player, Administrator, System
 **Module:** `Core/Commands/`, `Core/Modules/Help/` (new); refactor touches `Core/Modules/Admin/`, `Core/Modules/Movement/`, `Core/Modules/Chat/`, `Core/Modules/World/`
 

@@ -96,11 +96,12 @@ Ask:
 **Responsibilities:** trigger NPC behavior; aggro/threat management; decision trees; patrol/wander patterns.
 **Uses:** `IAISystem`, `ICombatSystem`, `IMovementSystem`, `IVisibilitySystem`
 
-### CommandHandler
-**Events:** `CommandReceivedEvent`
-**Responsibilities:** parse text input; validate syntax; route to executors; aliases; help/error messages.
-**Uses:** `ICommandParserService`, domain systems per-command
-> Entry point from player input. Parses, then raises more specific events.
+### CommandLoggingHandler
+**Events:** `CommandExecutedEvent` (Phase 3 slice 3)
+**Priority:** 80 (`HandlerPriority.Notification`)
+**Responsibilities:** writes one structured-log line per command dispatch via `ILogger<CommandLoggingHandler>`. Fires for every outcome (Success, ParseFailed, Unauthorized, Threw). Deliberately separate from `AdminAuditHandler` — command logging is low-fidelity and log-level-controllable; admin audit carries richer slice-2 event payloads.
+**Location:** `Core/Handlers/CommandLoggingHandler.cs`
+**Uses:** `ILogger<CommandLoggingHandler>`
 
 ---
 
@@ -112,9 +113,8 @@ Core/Modules/<Feature>/Handlers/   # feature-owned handlers
   Magic/Handlers/SpellHandler.cs
 
 Core/Handlers/                     # cross-cutting handlers
-  NotificationHandler.cs
   PersistenceHandler.cs
-  CommandHandler.cs
+  CommandLoggingHandler.cs
 ```
 
 Within a module, handlers sit alongside their events and domain systems — see [../architecture/01-layers.md#modules-feature-cohesion](../architecture/01-layers.md#modules-feature-cohesion).
