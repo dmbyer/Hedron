@@ -14,7 +14,7 @@ namespace Hedron.Core.Modules.Help.Commands
     /// </summary>
     public sealed class HelpCommand : ICommand
     {
-        private readonly IEnumerable<ICommand> _allCommands;
+        private readonly Lazy<IEnumerable<ICommand>> _allCommands;
         private readonly IAuthorizationChecker _authorizationChecker;
 
         public string Name => "help";
@@ -33,7 +33,7 @@ namespace Hedron.Core.Modules.Help.Commands
                 Required: false, "Command verb to look up."),
         });
 
-        public HelpCommand(IEnumerable<ICommand> allCommands, IAuthorizationChecker authorizationChecker)
+        public HelpCommand(Lazy<IEnumerable<ICommand>> allCommands, IAuthorizationChecker authorizationChecker)
         {
             _allCommands = allCommands;
             _authorizationChecker = authorizationChecker;
@@ -43,7 +43,7 @@ namespace Hedron.Core.Modules.Help.Commands
         {
             if (context.Args.TryGet<string>("verb", out var verb))
             {
-                var command = _allCommands
+                var command = _allCommands.Value
                     .Where(c => IsVisible(c, context))
                     .FirstOrDefault(c =>
                         string.Equals(c.Name, verb, StringComparison.OrdinalIgnoreCase)
@@ -69,7 +69,7 @@ namespace Hedron.Core.Modules.Help.Commands
         }
 
         private IReadOnlyList<HelpIndexEntry> BuildIndex(CommandContext context)
-            => _allCommands
+            => _allCommands.Value
                 .Where(c => IsVisible(c, context))
                 .OrderBy(c => (int)c.Category).ThenBy(c => c.Name)
                 .Select(c => new HelpIndexEntry(c.Name, c.ShortDescription, c.Category))

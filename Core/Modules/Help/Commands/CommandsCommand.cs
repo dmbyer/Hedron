@@ -14,7 +14,7 @@ namespace Hedron.Core.Modules.Help.Commands
     /// </summary>
     public sealed class CommandsCommand : ICommand
     {
-        private readonly IEnumerable<ICommand> _allCommands;
+        private readonly Lazy<IEnumerable<ICommand>> _allCommands;
         private readonly IAuthorizationChecker _authorizationChecker;
 
         public string Name => "commands";
@@ -27,7 +27,7 @@ namespace Hedron.Core.Modules.Help.Commands
             Array.Empty<IAuthorizationRequirement>();
         public CommandArgumentSchema ArgumentSchema => CommandArgumentSchema.Empty;
 
-        public CommandsCommand(IEnumerable<ICommand> allCommands, IAuthorizationChecker authorizationChecker)
+        public CommandsCommand(Lazy<IEnumerable<ICommand>> allCommands, IAuthorizationChecker authorizationChecker)
         {
             _allCommands = allCommands;
             _authorizationChecker = authorizationChecker;
@@ -35,7 +35,7 @@ namespace Hedron.Core.Modules.Help.Commands
 
         public async Task ExecuteAsync(CommandContext context)
         {
-            var entries = _allCommands
+            var entries = _allCommands.Value
                 .Where(c => IsVisible(c, context))
                 .OrderBy(c => (int)c.Category).ThenBy(c => c.Name)
                 .Select(c => new HelpIndexEntry(c.Name, c.ShortDescription, c.Category))
