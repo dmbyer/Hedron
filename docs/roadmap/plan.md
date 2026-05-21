@@ -27,14 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1 & 2 done; **next: slice 3 — command framework**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–3 + prefix-matching done; **next: slice 4 — output framework**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 3 — command framework.** Use case planned: [`../use-cases/command-framework.md`](../use-cases/command-framework.md). Slice 4 (output framework, [`../use-cases/output-framework.md`](../use-cases/output-framework.md)) follows immediately and discharges the minimal-output-seam debt slice 3 leaves. The spec was corrected after a spec-mode `architecture-reviewer` pass exposed the command-tier gap (now resolved in [`../architecture/01-layers.md`](../architecture/01-layers.md) — Initiators tier); implementation via `implement-use-case` against the corrected spec, then code-mode review before merge.
+**Phase 3 slice 4 — output framework.** Use case: [`../use-cases/output-framework.md`](../use-cases/output-framework.md). Discharges the minimal-output-seam debt left by slice 3 — replaces the stringify-and-forward `IOutputWriter` with a formatter-backed implementation: `IOutputFormatter`/telnet ANSI, `SupportsColor`, full `IOutputMessage` shape catalog (`RoomDescriptionMessage`, `MovementMessage`, etc.), broadcast audience-filter, and system-wide output. Slice 3a (command prefix matching) shipped first and is complete.
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -48,7 +48,7 @@ Each slice runs this loop. There are **two** `architecture-reviewer` gates — o
 4. **Spec-review gate** — `architecture-reviewer` in **spec mode** against the use-case doc. Blocking findings are fixed *in the doc* before any code is written. Re-run until the verdict is clean.
 5. Implement (`implement-use-case`) against the corrected spec.
 6. **Code-review gate** — `architecture-reviewer` in **code mode** against the diff, before merge.
-7. Update [`done.md`](done.md) and add a `completed/<slice>.md` note when the slice merges.
+7. **Sync roadmap** (`sync-roadmap` skill) — update [`done.md`](done.md), add `completed/<slice>.md`, and advance the slice queue in this file. Run before the PR merges.
 8. Ship green.
 
 Both gates run against [`../architecture/checklist.md`](../architecture/checklist.md) — the single authoritative invariant list. A rule change lands there once; both gates and the planner pick it up.
@@ -61,8 +61,9 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 |---|---|---|---|
 | 1 | Persistence substrate | Any slice that wants state to survive restart | ✅ done |
 | 2 | World content loading + admin substrate | Authored rooms/areas from data files; in-game admin command framework (`@spawn`, `@teleport`, `@dig`, `@reload`); resolves Ticket B | ✅ done |
-| 3 | **Command framework** | Typed `CommandContext`, declarative arg parsing, structural privilege gate, `help`/`commands`, `CommandExecutedEvent`; ships the minimal output seam | 🟢 next |
-| 4 | **Output framework** | Full `IOutputMessage` catalog, `IOutputFormatter`/telnet ANSI, `SupportsColor`, formatter-backed writer, broadcast audience-filter + system-wide; discharges slice-3 output debt | 🟢 ready after 3 |
+| 3 | **Command framework** | Typed `CommandContext`, declarative arg parsing, structural privilege gate, `help`/`commands`, `CommandExecutedEvent`; ships the minimal output seam | ✅ done |
+| 3a | **Command prefix matching** | Dynamic prefix resolution (`lo`→`look`), `MatchingMode` per command, `IVerbRegistry`, alias surfacing in `help`/`commands`, `IArgumentResolver` interface + parser wiring | ✅ done |
+| 4 | **Output framework** | Full `IOutputMessage` catalog, `IOutputFormatter`/telnet ANSI, `SupportsColor`, formatter-backed writer, broadcast audience-filter + system-wide; discharges slice-3 output debt | 🟢 next |
 | 5 | Account / character creation | Real identity instead of throwaway names; first `[Persistent]` user-facing component | 🟢 ready after 4 |
 | 6 | Items + inventory + `get`/`drop`/`look <item>` | Object interaction and inspection (originally two slices; merged so the content tooling for items lands once) | 🟢 ready |
 | 7 | Equipment + `wear`/`remove` | Gear | 🟢 ready |

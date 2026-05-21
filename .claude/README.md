@@ -16,6 +16,7 @@ Invoke via model-selected skill triggers or directly in prompts. Each one docume
 | [`add-core-system`](skills/add-core-system/SKILL.md) | Adding a cross-cutting core system |
 | [`add-command`](skills/add-command/SKILL.md) | Adding a player or admin command |
 | [`implement-use-case`](skills/implement-use-case/SKILL.md) | Implementing a full use case end-to-end |
+| [`sync-roadmap`](skills/sync-roadmap/SKILL.md) | Updating plan.md, done.md, and completed/ after a slice merges |
 
 ## Subagents (`agents/`)
 
