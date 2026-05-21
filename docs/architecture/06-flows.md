@@ -12,7 +12,7 @@
 |---|---|---|---|
 | 1 | [Server startup](#flow-1--server-startup) | `dotnet run --project Server` | Phase 2 (extended in slice 2) |
 | 2 | [Player connection](#flow-2--player-connection) | TCP client connects on the configured port | Phase 2 |
-| 3 | [Player command lifecycle](#flow-3--player-command-lifecycle) | Player sends a line of input | Phase 2 (replaced by slice 3 command framework; output leg re-traced again by slice 4) |
+| 3 | [Player command lifecycle](#flow-3--player-command-lifecycle) | Player sends a line of input | Phase 2 (replaced by slice 3 command framework; output leg re-traced in slice 4; prefix resolution added in slice 5) |
 | 4 | [Persistence flush cycle](#flow-4--persistence-flush-cycle) | `PersistenceFlushTimer` ticks, or shutdown | Phase 3 slice 1 |
 | 5 | [Content reload](#flow-5--content-reload-reload) | Privileged session sends `reload` | Phase 3 slice 2 (gate moved to dispatcher in slice 3) |
 | 6 | Output rendering | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4 (added by that slice's PR) |
@@ -132,7 +132,7 @@ sequenceDiagram
 
 ## Flow 3 — Player command lifecycle
 
-**Summary.** Input bytes become a verb + raw tail; the dispatcher checks authorization via `IAuthorizationChecker`, parses arguments via `ICommandArgumentParser`, constructs a `CommandContext`, calls `ICommand.ExecuteAsync(context)`, and publishes `CommandExecutedEvent` for every outcome. Output goes through the minimal `IOutputWriter` (stringify-and-forward); slice 4 replaces the writer with a formatter-backed implementation.
+**Summary.** Input bytes become a verb + raw tail; the dispatcher performs a two-phase verb lookup (exact first, prefix second), checks authorization via `IAuthorizationChecker`, parses arguments via `ICommandArgumentParser`, constructs a `CommandContext`, calls `ICommand.ExecuteAsync(context)`, and publishes `CommandExecutedEvent` for every outcome. The `Verb` field in `CommandExecutedEvent` always carries the **resolved canonical name** (e.g. `look`), never the raw typed prefix (`lo`). Output goes through the minimal `IOutputWriter` (stringify-and-forward); slice 4 replaces the writer with a formatter-backed implementation.
 
 **Trigger.** A line of input arrives on a session's read stream.
 
@@ -149,28 +149,35 @@ sequenceDiagram
     Client->>Sess: input line
     Sess->>CD: DispatchAsync(session, input)
     CD->>CD: trim + split → verb, rawTail
-    alt verb unknown
-        CD->>Sess: WriteAsync(PlainMessage "Unknown command…")
-        CD->>Bus: Publish(CommandExecutedEvent ParseFailed)
-    else verb known
-        loop RequiredPrivileges
-            CD->>Auth: IsSatisfied(req, session)
+    alt verb exact-miss
+        CD->>CD: prefix scan (Partial-mode commands only, sorted A–Z)
+        alt zero prefix matches
+            CD->>Sess: WriteAsync(PlainMessage "Unknown command…")
+            CD->>Bus: Publish(CommandExecutedEvent ParseFailed)
+        else ambiguous prefix (2+)
+            CD->>Sess: WriteAsync(PlainMessage "Ambiguous command…all matches listed")
+            CD->>Bus: Publish(CommandExecutedEvent ParseFailed)
+        else unique prefix match → canonicalVerb = command.Name
         end
-        alt unauthorized
-            CD->>Sess: WriteAsync(PlainMessage "Not authorized")
-            CD->>Bus: Publish(CommandExecutedEvent Unauthorized)
-        else authorized
-            CD->>Parser: Parse(ArgumentSchema, rawTail)
-            alt parse failed
-                CD->>Sess: WriteAsync(PlainMessage reason + help hint)
-                CD->>Bus: Publish(CommandExecutedEvent ParseFailed)
-            else parsed
-                CD->>Cmd: ExecuteAsync(CommandContext)
-                Cmd->>Cmd: domain call / event publish
-                Cmd->>Sess: WriteAsync(IOutputMessage) via IOutputWriter
-                CD->>Bus: Publish(CommandExecutedEvent Success)
-                Bus->>Bus: priority-ordered handlers (20 → 80 → 90 → 95)
-            end
+    else verb exact hit (name or alias) → canonicalVerb = command.Name
+    end
+    loop RequiredPrivileges
+        CD->>Auth: IsSatisfied(req, session)
+    end
+    alt unauthorized
+        CD->>Sess: WriteAsync(PlainMessage "Not authorized")
+        CD->>Bus: Publish(CommandExecutedEvent Unauthorized, Verb=canonicalVerb)
+    else authorized
+        CD->>Parser: Parse(ArgumentSchema, rawTail, resolverContext)
+        alt parse failed
+            CD->>Sess: WriteAsync(PlainMessage reason + help hint)
+            CD->>Bus: Publish(CommandExecutedEvent ParseFailed, Verb=canonicalVerb)
+        else parsed
+            CD->>Cmd: ExecuteAsync(CommandContext)
+            Cmd->>Cmd: domain call / event publish
+            Cmd->>Sess: WriteAsync(IOutputMessage) via IOutputWriter
+            CD->>Bus: Publish(CommandExecutedEvent Success, Verb=canonicalVerb)
+            Bus->>Bus: priority-ordered handlers (20 → 80 → 90 → 95)
         end
     end
 ```
@@ -178,13 +185,15 @@ sequenceDiagram
 **Steps.**
 
 1. `TelnetSession` reads a line and calls `CommandDispatcher.DispatchAsync(session, input)`.
-2. The dispatcher trims input and splits on the first whitespace into verb + raw tail. Unknown verbs write `PlainMessage("Unknown command: <verb>. Type 'help' for a list.")` via `IOutputWriter`, publish `CommandExecutedEvent(ParseFailed)`, and return.
-3. **Privilege gate.** The dispatcher iterates `command.RequiredPrivileges` and calls `IAuthorizationChecker.IsSatisfied(req, session)` for each. The checker is the sole policy seam — `AdminRequirement` delegates to the existing `IAdminAuthorizer`. Any unsatisfied requirement writes a rejection `PlainMessage` via `IOutputWriter` and publishes `CommandExecutedEvent(Unauthorized)`.
-4. **Argument parse.** `ICommandArgumentParser.Parse(command.ArgumentSchema, rawTail)` does single-pass tokenization (whitespace + double-quoted groups), walks the declarative argument list, and coerces each token to its CLR type (`string`, `int`, `uint`, `Direction`). Enum-prefix matching works from day one (`n`/`no`/`nor` → `North`). On failure: the reason + `"Type 'help <verb>' for usage."` is written via `IOutputWriter`; `CommandExecutedEvent(ParseFailed)` is published.
+2. **Two-phase verb lookup.**
+   - **Phase 1 (exact):** `_byVerb.TryGetValue(verb)` — checks primary names and all declared aliases. If found, `canonicalVerb = command.Name` and skip to step 3. Static aliases like `d` → `down` resolve here; prefix resolution is never reached.
+   - **Phase 2 (prefix):** Collect all commands where `MatchingMode == Partial` and `command.Name.StartsWith(verb, OrdinalIgnoreCase)`. Sort alphabetically. Zero matches → write `PlainMessage("Unknown command: <verb>. Type 'help' for a list.")`, publish `CommandExecutedEvent(ParseFailed)`, return. Two or more matches → write `PlainMessage("Ambiguous command '<verb>'. Did you mean: <all names, comma-separated>?")`, publish `CommandExecutedEvent(ParseFailed)`, return. Exactly one match → `canonicalVerb = command.Name`.
+3. **Privilege gate.** The dispatcher iterates `command.RequiredPrivileges` and calls `IAuthorizationChecker.IsSatisfied(req, session)` for each. Any unsatisfied requirement writes a rejection `PlainMessage` via `IOutputWriter` and publishes `CommandExecutedEvent(Unauthorized, Verb=canonicalVerb)`.
+4. **Argument parse.** `ICommandArgumentParser.Parse(command.ArgumentSchema, rawTail, resolverContext)` does single-pass tokenization (whitespace + double-quoted groups), walks the declarative argument list, and coerces each token to its CLR type (`string`, `int`, `uint`, `Direction`). Enum-prefix matching works from day one (`n`/`no`/`nor` → `North`). String `Token` arguments that declare a non-null `IArgumentResolver` have prefix matching applied against the candidate list (no concrete resolver ships until slice 6). On failure: the reason + `"Type 'help <canonicalVerb>' for usage."` is written; `CommandExecutedEvent(ParseFailed, Verb=canonicalVerb)` is published.
 5. **Execute.** The dispatcher constructs `CommandContext(Session, InvokerEntityId, ParsedArguments, IOutputWriter, IServiceProvider)` and calls `command.ExecuteAsync(context)`. The body reads typed args via `context.Args.Get<T>(name)`, calls domain systems or publishes events via injected `IEventBus`, and writes all output via `context.Output.WriteAsync(IOutputMessage)`. No `session.SendLineAsync` in command bodies.
-6. **Minimal output seam.** `IOutputWriter.WriteAsync` stringifies the message (`PlainMessage` → its text; `HelpIndexMessage` / `HelpEntryMessage` → plain-text rendering) and calls `session.SendLineAsync`. Slice 4 replaces this implementation with a formatter-backed one.
+6. **Minimal output seam.** `IOutputWriter.WriteAsync` stringifies the message (`PlainMessage` → its text; `HelpIndexMessage` / `HelpEntryMessage` → plain-text rendering, including aliases) and calls `session.SendLineAsync`. Slice 4 replaces this implementation with a formatter-backed one.
 7. **Exception trap.** Any uncaught exception is caught, logged at `Error` with a full stack trace, a `PlainMessage("Something went wrong. The error has been logged.")` is written, and `CommandExecutedEvent(Threw)` is published. No stack trace reaches the session.
-8. **`CommandExecutedEvent`.** Published on every dispatch path — success, parse-fail, unauthorized, threw. `CommandLoggingHandler` (priority 80) writes one structured-log line per command via `ILogger`. `AdminAuditHandler` keeps subscribing to the four richer slice-2 admin events and does **not** subscribe to `CommandExecutedEvent`.
+8. **`CommandExecutedEvent`.** Published on every dispatch path — success, parse-fail, unauthorized, threw. The `Verb` field carries the **resolved canonical command name** (e.g. `look` when the player typed `lo`), not the raw typed prefix. This makes log lines stable regardless of what the player typed. `CommandLoggingHandler` (priority 80) writes one structured-log line per command via `ILogger`. `AdminAuditHandler` keeps subscribing to the four richer slice-2 admin events and does **not** subscribe to `CommandExecutedEvent`.
 
 **Cross-references.**
 - [`Core/Commands/CommandDispatcher.cs`](../../Core/Commands/CommandDispatcher.cs), [`Core/Commands/ICommand.cs`](../../Core/Commands/ICommand.cs)

@@ -26,6 +26,7 @@ namespace Hedron.Core.Modules.Admin.Commands
         public string Name => "spawn";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
         public CommandCategory Category => CommandCategory.Admin;
+        public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
         public string ShortDescription => "Spawn a template entity into the world.";
         public string LongDescription => "Spawns a templated entity into the current room. " +
             "Use 'dig' to wire newly spawned rooms into the live world.";

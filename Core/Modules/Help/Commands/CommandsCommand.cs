@@ -20,6 +20,7 @@ namespace Hedron.Core.Modules.Help.Commands
         public string Name => "commands";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
         public CommandCategory Category => CommandCategory.Player;
+        public CommandMatchingMode MatchingMode => CommandMatchingMode.Partial;
         public string ShortDescription => "List available commands.";
         public string LongDescription => "Lists all commands available to you, grouped by category.";
         public string Usage => "commands";
@@ -38,7 +39,7 @@ namespace Hedron.Core.Modules.Help.Commands
             var entries = _allCommands.Value
                 .Where(c => IsVisible(c, context))
                 .OrderBy(c => (int)c.Category).ThenBy(c => c.Name)
-                .Select(c => new HelpIndexEntry(c.Name, c.ShortDescription, c.Category))
+                .Select(c => new HelpIndexEntry(c.Name, c.ShortDescription, c.Category, c.Aliases))
                 .ToList();
 
             await context.Output.WriteAsync(new HelpIndexMessage(entries)).ConfigureAwait(false);

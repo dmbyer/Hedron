@@ -32,7 +32,10 @@ namespace Hedron.Core.Output
         private static string RenderEntry(HelpEntryMessage m)
         {
             var sb = new StringBuilder();
-            sb.AppendLine($"[{m.Verb}]");
+            var header = m.Aliases.Count > 0
+                ? $"[{m.Verb}]  (aliases: {string.Join(", ", m.Aliases)})"
+                : $"[{m.Verb}]";
+            sb.AppendLine(header);
             sb.AppendLine(m.LongDescription);
             if (!string.IsNullOrEmpty(m.Usage))
             {
@@ -56,7 +59,12 @@ namespace Hedron.Core.Output
                 first = false;
                 sb.AppendLine($"=== {group.Key} ===");
                 foreach (var entry in group.OrderBy(e => e.Verb))
-                    sb.AppendLine($"  {entry.Verb,-14} {entry.ShortDescription}");
+                {
+                    var label = entry.Aliases.Count > 0
+                        ? $"{entry.Verb}  (aliases: {string.Join(", ", entry.Aliases)})"
+                        : entry.Verb;
+                    sb.AppendLine($"  {label,-20} {entry.ShortDescription}");
+                }
             }
             return sb.ToString().TrimEnd();
         }

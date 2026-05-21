@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Core.Commands.Authorization;
 using Hedron.Core.Commands.Events;
@@ -12,14 +13,20 @@ namespace Hedron.Core.Commands
 {
     /// <summary>
     /// Runtime of the command-Initiator tier. Builds a verb → command map at construction,
-    /// then for each dispatch: checks authorization, parses arguments, constructs a
-    /// <see cref="CommandContext"/>, calls <see cref="ICommand.ExecuteAsync"/>, and
-    /// publishes <see cref="CommandExecutedEvent"/> on every outcome.
+    /// then for each dispatch performs a two-phase verb lookup — exact match first, then prefix
+    /// resolution for commands whose <see cref="CommandMatchingMode"/> is
+    /// <see cref="CommandMatchingMode.Partial"/>. Implements <see cref="IVerbRegistry"/> to
+    /// expose a read-only view of the command namespace to <c>HelpCommand</c> and future
+    /// tab-completion without coupling those consumers to the full dispatcher contract.
     /// </summary>
-    public class CommandDispatcher : ICommandDispatcher
+    public class CommandDispatcher : ICommandDispatcher, IVerbRegistry
     {
+        // Exact-match map: primary names + all aliases → command.
         private readonly Dictionary<string, ICommand> _byVerb =
             new(StringComparer.OrdinalIgnoreCase);
+
+        // One entry per command (not per alias) — used by prefix resolution and AllCommands.
+        private readonly List<ICommand> _allCommands = new();
 
         private readonly IAuthorizationChecker _authorizationChecker;
         private readonly ICommandArgumentParser _argumentParser;
@@ -47,11 +54,28 @@ namespace Hedron.Core.Commands
 
             foreach (var command in commands)
             {
+                _allCommands.Add(command);
                 Register(command.Name, command);
                 foreach (var alias in command.Aliases)
                     Register(alias, command);
             }
         }
+
+        // --- IVerbRegistry -----------------------------------------------------------
+
+        public IReadOnlyCollection<ICommand> AllCommands => _allCommands;
+
+        public bool TryGetExact(string verb, out ICommand? command)
+            => _byVerb.TryGetValue(verb, out command);
+
+        public IReadOnlyList<ICommand> GetPrefixCandidates(string verb)
+            => _allCommands
+                .Where(c => c.MatchingMode == CommandMatchingMode.Partial
+                            && c.Name.StartsWith(verb, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+        // --- ICommandDispatcher ------------------------------------------------------
 
         public async Task DispatchAsync(ISession session, string input)
         {
@@ -64,15 +88,40 @@ namespace Hedron.Core.Commands
             var verb = splitAt < 0 ? trimmed : trimmed[..splitAt];
             var rawTail = splitAt < 0 ? string.Empty : trimmed[(splitAt + 1)..].TrimStart();
 
+            // Phase 1: exact lookup (primary names + aliases).
             if (!_byVerb.TryGetValue(verb, out var command))
             {
-                await output.WriteAsync(new PlainMessage(
-                    $"Unknown command: {verb}. Type 'help' for a list.", OutputSeverity.Error))
-                    .ConfigureAwait(false);
-                await PublishExecutedAsync(session.PlayerEntityId, verb, string.Empty, CommandOutcome.ParseFailed)
-                    .ConfigureAwait(false);
-                return;
+                // Phase 2: prefix resolution — delegates to IVerbRegistry so the filter logic
+                // is not duplicated between the dispatcher and HelpCommand.
+                var candidates = GetPrefixCandidates(verb);
+
+                switch (candidates.Count)
+                {
+                    case 0:
+                        await output.WriteAsync(new PlainMessage(
+                            $"Unknown command: {verb}. Type 'help' for a list.", OutputSeverity.Error))
+                            .ConfigureAwait(false);
+                        await PublishExecutedAsync(session.PlayerEntityId, verb, string.Empty, CommandOutcome.ParseFailed)
+                            .ConfigureAwait(false);
+                        return;
+
+                    case 1:
+                        command = candidates[0];
+                        break;
+
+                    default:
+                        var names = string.Join(", ", candidates.Select(c => c.Name));
+                        await output.WriteAsync(new PlainMessage(
+                            $"Ambiguous command '{verb}'. Did you mean: {names}?", OutputSeverity.Error))
+                            .ConfigureAwait(false);
+                        await PublishExecutedAsync(session.PlayerEntityId, verb, string.Empty, CommandOutcome.ParseFailed)
+                            .ConfigureAwait(false);
+                        return;
+                }
             }
+
+            // Use the canonical name for all downstream operations so log lines are stable.
+            var canonicalVerb = command.Name;
 
             // Privilege gate
             foreach (var req in command.RequiredPrivileges)
@@ -82,20 +131,21 @@ namespace Hedron.Core.Commands
                     await output.WriteAsync(new PlainMessage(
                         "You are not authorized to use that command.", OutputSeverity.Error))
                         .ConfigureAwait(false);
-                    await PublishExecutedAsync(session.PlayerEntityId, verb, string.Empty, CommandOutcome.Unauthorized)
+                    await PublishExecutedAsync(session.PlayerEntityId, canonicalVerb, string.Empty, CommandOutcome.Unauthorized)
                         .ConfigureAwait(false);
                     return;
                 }
             }
 
             // Argument parse
-            var parseResult = _argumentParser.Parse(command.ArgumentSchema, rawTail);
+            var resolverCtx = new CommandArgumentResolverContext(session, session.PlayerEntityId, _services);
+            var parseResult = _argumentParser.Parse(command.ArgumentSchema, rawTail, resolverCtx);
             if (parseResult is ParseResult.Failure failure)
             {
                 await output.WriteAsync(new PlainMessage(
-                    $"{failure.Reason} Type 'help {verb}' for usage.", OutputSeverity.Error))
+                    $"{failure.Reason} Type 'help {canonicalVerb}' for usage.", OutputSeverity.Error))
                     .ConfigureAwait(false);
-                await PublishExecutedAsync(session.PlayerEntityId, verb, string.Empty, CommandOutcome.ParseFailed)
+                await PublishExecutedAsync(session.PlayerEntityId, canonicalVerb, string.Empty, CommandOutcome.ParseFailed)
                     .ConfigureAwait(false);
                 return;
             }
@@ -107,19 +157,21 @@ namespace Hedron.Core.Commands
             try
             {
                 await command.ExecuteAsync(context).ConfigureAwait(false);
-                await PublishExecutedAsync(session.PlayerEntityId, verb, argsSummary, CommandOutcome.Success)
+                await PublishExecutedAsync(session.PlayerEntityId, canonicalVerb, argsSummary, CommandOutcome.Success)
                     .ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Command {Verb} threw for entity {EntityId}", verb, session.PlayerEntityId);
+                _logger.LogError(ex, "Command {Verb} threw for entity {EntityId}", canonicalVerb, session.PlayerEntityId);
                 await output.WriteAsync(new PlainMessage(
                     "Something went wrong. The error has been logged.", OutputSeverity.Error))
                     .ConfigureAwait(false);
-                await PublishExecutedAsync(session.PlayerEntityId, verb, argsSummary, CommandOutcome.Threw)
+                await PublishExecutedAsync(session.PlayerEntityId, canonicalVerb, argsSummary, CommandOutcome.Threw)
                     .ConfigureAwait(false);
             }
         }
+
+        // --- Helpers -----------------------------------------------------------------
 
         private Task PublishExecutedAsync(uint entityId, string verb, string argsSummary, CommandOutcome outcome)
             => _eventBus.PublishAsync(new CommandExecutedEvent(entityId, verb, argsSummary, outcome));

@@ -72,6 +72,14 @@ Doc: docs/use-cases/<slug>.md
 
 Keep it under ~40 lines of user-facing output. The detail lives in the use-case file you just wrote.
 
+## Mandatory next step — spec-mode architecture review
+
+After returning the plan, explicitly tell the user:
+
+> **Before any implementation begins**, run the `architecture-reviewer` agent in **spec mode** against the new use-case doc. Blocking findings must be resolved in the doc before `implement-use-case` is invoked. This is Phase 3 ground rule 4 — the spec gate exists because spec-level violations are invisible to a code-only reviewer until implementation is already built on the flaw.
+
+Do not leave this implicit. The handoff from planning to implementation is the highest-risk moment for an uncaught invariant violation.
+
 ## What you are NOT
 
 - Not an implementer — you don't write code.

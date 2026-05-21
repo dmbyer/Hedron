@@ -5,6 +5,15 @@ namespace Hedron.Core.Commands
     /// </summary>
     public interface ICommandArgumentParser
     {
-        ParseResult Parse(CommandArgumentSchema schema, string rawTail);
+        /// <summary>
+        /// Parses <paramref name="rawTail"/> against <paramref name="schema"/>.
+        /// <paramref name="resolverContext"/> is forwarded to any non-null
+        /// <see cref="IArgumentResolver"/> declared on a <see cref="CommandArgument"/>;
+        /// no concrete resolver ships until slice 6, but the call-site is wired.
+        /// </summary>
+        ParseResult Parse(
+            CommandArgumentSchema schema,
+            string rawTail,
+            CommandArgumentResolverContext resolverContext);
     }
 }
