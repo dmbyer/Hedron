@@ -20,6 +20,7 @@ public sealed class DrinkCommand : ICommand
     public string Name => "drink";
     public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
     public CommandCategory Category => CommandCategory.Player;
+    public CommandMatchingMode MatchingMode => CommandMatchingMode.Partial; // Partial for player; Full for admin
     public string ShortDescription => "Drink a potion from your inventory.";
     public string LongDescription => "Consumes a potion by name from your inventory, applying its effect immediately.";
     public string Usage => "drink <itemName>";
@@ -70,24 +71,31 @@ Target size: **≤ 40 lines of body**. If it grows, the logic belongs in a domai
    - `Token` — single whitespace-delimited token (or double-quoted group). Works for strings, ints, uints, and enums.
    - `RestOfLine` — everything after previous tokens. Use for `say`, `tell`, multi-word freeform input.
    - `Quantified` — leading count + token. Deferred; not yet used.
-4. **Privilege:**
+4. **Matching mode:**
+   - Player command: `MatchingMode => CommandMatchingMode.Partial` — prefix resolution enabled (e.g. `dr` → `drink`).
+   - Admin command: `MatchingMode => CommandMatchingMode.Full` — exact match required; prevents accidental prefix dispatch of destructive verbs.
+   - This is a required interface member — omitting it is a compile error.
+5. **Privilege:**
    - Public command: `RequiredPrivileges = Array.Empty<IAuthorizationRequirement>()`
    - Admin command: `RequiredPrivileges = new IAuthorizationRequirement[] { new AdminRequirement() }`
    - **Never** call `IAdminAuthorizer.IsPrivileged` inside the command body — the dispatcher handles it.
-5. **Output:** always write via `context.Output.WriteAsync(IOutputMessage)`. Use `PlainMessage` for text. Use `OutputSeverity.Error` for failures, `Confirmation` for success, `System` for neutral messages.
-6. **Register** in the feature module: `services.AddSingleton<ICommand, DrinkCommand>();`
-7. **Subscribe** the handler that consumes the event the command publishes (if any) in `Server/Program.cs`.
-8. **Docs:** add a row to `docs/reference/commands.md`.
+6. **Output:** always write via `context.Output.WriteAsync(IOutputMessage)`. Use `PlainMessage` for text. Use `OutputSeverity.Error` for failures, `Confirmation` for success, `System` for neutral messages.
+7. **Register** in the feature module: `services.AddSingleton<ICommand, DrinkCommand>();`
+8. **Subscribe** the handler that consumes the event the command publishes (if any) in `Server/Program.cs`.
+9. **Docs:** add a row to `docs/reference/commands.md`.
 
 ## Admin commands
 
 ```csharp
 public string Name => "grant";
+public CommandMatchingMode MatchingMode => CommandMatchingMode.Full; // required: exact match for admin commands
 public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
     new IAuthorizationRequirement[] { new AdminRequirement() };
 ```
 
 No `IsPrivileged` call in the body. Privilege is enforced by the dispatcher before `ExecuteAsync` is called. The compiler forces you to declare `RequiredPrivileges` (it is a required interface member); empty list = public.
+
+Admin commands declare `MatchingMode.Full` so they are never accidentally dispatched by a partial prefix — typing `d` reaches `down` (a player command alias), not `dig`.
 
 ## What NOT to do
 

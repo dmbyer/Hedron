@@ -40,6 +40,14 @@ namespace Hedron.Core.Commands
         CommandArgumentSchema ArgumentSchema { get; }
 
         /// <summary>
+        /// Controls whether the dispatcher resolves this command by prefix or requires a full
+        /// exact match. Player commands should return <see cref="CommandMatchingMode.Partial"/>;
+        /// admin commands should return <see cref="CommandMatchingMode.Full"/> to prevent
+        /// accidental invocation from an unintended prefix.
+        /// </summary>
+        CommandMatchingMode MatchingMode { get; }
+
+        /// <summary>
         /// Runs the command. <paramref name="context"/> carries typed parsed arguments
         /// and the output writer — do not call <c>session.SendLineAsync</c> directly.
         /// </summary>

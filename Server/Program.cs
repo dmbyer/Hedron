@@ -47,6 +47,9 @@ public static class Program
 
                 services.AddSingleton<IEventBus, EventBus>();
                 services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
+                // CommandDispatcher implements IVerbRegistry; expose the same singleton under both interfaces.
+                services.AddSingleton<IVerbRegistry>(sp =>
+                    (IVerbRegistry)sp.GetRequiredService<ICommandDispatcher>());
                 services.AddSingleton<ISessionManager, SessionManager>();
 
                 // Command framework — argument parser and output writer factory

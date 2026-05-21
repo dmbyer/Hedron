@@ -16,6 +16,7 @@ namespace Hedron.Core.Modules.Chat.Commands
         public string Name => "say";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
         public CommandCategory Category => CommandCategory.Player;
+        public CommandMatchingMode MatchingMode => CommandMatchingMode.Partial;
         public string ShortDescription => "Say something to everyone in the room.";
         public string LongDescription => "Broadcasts a message to all players in your current room.";
         public string Usage => "say <message>";

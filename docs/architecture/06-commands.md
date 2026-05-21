@@ -29,9 +29,31 @@ public interface ICommand
     string Usage { get; }                          // formal grammar
     IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } // empty = public
     CommandArgumentSchema ArgumentSchema { get; }
+    CommandMatchingMode MatchingMode { get; }       // Partial (player default) | Full (admin default)
     Task ExecuteAsync(CommandContext context);
 }
 ```
+
+`CommandMatchingMode` controls how the dispatcher resolves the command name:
+
+- **`Partial`** — prefix resolution enabled; the shortest unambiguous prefix dispatches this command (`lo` → `look`). Use for player commands.
+- **`Full`** — exact match (or declared alias) required; prefix resolution is skipped. Use for admin commands where misfiring a prefix match is dangerous.
+
+**Resolution rules** (in priority order):
+1. **Exact match** — the typed verb matches a primary name or declared alias in the verb map. Always checked first; static aliases like `d` → `down` are resolved here, never in the prefix pool.
+2. **Prefix resolution** — only runs if step 1 misses. Collects all `Partial`-mode commands whose `Name` starts with the typed verb; sorts alphabetically; dispatches if exactly one match. Two or more → disambiguation error listing **all** matching names. Zero → unknown-command error.
+
+`IVerbRegistry` (implemented by `CommandDispatcher`) exposes the read-only command namespace:
+
+```csharp
+public interface IVerbRegistry
+{
+    IReadOnlyCollection<ICommand> AllCommands { get; }
+    bool TryGetExact(string verb, out ICommand? command);
+}
+```
+
+`HelpCommand` uses `IVerbRegistry` so that `help lo` resolves to `look` identically to how dispatch would resolve it — no duplicated matching logic.
 
 `CommandContext`:
 

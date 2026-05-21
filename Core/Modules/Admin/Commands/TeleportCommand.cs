@@ -26,6 +26,7 @@ namespace Hedron.Core.Modules.Admin.Commands
         public string Name => "teleport";
         public IReadOnlyList<string> Aliases { get; } = new[] { "tp" };
         public CommandCategory Category => CommandCategory.Admin;
+        public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
         public string ShortDescription => "Teleport yourself to a room or player.";
         public string LongDescription => "Teleports you to the specified target. " +
             "Target can be a room blueprint id (e.g. room.crossroads) or a player's display name.";

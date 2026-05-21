@@ -23,6 +23,7 @@ namespace Hedron.Core.Modules.Admin.Commands
         public string Name => "reload";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
         public CommandCategory Category => CommandCategory.Admin;
+        public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
         public string ShortDescription => "Reload the content directory without restart.";
         public string LongDescription =>
             "Re-scans the content directory and refreshes the template registry. " +

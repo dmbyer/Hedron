@@ -23,6 +23,7 @@ namespace Hedron.Core.Modules.Movement.Commands
         public string Name { get; }
         public IReadOnlyList<string> Aliases { get; }
         public CommandCategory Category => CommandCategory.Player;
+        public CommandMatchingMode MatchingMode => CommandMatchingMode.Partial;
         public string ShortDescription { get; }
         public string LongDescription { get; }
         public string Usage { get; }

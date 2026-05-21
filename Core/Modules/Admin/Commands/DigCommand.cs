@@ -27,6 +27,7 @@ namespace Hedron.Core.Modules.Admin.Commands
         public string Name => "dig";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
         public CommandCategory Category => CommandCategory.Admin;
+        public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
         public string ShortDescription => "Dig a new exit from the current room.";
         public string LongDescription => "Adds an exit from your current room to the target room and wires a reverse link. " +
             "The source YAML is not rewritten; durability comes from the persistence flush.";

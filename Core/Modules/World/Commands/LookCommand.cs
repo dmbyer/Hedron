@@ -18,6 +18,7 @@ namespace Hedron.Core.Modules.World.Commands
         public string Name => "look";
         public IReadOnlyList<string> Aliases { get; } = new[] { "l" };
         public CommandCategory Category => CommandCategory.Player;
+        public CommandMatchingMode MatchingMode => CommandMatchingMode.Partial;
         public string ShortDescription => "Look at the current room.";
         public string LongDescription => "Displays a description of your current location, including visible exits and other players present.";
         public string Usage => "look";

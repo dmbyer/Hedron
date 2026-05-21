@@ -24,6 +24,7 @@ Your job is to turn those sections into real code without slipping gameplay logi
 6. **Handlers.** One handler per step that orchestrates; subscribe with priorities. See **add-handler**.
 7. **Command (if player-initiated).** Thin; delegates to the first handler. See **add-command**.
 8. **Update the use-case doc** — set Status to `implemented` if fully done, keep `partial` if only some paths are live.
+9. **Code-review gate (mandatory).** Run the `architecture-reviewer` agent in **code mode** against the diff before this branch merges. This is Phase 3 ground rule 6. Do not skip it even for "infrastructure-only" slices — the code gate catches drift between the as-built code and the spec that the spec gate cannot see.
 
 ## Guard the layer discipline
 
