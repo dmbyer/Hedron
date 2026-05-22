@@ -508,6 +508,23 @@ public interface IPasswordHasher
 ```
 100,000 PBKDF2 iterations, 16-byte random salt, 32-byte key. Stores `Base64(salt + hash)` as a single opaque string. `Verify` uses `CryptographicOperations.FixedTimeEquals` to prevent timing attacks. Implemented (Phase 3 slice 5).
 
+### RoomBuilderSystem
+**Purpose:** Runtime room authoring — creates room entities, wires bidirectional exits, and mutates room properties (`Name`, `Description`). All methods return pure results or mutate in-place; event publication is the caller's responsibility, keeping this system reusable by a future in-game editor without a live player session.
+**Location:** `Core/Modules/Admin/Systems/RoomBuilderSystem.cs`
+**Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<RoomBuilderSystem>`.
+```csharp
+public interface IRoomBuilderSystem
+{
+    RoomCreationResult CreateRoom(string name, string description = "");
+    void LinkExits(uint sourceRoomId, Direction direction, uint targetRoomId, bool bidirectional);
+    void SetRoomName(uint roomId, string name);
+    void SetRoomDescription(uint roomId, string description);
+}
+
+public readonly record struct RoomCreationResult(uint RoomEntityId, string BlueprintId);
+```
+`CreateRoom` generates a unique blueprint id (`room.adhoc.<8-char-base36>`), creates the entity, attaches `RoomComponent` + `BlueprintComponent`, and registers a minimal `RoomTemplate`. `LinkExits` updates both `RoomComponent.Exits` and the in-memory `RoomTemplate` exit maps for same-session `reload` consistency. Implemented (Phase 3 slice 5a).
+
 ### AdminAuthorizer
 **Purpose:** Policy seam for admin command authorization. Each admin `ICommand.Execute` calls `IsPrivileged` as its first line; non-privileged sessions get a single rejection line and the command body short-circuits.
 **Location:** `Core/Modules/Admin/Systems/AdminAuthorizer.cs`

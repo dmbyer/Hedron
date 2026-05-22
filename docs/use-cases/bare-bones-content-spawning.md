@@ -1,6 +1,6 @@
 # Use Case: Bare-Bones Content Spawning
 
-**Status:** planned
+**Status:** implemented
 **Actors:** Administrator
 **Module:** `Core/Modules/Admin/` (commands, events, handler extensions); new domain system `Core/Modules/Admin/Systems/RoomBuilderSystem.cs`
 

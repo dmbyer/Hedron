@@ -18,6 +18,8 @@ namespace Hedron.Core.Handlers
     /// <list type="bullet">
     ///   <item><see cref="EntitySpawnedByAdminEvent"/> — slice 2</item>
     ///   <item><see cref="RoomExitAuthoredByAdminEvent"/> — slice 2</item>
+    ///   <item><see cref="RoomCreatedByAdminEvent"/> — slice 5a; mark both new and source rooms dirty</item>
+    ///   <item><see cref="RoomPropertySetByAdminEvent"/> — slice 5a; mark the mutated room dirty</item>
     ///   <item><see cref="AccountCreatedEvent"/> — slice 5; mark the new account entity dirty</item>
     ///   <item><see cref="CharacterCreatedEvent"/> — slice 5; mark the new character entity dirty</item>
     ///   <item><see cref="PlayerDisconnectedEvent"/> — slice 5; ensure character state is flushed on logout</item>
@@ -26,6 +28,8 @@ namespace Hedron.Core.Handlers
     public sealed class PersistenceHandler :
         IEventHandler<EntitySpawnedByAdminEvent>,
         IEventHandler<RoomExitAuthoredByAdminEvent>,
+        IEventHandler<RoomCreatedByAdminEvent>,
+        IEventHandler<RoomPropertySetByAdminEvent>,
         IEventHandler<AccountCreatedEvent>,
         IEventHandler<CharacterCreatedEvent>,
         IEventHandler<PlayerDisconnectedEvent>
@@ -57,6 +61,19 @@ namespace Hedron.Core.Handlers
             MarkIfPersistent(e.RoomEntityId);
             if (e.BidirectionalLinkCreated)
                 MarkIfPersistent(e.TargetRoomEntityId);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(RoomCreatedByAdminEvent e)
+        {
+            MarkIfPersistent(e.NewRoomEntityId);
+            MarkIfPersistent(e.SourceRoomEntityId);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(RoomPropertySetByAdminEvent e)
+        {
+            MarkIfPersistent(e.RoomEntityId);
             return Task.CompletedTask;
         }
 

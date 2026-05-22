@@ -61,7 +61,7 @@ public sealed class DrinkCommand : ICommand
 }
 ```
 
-Target size: **≤ 40 lines of body**. If it grows, the logic belongs in a domain system, not in the command.
+**Growing past ~30 lines is a smell, not a hard limit.** If the extra lines are game-rule logic, extract them into a domain system. If they're mechanical null-guards or arg validation, the command is still correctly thin.
 
 ## Steps
 
@@ -101,6 +101,6 @@ Admin commands declare `MatchingMode.Full` so they are never accidentally dispat
 
 - **No `session.SendLineAsync` calls.** Use `context.Output.WriteAsync(new PlainMessage(...))`.
 - **No gameplay rules in the command.** Rules live in the domain system.
-- **No multi-step orchestration inside a command.** If you're publishing event A, calling system X, then publishing event B — that's a handler, not a command. Move the orchestration out.
+- **No game-rule orchestration inside a command.** If the sequence involves conditional branching based on game state — "if skill check succeeds, publish X, else publish Y" — that logic belongs in a handler/system, not the command. *Exception (INV-8):* a command may publish multiple events when every event is an unconditional, direct consequence of the command's action with no game-rule branch between them. Test: "Would extracting this into a handler reveal game logic, or would the handler just mechanically re-publish?" If the latter, keep it in the command.
 - **No `IAdminAuthorizer.IsPrivileged` calls.** Declare `RequiredPrivileges`; the dispatcher checks it.
 - **No argument parsing by hand.** Declare `CommandArgumentSchema` and read via `context.Args.Get<T>(name)`.

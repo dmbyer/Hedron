@@ -141,10 +141,22 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none  
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/Admin/Commands/DigCommand.cs`  
-**Description:** Adds an exit from the current room to the target room and wires the reverse link by default. Updates the in-memory `RoomTemplate` so a same-session `reload` won't undo the change. The source YAML file is not rewritten; durability comes from `PersistenceSystem`.  
-**Usage:** `dig <direction> <targetRoomBlueprintId>`  
-**Schema:** `Token Direction "direction"` (required), `Token string "targetRoomBlueprintId"` (required)  
-**Events:** `RoomExitAuthoredByAdminEvent`
+**Description:** Creates a new room entity in the named direction from your current position, wires bidirectional exits, and auto-moves you into the new room. Delegates creation and exit wiring to `IRoomBuilderSystem`. The new room is registered in `ITemplateRegistry` and its blueprint id (format `room.adhoc.<shortid>`) is shown in the confirmation message. Replaces the slice-2 `dig <direction> <targetRoomBlueprintId>` syntax.  
+**Usage:** `dig <direction> [name]`  
+**Schema:** `Token Direction "direction"` (required), `RestOfLine string "name"` (optional, default `"New Room"`)  
+**Events:** `RoomCreatedByAdminEvent`, `PlayerMovedEvent`
+
+---
+
+### `set`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Admin/Commands/SetCommand.cs`  
+**Description:** Sets a property on the room you are currently standing in. `name` updates `RoomComponent.Name`; `description` updates `RoomComponent.Description`. The room is marked dirty by `PersistenceHandler` on the next flush. Expanding `set` to other entity types is deferred to slices 6+.  
+**Usage:** `set <name|description> <value>`  
+**Schema:** `Token string "property"` (required, `name` or `description`), `RestOfLine string "value"` (required)  
+**Events:** `RoomPropertySetByAdminEvent`
 
 ---
 
