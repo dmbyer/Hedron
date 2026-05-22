@@ -1,36 +1,34 @@
 using System.Threading.Tasks;
 using Hedron.Core.ECS;
 using Hedron.Core.Events;
+using Hedron.Core.Modules.Account.Events;
 using Hedron.Core.Modules.Admin.Events;
+using Hedron.Core.Modules.Session.Events;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Handlers
 {
     /// <summary>
     /// Marks entities dirty whenever a state-change event mutates <c>[Persistent]</c> data.
-    /// Cross-cutting handler — lives at <c>Core/Handlers/</c> and may subscribe to events
-    /// from any module (matching the <c>NotificationHandler</c> precedent in
-    /// <c>docs/reference/handlers.md</c>).
+    /// Cross-cutting handler — lives at <c>Core/Handlers/</c> and subscribes to events
+    /// from any module. Priority 90 (<see cref="HandlerPriority.Persistence"/>).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Priority <see cref="HandlerPriority.Persistence"/> (90) — runs after domain processing
-    /// (priority 20) and notification (priority 80) so dirty-marking sees the final state.
-    /// </para>
-    /// <para>
-    /// <b>Currently subscribed events</b> (kept in sync with <c>Server/Program.cs</c>):
+    /// Currently subscribed events:
     /// <list type="bullet">
-    ///   <item><see cref="EntitySpawnedByAdminEvent"/> — slice 2; mark the new entity dirty
-    ///         if it carries any <c>[Persistent]</c> component.</item>
-    ///   <item><see cref="RoomExitAuthoredByAdminEvent"/> — slice 2; mark the source room,
-    ///         and the target room when the link is bidirectional.</item>
+    ///   <item><see cref="EntitySpawnedByAdminEvent"/> — slice 2</item>
+    ///   <item><see cref="RoomExitAuthoredByAdminEvent"/> — slice 2</item>
+    ///   <item><see cref="AccountCreatedEvent"/> — slice 5; mark the new account entity dirty</item>
+    ///   <item><see cref="CharacterCreatedEvent"/> — slice 5; mark the new character entity dirty</item>
+    ///   <item><see cref="PlayerDisconnectedEvent"/> — slice 5; ensure character state is flushed on logout</item>
     /// </list>
-    /// New slices add their events here and re-subscribe in <c>Server/Program.cs</c>.
-    /// </para>
     /// </remarks>
     public sealed class PersistenceHandler :
         IEventHandler<EntitySpawnedByAdminEvent>,
-        IEventHandler<RoomExitAuthoredByAdminEvent>
+        IEventHandler<RoomExitAuthoredByAdminEvent>,
+        IEventHandler<AccountCreatedEvent>,
+        IEventHandler<CharacterCreatedEvent>,
+        IEventHandler<PlayerDisconnectedEvent>
     {
         private readonly IPersistenceSystem _persistence;
         private readonly IComponentTypeRegistry _typeRegistry;
@@ -59,6 +57,24 @@ namespace Hedron.Core.Handlers
             MarkIfPersistent(e.RoomEntityId);
             if (e.BidirectionalLinkCreated)
                 MarkIfPersistent(e.TargetRoomEntityId);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(AccountCreatedEvent e)
+        {
+            _persistence.MarkDirty(e.AccountEntityId);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(CharacterCreatedEvent e)
+        {
+            _persistence.MarkDirty(e.CharacterEntityId);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(PlayerDisconnectedEvent e)
+        {
+            MarkIfPersistent(e.PlayerEntityId);
             return Task.CompletedTask;
         }
 

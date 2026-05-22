@@ -172,6 +172,19 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 
 ---
 
+### `whois`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Account/Commands/WhoisCommand.cs`  
+**Description:** Looks up account and character info for a given character name. Displays character entity id, account entity id, account username, and last login time.  
+**Usage:** `whois <characterName>`  
+**Schema:** `Token string "characterName"` (required)  
+**Events:** none  
+**RequiredPrivileges:** `AdminRequirement`
+
+---
+
 ### `teleport` / `tp`
 
 **Aliases:** `tp`  

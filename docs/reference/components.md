@@ -54,7 +54,7 @@ Minimal components required for the MVP walking simulator. These live under `Cor
 | Component | Shape | Used by | Persisted? |
 |---|---|---|---|
 | `PlayerComponent` | `DisplayName`, `Session` (transient ref) | Player entity | no |
-| `LocationComponent` | `RoomEntityId` (current room) | any mobile entity | no |
+| `LocationComponent` | `RoomEntityId` (current room) | any mobile entity | yes |
 | `RoomComponent` | `Name`, `Description`, `Exits` (Dictionary<Direction, uint>) | Room entity | no |
 
 ---
@@ -65,7 +65,8 @@ Components that are used by only one feature slice live under `Core/Modules/<Fea
 
 | Module | Component | Purpose | Persisted? |
 |---|---|---|---|
-| _(none yet)_ | | | |
+| Account | `AccountComponent` | `Username` (lowercase-normalized), `PasswordHash` (PBKDF2-SHA256), `CharacterEntityIds`, `CreatedAtUtc` | yes |
+| Account | `CharacterComponent` | `AccountEntityId`, `CharacterName`, `CreatedAtUtc`, `LastLoginUtc` | yes |
 
 Candidates based on the roadmap:
 

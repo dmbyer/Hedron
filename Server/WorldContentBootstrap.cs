@@ -1,5 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
+using Hedron.Core.Events;
+using Hedron.Core.Modules.World.Events;
 using Hedron.Core.Modules.World.Systems;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -17,11 +19,16 @@ namespace Hedron.Server
     public sealed class WorldContentBootstrap : IHostedService
     {
         private readonly IWorldContentLoader _loader;
+        private readonly IEventBus _eventBus;
         private readonly ILogger<WorldContentBootstrap> _logger;
 
-        public WorldContentBootstrap(IWorldContentLoader loader, ILogger<WorldContentBootstrap> logger)
+        public WorldContentBootstrap(
+            IWorldContentLoader loader,
+            IEventBus eventBus,
+            ILogger<WorldContentBootstrap> logger)
         {
             _loader = loader;
+            _eventBus = eventBus;
             _logger = logger;
         }
 
@@ -30,6 +37,7 @@ namespace Hedron.Server
             _logger.LogInformation("WorldContentBootstrap: loading authored content...");
             await _loader.LoadAndSpawnAsync(cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("WorldContentBootstrap: content load complete.");
+            await _eventBus.PublishAsync(new WorldContentReadyEvent()).ConfigureAwait(false);
         }
 
         public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

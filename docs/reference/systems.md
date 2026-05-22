@@ -477,6 +477,37 @@ public readonly record struct ContentReloadResult(
 ```
 Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Implemented (Phase 3 slice 2).
 
+### AccountSystem
+**Purpose:** Domain system owning all account and character lifecycle operations: registration, authentication, character creation, character list, and logout recording.
+**Location:** `Core/Modules/Account/Systems/AccountSystem.cs`
+**Dependencies:** `EntityService`, `IPersistenceSystem`, `IPasswordHasher`, `WorldConfiguration`.
+```csharp
+public interface IAccountSystem
+{
+    bool UsernameExists(string username);
+    bool CharacterNameExists(string characterName);
+    Task<uint> CreateAccountAsync(string username, string password, CancellationToken ct = default);
+    Task<AuthResult> AuthenticateAsync(string username, string password, CancellationToken ct = default);
+    Task<uint> CreateCharacterAsync(uint accountEntityId, string characterName, CancellationToken ct = default);
+    IReadOnlyList<CharacterSummary> GetCharacterList(uint accountEntityId);
+    void RecordLogout(uint characterEntityId);
+}
+```
+Maintains lazy in-memory HashSet indices for username and character name uniqueness (populated on first call, updated on every write). `CreateCharacterAsync` creates the character entity, attaches `CharacterComponent` + `LocationComponent` (set to `StartingRoomEntityId`), and registers the character on the account. Implemented (Phase 3 slice 5).
+
+### PasswordHasher
+**Purpose:** PBKDF2-SHA256 password hashing and verification with no external NuGet dependency.
+**Location:** `Core/Systems/PasswordHasher.cs`
+**Dependencies:** none (`System.Security.Cryptography`).
+```csharp
+public interface IPasswordHasher
+{
+    string Hash(string password);
+    bool Verify(string password, string hash);
+}
+```
+100,000 PBKDF2 iterations, 16-byte random salt, 32-byte key. Stores `Base64(salt + hash)` as a single opaque string. `Verify` uses `CryptographicOperations.FixedTimeEquals` to prevent timing attacks. Implemented (Phase 3 slice 5).
+
 ### AdminAuthorizer
 **Purpose:** Policy seam for admin command authorization. Each admin `ICommand.Execute` calls `IsPrivileged` as its first line; non-privileged sessions get a single rejection line and the command body short-circuits.
 **Location:** `Core/Modules/Admin/Systems/AdminAuthorizer.cs`

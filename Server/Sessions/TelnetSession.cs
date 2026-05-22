@@ -5,10 +5,12 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Hedron.Core.Commands;
-using Hedron.Core.ECS;
 using Hedron.Core.Events;
+using Hedron.Core.Modules.Account.Systems;
 using Hedron.Core.Modules.Session.Events;
+using Hedron.Core.Output;
 using Hedron.Core.Sessions;
+using Microsoft.Extensions.Configuration;
 
 namespace Hedron.Server.Sessions
 {
@@ -19,11 +21,13 @@ namespace Hedron.Server.Sessions
         private readonly StreamWriter _writer;
         private readonly SemaphoreSlim _writeLock = new(1, 1);
         private readonly ICommandDispatcher _dispatcher;
-        private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
         private readonly ISessionManager _sessionManager;
+        private readonly IAccountSystem _accountSystem;
+        private readonly IOutputWriterFactory _outputWriterFactory;
+        private readonly IConfiguration _configuration;
 
-        private string _playerName = string.Empty;
+        private string _characterName = string.Empty;
 
         public Guid SessionId { get; } = Guid.NewGuid();
         public uint PlayerEntityId { get; private set; }
@@ -38,9 +42,11 @@ namespace Hedron.Server.Sessions
         public TelnetSession(
             TcpClient client,
             ICommandDispatcher dispatcher,
-            EntityService entityService,
             IEventBus eventBus,
             ISessionManager sessionManager,
+            IAccountSystem accountSystem,
+            IOutputWriterFactory outputWriterFactory,
+            IConfiguration configuration,
             bool defaultColor)
         {
             _client = client;
@@ -48,9 +54,11 @@ namespace Hedron.Server.Sessions
             _reader = new StreamReader(stream, Encoding.UTF8);
             _writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
             _dispatcher = dispatcher;
-            _entityService = entityService;
             _eventBus = eventBus;
             _sessionManager = sessionManager;
+            _accountSystem = accountSystem;
+            _outputWriterFactory = outputWriterFactory;
+            _configuration = configuration;
             SupportsColor = defaultColor;
         }
 
@@ -71,18 +79,20 @@ namespace Hedron.Server.Sessions
         {
             try
             {
-                var name = await PromptForNameAsync(cancellationToken).ConfigureAwait(false);
-                if (name is null) return;
+                var loginFlow = new LoginFlow(
+                    this, _reader, _accountSystem, _outputWriterFactory, _eventBus, _configuration);
 
-                _playerName = name;
-                var entity = _entityService.CreateEntity();
-                PlayerEntityId = entity.Id;
+                var loginResult = await loginFlow.RunAsync(cancellationToken).ConfigureAwait(false);
+                if (loginResult is null) return;
+
+                _characterName = loginResult.CharacterName;
+                PlayerEntityId = loginResult.CharacterEntityId;
+
                 _sessionManager.Register(this);
 
-                await _eventBus.PublishAsync(new PlayerConnectedEvent(PlayerEntityId, _playerName))
+                await _eventBus.PublishAsync(new PlayerConnectedEvent(
+                    PlayerEntityId, loginResult.CharacterName, loginResult.AccountEntityId))
                     .ConfigureAwait(false);
-
-                await SendLineAsync($"Welcome, {_playerName}!").ConfigureAwait(false);
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
@@ -100,32 +110,12 @@ namespace Hedron.Server.Sessions
             }
         }
 
-        private async Task<string?> PromptForNameAsync(CancellationToken cancellationToken)
-        {
-            try
-            {
-                await SendLineAsync("What is your name?").ConfigureAwait(false);
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    var line = await _reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-                    if (line is null) return null;
-                    var name = line.Trim();
-                    if (name.Length > 0) return name;
-                    await SendLineAsync("Please enter a name.").ConfigureAwait(false);
-                }
-            }
-            catch (OperationCanceledException) { }
-            catch (IOException) { }
-            catch (SocketException) { }
-            return null;
-        }
-
         private async Task HandleDisconnectAsync()
         {
             if (PlayerEntityId != 0)
             {
                 _sessionManager.Unregister(PlayerEntityId);
-                await _eventBus.PublishAsync(new PlayerDisconnectedEvent(PlayerEntityId, _playerName))
+                await _eventBus.PublishAsync(new PlayerDisconnectedEvent(PlayerEntityId, _characterName))
                     .ConfigureAwait(false);
             }
         }

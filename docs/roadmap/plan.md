@@ -27,14 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–4 + prefix-matching done; **next: slice 5 — account / character creation**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–5 + prefix-matching done; **next: slice 6 — items + inventory**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 5 — Account / character creation.** Use case: [`../use-cases/account-character-creation.md`](../use-cases/account-character-creation.md) (to be authored). Real player identity replacing throwaway names; first `[Persistent]` user-facing component; per-character state that survives restart. Prerequisites: slices 1–4 complete (persistence substrate + output framework).
+**Phase 3 slice 6 — Items + inventory + `get`/`drop`/`look <item>`.** Use case to be authored. Object interaction and inspection; first item-data components (`ItemDataComponent`, etc.); `get`/`drop`/`look <item>` commands; item template YAML shape and admin `spawn` integration. Prerequisites: slices 1–5 complete (persistence + account identity).
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -64,6 +64,8 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 3 | **Command framework** | Typed `CommandContext`, declarative arg parsing, structural privilege gate, `help`/`commands`, `CommandExecutedEvent`; ships the minimal output seam | ✅ done |
 | 3a | **Command prefix matching** | Dynamic prefix resolution (`lo`→`look`), `MatchingMode` per command, `IVerbRegistry`, alias surfacing in `help`/`commands`, `IArgumentResolver` interface + parser wiring | ✅ done |
 | 4 | **Output framework** | Full `IOutputMessage` catalog, `IOutputFormatter`/telnet ANSI, `SupportsColor`, formatter-backed writer, broadcast audience-filter + system-wide; discharges slice-3 output debt | ✅ done |
+| 5 | Account / character creation | Real identity instead of throwaway names; first `[Persistent]` user-facing component | ✅ done |
+| 6 | Items + inventory + `get`/`drop`/`look <item>` | Object interaction and inspection (originally two slices; merged so the content tooling for items lands once) | 🟢 next |
 | 5 | Account / character creation | Real identity instead of throwaway names; first `[Persistent]` user-facing component | 🟢 next |
 | 5a | **Bare-bones content spawning** | Ad-hoc admin commands (`@mkroom`, `@mkitem`, `@mkmob`, `@set`) to create and spawn content at runtime without pre-authored data files; unblocks functional testing of slices 6+ | 🟢 ready after 5 |
 | 6 | Items + inventory + `get`/`drop`/`look <item>` | Object interaction and inspection (originally two slices; merged so the content tooling for items lands once) | 🟢 ready |
