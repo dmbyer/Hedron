@@ -65,6 +65,7 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 3a | **Command prefix matching** | Dynamic prefix resolution (`lo`→`look`), `MatchingMode` per command, `IVerbRegistry`, alias surfacing in `help`/`commands`, `IArgumentResolver` interface + parser wiring | ✅ done |
 | 4 | **Output framework** | Full `IOutputMessage` catalog, `IOutputFormatter`/telnet ANSI, `SupportsColor`, formatter-backed writer, broadcast audience-filter + system-wide; discharges slice-3 output debt | ✅ done |
 | 5 | Account / character creation | Real identity instead of throwaway names; first `[Persistent]` user-facing component | 🟢 next |
+| 5a | **Bare-bones content spawning** | Ad-hoc admin commands (`@mkroom`, `@mkitem`, `@mkmob`, `@set`) to create and spawn content at runtime without pre-authored data files; unblocks functional testing of slices 6+ | 🟢 ready after 5 |
 | 6 | Items + inventory + `get`/`drop`/`look <item>` | Object interaction and inspection (originally two slices; merged so the content tooling for items lands once) | 🟢 ready |
 | 7 | Equipment + `wear`/`remove` | Gear | 🟢 ready |
 | 8 | Mobs + wandering | Populated world; first `TimeSystem` use | 🟢 ready |
@@ -75,7 +76,7 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 13 | Crafting, potions | Content depth | 🟢 ready after 6 |
 | 14 | Web/SignalR client (deferred) | Dual-client transport | 🔵 deferred — see [`backlog.md`](backlog.md) |
 
-The command/output framework was split from a single combined draft into slices 3 and 4 (the slice-numbering question was resolved: "slice 3 and shift"). Account / character creation moved from slice 3 to slice 5; every downstream slice shifted **+2**. Order is flexible past slice 5; some slices can run in parallel branches. Each slice gets a use-case doc *before* implementation starts.
+The command/output framework was split from a single combined draft into slices 3 and 4 (the slice-numbering question was resolved: "slice 3 and shift"). Account / character creation moved from slice 3 to slice 5; every downstream slice shifted **+2**. Slice 5a (bare-bones content spawning) was inserted after account creation so that slices 6+ have a path to exercising their content without pre-authored data files — quality content tooling is intentionally deferred. Order is flexible past slice 5a; some slices can run in parallel branches. Each slice gets a use-case doc *before* implementation starts.
 
 ## Phase 4 — Hardening
 
