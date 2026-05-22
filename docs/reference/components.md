@@ -55,7 +55,7 @@ Minimal components required for the MVP walking simulator. These live under `Cor
 |---|---|---|---|
 | `PlayerComponent` | `DisplayName`, `Session` (transient ref) | Player entity | no |
 | `LocationComponent` | `RoomEntityId` (current room) | any mobile entity | yes |
-| `RoomComponent` | `Name`, `Description`, `Exits` (Dictionary<Direction, uint>) | Room entity | no |
+| `RoomComponent` | `Name`, `Description`, `Exits` (Dictionary<Direction, uint>) | Room entity | yes (tagged `[Persistent]` in slice 5a) |
 
 ---
 

@@ -32,7 +32,7 @@
 
 ## C. Initiators (commands & heartbeat)
 
-**INV-8 — Initiators are thin and rule-free.** Parse/gather → resolve target via a domain-system lookup → call the domain system → publish the resulting event(s). A command is ≤ 30 lines. No game-rule logic; no conditional branching on game state to decide which events to fire (that's a handler). Publishing multiple events is acceptable when every event is an unconditional, direct consequence of the command's action — the test is: "would a handler here contain any game logic, or just mechanically re-publish?" If the latter, keep it in the command. Explanation: [01-layers.md](01-layers.md#initiators--entry-points).
+**INV-8 — Initiators are thin and rule-free.** Parse/gather → resolve target via a domain-system lookup → call the domain system → publish the resulting event(s). A command body growing past ~30 lines is a smell worth inspecting — not a hard failure. Ask: is the length coming from game-rule logic (→ belongs in a system), or from mechanical infrastructure like null-guards and arg resolution (→ fine to stay)? If the former, extract; if the latter, the command is still thin. No game-rule logic; no conditional branching on game state to decide which events to fire (that's a handler). Publishing multiple events is acceptable when every event is an unconditional, direct consequence of the command's action — the test is: "would a handler here contain any game logic, or just mechanically re-publish?" If the latter, keep it in the command. Explanation: [01-layers.md](01-layers.md#initiators--entry-points).
 
 **INV-9 — Initiators never call Handlers directly.** An initiator publishes an event; the bus routes it. Explanation: [01-layers.md](01-layers.md).
 

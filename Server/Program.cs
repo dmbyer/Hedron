@@ -116,11 +116,15 @@ public static class Program
         bus.Subscribe<EntitySpawnedByAdminEvent>(audit);
         bus.Subscribe<PlayerTeleportedByAdminEvent>(audit);
         bus.Subscribe<RoomExitAuthoredByAdminEvent>(audit);
+        bus.Subscribe<RoomCreatedByAdminEvent>(audit);
+        bus.Subscribe<RoomPropertySetByAdminEvent>(audit);
         bus.Subscribe<ContentReloadedEvent>(audit);
 
         var persistenceHandler = host.Services.GetRequiredService<PersistenceHandler>();
         bus.Subscribe<EntitySpawnedByAdminEvent>(persistenceHandler);
         bus.Subscribe<RoomExitAuthoredByAdminEvent>(persistenceHandler);
+        bus.Subscribe<RoomCreatedByAdminEvent>(persistenceHandler);
+        bus.Subscribe<RoomPropertySetByAdminEvent>(persistenceHandler);
         bus.Subscribe<AccountCreatedEvent>(persistenceHandler);
         bus.Subscribe<CharacterCreatedEvent>(persistenceHandler);
         bus.Subscribe<PlayerDisconnectedEvent>(persistenceHandler);

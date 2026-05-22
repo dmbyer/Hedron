@@ -5,6 +5,7 @@ using Hedron.Core.Modules.Admin.Handlers;
 using Hedron.Core.Modules.Admin.Systems;
 using Microsoft.Extensions.DependencyInjection;
 
+
 namespace Hedron.Core.Modules.Admin
 {
     /// <summary>
@@ -17,11 +18,13 @@ namespace Hedron.Core.Modules.Admin
         {
             services.AddSingleton<IAdminAuthorizer, AdminAuthorizer>();
             services.AddSingleton<IAuthorizationChecker, AuthorizationChecker>();
+            services.AddSingleton<IRoomBuilderSystem, RoomBuilderSystem>();
 
             services.AddSingleton<ICommand, SpawnCommand>();
             services.AddSingleton<ICommand, TeleportCommand>();
             services.AddSingleton<ICommand, DigCommand>();
             services.AddSingleton<ICommand, ReloadCommand>();
+            services.AddSingleton<ICommand, SetCommand>();
 
             services.AddSingleton<AdminAuditHandler>();
             return services;

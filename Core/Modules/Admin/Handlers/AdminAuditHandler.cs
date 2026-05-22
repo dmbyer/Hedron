@@ -22,6 +22,8 @@ namespace Hedron.Core.Modules.Admin.Handlers
         IEventHandler<EntitySpawnedByAdminEvent>,
         IEventHandler<PlayerTeleportedByAdminEvent>,
         IEventHandler<RoomExitAuthoredByAdminEvent>,
+        IEventHandler<RoomCreatedByAdminEvent>,
+        IEventHandler<RoomPropertySetByAdminEvent>,
         IEventHandler<ContentReloadedEvent>
     {
         private readonly EntityService _entityService;
@@ -56,6 +58,22 @@ namespace Hedron.Core.Modules.Admin.Handlers
             _logger.LogInformation(
                 "AdminCommandExecuted: admin={Admin} command=dig room={RoomEntityId} direction={Direction} target={TargetRoomEntityId} bidirectional={Bidirectional}",
                 ResolveName(e.AdminEntityId), e.RoomEntityId, e.Direction, e.TargetRoomEntityId, e.BidirectionalLinkCreated);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(RoomCreatedByAdminEvent e)
+        {
+            _logger.LogInformation(
+                "AdminCommandExecuted: admin={Admin} command=dig newRoom={NewRoomEntityId} blueprint={BlueprintId} sourceRoom={SourceRoomEntityId} direction={Direction} bidirectional={Bidirectional}",
+                ResolveName(e.AdminEntityId), e.NewRoomEntityId, e.BlueprintId, e.SourceRoomEntityId, e.Direction, e.BidirectionalLinkCreated);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(RoomPropertySetByAdminEvent e)
+        {
+            _logger.LogInformation(
+                "AdminCommandExecuted: admin={Admin} command=set room={RoomEntityId} property={PropertyName} value={NewValue}",
+                ResolveName(e.AdminEntityId), e.RoomEntityId, e.PropertyName, e.NewValue);
             return Task.CompletedTask;
         }
 

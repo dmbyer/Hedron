@@ -35,6 +35,8 @@ Every use-case file contains:
 | `planned` | [`command-framework.md`](command-framework.md) | Phase 3 slice 3 |
 | `planned` | [`output-framework.md`](output-framework.md) | Phase 3 slice 4 |
 | `implemented` | [`command-prefix-matching.md`](command-prefix-matching.md) | Phase 3 (after slice 4) |
+| `implemented` | [`account-character-creation.md`](account-character-creation.md) | Phase 3 slice 5 |
+| `implemented` | [`bare-bones-content-spawning.md`](bare-bones-content-spawning.md) | Phase 3 slice 5a |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 
 > The slice-numbering question was resolved ("slice 3 and shift"): the previously-combined `command-and-output-framework.md` is split into slice 3 (command framework) and slice 4 (output framework). "Account / character creation" is now **slice 5**, and all downstream slices shift **+2**. See [`../roadmap/plan.md`](../roadmap/plan.md) for the renumbered slice queue.

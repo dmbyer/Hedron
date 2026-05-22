@@ -87,14 +87,14 @@ Ask:
 **Uses:** `EntityService`, `WorldConfiguration`, `ILogger`
 
 ### PersistenceHandler
-**Events (currently subscribed):** `EntitySpawnedByAdminEvent`, `RoomExitAuthoredByAdminEvent` (Phase 3 slice 2); `AccountCreatedEvent`, `CharacterCreatedEvent`, `PlayerDisconnectedEvent` (Phase 3 slice 5). New slices add their state-change events here.
+**Events (currently subscribed):** `EntitySpawnedByAdminEvent`, `RoomExitAuthoredByAdminEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a); `AccountCreatedEvent`, `CharacterCreatedEvent`, `PlayerDisconnectedEvent` (Phase 3 slice 5). New slices add their state-change events here.
 **Priority:** 90 (`HandlerPriority.Persistence`).
 **Responsibilities:** mark entities dirty when an event mutates `[Persistent]` data; the system flushes on its own timer. Cross-cutting handler — lives at `Core/Handlers/` and may subscribe to events from any module.
 **Uses:** `IPersistenceSystem`, `IComponentTypeRegistry`, `EntityService`
 > Persistence is event-driven dirty-tracking — handlers never call persistence directly.
 
 ### AdminAuditHandler
-**Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (all Phase 3 slice 2).
+**Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a).
 **Priority:** 80 (`HandlerPriority.Notification`) — runs after gameplay handlers, before persistence dirty-marking.
 **Responsibilities:** writes one structured-log entry per admin action via `ILogger<AdminAuditHandler>`. Uses a stable structured event name (`AdminCommandExecuted`) so log scrapers can filter without parsing free text. No dedicated audit-file sink in this slice.
 **Location:** `Core/Modules/Admin/Handlers/AdminAuditHandler.cs`
