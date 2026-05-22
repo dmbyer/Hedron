@@ -103,18 +103,47 @@ public interface IRandomGeneratorSystem
 ```
 
 ### BroadcastSystem
-**Purpose:** Deliver messages to players and rooms.
+**Purpose:** Deliver typed `IOutputMessage` output to rooms, every session, or a single player. Each recipient's message is rendered by their transport's `IOutputFormatter` via `IOutputWriterFactory`, so callers never construct raw strings.
 **Location:** `Core/Systems/BroadcastSystem.cs`
-**Dependencies:** `EntityService`, `ISessionManager`.
+**Dependencies:** `EntityService`, `ISessionManager`, `IOutputWriterFactory`.
+**Note:** Classified as output infrastructure rather than a pure-computation core system; it does I/O (calls `IOutputWriter` per recipient) as the designated multi-recipient fan-out seam.
 ```csharp
 public interface IBroadcastSystem
 {
-    Task SendToPlayerAsync(uint playerEntityId, string message);
-    Task SendToRoomAsync(uint roomEntityId, string message, uint? excludeEntityId = null);
-    Task SendRoomDescriptionAsync(uint playerEntityId);
+    Task SendToRoomAsync(uint roomEntityId, IOutputMessage message, Func<uint, bool>? audienceFilter = null);
+    Task SendToAllAsync(IOutputMessage message);
+    Task SendRoomDescriptionAsync(uint playerEntityId, uint roomEntityId);
 }
 ```
-Implemented (Phase 2).
+Implemented (Phase 2, rewritten in Phase 3 slice 4).
+
+### Output Infrastructure (IOutputFormatter, IOutputFormatterRegistry, IOutputWriterFactory)
+**Purpose:** Formatter pipeline that converts typed `IOutputMessage` shapes to transport-encoded strings before writing to sessions.
+**Location:** `Core/Output/`
+**Dependencies:** `ISession` (for `TransportKey` and `SupportsColor`).
+
+```csharp
+// One implementation per transport.
+public interface IOutputFormatter
+{
+    string TransportKey { get; }    // "telnet", future "signalr"
+    string Format(IOutputMessage message, ISession session);
+}
+
+// Selects the right formatter by session.TransportKey.
+public interface IOutputFormatterRegistry
+{
+    IOutputFormatter Resolve(ISession session);
+}
+
+// Single-session output seam consumed by commands and broadcast.
+public interface IOutputWriter  { Task WriteAsync(IOutputMessage message); }
+public interface IOutputWriterFactory { IOutputWriter Create(ISession session); }
+```
+
+`TelnetOutputFormatter` (`TransportKey = "telnet"`) applies the four-role ANSI palette (system/error/room-name/direction) and parses `<role>text</role>` inline markers. Strips all color when `session.SupportsColor == false`. See [`../architecture/07-output.md`](../architecture/07-output.md) for the full design including the color palette table and inline marker syntax.
+
+Implemented (Phase 3 slice 4).
 
 ### ComponentTypeRegistry
 **Purpose:** Reflection-built map of every `IComponent` implementor; records which types carry `[Persistent]`.

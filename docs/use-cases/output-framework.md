@@ -1,6 +1,6 @@
 # Use Case: Output Framework
 
-**Status:** planned
+**Status:** implemented
 **Actors:** Player, Administrator, System
 **Module:** `Core/Output/`; refactor touches `Core/Modules/Help/`, `Core/Modules/Admin/`, `Core/Modules/Movement/`, `Core/Modules/Chat/`, `Core/Modules/World/`, broadcast
 
@@ -84,7 +84,8 @@ public interface IOutputMessage { OutputCategory Category { get; } }
 // From slice 3, unchanged:
 public sealed record PlainMessage(string Text, OutputSeverity Severity) : IOutputMessage;
 public sealed record HelpIndexMessage(IReadOnlyList<HelpIndexEntry> Entries) : IOutputMessage;
-public sealed record HelpEntryMessage(string Verb, string LongDescription, string Usage) : IOutputMessage;
+public sealed record HelpEntryMessage(string Verb, string LongDescription, string Usage,
+    IReadOnlyList<string> Aliases) : IOutputMessage;
 
 // New this slice:
 public sealed record RoomDescriptionMessage(uint RoomEntityId, string Name, string Description,
@@ -138,7 +139,7 @@ The slice-2 `excludeEntityId` parameter becomes a degenerate `audienceFilter`. I
 
 ### Commands (existing — output bodies updated, no signature change)
 
-- **`look`** — now builds a real `RoomDescriptionMessage` (instead of slice 3's broadcast-body passthrough) and routes through the formatter via broadcast.
+- **`look`** — now delegates to `IBroadcastSystem.SendRoomDescriptionAsync`, which builds a `RoomDescriptionMessage` and routes it through the formatter pipeline (replacing slice 3's raw-`StringBuilder` broadcast body). The command body is unchanged.
 - **`MoveCommand` (×6)** — failure path writes a `MovementMessage` (instead of slice 3's `PlainMessage`).
 - **`help` / `commands`** — typed shapes now rendered with color by the telnet formatter; no command-body change, only the formatter now exists to render them.
 - All other commands unchanged from slice 3.
@@ -204,11 +205,34 @@ All slice 1, 2, and 3 keys are unchanged.
 
 ## Open Questions
 
-To be resolved at slice-4 planning time, before `implement-use-case` runs:
+**All resolved.** The broadcast model (room+filter, system-wide, channel-deferred), the SignalR-as-seam decision, and the command/output split contract were resolved in planning. The one remaining open question (color syntax) is resolved below.
 
-1. **Inline color formatting syntax (deliberate deferred decision).** The abstract requirement is fixed (designer-friendly, formatter-parseable, transport-aware ANSI/HTML, strippable, YAML-safe). The concrete decision is open: tag form (e.g. brace/bracket/angle marker shape), named-palette vs hex vs both, nesting/escaping rules, and how a marker survives `YamlDotNet` round-trips in authored content. This was explicitly left open by the user for slice-4 planning; no illustrative form is canonical. Resolve and bake into `docs/architecture/07-output.md` before implementation.
+### Inline color formatting syntax — RESOLVED
 
-No other open questions. The broadcast model (room+filter, system-wide, channel-deferred), the SignalR-as-seam decision, and the command/output split contract are all resolved and baked in above.
+**Decision:** angle-bracket XML-like tags — `<red>text</red>`.
+
+**Rationale:**
+- YAML-safe: `<` and `>` have no special meaning in YAML plain scalars (unlike `{`/`}` and `[`/`]` which are YAML flow indicators).
+- HTML-familiar: designers already know open/close tag conventions.
+- Unambiguous: self-closing or paired; trivially strippable by regex.
+- Future-safe: a SignalR/web formatter can map the same tag names to CSS classes without changing the marker syntax.
+
+**Named tags (four-role palette this slice):**
+
+| Tag | ANSI | Role |
+|---|---|---|
+| `<system>` | Bright cyan | System notices, status output |
+| `<error>` | Bright red | Error / blocked-action output |
+| `<room-name>` | Bright yellow | Room name header |
+| `<direction>` | Green | Exit directions |
+
+Raw color names (`<red>`, `<green>`, `<blue>`, `<yellow>`, `<cyan>`, `<magenta>`, `<white>`, `<bright>`, `<dim>`) are **not** supported in the initial palette. Named semantic roles only. Hex colors and nesting are out of scope.
+
+**Escaping:** a literal `<` that should not be parsed as a marker is not expected in authored MUD content; no escaping rule is defined this slice. Add if a future slice needs it.
+
+**YAML convention:** markers may appear inside YAML double-quoted strings without issue. In unquoted plain scalars, `<` at mid-string is safe; avoid starting an unquoted value with `<` (YAML-safe but visually ambiguous). Designer convention: quote YAML strings that contain color tags.
+
+Baked into `docs/architecture/07-output.md` when that doc is authored during implementation.
 
 ---
 

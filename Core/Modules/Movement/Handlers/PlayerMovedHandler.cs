@@ -4,6 +4,7 @@ using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Movement.Events;
+using Hedron.Core.Output;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Movement.Handlers
@@ -59,14 +60,14 @@ namespace Hedron.Core.Modules.Movement.Handlers
             if (fromRoomId != 0)
                 await _broadcast.SendToRoomAsync(
                     fromRoomId,
-                    $"{name} {departureSuffix}",
-                    excludeEntityId: movedEntityId).ConfigureAwait(false);
+                    new PlainMessage($"{name} {departureSuffix}", OutputSeverity.System),
+                    entityId => entityId != movedEntityId).ConfigureAwait(false);
 
             if (toRoomId != 0)
                 await _broadcast.SendToRoomAsync(
                     toRoomId,
-                    $"{name} {arrivalSuffix}",
-                    excludeEntityId: movedEntityId).ConfigureAwait(false);
+                    new PlainMessage($"{name} {arrivalSuffix}", OutputSeverity.System),
+                    entityId => entityId != movedEntityId).ConfigureAwait(false);
 
             if (toRoomId != 0)
                 await _broadcast.SendRoomDescriptionAsync(movedEntityId, toRoomId)

@@ -1,72 +1,29 @@
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using Hedron.Core.Commands;
 using Hedron.Core.Sessions;
 
 namespace Hedron.Core.Output
 {
     /// <summary>
-    /// Slice-3 implementation: stringifies each message and forwards via
-    /// <see cref="ISession.SendLineAsync"/>. Slice 4 replaces this with a
-    /// formatter-backed implementation.
+    /// Formatter-backed implementation of <see cref="IOutputWriter"/>.
+    /// Resolves the session's transport formatter via <see cref="IOutputFormatterRegistry"/>,
+    /// renders the typed message, and emits one line to the session.
     /// </summary>
     internal sealed class OutputWriter : IOutputWriter
     {
         private readonly ISession _session;
+        private readonly IOutputFormatterRegistry _registry;
 
-        public OutputWriter(ISession session) => _session = session;
+        public OutputWriter(ISession session, IOutputFormatterRegistry registry)
+        {
+            _session = session;
+            _registry = registry;
+        }
 
         public Task WriteAsync(IOutputMessage message)
         {
-            var text = message switch
-            {
-                PlainMessage m     => m.Text,
-                HelpEntryMessage m => RenderEntry(m),
-                HelpIndexMessage m => RenderIndex(m),
-                _                  => message.ToString() ?? string.Empty,
-            };
-            return _session.SendLineAsync(text);
-        }
-
-        private static string RenderEntry(HelpEntryMessage m)
-        {
-            var sb = new StringBuilder();
-            var header = m.Aliases.Count > 0
-                ? $"[{m.Verb}]  (aliases: {string.Join(", ", m.Aliases)})"
-                : $"[{m.Verb}]";
-            sb.AppendLine(header);
-            sb.AppendLine(m.LongDescription);
-            if (!string.IsNullOrEmpty(m.Usage))
-            {
-                sb.AppendLine();
-                sb.Append($"Usage: {m.Usage}");
-            }
-            return sb.ToString();
-        }
-
-        private static string RenderIndex(HelpIndexMessage m)
-        {
-            var sb = new StringBuilder();
-            var groups = m.Entries
-                .GroupBy(e => e.Category)
-                .OrderBy(g => (int)g.Key);
-
-            var first = true;
-            foreach (var group in groups)
-            {
-                if (!first) sb.AppendLine();
-                first = false;
-                sb.AppendLine($"=== {group.Key} ===");
-                foreach (var entry in group.OrderBy(e => e.Verb))
-                {
-                    var label = entry.Aliases.Count > 0
-                        ? $"{entry.Verb}  (aliases: {string.Join(", ", entry.Aliases)})"
-                        : entry.Verb;
-                    sb.AppendLine($"  {label,-20} {entry.ShortDescription}");
-                }
-            }
-            return sb.ToString().TrimEnd();
+            var formatter = _registry.Resolve(_session);
+            var rendered = formatter.Format(message, _session);
+            return _session.SendLineAsync(rendered);
         }
     }
 }

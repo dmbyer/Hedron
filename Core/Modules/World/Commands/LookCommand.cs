@@ -42,7 +42,6 @@ namespace Hedron.Core.Modules.World.Commands
                 return;
             }
 
-            // BroadcastSystem writes directly to the session — broadcast body unchanged until slice 4.
             await _broadcast.SendRoomDescriptionAsync(context.InvokerEntityId, location.RoomEntityId)
                 .ConfigureAwait(false);
         }

@@ -27,14 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–3 + prefix-matching done; **next: slice 4 — output framework**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–4 + prefix-matching done; **next: slice 5 — account / character creation**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 4 — output framework.** Use case: [`../use-cases/output-framework.md`](../use-cases/output-framework.md). Discharges the minimal-output-seam debt left by slice 3 — replaces the stringify-and-forward `IOutputWriter` with a formatter-backed implementation: `IOutputFormatter`/telnet ANSI, `SupportsColor`, full `IOutputMessage` shape catalog (`RoomDescriptionMessage`, `MovementMessage`, etc.), broadcast audience-filter, and system-wide output. Slice 3a (command prefix matching) shipped first and is complete.
+**Phase 3 slice 5 — Account / character creation.** Use case: [`../use-cases/account-character-creation.md`](../use-cases/account-character-creation.md) (to be authored). Real player identity replacing throwaway names; first `[Persistent]` user-facing component; per-character state that survives restart. Prerequisites: slices 1–4 complete (persistence substrate + output framework).
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -63,8 +63,8 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 2 | World content loading + admin substrate | Authored rooms/areas from data files; in-game admin command framework (`@spawn`, `@teleport`, `@dig`, `@reload`); resolves Ticket B | ✅ done |
 | 3 | **Command framework** | Typed `CommandContext`, declarative arg parsing, structural privilege gate, `help`/`commands`, `CommandExecutedEvent`; ships the minimal output seam | ✅ done |
 | 3a | **Command prefix matching** | Dynamic prefix resolution (`lo`→`look`), `MatchingMode` per command, `IVerbRegistry`, alias surfacing in `help`/`commands`, `IArgumentResolver` interface + parser wiring | ✅ done |
-| 4 | **Output framework** | Full `IOutputMessage` catalog, `IOutputFormatter`/telnet ANSI, `SupportsColor`, formatter-backed writer, broadcast audience-filter + system-wide; discharges slice-3 output debt | 🟢 next |
-| 5 | Account / character creation | Real identity instead of throwaway names; first `[Persistent]` user-facing component | 🟢 ready after 4 |
+| 4 | **Output framework** | Full `IOutputMessage` catalog, `IOutputFormatter`/telnet ANSI, `SupportsColor`, formatter-backed writer, broadcast audience-filter + system-wide; discharges slice-3 output debt | ✅ done |
+| 5 | Account / character creation | Real identity instead of throwaway names; first `[Persistent]` user-facing component | 🟢 next |
 | 6 | Items + inventory + `get`/`drop`/`look <item>` | Object interaction and inspection (originally two slices; merged so the content tooling for items lands once) | 🟢 ready |
 | 7 | Equipment + `wear`/`remove` | Gear | 🟢 ready |
 | 8 | Mobs + wandering | Populated world; first `TimeSystem` use | 🟢 ready |

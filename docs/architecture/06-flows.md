@@ -12,10 +12,10 @@
 |---|---|---|---|
 | 1 | [Server startup](#flow-1--server-startup) | `dotnet run --project Server` | Phase 2 (extended in slice 2) |
 | 2 | [Player connection](#flow-2--player-connection) | TCP client connects on the configured port | Phase 2 |
-| 3 | [Player command lifecycle](#flow-3--player-command-lifecycle) | Player sends a line of input | Phase 2 (replaced by slice 3 command framework; output leg re-traced in slice 4; prefix resolution added in slice 5) |
+| 3 | [Player command lifecycle](#flow-3--player-command-lifecycle) | Player sends a line of input | Phase 2 (replaced by slice 3 command framework; output leg updated in slice 4; prefix resolution added in slice 3a) |
 | 4 | [Persistence flush cycle](#flow-4--persistence-flush-cycle) | `PersistenceFlushTimer` ticks, or shutdown | Phase 3 slice 1 |
 | 5 | [Content reload](#flow-5--content-reload-reload) | Privileged session sends `reload` | Phase 3 slice 2 (gate moved to dispatcher in slice 3) |
-| 6 | Output rendering | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4 (added by that slice's PR) |
+| 6 | [Output rendering](#flow-6--output-rendering) | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4 |
 
 Flows that don't yet exist (combat round, player death, item pickup, mob wander tick, etc.) get added by the slice that introduces them.
 
@@ -132,7 +132,7 @@ sequenceDiagram
 
 ## Flow 3 — Player command lifecycle
 
-**Summary.** Input bytes become a verb + raw tail; the dispatcher performs a two-phase verb lookup (exact first, prefix second), checks authorization via `IAuthorizationChecker`, parses arguments via `ICommandArgumentParser`, constructs a `CommandContext`, calls `ICommand.ExecuteAsync(context)`, and publishes `CommandExecutedEvent` for every outcome. The `Verb` field in `CommandExecutedEvent` always carries the **resolved canonical name** (e.g. `look`), never the raw typed prefix (`lo`). Output goes through the minimal `IOutputWriter` (stringify-and-forward); slice 4 replaces the writer with a formatter-backed implementation.
+**Summary.** Input bytes become a verb + raw tail; the dispatcher performs a two-phase verb lookup (exact first, prefix second), checks authorization via `IAuthorizationChecker`, parses arguments via `ICommandArgumentParser`, constructs a `CommandContext`, calls `ICommand.ExecuteAsync(context)`, and publishes `CommandExecutedEvent` for every outcome. The `Verb` field in `CommandExecutedEvent` always carries the **resolved canonical name** (e.g. `look`), never the raw typed prefix (`lo`). Output goes through the formatter-backed `IOutputWriter` (see Flow 6 for the rendering trace).
 
 **Trigger.** A line of input arrives on a session's read stream.
 
@@ -191,7 +191,7 @@ sequenceDiagram
 3. **Privilege gate.** The dispatcher iterates `command.RequiredPrivileges` and calls `IAuthorizationChecker.IsSatisfied(req, session)` for each. Any unsatisfied requirement writes a rejection `PlainMessage` via `IOutputWriter` and publishes `CommandExecutedEvent(Unauthorized, Verb=canonicalVerb)`.
 4. **Argument parse.** `ICommandArgumentParser.Parse(command.ArgumentSchema, rawTail, resolverContext)` does single-pass tokenization (whitespace + double-quoted groups), walks the declarative argument list, and coerces each token to its CLR type (`string`, `int`, `uint`, `Direction`). Enum-prefix matching works from day one (`n`/`no`/`nor` → `North`). String `Token` arguments that declare a non-null `IArgumentResolver` have prefix matching applied against the candidate list (no concrete resolver ships until slice 6). On failure: the reason + `"Type 'help <canonicalVerb>' for usage."` is written; `CommandExecutedEvent(ParseFailed, Verb=canonicalVerb)` is published.
 5. **Execute.** The dispatcher constructs `CommandContext(Session, InvokerEntityId, ParsedArguments, IOutputWriter, IServiceProvider)` and calls `command.ExecuteAsync(context)`. The body reads typed args via `context.Args.Get<T>(name)`, calls domain systems or publishes events via injected `IEventBus`, and writes all output via `context.Output.WriteAsync(IOutputMessage)`. No `session.SendLineAsync` in command bodies.
-6. **Minimal output seam.** `IOutputWriter.WriteAsync` stringifies the message (`PlainMessage` → its text; `HelpIndexMessage` / `HelpEntryMessage` → plain-text rendering, including aliases) and calls `session.SendLineAsync`. Slice 4 replaces this implementation with a formatter-backed one.
+6. **Formatter-backed output.** `IOutputWriter.WriteAsync` resolves the session's formatter from `IOutputFormatterRegistry`, calls `formatter.Format(message, session)` (transport-correct ANSI or stripped plain text based on `session.SupportsColor`), and awaits `session.SendLineAsync(rendered)`. See [Flow 6](#flow-6--output-rendering) for the full rendering trace.
 7. **Exception trap.** Any uncaught exception is caught, logged at `Error` with a full stack trace, a `PlainMessage("Something went wrong. The error has been logged.")` is written, and `CommandExecutedEvent(Threw)` is published. No stack trace reaches the session.
 8. **`CommandExecutedEvent`.** Published on every dispatch path — success, parse-fail, unauthorized, threw. The `Verb` field carries the **resolved canonical command name** (e.g. `look` when the player typed `lo`), not the raw typed prefix. This makes log lines stable regardless of what the player typed. `CommandLoggingHandler` (priority 80) writes one structured-log line per command via `ILogger`. `AdminAuditHandler` keeps subscribing to the four richer slice-2 admin events and does **not** subscribe to `CommandExecutedEvent`.
 
@@ -200,7 +200,8 @@ sequenceDiagram
 - [`Core/Commands/Authorization/IAuthorizationChecker.cs`](../../Core/Commands/Authorization/IAuthorizationChecker.cs), [`Core/Commands/CommandArgumentParser.cs`](../../Core/Commands/CommandArgumentParser.cs)
 - [`Core/Output/OutputWriter.cs`](../../Core/Output/OutputWriter.cs), [`Core/Handlers/CommandLoggingHandler.cs`](../../Core/Handlers/CommandLoggingHandler.cs)
 - [`docs/architecture/06-commands.md`](06-commands.md) — command framework design
-- [`docs/use-cases/command-framework.md`](../use-cases/command-framework.md) — slice 3 spec; [`docs/use-cases/output-framework.md`](../use-cases/output-framework.md) — slice 4 spec (re-traces output leg, adds Flow 6)
+- [`docs/architecture/07-output.md`](07-output.md) — output framework design
+- [`docs/use-cases/command-framework.md`](../use-cases/command-framework.md) — slice 3 spec; [`docs/use-cases/output-framework.md`](../use-cases/output-framework.md) — slice 4 spec
 - [`docs/reference/handlers.md`](../reference/handlers.md) — handler priority tiers
 
 ---
@@ -309,6 +310,53 @@ sequenceDiagram
 **Cross-references.**
 - [`Core/Modules/Admin/Commands/ReloadCommand.cs`](../../Core/Modules/Admin/Commands/ReloadCommand.cs), [`Core/Modules/World/Systems/WorldContentLoader.cs`](../../Core/Modules/World/Systems/WorldContentLoader.cs)
 - [`docs/use-cases/world-content-loading-and-admin-substrate.md`](../use-cases/world-content-loading-and-admin-substrate.md)
+
+---
+
+## Flow 6 — Output rendering
+
+**Summary.** Any command body or handler that calls `IOutputWriter.WriteAsync(IOutputMessage)` or `IBroadcastSystem.SendToRoomAsync`/`SendToAllAsync` triggers this chain. A typed message is resolved to the session's transport formatter, rendered into an ANSI (or plain-text) string, and transmitted. Every future gameplay slice's output plugs into this chain without touching transport code.
+
+**Trigger.** Any call to `IOutputWriter.WriteAsync`, `IBroadcastSystem.SendToRoomAsync`, `IBroadcastSystem.SendToAllAsync`, or `IBroadcastSystem.SendRoomDescriptionAsync`.
+
+```mermaid
+sequenceDiagram
+    participant Caller as Command / Handler
+    participant OW as IOutputWriter
+    participant Reg as IOutputFormatterRegistry
+    participant Fmt as IOutputFormatter (TelnetOutputFormatter)
+    participant Sess as ISession
+
+    Caller->>OW: WriteAsync(IOutputMessage)
+    OW->>Reg: Resolve(session)
+    Reg-->>OW: IOutputFormatter
+    OW->>Fmt: Format(message, session)
+    Fmt->>Fmt: pattern-match shape
+    Fmt->>Fmt: apply palette + inline markers (or strip if !SupportsColor)
+    Fmt-->>OW: rendered string
+    OW->>Sess: SendLineAsync(rendered)
+```
+
+**Steps.**
+
+1. A command calls `context.Output.WriteAsync(message)` or a handler calls `_broadcast.SendToRoomAsync(roomId, message, filter?)`. For broadcast, `BroadcastSystem` enumerates eligible recipients and calls `_writerFactory.Create(session).WriteAsync(message)` for each.
+2. `OutputWriter.WriteAsync` calls `IOutputFormatterRegistry.Resolve(session)` to obtain the formatter whose `TransportKey` matches `session.TransportKey` (e.g. `"telnet"`). Falls back to the first registered formatter if no exact match (safe while only telnet exists).
+3. `IOutputFormatter.Format(message, session)` pattern-matches the message shape:
+   - `PlainMessage` — wraps text in a severity-appropriate color marker (`<error>`, `<system>`, or plain).
+   - `RoomDescriptionMessage` — room name in `<room-name>`, exit keys in `<direction>`, description and occupants plain.
+   - `MovementMessage(Blocked)` — "You cannot go that way." in `<system>`.
+   - `HelpIndexMessage` — section headers in `<system>`, verb names in `<room-name>` (padded before colorizing).
+   - `HelpEntryMessage` — verb/alias header in `<room-name>`.
+4. **Color application.** If `session.SupportsColor` is `true`, inline markers (`<role>text</role>`) are replaced with ANSI escape codes + reset. If `false`, markers are stripped and only the inner text remains. See [`07-output.md`](07-output.md) for the palette table.
+5. The rendered string is passed to `session.SendLineAsync(rendered)`. The session acquires its write lock and writes the UTF-8 bytes to the TCP stream.
+
+**Broadcast fan-out.** For `SendToRoomAsync`, step 1 iterates `LocationComponent` entities in the room, applies the optional `Func<uint,bool>? audienceFilter` predicate (e.g. `id => id != movingPlayer`), and runs steps 2–5 for each surviving recipient. Each recipient gets their own formatter resolution so a future mixed-transport world renders correctly per client.
+
+**Cross-references.**
+- [`Core/Output/OutputWriter.cs`](../../Core/Output/OutputWriter.cs), [`Core/Output/TelnetOutputFormatter.cs`](../../Core/Output/TelnetOutputFormatter.cs), [`Core/Output/OutputFormatterRegistry.cs`](../../Core/Output/OutputFormatterRegistry.cs)
+- [`Core/Systems/BroadcastSystem.cs`](../../Core/Systems/BroadcastSystem.cs)
+- [`docs/architecture/07-output.md`](07-output.md) — full output framework design
+- [`docs/use-cases/output-framework.md`](../use-cases/output-framework.md) — slice 4 spec
 
 ---
 

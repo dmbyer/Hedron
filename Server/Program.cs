@@ -38,8 +38,10 @@ public static class Program
     public static async Task Main(string[] args)
     {
         var host = Host.CreateDefaultBuilder(args)
-            .ConfigureServices(services =>
+            .ConfigureServices((context, services) =>
             {
+                services.Configure<OutputConfiguration>(
+                    context.Configuration.GetSection("Output"));
                 // ECS world
                 var world = new EntityService();
                 EcsManager.SetWorld(world);
@@ -54,6 +56,9 @@ public static class Program
 
                 // Command framework — argument parser and output writer factory
                 services.AddSingleton<ICommandArgumentParser, CommandArgumentParser>();
+                // Output formatters — register concrete formatters before the registry.
+                services.AddSingleton<IOutputFormatter, TelnetOutputFormatter>();
+                services.AddSingleton<IOutputFormatterRegistry, OutputFormatterRegistry>();
                 services.AddSingleton<IOutputWriterFactory, OutputWriterFactory>();
 
                 // Systems

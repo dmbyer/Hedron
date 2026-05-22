@@ -22,6 +22,19 @@ namespace Hedron.Core.Sessions
         /// </summary>
         uint PlayerEntityId { get; }
 
+        /// <summary>
+        /// Transport discriminator used by <c>IOutputFormatterRegistry</c> to select a formatter.
+        /// <c>"telnet"</c> for all current sessions; <c>"signalr"</c> reserved for future dual-client work.
+        /// </summary>
+        string TransportKey { get; }
+
+        /// <summary>
+        /// Whether this session can render ANSI color codes. Defaults to
+        /// <c>Output:DefaultColor</c> config value (<c>true</c>). The setter lives on the
+        /// concrete session class; the per-session <c>/color off</c> command is deferred.
+        /// </summary>
+        bool SupportsColor { get; }
+
         /// <summary>Writes a single line of text to the client (newline appended).</summary>
         Task SendLineAsync(string text);
     }

@@ -27,13 +27,21 @@ namespace Hedron.Server.Sessions
 
         public Guid SessionId { get; } = Guid.NewGuid();
         public uint PlayerEntityId { get; private set; }
+        public string TransportKey => "telnet";
+
+        /// <summary>
+        /// Whether ANSI color codes are sent to this client. Defaults from
+        /// <c>Output:DefaultColor</c>. Setter seam exists for a future <c>/color off</c> command.
+        /// </summary>
+        public bool SupportsColor { get; private set; }
 
         public TelnetSession(
             TcpClient client,
             ICommandDispatcher dispatcher,
             EntityService entityService,
             IEventBus eventBus,
-            ISessionManager sessionManager)
+            ISessionManager sessionManager,
+            bool defaultColor)
         {
             _client = client;
             var stream = client.GetStream();
@@ -43,6 +51,7 @@ namespace Hedron.Server.Sessions
             _entityService = entityService;
             _eventBus = eventBus;
             _sessionManager = sessionManager;
+            SupportsColor = defaultColor;
         }
 
         public async Task SendLineAsync(string text)
