@@ -46,7 +46,7 @@ The four numbered layers below (Handlers → Domain Systems → Core Systems →
 
 **Characteristics:**
 - Thin. A command is **≤ 30 lines**; if it grows, the logic belongs in a domain system.
-- No gameplay logic, no multi-step branching. "Publish A, then call system X, then conditionally publish B" is a *handler*, not an initiator — move it.
+- No game-rule logic, no conditional branching on game state. "Publish A, then call system X, then **conditionally** publish B based on a game rule" is a *handler*, not an initiator — move it. Publishing multiple events is fine when every event is an unconditional, direct consequence of the command's action (e.g. `dig` always creates the room *and* always moves the player — both events belong in the command). The test: would extracting this into a handler reveal any game logic, or just re-publish mechanically? If the latter, keep it in the command.
 - Parses/gathers input, resolves targets via domain-system lookups (`InventorySystem.FindByName`, `LocationSystem.FindInRoom`), calls the relevant domain system, publishes the resulting event(s).
 - May publish events. This is the tier's defining permission, shared only with Handlers.
 
@@ -59,7 +59,8 @@ The four numbered layers below (Handlers → Domain Systems → Core Systems →
 
 **Anti-patterns:**
 - Game rules inside a command (`if armor > threshold…`) — belongs in a domain system.
-- Multi-step orchestration inside a command — that's a handler.
+- Conditional event routing inside a command (`if condition → publish A, else → publish B`) — that's a handler.
+- Unconditional sequential publishing is not the same thing: a command that always publishes A then B as direct consequences of its action is fine.
 - A domain/core system reaching for the event bus to "save a hop" — forbidden; return a result and let the initiator or a handler publish.
 
 ### Heartbeat / scheduled-tick — forward design constraints

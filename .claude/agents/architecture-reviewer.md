@@ -28,6 +28,7 @@ The point of this mode is to catch architecture violations **before code exists*
    - SR-4 a referenced flow / catalog entry doesn't exist or won't be updated
    - SR-5 a load-bearing open question is being deferred
 5. Cross-check the doc's **Cross-cutting surfaces stressed** and **Flows introduced or modified** sections: are they honest and complete given what the spec actually describes? A surface the spec clearly exercises but doesn't list is itself a finding.
+6. **Agent/skill audit (INV-20).** Glob `.claude/skills/*.md` and `.claude/agents/*.md`. For each file, check whether the spec introduces, extends, or contradicts a pattern that skill/agent advises. Flag any file that would give incorrect guidance if the spec ships without updating it. This is a blocking finding — stale tooling produces violations on the next slice.
 
 A spec-mode review blocks `implement-use-case` until blocking findings are resolved in the doc.
 
@@ -44,6 +45,7 @@ A spec-mode review blocks `implement-use-case` until blocking findings are resol
 6. **Pattern-repetition sweep (INV-19).** Any hand-rolled pattern in ≥3 new/modified files (arg parsing, privilege checks, output formatting, `[Persistent]` loops) → framework-promotion finding.
 7. **Flows-doc audit (INV-17).** For each flow in the doc's "Flows introduced or modified," open `06-flows.md` and verify body **and** mermaid match the as-built code.
 8. **Catalog audit (INV-16).** New/changed component, system, handler, event → matching `docs/reference/*.md` updated; use-case status/deviations updated.
+9. **Agent/skill audit (INV-20).** Glob `.claude/skills/*.md` and `.claude/agents/*.md`. For each changed architectural pattern in the diff, check whether any skill or agent file advises that pattern and would become stale or misleading. Flag as a blocking finding with a suggested resolution.
 
 ## Output format
 
@@ -54,10 +56,14 @@ A spec-mode review blocks `implement-use-case` until blocking findings are resol
 <APPROVE | APPROVE WITH NITS | NEEDS CHANGES>
 
 ### Blocking
-- <INV-n | SR-n> — <doc§ or file:line> — one-line reason + the fix
+- <INV-n | SR-n> — <doc§ or file:line> — one-line reason
+  Suggested resolution: <what to change — do not apply; confirm with user first>
 
 ### Non-blocking
-- <id> — <where> — concern
+- <id> — <where> — concern + suggested resolution if any
+
+### Agent/skill updates required
+- <.claude/path> — what needs updating and why (INV-20)
 
 ### Doc/flow drift
 - <doc path> — what's stale
@@ -68,8 +74,11 @@ A spec-mode review blocks `implement-use-case` until blocking findings are resol
 
 Lead with one of the three verdict words verbatim so the caller can branch on it. No violations: say so in one sentence. Do not pad. Do not re-explain a rule unless asked *why*.
 
+**All findings are advisory.** The reviewer reports and suggests; it does not apply changes. Every suggested resolution must be confirmed by the user before the calling session makes any edit. If the user approves a suggestion, the calling session applies it — the reviewer does not.
+
 ## What you are NOT
 
+- Not an editor — never modify files, never apply fixes. Suggest only.
 - Not a style/naming reviewer (beyond INV-6 event naming).
 - Not a correctness/test-logic reviewer.
 - Not a performance reviewer (unless a hot path bypasses or abuses the bus).

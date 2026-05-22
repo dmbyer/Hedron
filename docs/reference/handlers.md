@@ -27,7 +27,7 @@ Ask:
 **Responsibilities:** apply death penalties; respawn; rest-state transitions; rest recovery; unconscious state.
 **Uses:** `IDeathSystem`, `IVisibilitySystem`, `INotificationSystem`, `ILocationSystem`, `IAttributeSystem`
 
-### PlayerMovementHandler
+### PlayerMovedHandler
 **Events:** `PlayerMovedEvent`, `PlayerTeleportedByAdminEvent` (Phase 3 slice 2), `PlayerEnterRoomEvent`, `PlayerExitRoomEvent`
 **Responsibilities:** translate a successful move (player-initiated or admin-teleport) into the visible effects: departure broadcast on source room, arrival broadcast on destination, `look` to the moved player; fire movement triggers (traps, ambushes). Both move and teleport events funnel through the same private helper to avoid drift; teleport uses direction-agnostic flavour text.
 **Uses:** `IMovementSystem`, `ILocationSystem`, `IVisibilitySystem`, `IBroadcastSystem`

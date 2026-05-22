@@ -32,7 +32,7 @@
 
 ## C. Initiators (commands & heartbeat)
 
-**INV-8 — Initiators are thin and rule-free.** Parse/gather → resolve target via a domain-system lookup → call the domain system → publish the resulting event(s). A command is ≤ 30 lines. No gameplay rules, no multi-step branching (that's a handler). Explanation: [01-layers.md](01-layers.md#initiators--entry-points).
+**INV-8 — Initiators are thin and rule-free.** Parse/gather → resolve target via a domain-system lookup → call the domain system → publish the resulting event(s). A command is ≤ 30 lines. No game-rule logic; no conditional branching on game state to decide which events to fire (that's a handler). Publishing multiple events is acceptable when every event is an unconditional, direct consequence of the command's action — the test is: "would a handler here contain any game logic, or just mechanically re-publish?" If the latter, keep it in the command. Explanation: [01-layers.md](01-layers.md#initiators--entry-points).
 
 **INV-9 — Initiators never call Handlers directly.** An initiator publishes an event; the bus routes it. Explanation: [01-layers.md](01-layers.md).
 
@@ -73,6 +73,10 @@ When reviewing a use-case doc *before* implementation, beyond the per-INV spec c
 - **SR-3 — The spec contradicts an established skill or convention.** e.g. it specifies a command shape that the `add-command` skill forbids. One of them is wrong; resolve before implementation.
 - **SR-4 — A referenced flow or catalog entry doesn't exist or won't be updated.** The "Flows introduced or modified" / "Cross-cutting surfaces stressed" sections name flows/surfaces; verify each is real and that the spec commits to updating it.
 - **SR-5 — An open question is load-bearing.** If a deferred decision determines whether an INV is satisfiable, it is not deferrable — it blocks implementation.
+
+**INV-20 — Agent tooling stays current with architecture.** Any slice that introduces, clarifies, or changes an architectural rule or layer pattern updates the relevant `.claude/skills/*.md` and `.claude/agents/*.md` files in the same PR. Skills and agents are developer tooling — stale guidance produces the next slice's violations.
+- *Spec:* does the use-case introduce or depend on a pattern any existing skill advises? If the spec changes that pattern, commit to updating the relevant skill file.
+- *Code:* do changed files establish a pattern not yet reflected in any skill? Does any change contradict guidance in an existing skill or agent?
 
 ---
 
