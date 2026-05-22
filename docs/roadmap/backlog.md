@@ -46,6 +46,16 @@ Acknowledged debt from Phase 3 slice 4 ([`../use-cases/output-framework.md`](../
 
 `CommandDispatcher` carries five injected dependencies and owns authorization, parsing, output, event publication, and exception trapping (spec-mode review smell S1). A middleware/pipeline chain would isolate these concerns. Deferred from slice 3 to avoid ballooning the 12-command refactor. Revisit when a sixth concern would be added to the dispatcher, or if testing the dispatcher becomes painful.
 
+### 🔵 Locale enhancements
+
+Deferred from slice 5a (bare-bones content spawning). Three related capabilities held together because they share a data-model decision:
+
+- **Room-to-area membership** — a `RoomComponent.AreaId` field or a dedicated component linking each room to an `AreaComponent` entity. `RoomCreatedByAdminEvent` and `mkroom` logic would eventually set area membership at creation time.
+- **Coordinate system** — a `CoordinateComponent` (`int X, int Y, int Z`) on room entities, enabling map generation and cardinal distance queries.
+- **Area-level properties** — PvP flag, respawn rate, ambient lighting — currently on `AreaComponent` but not yet instantiated or enforced by any slice.
+
+These are deferred together because adding coordinates without area membership is premature, and area properties without coordinates have limited value. Revisit when the mob-wandering slice (slice 8) or a mapping command surfaces a concrete need.
+
 ### 🔵 Archetype catalogue refresh
 
 The archetype list in [`../reference/archetypes.md`](../reference/archetypes.md) was written against the old component shapes. Re-audit once a few Phase 3 slices have landed real components.

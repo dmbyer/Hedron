@@ -37,10 +37,15 @@ Do **not**:
 ## Steps
 
 1. Create the file at the chosen location.
-2. Decide the archetype set that requires this component. Update `Core/ECS/ArchetypeRegistry.cs` so the right archetypes include it as required or optional.
-3. If it's a shared component, add a one-line row to [docs/reference/components.md](../../../docs/reference/components.md) with its shape and owner.
-4. If any existing system will now read/write it, note the dependency in [docs/reference/systems.md](../../../docs/reference/systems.md).
-5. Archetype composition docs: update [docs/reference/archetypes.md](../../../docs/reference/archetypes.md) if a standard archetype changes.
+2. **Decide persistence opt-in.** Explicitly answer: does this component's data need to survive a server restart?
+   - **Yes → add `[Persistent]`** on the class. `PersistenceSystem` will save and restore it automatically.
+   - **No → omit `[Persistent]`** and document why (e.g. transient session reference, frame-only state, derived/recomputed on load).
+   - **Unsure?** Default to `[Persistent]` for any component that holds world or character state a player or designer authored. Default to omitting it for components that hold runtime-only references (`Session`, timers, cached lookups). If the decision is non-obvious, call it out explicitly in the use-case doc's Cross-cutting surfaces section.
+   - **Existing components touched by this work** must have their `[Persistent]` status confirmed as part of this step, not assumed.
+3. Decide the archetype set that requires this component. Update `Core/ECS/ArchetypeRegistry.cs` so the right archetypes include it as required or optional.
+4. If it's a shared component, add a one-line row to [docs/reference/components.md](../../../docs/reference/components.md) with its shape and owner. Include the persistence decision (`[Persistent]` or "transient — reason").
+5. If any existing system will now read/write it, note the dependency in [docs/reference/systems.md](../../../docs/reference/systems.md).
+6. Archetype composition docs: update [docs/reference/archetypes.md](../../../docs/reference/archetypes.md) if a standard archetype changes.
 
 ## Anti-patterns
 
