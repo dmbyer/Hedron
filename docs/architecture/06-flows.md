@@ -16,6 +16,7 @@
 | 4 | [Persistence flush cycle](#flow-4--persistence-flush-cycle) | `PersistenceFlushTimer` ticks, or shutdown | Phase 3 slice 1 |
 | 5 | [Content reload](#flow-5--content-reload-reload) | Privileged session sends `reload` | Phase 3 slice 2 (gate moved to dispatcher in slice 3) |
 | 6 | [Output rendering](#flow-6--output-rendering) | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4 |
+| 7 | [Login / character flow](#flow-7--login--character-flow) | TCP client connects, new or returning player | Phase 3 slice 5 |
 
 Flows that don't yet exist (combat round, player death, item pickup, mob wander tick, etc.) get added by the slice that introduces them.
 
@@ -58,6 +59,8 @@ sequenceDiagram
     WCL->>WCL: SpawnMissingEntities (skip-on-conflict)
     WCL->>WCL: LinkRoomExits
     WCL->>WCL: ResolveStartingRoom (or void fallback)
+    WCB->>Bus: Publish(WorldContentReadyEvent)
+    Bus->>Bus: CharacterHydrationHandler (validate character locations)
     Host->>FT: StartAsync (timer armed)
     Host->>TS: StartAsync (listener opens)
 ```
@@ -70,7 +73,7 @@ sequenceDiagram
 4. `PersistenceBootstrap.StartAsync` calls `PersistenceSystem.LoadAllAsync`, which scans `Persistence:DataDirectory` for `entity-*.json` files and silently re-attaches every component on each entity (no events fired during hydration). It returns the restored entity ids.
 5. For each restored id, `PersistenceBootstrap` publishes `EntityHydratedEvent`. **Constraint:** handlers must not query other entities at this point — the world is partially loaded.
 6. After the loop, `PersistenceBootstrap` publishes `WorldLoadedEvent`. Cross-entity startup work belongs on this event, not on per-entity hydration.
-7. `WorldContentBootstrap.StartAsync` calls `WorldContentLoader.LoadAndSpawnAsync`. This: (a) reads YAML files under `World:ContentDirectory` and registers them with `TemplateRegistry` via per-kind `ITemplateDeserializer`s; (b) builds a live blueprint→entity map from existing `BlueprintComponent`s; (c) spawns any template that has no live counterpart; (d) populates `RoomComponent.Exits` by resolving each template's blueprint-id exits to live entity ids; (e) sets `WorldConfiguration.StartingRoomEntityId` from `World:StartingRoomBlueprintId`. If the content directory is missing or empty, a single hardcoded `room.void` is seeded and a warning is logged.
+7. `WorldContentBootstrap.StartAsync` calls `WorldContentLoader.LoadAndSpawnAsync`. This: (a) reads YAML files under `World:ContentDirectory` and registers them with `TemplateRegistry` via per-kind `ITemplateDeserializer`s; (b) builds a live blueprint→entity map from existing `BlueprintComponent`s; (c) spawns any template that has no live counterpart; (d) populates `RoomComponent.Exits` by resolving each template's blueprint-id exits to live entity ids; (e) sets `WorldConfiguration.StartingRoomEntityId` from `World:StartingRoomBlueprintId`. If the content directory is missing or empty, a single hardcoded `room.void` is seeded and a warning is logged. After `LoadAndSpawnAsync` completes, `WorldContentBootstrap` publishes `WorldContentReadyEvent`. `CharacterHydrationHandler` (priority `HandlerPriority.Domain`) validates every hydrated character entity's `LocationComponent.RoomEntityId` at this point, resetting stale references to `StartingRoomEntityId`.
 8. `PersistenceFlushTimer.StartAsync` arms a `PeriodicTimer` reading `Persistence:FlushIntervalSeconds` (default 60).
 9. `TelnetServer.StartAsync` opens the TCP listener on `Server:Port`. Connections accepted from this point forward see a fully assembled world.
 
@@ -83,7 +86,7 @@ sequenceDiagram
 
 ## Flow 2 — Player connection
 
-**Summary.** A new TCP connection produces a per-session task that prompts for a display name, allocates a player entity, registers the session, fires `PlayerConnectedEvent`, and enters the input loop. Disconnect runs the inverse with `PlayerDisconnectedEvent`.
+**Summary.** A new TCP connection produces a per-session task that runs the `LoginFlow` state machine (banner → register/authenticate → character select/create), binds the resulting character entity to the session, then enters the main I/O loop. Disconnect records logout, removes the transient `PlayerComponent`, and broadcasts departure. The character entity is **not** destroyed. See [Flow 7](#flow-7--login--character-flow) for the full login state machine detail.
 
 **Trigger.** Inbound TCP connection on `Server:Port` (default 4000).
 
@@ -92,41 +95,48 @@ sequenceDiagram
     participant Client
     participant TS as TelnetServer
     participant Sess as TelnetSession
+    participant LF as LoginFlow
+    participant AccSys as IAccountSystem
     participant ES as EntityService
     participant SM as SessionManager
     participant Bus as IEventBus
     participant PSH as PlayerSessionHandler
+    participant PH as PersistenceHandler
 
     Client->>TS: TCP connect
-    TS->>Sess: spawn task
-    Sess->>Client: login prompt
-    Client->>Sess: display name
-    Sess->>ES: CreateEntity + PlayerComponent + LocationComponent
-    Sess->>SM: Register
+    TS->>Sess: spawn task (PlayerEntityId=0)
+    Sess->>LF: RunAsync(ct)
+    Note over LF,AccSys: login state machine (see Flow 7)
+    LF-->>Sess: LoginResult(CharacterEntityId, AccountEntityId, CharacterName)
+    Sess->>ES: AddComponent(PlayerComponent{DisplayName,Session})
+    Sess->>SM: Register(session)
     Sess->>Bus: Publish(PlayerConnectedEvent)
-    Bus->>PSH: HandleAsync (announce arrival, etc.)
-    loop main I/O loop
+    Bus->>PSH: HandleAsync → announce arrival + SendRoomDescriptionAsync
+    loop main I/O loop (PlayerEntityId != 0)
         Client->>Sess: input line
-        Sess->>Sess: dispatch command (Flow 3)
+        Sess->>Sess: DispatchAsync (Flow 3)
     end
     Client--xSess: disconnect
     Sess->>SM: Unregister
     Sess->>Bus: Publish(PlayerDisconnectedEvent)
+    Bus->>PSH: HandleAsync → RecordLogout + RemoveComponent<PlayerComponent> + departure broadcast
+    Bus->>PH: HandleAsync → MarkIfPersistent(CharacterEntityId)
 ```
 
 **Steps.**
 
-1. `TelnetServer` (a `BackgroundService`) accepts the TCP client and spawns a fire-and-forget per-session `TelnetSession` task.
-2. `TelnetSession` writes the login prompt and reads the response.
-3. `TelnetSession` allocates a player entity via `EntityService.CreateEntity()`, attaches `PlayerComponent { DisplayName, Session }` and `LocationComponent { RoomEntityId = WorldConfiguration.StartingRoomEntityId }`.
-4. `SessionManager.Register(session)` makes the session visible to `BroadcastSystem` and other consumers.
-5. `TelnetSession` publishes `PlayerConnectedEvent`. `PlayerSessionHandler` runs at `HandlerPriority.Domain` to perform arrival announcements and any other domain-side hookup.
-6. The session enters its main I/O loop. Each input line is forwarded to `CommandDispatcher.DispatchAsync` (see Flow 3).
-7. On disconnect, `SessionManager.Unregister` removes the session; `PlayerDisconnectedEvent` is published. The player entity is **not** destroyed in this slice — disposition of the entity on disconnect is a slice 5 (account/character creation) concern.
+1. `TelnetServer` (a `BackgroundService`) accepts the TCP client and spawns a fire-and-forget per-session `TelnetSession` task. `PlayerEntityId` is 0 until login completes — the `CommandDispatcher` guard `if (session.PlayerEntityId == 0) return;` prevents commands from being dispatched during login.
+2. `TelnetSession` delegates immediately to `LoginFlow.RunAsync`. The login flow drives the full interactive state machine (banner, registration or authentication, character selection or creation) and returns a `LoginResult` — or `null` if the client disconnects or exceeds the login attempt limit. See [Flow 7](#flow-7--login--character-flow) for detail.
+3. On a valid `LoginResult`: `TelnetSession` sets `PlayerEntityId = result.CharacterEntityId`, attaches the transient `PlayerComponent { DisplayName, Session }`, calls `SessionManager.Register(session)`, and publishes `PlayerConnectedEvent(PlayerEntityId, CharacterName, AccountEntityId)`.
+4. `PlayerSessionHandler` (priority `HandlerPriority.Domain`) handles `PlayerConnectedEvent`: broadcasts the arrival message to the room and calls `BroadcastSystem.SendRoomDescriptionAsync` for the connecting player.
+5. The session enters its main I/O loop. Each input line is forwarded to `CommandDispatcher.DispatchAsync` (see Flow 3).
+6. On disconnect, `SessionManager.Unregister` removes the session, then `PlayerDisconnectedEvent` is published. `PlayerSessionHandler` calls `IAccountSystem.RecordLogout` (updates `CharacterComponent.LastLoginUtc`), removes `PlayerComponent` via `EntityService.RemoveComponent<PlayerComponent>`, and broadcasts the departure. `PersistenceHandler` calls `MarkIfPersistent(CharacterEntityId)` so the character's last-login time is flushed on the next cycle.
 
 **Cross-references.**
-- [`Server/Sessions/TelnetServer.cs`](../../Server/Sessions/TelnetServer.cs), [`Server/Sessions/TelnetSession.cs`](../../Server/Sessions/TelnetSession.cs)
+- [`Server/Sessions/TelnetServer.cs`](../../Server/Sessions/TelnetServer.cs), [`Server/Sessions/TelnetSession.cs`](../../Server/Sessions/TelnetSession.cs), [`Server/Sessions/LoginFlow.cs`](../../Server/Sessions/LoginFlow.cs)
 - [`docs/reference/handlers.md`](../reference/handlers.md) — `PlayerSessionHandler`
+- [Flow 7](#flow-7--login--character-flow) — full login state machine
+- [`docs/use-cases/account-character-creation.md`](../use-cases/account-character-creation.md) — slice 5 spec
 
 ---
 
@@ -249,6 +259,8 @@ sequenceDiagram
 6. On success the entity id is removed from the dirty set. On serialization or I/O failure, the entity is logged at `LogError` level and stays in the dirty set for the next flush.
 7. `PersistenceSystem` publishes no events. Lifecycle events (`EntityPersistedEvent`) are the orchestrator's responsibility — see [`completed/slice-1-persistence-substrate.md`](../roadmap/completed/slice-1-persistence-substrate.md) for the rationale.
 
+**New `[Persistent]` types added in slice 5:** `AccountComponent` (account entity), `CharacterComponent` (character entity), `LocationComponent` (promoted from transient). All three participate in the flush cycle from slice 5 onward.
+
 **Cross-references.**
 - [`Core/Systems/PersistenceSystem.cs`](../../Core/Systems/PersistenceSystem.cs), [`Server/PersistenceFlushTimer.cs`](../../Server/PersistenceFlushTimer.cs), [`Server/PersistenceBootstrap.cs`](../../Server/PersistenceBootstrap.cs)
 - [`docs/use-cases/persistence-substrate.md`](../use-cases/persistence-substrate.md)
@@ -357,6 +369,85 @@ sequenceDiagram
 - [`Core/Systems/BroadcastSystem.cs`](../../Core/Systems/BroadcastSystem.cs)
 - [`docs/architecture/07-output.md`](07-output.md) — full output framework design
 - [`docs/use-cases/output-framework.md`](../use-cases/output-framework.md) — slice 4 spec
+
+---
+
+## Flow 7 — Login / character flow
+
+**Summary.** The `LoginFlow` Initiator (session-layer, `Server/Sessions/LoginFlow.cs`) drives the multi-step interactive wizard that runs between TCP accept and the main I/O loop. It handles account registration or authentication, then character selection or creation. Domain work (entity allocation, hashing, persistence marking) is delegated to `IAccountSystem`. Events are published by the flow itself (Initiator tier) after each successful state transition.
+
+**Trigger.** `TelnetSession.RunAsync` after TCP accept (see [Flow 2](#flow-2--player-connection) step 2).
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant LF as LoginFlow
+    participant OW as IOutputWriter
+    participant AccSys as IAccountSystem
+    participant Bus as IEventBus
+
+    LF->>OW: banner + "new account?" prompt
+    Client->>LF: yes/no
+    alt new account (registration path)
+        LF->>OW: "Username:"
+        Client->>LF: username (validated: 3–20, alphanumeric+_)
+        LF->>AccSys: UsernameExists → reject if taken
+        LF->>OW: "Choose a password:" + confirm
+        Client->>LF: password (≥6 chars, must match confirm)
+        LF->>AccSys: CreateAccountAsync → AccountEntityId
+        LF->>Bus: Publish(AccountCreatedEvent)
+        LF->>LF: → character creation path
+    else returning account (auth path, up to 3 attempts)
+        LF->>OW: "Username:" + "Password:"
+        Client->>LF: credentials
+        LF->>AccSys: AuthenticateAsync → AuthResult
+        alt success
+            LF->>LF: → character selection path
+        else fail
+            LF->>OW: "Invalid credentials. N attempt(s) remaining."
+        end
+    end
+    alt character selection
+        LF->>AccSys: GetCharacterList(accountId)
+        alt has characters
+            LF->>OW: numbered roster + "new" option
+            Client->>LF: number or "new"
+            alt pick existing
+                LF-->>LF: return LoginResult
+            else new
+                LF->>LF: → character creation path
+            end
+        else no characters
+            LF->>LF: → character creation path
+        end
+    end
+    alt character creation
+        LF->>OW: "Enter a name for your character:"
+        Client->>LF: name (2–16 letters, unique)
+        LF->>AccSys: CharacterNameExists → reject if taken
+        LF->>AccSys: CreateCharacterAsync → CharacterEntityId
+        Note over AccSys: creates entity, attaches CharacterComponent + LocationComponent
+        LF->>Bus: Publish(CharacterCreatedEvent)
+        LF-->>LF: return LoginResult
+    end
+```
+
+**Steps.**
+
+1. `LoginFlow` is constructed by `TelnetSession` with the raw `StreamReader` (so it can read lines before the session is registered) and `IOutputWriterFactory` (so prompts are rendered through the formatter pipeline).
+2. **Banner.** The flow writes `"Welcome to Hedron.\nDo you have an existing account? (yes/no)"` via `IOutputWriter`. Any yes/y/login answer → auth path; anything else → registration.
+3. **Registration path.** Prompts for username; validates 3–20 chars, alphanumeric + underscore; calls `UsernameExists` and rejects if taken. Prompts for password (≥6 chars) with confirmation. Calls `IAccountSystem.CreateAccountAsync` → allocates an entity, attaches `AccountComponent`, marks dirty. Publishes `AccountCreatedEvent`. Falls through to character creation.
+4. **Auth path.** Up to `MaxLoginAttempts` (3) rounds of username + password. Calls `IAccountSystem.AuthenticateAsync` (PBKDF2-SHA256 verify via `IPasswordHasher`). On success → character selection. On exhaustion → writes rejection and returns `null` (session task exits).
+5. **Character selection.** Calls `GetCharacterList(accountId)`. If the list is empty, falls through to character creation. Otherwise renders a numbered roster + "new" option. Validates input; enforces `Account:MaxCharactersPerAccount` (default 5). Picking a number returns `LoginResult(CharacterEntityId, AccountEntityId, CharacterName)` immediately.
+6. **Character creation.** Prompts for a name; validates 2–16 letters only, globally unique via `CharacterNameExists`. Calls `IAccountSystem.CreateCharacterAsync` → allocates an entity, attaches `CharacterComponent { AccountEntityId, CharacterName, CreatedAtUtc }` and `LocationComponent { RoomEntityId = WorldConfiguration.StartingRoomEntityId }`, appends id to `AccountComponent.CharacterEntityIds`, marks both entities dirty. Publishes `CharacterCreatedEvent`. Returns `LoginResult`.
+7. A `null` return from `LoginFlow.RunAsync` (disconnect, exceeded attempts) causes `TelnetSession` to exit without entering the I/O loop. `HandleDisconnectAsync` is still called but skips publishing because `PlayerEntityId == 0`.
+
+**Cross-references.**
+- [`Server/Sessions/LoginFlow.cs`](../../Server/Sessions/LoginFlow.cs), [`Server/Sessions/TelnetSession.cs`](../../Server/Sessions/TelnetSession.cs)
+- [`Core/Modules/Account/Systems/AccountSystem.cs`](../../Core/Modules/Account/Systems/AccountSystem.cs)
+- [`Core/Modules/Account/Systems/IAccountSystem.cs`](../../Core/Modules/Account/Systems/IAccountSystem.cs)
+- [`docs/reference/systems.md`](../reference/systems.md) — `AccountSystem`, `PasswordHasher`
+- [`docs/use-cases/account-character-creation.md`](../use-cases/account-character-creation.md) — slice 5 spec
 
 ---
 

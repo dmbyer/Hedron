@@ -5,6 +5,9 @@ using Hedron.Core.Commands.Events;
 using Hedron.Core.ECS;
 using Hedron.Core.Events;
 using Hedron.Core.Handlers;
+using Hedron.Core.Modules.Account;
+using Hedron.Core.Modules.Account.Events;
+using Hedron.Core.Modules.Account.Handlers;
 using Hedron.Core.Modules.Admin;
 using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Admin.Handlers;
@@ -86,7 +89,8 @@ public static class Program
                         sp.GetRequiredService<IEventBus>()));
                 }
 
-                // Modules — World, Admin (registers IAuthorizationChecker), Help
+                // Modules — Account, World, Admin (registers IAuthorizationChecker), Help
+                services.AddAccountModule();
                 services.AddPersistenceModule();
                 services.AddWorldModule();
                 services.AddAdminModule();
@@ -117,6 +121,12 @@ public static class Program
         var persistenceHandler = host.Services.GetRequiredService<PersistenceHandler>();
         bus.Subscribe<EntitySpawnedByAdminEvent>(persistenceHandler);
         bus.Subscribe<RoomExitAuthoredByAdminEvent>(persistenceHandler);
+        bus.Subscribe<AccountCreatedEvent>(persistenceHandler);
+        bus.Subscribe<CharacterCreatedEvent>(persistenceHandler);
+        bus.Subscribe<PlayerDisconnectedEvent>(persistenceHandler);
+
+        var characterHydration = host.Services.GetRequiredService<CharacterHydrationHandler>();
+        bus.Subscribe<WorldContentReadyEvent>(characterHydration);
 
         var commandLogging = host.Services.GetRequiredService<CommandLoggingHandler>();
         bus.Subscribe<CommandExecutedEvent>(commandLogging);

@@ -4,9 +4,11 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Hedron.Core.Commands;
-using Hedron.Core.ECS;
 using Hedron.Core.Events;
+using Hedron.Core.Modules.Account.Systems;
+using Hedron.Core.Output;
 using Hedron.Core.Sessions;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -16,9 +18,11 @@ namespace Hedron.Server.Sessions
     internal sealed class TelnetServer : BackgroundService
     {
         private readonly ICommandDispatcher _dispatcher;
-        private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
         private readonly ISessionManager _sessionManager;
+        private readonly IAccountSystem _accountSystem;
+        private readonly IOutputWriterFactory _outputWriterFactory;
+        private readonly IConfiguration _configuration;
         private readonly ILogger<TelnetServer> _logger;
         private readonly bool _defaultColor;
 
@@ -26,16 +30,20 @@ namespace Hedron.Server.Sessions
 
         public TelnetServer(
             ICommandDispatcher dispatcher,
-            EntityService entityService,
             IEventBus eventBus,
             ISessionManager sessionManager,
+            IAccountSystem accountSystem,
+            IOutputWriterFactory outputWriterFactory,
+            IConfiguration configuration,
             ILogger<TelnetServer> logger,
             IOptions<OutputConfiguration> outputConfig)
         {
             _dispatcher = dispatcher;
-            _entityService = entityService;
             _eventBus = eventBus;
             _sessionManager = sessionManager;
+            _accountSystem = accountSystem;
+            _outputWriterFactory = outputWriterFactory;
+            _configuration = configuration;
             _logger = logger;
             _defaultColor = outputConfig.Value.DefaultColor;
         }
@@ -65,7 +73,8 @@ namespace Hedron.Server.Sessions
         private async Task HandleClientAsync(TcpClient client, CancellationToken stoppingToken)
         {
             await using var session = new TelnetSession(
-                client, _dispatcher, _entityService, _eventBus, _sessionManager, _defaultColor);
+                client, _dispatcher, _eventBus, _sessionManager,
+                _accountSystem, _outputWriterFactory, _configuration, _defaultColor);
             await session.RunAsync(stoppingToken).ConfigureAwait(false);
         }
     }

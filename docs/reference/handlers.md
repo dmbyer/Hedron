@@ -16,9 +16,11 @@ Ask:
 ## Handler inventory
 
 ### PlayerSessionHandler
-**Events:** `PlayerLoginEvent`, `PlayerLogoutEvent`, `CharacterCreatedEvent`, `CharacterDeletedEvent`
-**Responsibilities:** initialize state on login; spawn at appropriate location; announce arrivals/departures; clean up on logout; set up new-character attributes/inventory.
-**Uses:** `ILocationSystem`, `INotificationSystem`, `IInventorySystem`
+**Events:** `PlayerConnectedEvent`, `PlayerDisconnectedEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** On connect: attaches transient `PlayerComponent` (DisplayName, Session) and broadcasts arrival to the room; sends `SendRoomDescriptionAsync` to the connecting player. On disconnect: calls `IAccountSystem.RecordLogout`, removes `PlayerComponent` via `EntityService.RemoveComponent<T>`, broadcasts departure. The character entity is **not** destroyed on disconnect.
+**Location:** `Core/Modules/Session/Handlers/PlayerSessionHandler.cs`
+**Uses:** `EntityService`, `ISessionManager`, `IBroadcastSystem`, `IAccountSystem`
 
 ### PlayerConditionHandler
 **Events:** `PlayerDeathEvent`, `PlayerReviveEvent`, `PlayerRestStartedEvent`, `PlayerRestCompletedEvent`, `PlayerUnconsciousEvent`
@@ -77,8 +79,15 @@ Ask:
 **Uses:** `IVisibilitySystem`, `ILocationSystem`, `INotificationSystem`
 > Usually a *secondary* handler alongside the primary domain handler. Focuses on "who sees what".
 
+### CharacterHydrationHandler
+**Events:** `WorldContentReadyEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** After world content is fully loaded, iterates every entity that has both `CharacterComponent` and `LocationComponent`. Validates `LocationComponent.RoomEntityId` via `HasComponent<RoomComponent>`; if the room no longer exists (deleted YAML), resets to `WorldConfiguration.StartingRoomEntityId` and logs a warning. Runs once at startup; no-op if no character entities exist.
+**Location:** `Core/Modules/Account/Handlers/CharacterHydrationHandler.cs`
+**Uses:** `EntityService`, `WorldConfiguration`, `ILogger`
+
 ### PersistenceHandler
-**Events (currently subscribed):** `EntitySpawnedByAdminEvent`, `RoomExitAuthoredByAdminEvent` (Phase 3 slice 2). New slices add their state-change events here.
+**Events (currently subscribed):** `EntitySpawnedByAdminEvent`, `RoomExitAuthoredByAdminEvent` (Phase 3 slice 2); `AccountCreatedEvent`, `CharacterCreatedEvent`, `PlayerDisconnectedEvent` (Phase 3 slice 5). New slices add their state-change events here.
 **Priority:** 90 (`HandlerPriority.Persistence`).
 **Responsibilities:** mark entities dirty when an event mutates `[Persistent]` data; the system flushes on its own timer. Cross-cutting handler — lives at `Core/Handlers/` and may subscribe to events from any module.
 **Uses:** `IPersistenceSystem`, `IComponentTypeRegistry`, `EntityService`

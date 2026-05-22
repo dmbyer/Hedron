@@ -81,6 +81,7 @@ namespace Hedron.Core.Commands
         {
             if (session is null) throw new ArgumentNullException(nameof(session));
             if (string.IsNullOrWhiteSpace(input)) return;
+            if (session.PlayerEntityId == 0) return;
 
             var output = _outputWriterFactory.Create(session);
             var trimmed = input.Trim();
