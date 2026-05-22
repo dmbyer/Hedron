@@ -3,6 +3,7 @@ using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Session.Events;
+using Hedron.Core.Output;
 using Hedron.Core.Sessions;
 using Hedron.Core.Systems;
 
@@ -57,8 +58,8 @@ namespace Hedron.Core.Modules.Session.Handlers
 
             await _broadcast.SendToRoomAsync(
                 _worldConfig.StartingRoomEntityId,
-                $"{@event.Name} has entered the world.",
-                excludeEntityId: @event.PlayerEntityId).ConfigureAwait(false);
+                new PlainMessage($"{@event.Name} has entered the world.", OutputSeverity.System),
+                entityId => entityId != @event.PlayerEntityId).ConfigureAwait(false);
 
             await _broadcast.SendRoomDescriptionAsync(
                 @event.PlayerEntityId,
@@ -79,7 +80,8 @@ namespace Hedron.Core.Modules.Session.Handlers
 
             await _broadcast.SendToRoomAsync(
                 location.RoomEntityId,
-                $"{name} has left the world.").ConfigureAwait(false);
+                new PlainMessage($"{name} has left the world.", OutputSeverity.System))
+                .ConfigureAwait(false);
 
             _entityService.DestroyEntity(@event.PlayerEntityId);
         }

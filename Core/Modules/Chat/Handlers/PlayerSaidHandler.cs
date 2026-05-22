@@ -3,6 +3,7 @@ using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Chat.Events;
+using Hedron.Core.Output;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Chat.Handlers
@@ -31,7 +32,8 @@ namespace Hedron.Core.Modules.Chat.Handlers
 
             await _broadcast.SendToRoomAsync(
                 location.RoomEntityId,
-                $"{playerName} says: {@event.Message}").ConfigureAwait(false);
+                new PlainMessage($"{playerName} says: {@event.Message}", OutputSeverity.Chat))
+                .ConfigureAwait(false);
         }
     }
 }

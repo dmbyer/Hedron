@@ -49,7 +49,7 @@ namespace Hedron.Core.Modules.Movement.Commands
             if (!result.Success)
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage(result.ErrorMessage ?? "You cannot go that way.", OutputSeverity.System))
+                    new MovementMessage(MovementDirectionKind.Blocked, _direction, "You"))
                     .ConfigureAwait(false);
                 return;
             }

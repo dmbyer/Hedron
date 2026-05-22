@@ -9,6 +9,7 @@ using Hedron.Core.Events;
 using Hedron.Core.Sessions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Hedron.Server.Sessions
 {
@@ -19,6 +20,7 @@ namespace Hedron.Server.Sessions
         private readonly IEventBus _eventBus;
         private readonly ISessionManager _sessionManager;
         private readonly ILogger<TelnetServer> _logger;
+        private readonly bool _defaultColor;
 
         private const int Port = 4000;
 
@@ -27,13 +29,15 @@ namespace Hedron.Server.Sessions
             EntityService entityService,
             IEventBus eventBus,
             ISessionManager sessionManager,
-            ILogger<TelnetServer> logger)
+            ILogger<TelnetServer> logger,
+            IOptions<OutputConfiguration> outputConfig)
         {
             _dispatcher = dispatcher;
             _entityService = entityService;
             _eventBus = eventBus;
             _sessionManager = sessionManager;
             _logger = logger;
+            _defaultColor = outputConfig.Value.DefaultColor;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -61,7 +65,7 @@ namespace Hedron.Server.Sessions
         private async Task HandleClientAsync(TcpClient client, CancellationToken stoppingToken)
         {
             await using var session = new TelnetSession(
-                client, _dispatcher, _entityService, _eventBus, _sessionManager);
+                client, _dispatcher, _entityService, _eventBus, _sessionManager, _defaultColor);
             await session.RunAsync(stoppingToken).ConfigureAwait(false);
         }
     }
