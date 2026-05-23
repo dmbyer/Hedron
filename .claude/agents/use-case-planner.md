@@ -29,10 +29,12 @@ You do not write the C# code — that's for the user or the implement-use-case s
 
    This audit is what would have caught the slice-2 command-framework miss. The bar for honesty is: if you wrote *any* code that hand-rolls something the architecture hasn't specified, the surface is **gap exposed**.
 
-   **Persistence opt-in audit (mandatory sub-check).** For every component this slice introduces *or touches*, explicitly confirm its `[Persistent]` status:
-   - Does it hold world or character state that must survive a server restart? → must be `[Persistent]`.
-   - Is it transient (session reference, cached value, frame-only flag)? → must omit `[Persistent]`, with a one-sentence rationale.
-   - Existing components that were previously untagged are not exempt — if this slice reads or writes a component that lacks `[Persistent]` and that omission would cause data loss, surface it as a **Gap exposed** finding, not a silent assumption. Close it in this slice or create an explicit backlog entry.
+   **Persistence opt-in audit (mandatory sub-check).** Hedron uses a two-level persistence model (see [docs/architecture/08-persistence.md](../../docs/architecture/08-persistence.md)):
+   - **Level 1 — entity opt-in:** for every construction path this slice introduces or modifies, confirm whether `PersistentEntity` is added to the entity. If the entity must survive a restart, `PersistentEntity` must be attached at construction time. If some instances persist and others don't (e.g. authored vs. generated), the construction paths must diverge at that point — not at the component-type level.
+   - **Level 2 — component inclusion:** for every component this slice introduces *or touches*, explicitly confirm its `[Persistent]` status:
+     - Does it hold world or character state that must survive a server restart? → must be `[Persistent]`.
+     - Is it transient (session reference, cached value, frame-only flag)? → must omit `[Persistent]`, with a one-sentence rationale.
+     - Existing components that were previously untagged are not exempt — if this slice reads or writes a component that lacks `[Persistent]` and that omission would cause data loss, surface it as a **Gap exposed** finding, not a silent assumption. Close it in this slice or create an explicit backlog entry.
 8. **Flows audit (required).** List every canonical flow in `06-flows.md` this slice introduces, replaces, or extends. The implementation slice's PR must update `06-flows.md` to match — the architecture-reviewer agent will block on drift. If the slice introduces a recurring flow that doesn't yet have a canonical entry, add a `06-flows.md` flow specification to the slice scope.
 9. **Produce the implementation plan** as a checklist grouped by layer:
    - **New components** (with shape) — mark reused ones

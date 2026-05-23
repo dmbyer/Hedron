@@ -38,7 +38,6 @@ Priorities are coarse buckets (10/20/50/80/90/95). See [docs/architecture/03-eve
 
 - **Lower priority = runs earlier.**
 - State-mutating handlers (combat state changes, inventory moves) should run before notification handlers.
-- Persistence typically runs last so it captures final state.
 
 If you find yourself reaching for a fine-grained priority (like 37), it's a sign you should split into a phased event instead.
 
@@ -49,6 +48,17 @@ If you find yourself reaching for a fine-grained priority (like 37), it's a sign
 3. Inject only the systems you actually need.
 4. Update [docs/reference/handlers.md](../../../docs/reference/handlers.md) with a one-line row for the new handler.
 5. If this handler is the orchestrator for a use case, update the use-case file's "Systems / handlers" section.
+
+## Persistence from a handler
+
+Two patterns — choose based on the nature of the mutation:
+
+- **Save-on-change (infrequent, deliberate mutations):** call `await _persistence.SaveEntityAsync(entityId, ct)` directly in the handler after the domain system returns. Use this when the event represents an authored-content change or a lifecycle transition (disconnect, room edit, item dropped). Immediate durability is the goal.
+- **Periodic flush (gradual runtime state):** do nothing in the handler. The `PersistenceFlushTimer` sweeps active player areas on each cycle. Use this for state that changes frequently and tolerates a flush-interval durability window.
+
+There is no `PersistenceHandler` class — it was removed as part of the two-level persistence redesign. Do not create a new one or add a blanket "mark dirty on event X" subscription pattern.
+
+See [docs/architecture/08-persistence.md](../../../docs/architecture/08-persistence.md) for the full model.
 
 ## Don't
 
