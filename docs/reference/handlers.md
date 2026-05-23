@@ -18,9 +18,9 @@ Ask:
 ### PlayerSessionHandler
 **Events:** `PlayerConnectedEvent`, `PlayerDisconnectedEvent`
 **Priority:** 20 (`HandlerPriority.Domain`)
-**Responsibilities:** On connect: attaches transient `PlayerComponent` (DisplayName, Session) and broadcasts arrival to the room; sends `SendRoomDescriptionAsync` to the connecting player. On disconnect: calls `IAccountSystem.RecordLogout`, removes `PlayerComponent` via `EntityService.RemoveComponent<T>`, broadcasts departure. The character entity is **not** destroyed on disconnect.
+**Responsibilities:** On connect: attaches transient `PlayerComponent` (DisplayName, Session) and broadcasts arrival to the room; sends `SendRoomDescriptionAsync` to the connecting player. On disconnect: calls `IAccountSystem.RecordLogout`, then immediately calls `IPersistenceSystem.SaveEntityAsync(characterEntityId)` so the logout timestamp is durable, removes `PlayerComponent` via `EntityService.RemoveComponent<T>`, broadcasts departure. The character entity is **not** destroyed on disconnect.
 **Location:** `Core/Modules/Session/Handlers/PlayerSessionHandler.cs`
-**Uses:** `EntityService`, `ISessionManager`, `IBroadcastSystem`, `IAccountSystem`
+**Uses:** `EntityService`, `ISessionManager`, `IBroadcastSystem`, `IAccountSystem`, `IPersistenceSystem`
 
 ### PlayerConditionHandler
 **Events:** `PlayerDeathEvent`, `PlayerReviveEvent`, `PlayerRestStartedEvent`, `PlayerRestCompletedEvent`, `PlayerUnconsciousEvent`
@@ -82,20 +82,13 @@ Ask:
 ### CharacterHydrationHandler
 **Events:** `WorldContentReadyEvent`
 **Priority:** 20 (`HandlerPriority.Domain`)
-**Responsibilities:** After world content is fully loaded, iterates every entity that has both `CharacterComponent` and `LocationComponent`. Validates `LocationComponent.RoomEntityId` via `HasComponent<RoomComponent>`; if the room no longer exists (deleted YAML), resets to `WorldConfiguration.StartingRoomEntityId` and logs a warning. Runs once at startup; no-op if no character entities exist.
+**Responsibilities:** After world content is fully loaded, iterates every entity that has both `CharacterComponent` and `LocationComponent`. Validates `LocationComponent.RoomEntityId` via `HasComponent<RoomComponent>`; if the room no longer exists (deleted YAML), resets to `WorldConfiguration.StartingRoomEntityId`, logs a warning, and calls `IPersistenceSystem.SaveEntityAsync` immediately so the correction is durable without waiting for the next flush cycle. Runs once at startup; no-op if no character entities exist.
 **Location:** `Core/Modules/Account/Handlers/CharacterHydrationHandler.cs`
-**Uses:** `EntityService`, `WorldConfiguration`, `ILogger`
-
-### PersistenceHandler
-**Events (currently subscribed):** `EntitySpawnedByAdminEvent`, `RoomExitAuthoredByAdminEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a); `AccountCreatedEvent`, `CharacterCreatedEvent`, `PlayerDisconnectedEvent` (Phase 3 slice 5). New slices add their state-change events here.
-**Priority:** 90 (`HandlerPriority.Persistence`).
-**Responsibilities:** mark entities dirty when an event mutates `[Persistent]` data; the system flushes on its own timer. Cross-cutting handler — lives at `Core/Handlers/` and may subscribe to events from any module.
-**Uses:** `IPersistenceSystem`, `IComponentTypeRegistry`, `EntityService`
-> Persistence is event-driven dirty-tracking — handlers never call persistence directly.
+**Uses:** `EntityService`, `WorldConfiguration`, `IPersistenceSystem`, `ILogger`
 
 ### AdminAuditHandler
 **Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a).
-**Priority:** 80 (`HandlerPriority.Notification`) — runs after gameplay handlers, before persistence dirty-marking.
+**Priority:** 80 (`HandlerPriority.Notification`)
 **Responsibilities:** writes one structured-log entry per admin action via `ILogger<AdminAuditHandler>`. Uses a stable structured event name (`AdminCommandExecuted`) so log scrapers can filter without parsing free text. No dedicated audit-file sink in this slice.
 **Location:** `Core/Modules/Admin/Handlers/AdminAuditHandler.cs`
 **Uses:** `EntityService` (display-name resolution), `ILogger<AdminAuditHandler>`
@@ -122,7 +115,6 @@ Core/Modules/<Feature>/Handlers/   # feature-owned handlers
   Magic/Handlers/SpellHandler.cs
 
 Core/Handlers/                     # cross-cutting handlers
-  PersistenceHandler.cs
   CommandLoggingHandler.cs
 ```
 
@@ -139,7 +131,8 @@ When several handlers subscribe to the same event, each must have a clearly dist
 | `CombatHandler` | Remove from combat | 10 |
 | `PlayerConditionHandler` | Apply death penalty, trigger respawn | 20 |
 | `NotificationHandler` | Inform witnesses | 80 |
-| `PersistenceHandler` | Save state | 90 |
 | `AIHandler` | Update NPC threat tables | 95 |
+
+> Persistence for `PlayerDeathEvent` is handled by the save-on-change model: the handler that applies the state mutation calls `IPersistenceSystem.SaveEntityAsync` directly after the mutation, rather than routing through a cross-cutting `PersistenceHandler` subscription.
 
 If handlers start needing to coordinate, see [../architecture/04-pitfalls.md#handler-ordering-issues](../architecture/04-pitfalls.md#handler-ordering-issues).

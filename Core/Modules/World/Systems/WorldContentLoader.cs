@@ -149,7 +149,8 @@ namespace Hedron.Core.Modules.World.Systems
                 Description = "A featureless grey expanse. No content has been authored yet — use @dig to start building.",
             };
             _templateRegistry.Register(VoidRoomBlueprintId, voidTemplate);
-            _templateRegistry.Spawn(VoidRoomBlueprintId);
+            var spawned = _templateRegistry.Spawn(VoidRoomBlueprintId);
+            _entityService.AddComponent(spawned.Id, new PersistentEntity());
         }
 
         private void SpawnMissingEntities(Dictionary<string, uint> liveBlueprints)
@@ -159,6 +160,7 @@ namespace Hedron.Core.Modules.World.Systems
                 if (liveBlueprints.ContainsKey(blueprintId))
                     continue;
                 var spawned = _templateRegistry.Spawn(blueprintId);
+                _entityService.AddComponent(spawned.Id, new PersistentEntity());
                 liveBlueprints[blueprintId] = spawned.Id;
             }
         }

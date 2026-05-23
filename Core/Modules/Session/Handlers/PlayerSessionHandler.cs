@@ -15,8 +15,9 @@ namespace Hedron.Core.Modules.Session.Handlers
     /// On connect: the character entity already has <c>CharacterComponent</c> and
     /// <c>LocationComponent</c> set by the login flow — this handler attaches the transient
     /// <c>PlayerComponent</c> and broadcasts the arrival.
-    /// On disconnect: calls <c>IAccountSystem.RecordLogout</c>, detaches <c>PlayerComponent</c>,
-    /// and broadcasts the departure. The character entity is <b>not</b> destroyed.
+    /// On disconnect: calls <c>IAccountSystem.RecordLogout</c>, immediately saves the character
+    /// entity so the logout timestamp is durable, detaches <c>PlayerComponent</c>, and
+    /// broadcasts the departure. The character entity is <b>not</b> destroyed.
     /// </summary>
     public class PlayerSessionHandler :
         IEventHandler<PlayerConnectedEvent>,
@@ -26,6 +27,7 @@ namespace Hedron.Core.Modules.Session.Handlers
         private readonly ISessionManager _sessionManager;
         private readonly IBroadcastSystem _broadcast;
         private readonly IAccountSystem _accountSystem;
+        private readonly IPersistenceSystem _persistence;
 
         public int Priority => HandlerPriority.Domain;
 
@@ -33,12 +35,14 @@ namespace Hedron.Core.Modules.Session.Handlers
             EntityService entityService,
             ISessionManager sessionManager,
             IBroadcastSystem broadcast,
-            IAccountSystem accountSystem)
+            IAccountSystem accountSystem,
+            IPersistenceSystem persistence)
         {
             _entityService = entityService;
             _sessionManager = sessionManager;
             _broadcast = broadcast;
             _accountSystem = accountSystem;
+            _persistence = persistence;
         }
 
         Task IEventHandler<PlayerConnectedEvent>.HandleAsync(PlayerConnectedEvent @event) =>
@@ -78,6 +82,7 @@ namespace Hedron.Core.Modules.Session.Handlers
         private async Task HandleDisconnectedAsync(PlayerDisconnectedEvent @event)
         {
             _accountSystem.RecordLogout(@event.PlayerEntityId);
+            await _persistence.SaveEntityAsync(@event.PlayerEntityId).ConfigureAwait(false);
 
             var name = @event.Name;
             uint? roomId = null;

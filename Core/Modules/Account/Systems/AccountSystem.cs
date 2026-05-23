@@ -14,11 +14,15 @@ namespace Hedron.Core.Modules.Account.Systems
     /// in-memory index of usernames and character names to avoid full ECS scans on every
     /// registration attempt. Index is populated on first access and updated in-call on writes.
     /// </summary>
+    /// <remarks>
+    /// This system creates entities and attaches components but does not call persistence.
+    /// Persistence is the responsibility of the Initiator (<c>LoginFlow</c>) after each
+    /// domain method returns (INV-5: domain systems do not touch the event bus or persistence).
+    /// </remarks>
     public sealed class AccountSystem : IAccountSystem
     {
         private readonly EntityService _entityService;
         private readonly IPasswordHasher _passwordHasher;
-        private readonly IPersistenceSystem _persistence;
         private readonly WorldConfiguration _worldConfig;
 
         private HashSet<string>? _usernameIndex;
@@ -27,12 +31,10 @@ namespace Hedron.Core.Modules.Account.Systems
         public AccountSystem(
             EntityService entityService,
             IPasswordHasher passwordHasher,
-            IPersistenceSystem persistence,
             WorldConfiguration worldConfig)
         {
             _entityService = entityService;
             _passwordHasher = passwordHasher;
-            _persistence = persistence;
             _worldConfig = worldConfig;
         }
 
@@ -52,8 +54,8 @@ namespace Hedron.Core.Modules.Account.Systems
                 PasswordHash = _passwordHasher.Hash(password),
                 CreatedAtUtc = DateTime.UtcNow,
             });
+            _entityService.AddComponent(entity.Id, new PersistentEntity());
 
-            _persistence.MarkDirty(entity.Id);
             GetUsernameIndex().Add(normalizedUsername);
             return Task.FromResult(entity.Id);
         }
@@ -86,14 +88,11 @@ namespace Hedron.Core.Modules.Account.Systems
             {
                 RoomEntityId = _worldConfig.StartingRoomEntityId,
             });
+            _entityService.AddComponent(entity.Id, new PersistentEntity());
 
             if (_entityService.TryGet<AccountComponent>(accountEntityId, out var account))
-            {
                 account.CharacterEntityIds.Add(entity.Id);
-                _persistence.MarkDirty(accountEntityId);
-            }
 
-            _persistence.MarkDirty(entity.Id);
             GetCharacterNameIndex().Add(characterName.ToLowerInvariant());
             return Task.FromResult(entity.Id);
         }
@@ -115,10 +114,7 @@ namespace Hedron.Core.Modules.Account.Systems
         public void RecordLogout(uint characterEntityId)
         {
             if (_entityService.TryGet<CharacterComponent>(characterEntityId, out var character))
-            {
                 character.LastLoginUtc = DateTime.UtcNow;
-                _persistence.MarkDirty(characterEntityId);
-            }
         }
 
         private HashSet<string> GetUsernameIndex()

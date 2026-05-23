@@ -173,20 +173,19 @@ public interface IComponentSerializer
 Uses `System.Text.Json` with camelCase policy and `JsonStringEnumConverter`. Implemented (Phase 3 slice 1).
 
 ### PersistenceSystem
-**Purpose:** Save and load `[Persistent]`-tagged components for every dirty entity.
+**Purpose:** Save and load entity state using the two-level model: an entity is written only if it carries `PersistentEntity`; among its components, only those tagged `[Persistent]` are included in the snapshot.
 **Location:** `Core/Systems/PersistenceSystem.cs`
 **Dependencies:** `EntityService`, `IComponentTypeRegistry`, `IComponentSerializer`, `IConfiguration`, `ILogger<PersistenceSystem>`. No `IEventBus` dependency — all event publishing is the caller's responsibility.
 ```csharp
 public interface IPersistenceSystem
 {
-    void MarkDirty(uint entityId);
-    bool IsDirty(uint entityId);
-    Task FlushAsync(CancellationToken ct = default);
     Task SaveEntityAsync(uint entityId, CancellationToken ct = default);
-    Task LoadAllAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<uint>> LoadAllAsync(CancellationToken ct = default);
+    Task FlushActivePlayerFootprintAsync(IEnumerable<uint> occupiedRoomIds, CancellationToken ct = default);
+    Task FlushAllPersistentAsync(CancellationToken ct = default);
 }
 ```
-Entity files: `data/entities/entity-{id}.json`. Atomic write (`.tmp` → rename). Best-effort flush. Implemented (Phase 3 slice 1).
+Entity files: `data/entities/entity-{id}.json`. Atomic write (`.tmp` → rename). `SaveEntityAsync` is the save-on-change path (admin commands, lifecycle transitions). `FlushActivePlayerFootprintAsync` is called by `PersistenceFlushTimer` on each tick — writes all `PersistentEntity`-carrying entities in rooms occupied by at least one player. `FlushAllPersistentAsync` is called by `PersistenceBootstrap.StopAsync` for a full shutdown sweep. Implemented (Phase 3 slices 1, persistence-two-level-model).
 
 ### TemplateRegistry
 **Purpose:** Cross-cutting registry of authored `IEntityTemplate`s. Every content-bearing module (world, mobs, items, shops) registers into the same registry.
@@ -475,12 +474,12 @@ public interface IWorldContentLoader
 public readonly record struct ContentReloadResult(
     int TemplatesLoaded, int TemplatesUnchanged, int TemplatesRemoved);
 ```
-Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Implemented (Phase 3 slice 2).
+Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Every entity spawned from YAML content receives a `PersistentEntity` component so it survives restart. Implemented (Phase 3 slices 2, persistence-two-level-model).
 
 ### AccountSystem
 **Purpose:** Domain system owning all account and character lifecycle operations: registration, authentication, character creation, character list, and logout recording.
 **Location:** `Core/Modules/Account/Systems/AccountSystem.cs`
-**Dependencies:** `EntityService`, `IPersistenceSystem`, `IPasswordHasher`, `WorldConfiguration`.
+**Dependencies:** `EntityService`, `IPasswordHasher`, `WorldConfiguration`.
 ```csharp
 public interface IAccountSystem
 {
@@ -493,7 +492,7 @@ public interface IAccountSystem
     void RecordLogout(uint characterEntityId);
 }
 ```
-Maintains lazy in-memory HashSet indices for username and character name uniqueness (populated on first call, updated on every write). `CreateCharacterAsync` creates the character entity, attaches `CharacterComponent` + `LocationComponent` (set to `StartingRoomEntityId`), and registers the character on the account. Implemented (Phase 3 slice 5).
+Maintains lazy in-memory HashSet indices for username and character name uniqueness (populated on first call, updated on every write). `CreateAccountAsync` attaches `AccountComponent` + `PersistentEntity` and returns the entity id — persistence is the caller's (`LoginFlow`) responsibility (INV-5). `CreateCharacterAsync` attaches `CharacterComponent` + `LocationComponent` (set to `StartingRoomEntityId`) + `PersistentEntity`, registers the character on the account, and returns the entity id — `LoginFlow` saves character-first, then account (crash-safety ordering). `RecordLogout` updates `CharacterComponent.LastLoginUtc`; `PlayerSessionHandler` calls `SaveEntityAsync` after `RecordLogout` returns. Implemented (Phase 3 slices 5, persistence-two-level-model).
 
 ### PasswordHasher
 **Purpose:** PBKDF2-SHA256 password hashing and verification with no external NuGet dependency.
@@ -523,7 +522,7 @@ public interface IRoomBuilderSystem
 
 public readonly record struct RoomCreationResult(uint RoomEntityId, string BlueprintId);
 ```
-`CreateRoom` generates a unique blueprint id (`room.adhoc.<8-char-base36>`), creates the entity, attaches `RoomComponent` + `BlueprintComponent`, and registers a minimal `RoomTemplate`. `LinkExits` updates both `RoomComponent.Exits` and the in-memory `RoomTemplate` exit maps for same-session `reload` consistency. Implemented (Phase 3 slice 5a).
+`CreateRoom` generates a unique blueprint id (`room.adhoc.<8-char-base36>`), creates the entity, attaches `RoomComponent` + `BlueprintComponent` + `PersistentEntity`, and registers a minimal `RoomTemplate`. `LinkExits` updates both `RoomComponent.Exits` and the in-memory `RoomTemplate` exit maps for same-session `reload` consistency. The `DigCommand` initiator calls `SaveEntityAsync` on both rooms after this method returns (INV-5: systems do not call persistence). Implemented (Phase 3 slices 5a, persistence-two-level-model).
 
 ### AdminAuthorizer
 **Purpose:** Policy seam for admin command authorization. Each admin `ICommand.Execute` calls `IsPrivileged` as its first line; non-privileged sessions get a single rejection line and the command body short-circuits.

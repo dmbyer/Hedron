@@ -4,6 +4,8 @@
 **Actors:** Player (new and returning), System
 **Module:** `Core/Modules/Account/`
 
+> **Note — persistence model superseded.** Any references in this doc to `PersistenceHandler`, `MarkDirty`, or the dirty-set flush pattern reflect the slice-5 design and are now historical. The as-built persistence model is the two-level opt-in design described in [`persistence-two-level-model.md`](persistence-two-level-model.md). Read that doc for the current save-on-change and area-scoped flush behaviour.
+
 ---
 
 ## Description

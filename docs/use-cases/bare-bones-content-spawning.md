@@ -4,6 +4,8 @@
 **Actors:** Administrator
 **Module:** `Core/Modules/Admin/` (commands, events, handler extensions); new domain system `Core/Modules/Admin/Systems/RoomBuilderSystem.cs`
 
+> **Note — persistence model superseded.** Any references in this doc to `PersistenceHandler`, `MarkDirty`, or the dirty-set flush pattern reflect the slice-5a design and are now historical. The as-built persistence model is the two-level opt-in design described in [`persistence-two-level-model.md`](persistence-two-level-model.md). `DigCommand` and `SetCommand` now call `SaveEntityAsync` directly rather than relying on `PersistenceHandler` subscriptions.
+
 ---
 
 ## Description

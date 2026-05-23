@@ -1,27 +1,17 @@
+using System.Collections.Generic;
+
 namespace Hedron.Core.Systems
 {
     /// <summary>
     /// Cross-cutting system responsible for saving and loading entity state to/from disk.
+    /// Implements the two-level persistence model: <c>PersistentEntity</c> opts an entity in;
+    /// <c>[Persistent]</c> on a component type controls which components are included in the snapshot.
     /// </summary>
     public interface IPersistenceSystem
     {
         /// <summary>
-        /// Marks an entity as dirty; it will be included in the next <see cref="FlushAsync"/> pass.
-        /// </summary>
-        void MarkDirty(uint entityId);
-
-        /// <summary>Returns <c>true</c> if the entity is currently marked dirty.</summary>
-        bool IsDirty(uint entityId);
-
-        /// <summary>
-        /// Writes all dirty entities to disk. Errors on individual entities are logged and
-        /// skipped (best-effort); a failed entity remains dirty and retries next flush.
-        /// </summary>
-        Task FlushAsync(CancellationToken ct = default);
-
-        /// <summary>
-        /// Forces an immediate flush of a single entity, bypassing the dirty flag.
-        /// Marks the entity clean on success.
+        /// Forces an immediate flush of a single entity to disk.
+        /// No-ops silently if the entity does not carry <c>PersistentEntity</c>.
         /// </summary>
         Task SaveEntityAsync(uint entityId, CancellationToken ct = default);
 
@@ -33,5 +23,19 @@ namespace Hedron.Core.Systems
         /// and <c>WorldLoadedEvent</c> at the appropriate time.
         /// </summary>
         Task<IReadOnlyList<uint>> LoadAllAsync(CancellationToken ct = default);
+
+        /// <summary>
+        /// Writes all <c>PersistentEntity</c>-carrying entities whose <c>LocationComponent</c>
+        /// places them in one of the <paramref name="occupiedRoomIds"/> rooms, plus the player
+        /// entities themselves (which also carry <c>LocationComponent</c>).
+        /// Called by <c>PersistenceFlushTimer</c> on each tick.
+        /// </summary>
+        Task FlushActivePlayerFootprintAsync(IEnumerable<uint> occupiedRoomIds, CancellationToken ct = default);
+
+        /// <summary>
+        /// Writes every entity in the world that carries <c>PersistentEntity</c>.
+        /// Used by <c>PersistenceBootstrap.StopAsync</c> for a complete shutdown sweep.
+        /// </summary>
+        Task FlushAllPersistentAsync(CancellationToken ct = default);
     }
 }
