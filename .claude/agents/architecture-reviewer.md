@@ -42,7 +42,7 @@ A spec-mode review blocks `implement-use-case` until blocking findings are resol
    - `is SomeType` / `as SomeType` on entities where `HasComponent<T>`/`TryGet<T>` is meant → INV-4
    - direct `session.SendLineAsync` in a command body or dispatcher branch after slice 3 → INV-11
 5. **Cross-cutting-surface audit (INV-19).** For each surface in the use-case doc: "Adequate" → spot-check no new file hand-rolled what the surface should absorb; "Gap exposed" → confirm the framework landed here or in a merged prerequisite; "Acknowledged debt" → confirm the backlog entry exists.
-6. **Pattern-repetition sweep (INV-19).** Any hand-rolled pattern in ≥3 new/modified files (arg parsing, privilege checks, output formatting, `[Persistent]` loops) → framework-promotion finding.
+6. **Pattern-repetition sweep (INV-19).** Any hand-rolled pattern in ≥3 new/modified files (arg parsing, privilege checks, output formatting, `PersistentEntity` queries, `[Persistent]` component loops) → framework-promotion finding.
 7. **Flows-doc audit (INV-17).** For each flow in the doc's "Flows introduced or modified," open `06-flows.md` and verify body **and** mermaid match the as-built code.
 8. **Catalog audit (INV-16).** New/changed component, system, handler, event → matching `docs/reference/*.md` updated; use-case status/deviations updated.
 9. **Agent/skill audit (INV-20).** Glob `.claude/skills/*.md` and `.claude/agents/*.md`. For each changed architectural pattern in the diff, check whether any skill or agent file advises that pattern and would become stale or misleading. Flag as a blocking finding with a suggested resolution.

@@ -97,6 +97,26 @@ No `IsPrivileged` call in the body. Privilege is enforced by the dispatcher befo
 
 Admin commands declare `MatchingMode.Full` so they are never accidentally dispatched by a partial prefix — typing `d` reaches `down` (a player command alias), not `dig`.
 
+## Persistence from a command
+
+A command (Initiator) may call `await _persistence.SaveEntityAsync(entityId, ct)` directly — but only under the **no-chain variant (INV-10):** the command makes a closed mutation with no downstream event fan-out needed.
+
+Use this when:
+- The command creates or mutates authored content (e.g. `dig`, `set`) and immediate durability is required.
+- There is no handler that should react to the save — the command is the end of the chain.
+
+Do **not** use this to replace event-driven persistence for runtime state that is covered by the area-scoped periodic flush.
+
+```csharp
+// ✅ admin command creating authored content — save-on-change
+var result = _roomBuilder.CreateRoom(context.InvokerEntityId, direction);
+await _eventBus.PublishAsync(new RoomCreatedByAdminEvent(...));
+await _persistence.SaveEntityAsync(result.NewRoomEntityId, ct);
+await _persistence.SaveEntityAsync(result.SourceRoomEntityId, ct);
+```
+
+See [docs/architecture/08-persistence.md](../../../docs/architecture/08-persistence.md) for when each pattern applies.
+
 ## What NOT to do
 
 - **No `session.SendLineAsync` calls.** Use `context.Output.WriteAsync(new PlainMessage(...))`.

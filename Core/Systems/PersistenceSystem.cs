@@ -84,6 +84,7 @@ namespace Hedron.Core.Systems
 
             EnsureDataDirectory();
 
+            var saved = 0;
             foreach (var entityId in snapshot)
             {
                 ct.ThrowIfCancellationRequested();
@@ -91,6 +92,7 @@ namespace Hedron.Core.Systems
                 {
                     await WriteEntityAsync(entityId, ct);
                     _dirtySet.TryRemove(entityId, out _);
+                    saved++;
                 }
                 catch (Exception ex)
                 {
@@ -100,6 +102,10 @@ namespace Hedron.Core.Systems
                     // Entity stays dirty — best-effort policy.
                 }
             }
+
+            _logger.LogInformation(
+                "PersistenceSystem: flushed {Saved}/{Total} entities.",
+                saved, snapshot.Length);
         }
 
         /// <inheritdoc/>

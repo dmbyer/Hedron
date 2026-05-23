@@ -4,6 +4,7 @@ using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Account.Components;
 using Hedron.Core.Modules.World.Events;
+using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging;
 
 namespace Hedron.Core.Modules.Account.Handlers
@@ -18,6 +19,7 @@ namespace Hedron.Core.Modules.Account.Handlers
     {
         private readonly EntityService _entityService;
         private readonly WorldConfiguration _worldConfig;
+        private readonly IPersistenceSystem _persistence;
         private readonly ILogger<CharacterHydrationHandler> _logger;
 
         public int Priority => HandlerPriority.Domain;
@@ -25,10 +27,12 @@ namespace Hedron.Core.Modules.Account.Handlers
         public CharacterHydrationHandler(
             EntityService entityService,
             WorldConfiguration worldConfig,
+            IPersistenceSystem persistence,
             ILogger<CharacterHydrationHandler> logger)
         {
             _entityService = entityService;
             _worldConfig = worldConfig;
+            _persistence = persistence;
             _logger = logger;
         }
 
@@ -45,6 +49,7 @@ namespace Hedron.Core.Modules.Account.Handlers
                         "Character entity {EntityId} had invalid room {RoomId}; resetting to starting room.",
                         entityId, location.RoomEntityId);
                     location.RoomEntityId = _worldConfig.StartingRoomEntityId;
+                    _persistence.MarkDirty(entityId);
                 }
             }
 

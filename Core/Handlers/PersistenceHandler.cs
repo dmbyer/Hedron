@@ -3,6 +3,7 @@ using Hedron.Core.ECS;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Account.Events;
 using Hedron.Core.Modules.Admin.Events;
+using Hedron.Core.Modules.Movement.Events;
 using Hedron.Core.Modules.Session.Events;
 using Hedron.Core.Systems;
 
@@ -23,6 +24,8 @@ namespace Hedron.Core.Handlers
     ///   <item><see cref="AccountCreatedEvent"/> — slice 5; mark the new account entity dirty</item>
     ///   <item><see cref="CharacterCreatedEvent"/> — slice 5; mark the new character entity dirty</item>
     ///   <item><see cref="PlayerDisconnectedEvent"/> — slice 5; ensure character state is flushed on logout</item>
+    ///   <item><see cref="PlayerMovedEvent"/> — mark character dirty so LocationComponent is saved each flush cycle</item>
+    ///   <item><see cref="PlayerTeleportedByAdminEvent"/> — mark the moved target dirty</item>
     /// </list>
     /// </remarks>
     public sealed class PersistenceHandler :
@@ -32,7 +35,9 @@ namespace Hedron.Core.Handlers
         IEventHandler<RoomPropertySetByAdminEvent>,
         IEventHandler<AccountCreatedEvent>,
         IEventHandler<CharacterCreatedEvent>,
-        IEventHandler<PlayerDisconnectedEvent>
+        IEventHandler<PlayerDisconnectedEvent>,
+        IEventHandler<PlayerMovedEvent>,
+        IEventHandler<PlayerTeleportedByAdminEvent>
     {
         private readonly IPersistenceSystem _persistence;
         private readonly IComponentTypeRegistry _typeRegistry;
@@ -92,6 +97,18 @@ namespace Hedron.Core.Handlers
         public Task HandleAsync(PlayerDisconnectedEvent e)
         {
             MarkIfPersistent(e.PlayerEntityId);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(PlayerMovedEvent e)
+        {
+            _persistence.MarkDirty(e.PlayerEntityId);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(PlayerTeleportedByAdminEvent e)
+        {
+            _persistence.MarkDirty(e.TargetEntityId);
             return Task.CompletedTask;
         }
 
