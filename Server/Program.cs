@@ -128,6 +128,8 @@ public static class Program
         bus.Subscribe<AccountCreatedEvent>(persistenceHandler);
         bus.Subscribe<CharacterCreatedEvent>(persistenceHandler);
         bus.Subscribe<PlayerDisconnectedEvent>(persistenceHandler);
+        bus.Subscribe<PlayerMovedEvent>(persistenceHandler);
+        bus.Subscribe<PlayerTeleportedByAdminEvent>(persistenceHandler);
 
         var characterHydration = host.Services.GetRequiredService<CharacterHydrationHandler>();
         bus.Subscribe<WorldContentReadyEvent>(characterHydration);

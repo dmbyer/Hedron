@@ -37,11 +37,16 @@ Do **not**:
 ## Steps
 
 1. Create the file at the chosen location.
-2. **Decide persistence opt-in.** Explicitly answer: does this component's data need to survive a server restart?
-   - **Yes → add `[Persistent]`** on the class. `PersistenceSystem` will save and restore it automatically.
-   - **No → omit `[Persistent]`** and document why (e.g. transient session reference, frame-only state, derived/recomputed on load).
-   - **Unsure?** Default to `[Persistent]` for any component that holds world or character state a player or designer authored. Default to omitting it for components that hold runtime-only references (`Session`, timers, cached lookups). If the decision is non-obvious, call it out explicitly in the use-case doc's Cross-cutting surfaces section.
-   - **Existing components touched by this work** must have their `[Persistent]` status confirmed as part of this step, not assumed.
+2. **Decide persistence — two separate questions.** See [docs/architecture/08-persistence.md](../../../docs/architecture/08-persistence.md) for the full model.
+
+   **Question A — Should entities of this type survive a restart?**
+   This is controlled by the `PersistentEntity` marker on the *entity*, not by this component. When you define the construction path for the archetype that uses this component, decide there whether to add `PersistentEntity`. If some instances persist and others don't (e.g. authored vs. generated rooms), the construction path diverges at that point — not at the component-type level.
+
+   **Question B — If the owning entity IS saved, should this component's data be included in the snapshot?**
+   - **Yes → add `[Persistent]`** on the class. `PersistenceSystem` includes it when serializing entities that carry `PersistentEntity`.
+   - **No → omit `[Persistent]`** and note why (transient session reference, frame-only state, derived/recomputed on load).
+   - **Unsure?** Default to `[Persistent]` for world or character state a player or designer authored. Default to omitting for runtime-only references (`Session`, timers, cached lookups). Flag non-obvious decisions in the use-case doc's Cross-cutting surfaces section.
+   - **Existing components touched by this work** must have both questions confirmed, not assumed.
 3. Decide the archetype set that requires this component. Update `Core/ECS/ArchetypeRegistry.cs` so the right archetypes include it as required or optional.
 4. If it's a shared component, add a one-line row to [docs/reference/components.md](../../../docs/reference/components.md) with its shape and owner. Include the persistence decision (`[Persistent]` or "transient — reason").
 5. If any existing system will now read/write it, note the dependency in [docs/reference/systems.md](../../../docs/reference/systems.md).

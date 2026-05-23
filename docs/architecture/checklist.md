@@ -46,7 +46,7 @@
 
 **INV-13 — Entity identity is `uint`, wrapped as `Entity(uint Id)` at call sites.** Components store `uint` ids when referencing other entities. Explanation: [02-ecs.md](02-ecs.md).
 
-**INV-14 — Persistence is per-component.** `[Persistent]` marks a component for save; an entity persists iff it has ≥1 `[Persistent]` component. Persistence uses `System.Text.Json`; content authoring uses YAML (`YamlDotNet`). The two serializers do not share code. Explanation: [02-ecs.md](02-ecs.md), [05-configuration.md](05-configuration.md), CLAUDE.md ground rule 7.
+**INV-14 — Persistence is a two-level opt-in.** An entity persists iff it carries the `PersistentEntity` marker component. `[Persistent]` on a component *type* controls which components are included in the snapshot for entities that are already opted in — it does not cause an entity to be saved on its own. Do not use `[Persistent]` to make an entity persistent; add `PersistentEntity` to the entity. Persistence uses `System.Text.Json`; content authoring uses YAML (`YamlDotNet`). The two serializers do not share code. Explanation: [08-persistence.md](08-persistence.md), [02-ecs.md](02-ecs.md), [05-configuration.md](05-configuration.md), CLAUDE.md ground rule 7.
 
 ## E. Idealized-API & documentation discipline
 

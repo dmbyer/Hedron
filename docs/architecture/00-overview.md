@@ -39,7 +39,7 @@ Dependencies flow **downward only**. See [01-layers.md](01-layers.md) for full d
 4. **Core systems are reusable mechanics.** They answer *how does X work?*, not *when should we do X?* — they could work in a different game.
 5. **Dependencies flow downward only.** No upward arrow in the system dependency graph.
 6. **One world, authored content via templates.** Every live entity lives in `EntityService`. Authored content is spawned from `TemplateRegistry`; bespoke entities are built by the feature that owns them.
-7. **Persistence is per-component.** Tag a component type with `[Persistent]` and it's saved; untagged components are rebuilt at runtime. An entity is persisted if it has any `[Persistent]` component.
+7. **Persistence is a two-level opt-in.** `PersistentEntity` (zero-data marker) opts an entity in. `[Persistent]` on a component type controls which of that entity's components are included in the snapshot. Neither alone is sufficient. See [08-persistence.md](08-persistence.md).
 8. **Modules group cohesion.** Feature slices live under `Core/Modules/<Feature>/` (services, handlers, events, components together).
 
 ---
@@ -76,6 +76,7 @@ Rows marked *(target)* describe locations that are rebuilt as part of Phase 2. T
 | [06-commands.md](06-commands.md) | Command framework design: `ICommand` shape, argument schema, privilege gate, output, help |
 | [06-flows.md](06-flows.md) | When tracing a runtime call chain (startup, command lifecycle, persistence flush, content reload, …) |
 | [07-output.md](07-output.md) | Output framework: `IOutputMessage` catalog, `IOutputFormatter`/telnet ANSI, inline color syntax, broadcast model |
+| [08-persistence.md](08-persistence.md) | Persistence model: `PersistentEntity` marker, `[Persistent]` attribute, three save patterns (save-on-change, area-scoped flush, timestamp/lazy) |
 | [checklist.md](checklist.md) | **The authoritative invariant list.** Cite `INV-n` IDs in reviews. Every other doc explains; this one enforces. |
 | [../reference/commands.md](../reference/commands.md) | Living catalog of every command |
 | [../reference/systems.md](../reference/systems.md) | Living catalog of every system |
