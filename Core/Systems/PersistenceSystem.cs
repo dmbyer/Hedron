@@ -1,13 +1,15 @@
-using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Text.Json;
 using Hedron.Core.ECS;
+using Hedron.Core.ECS.Components;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Hedron.Core.Systems
 {
     /// <summary>
-    /// Core system that persists <c>[Persistent]</c>-tagged components for every dirty entity.
+    /// Core system that persists <c>[Persistent]</c>-tagged components for every entity
+    /// that carries the <c>PersistentEntity</c> opt-in marker.
     /// </summary>
     /// <remarks>
     /// <b>Entity snapshot format</b> (<c>entity-{id}.json</c>):
@@ -19,14 +21,12 @@ namespace Hedron.Core.Systems
     ///   ]
     /// }
     /// </code>
-    /// <b>Flush policy:</b> best-effort — a serialization failure for one entity is logged and
-    /// the entity stays dirty for the next flush attempt.
-    /// <b>Atomic write:</b> component files are written to <c>{id}.tmp</c> then renamed, so
-    /// a crash mid-write never leaves a half-written file.
-    /// <b>No event publishing.</b> This is a pure Core System. All event publishing (EntityHydratedEvent,
-    /// WorldLoadedEvent, EntityPersistedEvent) is the responsibility of the calling orchestrator
-    /// (<c>PersistenceBootstrap</c>). <see cref="LoadAllAsync"/> returns the IDs of restored entities
-    /// so the orchestrator can fire per-entity events.
+    /// <b>Two-level model.</b> An entity is written only if it carries <c>PersistentEntity</c>.
+    /// Among its components, only those tagged <c>[Persistent]</c> are included in the snapshot.
+    /// <b>Atomic write:</b> files are written to <c>{id}.tmp</c> then renamed, so a crash
+    /// mid-write never leaves a half-written file.
+    /// <b>No event publishing.</b> This is a pure Core System. All event publishing is the
+    /// responsibility of the calling orchestrator (<c>PersistenceBootstrap</c>).
     /// </remarks>
     public sealed class PersistenceSystem : IPersistenceSystem
     {
@@ -36,11 +36,6 @@ namespace Hedron.Core.Systems
         private readonly ILogger<PersistenceSystem> _logger;
         private readonly string _dataDirectory;
 
-        // Per-entity dirty set.  byte value is unused — ConcurrentDictionary<uint, byte>
-        // gives us O(1) add/remove/check with no lock on the hot path.
-        private readonly ConcurrentDictionary<uint, byte> _dirtySet = new();
-
-        // Serializer options for the outer entity-snapshot envelope only.
         private static readonly JsonSerializerOptions EnvelopeOptions = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -62,61 +57,86 @@ namespace Hedron.Core.Systems
             _dataDirectory = configuration["Persistence:DataDirectory"] ?? "data/entities/";
         }
 
-        // ── Dirty-tracking ────────────────────────────────────────────────────
+        // ── Save ──────────────────────────────────────────────────────────────
 
         /// <inheritdoc/>
-        public void MarkDirty(uint entityId)
-            => _dirtySet.TryAdd(entityId, 0);
-
-        /// <inheritdoc/>
-        public bool IsDirty(uint entityId)
-            => _dirtySet.ContainsKey(entityId);
-
-        // ── Flush ─────────────────────────────────────────────────────────────
-
-        /// <inheritdoc/>
-        public async Task FlushAsync(CancellationToken ct = default)
-        {
-            // Snapshot the dirty set so we don't hold a lock across I/O.
-            var snapshot = _dirtySet.Keys.ToArray();
-            if (snapshot.Length == 0)
-                return;
-
-            EnsureDataDirectory();
-
-            var saved = 0;
-            foreach (var entityId in snapshot)
-            {
-                ct.ThrowIfCancellationRequested();
-                try
-                {
-                    await WriteEntityAsync(entityId, ct);
-                    _dirtySet.TryRemove(entityId, out _);
-                    saved++;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex,
-                        "PersistenceSystem: failed to flush entity {EntityId}; will retry on next flush.",
-                        entityId);
-                    // Entity stays dirty — best-effort policy.
-                }
-            }
-
-            _logger.LogInformation(
-                "PersistenceSystem: flushed {Saved}/{Total} entities.",
-                saved, snapshot.Length);
-        }
-
-        /// <inheritdoc/>
-        /// <remarks>
-        /// Does not publish <c>EntityPersistedEvent</c> — that is the caller's responsibility.
-        /// </remarks>
         public async Task SaveEntityAsync(uint entityId, CancellationToken ct = default)
         {
             EnsureDataDirectory();
             await WriteEntityAsync(entityId, ct);
-            _dirtySet.TryRemove(entityId, out _);
+        }
+
+        // ── Flush ─────────────────────────────────────────────────────────────
+
+        /// <inheritdoc/>
+        public async Task FlushActivePlayerFootprintAsync(
+            IEnumerable<uint> occupiedRoomIds, CancellationToken ct = default)
+        {
+            var roomSet = new HashSet<uint>(occupiedRoomIds);
+            if (roomSet.Count == 0) return;
+
+            EnsureDataDirectory();
+
+            var entityIds = _entityService
+                .GetAllComponents<LocationComponent>()
+                .Where(pair => roomSet.Contains(pair.Component.RoomEntityId))
+                .Select(pair => pair.EntityId)
+                .ToList();
+
+            var total = _entityService.GetAllComponents<PersistentEntity>().Count();
+
+            var saved = 0;
+            foreach (var entityId in entityIds)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    if (await WriteEntityAsync(entityId, ct))
+                        saved++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "PersistenceSystem: failed to flush entity {EntityId} in footprint flush.",
+                        entityId);
+                }
+            }
+
+            _logger.LogInformation(
+                "PersistenceSystem: periodic flush wrote {Saved}/{Total} entity/entities ({Rooms} occupied room(s)).",
+                saved, total, roomSet.Count);
+        }
+
+        /// <inheritdoc/>
+        public async Task FlushAllPersistentAsync(CancellationToken ct = default)
+        {
+            EnsureDataDirectory();
+
+            var entityIds = _entityService
+                .GetAllComponents<PersistentEntity>()
+                .Select(pair => pair.EntityId)
+                .ToList();
+
+            var saved = 0;
+            foreach (var entityId in entityIds)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    if (await WriteEntityAsync(entityId, ct))
+                        saved++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "PersistenceSystem: failed to flush entity {EntityId} in shutdown flush.",
+                        entityId);
+                }
+            }
+
+            _logger.LogInformation(
+                "PersistenceSystem: shutdown flush wrote {Saved}/{Total} entity/entities.",
+                saved, entityIds.Count);
         }
 
         // ── Load ──────────────────────────────────────────────────────────────
@@ -161,8 +181,15 @@ namespace Hedron.Core.Systems
 
         // ── Private helpers ───────────────────────────────────────────────────
 
-        private async Task WriteEntityAsync(uint entityId, CancellationToken ct)
+        /// <summary>
+        /// Writes entity to disk. Returns <c>true</c> if written, <c>false</c> if skipped
+        /// (entity lacks <c>PersistentEntity</c> marker or has no persistent components).
+        /// </summary>
+        private async Task<bool> WriteEntityAsync(uint entityId, CancellationToken ct)
         {
+            if (!_entityService.HasComponent<PersistentEntity>(entityId))
+                return false;
+
             var components = _entityService
                 .GetAllComponentsForEntity(entityId)
                 .Where(pair => _typeRegistry.IsPersistent(pair.ComponentType))
@@ -175,10 +202,7 @@ namespace Hedron.Core.Systems
                 .ToList();
 
             if (components.Count == 0)
-            {
-                // Entity has no persistent components — nothing to write.
-                return;
-            }
+                return false;
 
             var snapshot = new EntitySnapshot(entityId, components);
             var json = JsonSerializer.Serialize(snapshot, EnvelopeOptions);
@@ -188,6 +212,7 @@ namespace Hedron.Core.Systems
 
             await File.WriteAllTextAsync(tmpPath, json, ct);
             File.Move(tmpPath, finalPath, overwrite: true);
+            return true;
         }
 
         private async Task<uint?> LoadEntityFileAsync(string filePath, CancellationToken ct)
@@ -207,8 +232,6 @@ namespace Hedron.Core.Systems
             {
                 try
                 {
-                    // entry.Data is a JsonElement wrapping the serialized component JSON string.
-                    // Unwrap the string first, then deserialize into the component type.
                     var componentJson = entry.Data.GetString()
                         ?? throw new InvalidOperationException(
                             $"Component data for '{entry.TypeName}' is not a JSON string.");
@@ -226,7 +249,6 @@ namespace Hedron.Core.Systems
                     if (component is null)
                         continue;
 
-                    // Silent attachment — no event published during hydration.
                     _entityService.AddComponent(entity.Id, resolvedType, component);
                 }
                 catch (Exception ex)

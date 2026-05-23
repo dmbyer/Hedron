@@ -27,7 +27,7 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–5a done; **next: slice 6 — items + inventory**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–5b done; **next: slice 6 — items + inventory**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
@@ -66,6 +66,7 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 4 | **Output framework** | Full `IOutputMessage` catalog, `IOutputFormatter`/telnet ANSI, `SupportsColor`, formatter-backed writer, broadcast audience-filter + system-wide; discharges slice-3 output debt | ✅ done |
 | 5 | Account / character creation | Real identity instead of throwaway names; first `[Persistent]` user-facing component | ✅ done |
 | 5a | **Bare-bones content spawning** | Ad-hoc `dig`/`set` admin commands backed by `IRoomBuilderSystem`; `RoomComponent` `[Persistent]`; unblocks runtime content authoring for slices 6+ | ✅ done |
+| 5b | **Persistence two-level model** | `PersistentEntity` marker component; area-scoped periodic flush; save-on-change for admin/lifecycle transitions; `PersistenceHandler` deleted; dirty-set model removed | ✅ done |
 | 6 | Items + inventory + `get`/`drop`/`look <item>` | Object interaction and inspection (originally two slices; merged so the content tooling for items lands once) | 🟢 next |
 | 7 | Equipment + `wear`/`remove` | Gear | 🟢 ready |
 | 8 | Mobs + wandering | Populated world; first `TimeSystem` use | 🟢 ready |

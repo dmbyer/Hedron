@@ -9,6 +9,7 @@ using Hedron.Core.Modules.Account.Events;
 using Hedron.Core.Modules.Account.Systems;
 using Hedron.Core.Output;
 using Hedron.Core.Sessions;
+using Hedron.Core.Systems;
 using Microsoft.Extensions.Configuration;
 
 namespace Hedron.Server.Sessions
@@ -28,6 +29,7 @@ namespace Hedron.Server.Sessions
         private readonly IAccountSystem _accountSystem;
         private readonly IOutputWriterFactory _outputWriterFactory;
         private readonly IEventBus _eventBus;
+        private readonly IPersistenceSystem _persistence;
         private readonly int _maxCharacters;
 
         private const int MaxLoginAttempts = 3;
@@ -38,6 +40,7 @@ namespace Hedron.Server.Sessions
             IAccountSystem accountSystem,
             IOutputWriterFactory outputWriterFactory,
             IEventBus eventBus,
+            IPersistenceSystem persistence,
             IConfiguration configuration)
         {
             _session = session;
@@ -45,6 +48,7 @@ namespace Hedron.Server.Sessions
             _accountSystem = accountSystem;
             _outputWriterFactory = outputWriterFactory;
             _eventBus = eventBus;
+            _persistence = persistence;
             _maxCharacters = configuration.GetValue<int>("Account:MaxCharactersPerAccount", 5);
         }
 
@@ -83,14 +87,15 @@ namespace Hedron.Server.Sessions
             var accountId = await _accountSystem.CreateAccountAsync(username, password, ct)
                 .ConfigureAwait(false);
 
-            await _eventBus.PublishAsync(new AccountCreatedEvent(accountId, username))
-                .ConfigureAwait(false);
-
             await output.WriteAsync(new PlainMessage(
                 "Account created. Let's create your first character.",
                 OutputSeverity.System)).ConfigureAwait(false);
 
-            return await RunCharacterCreationFlowAsync(output, accountId, ct).ConfigureAwait(false);
+            // Character creation + saves + event publishing are handled together so that
+            // character is written before account (crash-safety) and both events publish
+            // only after both entities are on disk.
+            return await RunCharacterCreationFlowAsync(output, accountId, ct, newAccountUsername: username)
+                .ConfigureAwait(false);
         }
 
         // ── Authentication ─────────────────────────────────────────────────────────────
@@ -178,8 +183,13 @@ namespace Hedron.Server.Sessions
 
         // ── Character creation ─────────────────────────────────────────────────────────
 
+        /// <param name="newAccountUsername">
+        /// Non-null during registration: the new account's username. Causes
+        /// <c>AccountCreatedEvent</c> to be published after saves complete.
+        /// </param>
         private async Task<LoginResult?> RunCharacterCreationFlowAsync(
-            IOutputWriter output, uint accountId, CancellationToken ct)
+            IOutputWriter output, uint accountId, CancellationToken ct,
+            string? newAccountUsername = null)
         {
             // TODO: future — add 'delete' option here (character deletion is out of scope for slice 5)
             while (true)
@@ -202,6 +212,16 @@ namespace Hedron.Server.Sessions
 
                 var charId = await _accountSystem.CreateCharacterAsync(accountId, name, ct)
                     .ConfigureAwait(false);
+
+                // Character written before account: if the server crashes between the two writes,
+                // an orphaned character file is recoverable; a dangling account pointer to a
+                // missing character file is more harmful.
+                await _persistence.SaveEntityAsync(charId, ct).ConfigureAwait(false);
+                await _persistence.SaveEntityAsync(accountId, ct).ConfigureAwait(false);
+
+                if (newAccountUsername is not null)
+                    await _eventBus.PublishAsync(new AccountCreatedEvent(accountId, newAccountUsername))
+                        .ConfigureAwait(false);
 
                 await _eventBus.PublishAsync(new CharacterCreatedEvent(charId, accountId, name))
                     .ConfigureAwait(false);

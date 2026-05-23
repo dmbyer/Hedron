@@ -65,12 +65,13 @@ namespace Hedron.Server
         }
 
         /// <summary>
-        /// Flushes all dirty entities before the process exits, ensuring no dirty state is lost.
+        /// Sweeps all <c>PersistentEntity</c>-carrying entities before the process exits,
+        /// ensuring no durable state is lost regardless of area occupancy.
         /// </summary>
         public async Task StopAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("PersistenceBootstrap: shutdown flush — flushing dirty entities...");
-            await _persistence.FlushAsync(cancellationToken);
+            _logger.LogInformation("PersistenceBootstrap: shutdown flush — writing all persistent entities...");
+            await _persistence.FlushAllPersistentAsync(cancellationToken);
             _logger.LogInformation("PersistenceBootstrap: shutdown flush complete.");
         }
     }

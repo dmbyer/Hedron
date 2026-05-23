@@ -10,6 +10,7 @@ using Hedron.Core.Modules.Account.Systems;
 using Hedron.Core.Modules.Session.Events;
 using Hedron.Core.Output;
 using Hedron.Core.Sessions;
+using Hedron.Core.Systems;
 using Microsoft.Extensions.Configuration;
 
 namespace Hedron.Server.Sessions
@@ -25,6 +26,7 @@ namespace Hedron.Server.Sessions
         private readonly ISessionManager _sessionManager;
         private readonly IAccountSystem _accountSystem;
         private readonly IOutputWriterFactory _outputWriterFactory;
+        private readonly IPersistenceSystem _persistence;
         private readonly IConfiguration _configuration;
 
         private string _characterName = string.Empty;
@@ -46,6 +48,7 @@ namespace Hedron.Server.Sessions
             ISessionManager sessionManager,
             IAccountSystem accountSystem,
             IOutputWriterFactory outputWriterFactory,
+            IPersistenceSystem persistence,
             IConfiguration configuration,
             bool defaultColor)
         {
@@ -58,6 +61,7 @@ namespace Hedron.Server.Sessions
             _sessionManager = sessionManager;
             _accountSystem = accountSystem;
             _outputWriterFactory = outputWriterFactory;
+            _persistence = persistence;
             _configuration = configuration;
             SupportsColor = defaultColor;
         }
@@ -80,7 +84,7 @@ namespace Hedron.Server.Sessions
             try
             {
                 var loginFlow = new LoginFlow(
-                    this, _reader, _accountSystem, _outputWriterFactory, _eventBus, _configuration);
+                    this, _reader, _accountSystem, _outputWriterFactory, _eventBus, _persistence, _configuration);
 
                 var loginResult = await loginFlow.RunAsync(cancellationToken).ConfigureAwait(false);
                 if (loginResult is null) return;

@@ -8,6 +8,7 @@ using Hedron.Core.Events;
 using Hedron.Core.Modules.Account.Systems;
 using Hedron.Core.Output;
 using Hedron.Core.Sessions;
+using Hedron.Core.Systems;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,7 @@ namespace Hedron.Server.Sessions
         private readonly ISessionManager _sessionManager;
         private readonly IAccountSystem _accountSystem;
         private readonly IOutputWriterFactory _outputWriterFactory;
+        private readonly IPersistenceSystem _persistence;
         private readonly IConfiguration _configuration;
         private readonly ILogger<TelnetServer> _logger;
         private readonly bool _defaultColor;
@@ -34,6 +36,7 @@ namespace Hedron.Server.Sessions
             ISessionManager sessionManager,
             IAccountSystem accountSystem,
             IOutputWriterFactory outputWriterFactory,
+            IPersistenceSystem persistence,
             IConfiguration configuration,
             ILogger<TelnetServer> logger,
             IOptions<OutputConfiguration> outputConfig)
@@ -43,6 +46,7 @@ namespace Hedron.Server.Sessions
             _sessionManager = sessionManager;
             _accountSystem = accountSystem;
             _outputWriterFactory = outputWriterFactory;
+            _persistence = persistence;
             _configuration = configuration;
             _logger = logger;
             _defaultColor = outputConfig.Value.DefaultColor;
@@ -74,7 +78,7 @@ namespace Hedron.Server.Sessions
         {
             await using var session = new TelnetSession(
                 client, _dispatcher, _eventBus, _sessionManager,
-                _accountSystem, _outputWriterFactory, _configuration, _defaultColor);
+                _accountSystem, _outputWriterFactory, _persistence, _configuration, _defaultColor);
             await session.RunAsync(stoppingToken).ConfigureAwait(false);
         }
     }

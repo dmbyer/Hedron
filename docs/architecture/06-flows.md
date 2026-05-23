@@ -74,9 +74,10 @@ sequenceDiagram
 4. `PersistenceBootstrap.StartAsync` calls `PersistenceSystem.LoadAllAsync`, which scans `Persistence:DataDirectory` for `entity-*.json` files and silently re-attaches every component on each entity (no events fired during hydration). It returns the restored entity ids.
 5. For each restored id, `PersistenceBootstrap` publishes `EntityHydratedEvent`. **Constraint:** handlers must not query other entities at this point — the world is partially loaded.
 6. After the loop, `PersistenceBootstrap` publishes `WorldLoadedEvent`. Cross-entity startup work belongs on this event, not on per-entity hydration.
-7. `WorldContentBootstrap.StartAsync` calls `WorldContentLoader.LoadAndSpawnAsync`. This: (a) reads YAML files under `World:ContentDirectory` and registers them with `TemplateRegistry` via per-kind `ITemplateDeserializer`s; (b) builds a live blueprint→entity map from existing `BlueprintComponent`s; (c) spawns any template that has no live counterpart; (d) populates `RoomComponent.Exits` by resolving each template's blueprint-id exits to live entity ids; (e) sets `WorldConfiguration.StartingRoomEntityId` from `World:StartingRoomBlueprintId`. If the content directory is missing or empty, a single hardcoded `room.void` is seeded and a warning is logged. After `LoadAndSpawnAsync` completes, `WorldContentBootstrap` publishes `WorldContentReadyEvent`. `CharacterHydrationHandler` (priority `HandlerPriority.Domain`) validates every hydrated character entity's `LocationComponent.RoomEntityId` at this point, resetting stale references to `StartingRoomEntityId`.
-8. `PersistenceFlushTimer.StartAsync` arms a `PeriodicTimer` reading `Persistence:FlushIntervalSeconds` (default 60).
+7. `WorldContentBootstrap.StartAsync` calls `WorldContentLoader.LoadAndSpawnAsync`. This: (a) reads YAML files under `World:ContentDirectory` and registers them with `TemplateRegistry` via per-kind `ITemplateDeserializer`s; (b) builds a live blueprint→entity map from existing `BlueprintComponent`s; (c) spawns any template that has no live counterpart and adds `PersistentEntity` to each newly spawned entity so it survives restart; (d) populates `RoomComponent.Exits` by resolving each template's blueprint-id exits to live entity ids; (e) sets `WorldConfiguration.StartingRoomEntityId` from `World:StartingRoomBlueprintId`. If the content directory is missing or empty, a single hardcoded `room.void` is seeded (also gets `PersistentEntity`) and a warning is logged. After `LoadAndSpawnAsync` completes, `WorldContentBootstrap` publishes `WorldContentReadyEvent`. `CharacterHydrationHandler` (priority `HandlerPriority.Domain`) validates every hydrated character entity's `LocationComponent.RoomEntityId` at this point, resetting stale references to `StartingRoomEntityId`.
+8. `PersistenceFlushTimer.StartAsync` arms a `PeriodicTimer` reading `Persistence:FlushIntervalSeconds` (default 60). See [Flow 4](#flow-4--persistence-flush-cycle) for the full flush-cycle trace.
 9. `TelnetServer.StartAsync` opens the TCP listener on `Server:Port`. Connections accepted from this point forward see a fully assembled world.
+10. **Shutdown path.** When the host shuts down, `PersistenceBootstrap.StopAsync` calls `PersistenceSystem.FlushAllPersistentAsync`, which iterates every entity carrying `PersistentEntity` and writes it to disk — a complete sweep regardless of which rooms are occupied. This replaced the old `FlushAsync` (dirty-set sweep) when the two-level persistence model was introduced.
 
 **Cross-references.**
 - [`docs/architecture/05-configuration.md`](05-configuration.md) — startup-relevant config keys
@@ -102,7 +103,7 @@ sequenceDiagram
     participant SM as SessionManager
     participant Bus as IEventBus
     participant PSH as PlayerSessionHandler
-    participant PH as PersistenceHandler
+    participant PSys as IPersistenceSystem
 
     Client->>TS: TCP connect
     TS->>Sess: spawn task (PlayerEntityId=0)
@@ -120,8 +121,7 @@ sequenceDiagram
     Client--xSess: disconnect
     Sess->>SM: Unregister
     Sess->>Bus: Publish(PlayerDisconnectedEvent)
-    Bus->>PSH: HandleAsync → RecordLogout + RemoveComponent<PlayerComponent> + departure broadcast
-    Bus->>PH: HandleAsync → MarkIfPersistent(CharacterEntityId)
+    Bus->>PSH: HandleAsync → RecordLogout + SaveEntityAsync(characterEntityId) + RemoveComponent<PlayerComponent> + departure broadcast
 ```
 
 **Steps.**
@@ -131,7 +131,7 @@ sequenceDiagram
 3. On a valid `LoginResult`: `TelnetSession` sets `PlayerEntityId = result.CharacterEntityId`, attaches the transient `PlayerComponent { DisplayName, Session }`, calls `SessionManager.Register(session)`, and publishes `PlayerConnectedEvent(PlayerEntityId, CharacterName, AccountEntityId)`.
 4. `PlayerSessionHandler` (priority `HandlerPriority.Domain`) handles `PlayerConnectedEvent`: broadcasts the arrival message to the room and calls `BroadcastSystem.SendRoomDescriptionAsync` for the connecting player.
 5. The session enters its main I/O loop. Each input line is forwarded to `CommandDispatcher.DispatchAsync` (see Flow 3).
-6. On disconnect, `SessionManager.Unregister` removes the session, then `PlayerDisconnectedEvent` is published. `PlayerSessionHandler` calls `IAccountSystem.RecordLogout` (updates `CharacterComponent.LastLoginUtc`), removes `PlayerComponent` via `EntityService.RemoveComponent<PlayerComponent>`, and broadcasts the departure. `PersistenceHandler` calls `MarkIfPersistent(CharacterEntityId)` so the character's last-login time is flushed on the next cycle.
+6. On disconnect, `SessionManager.Unregister` removes the session, then `PlayerDisconnectedEvent` is published. `PlayerSessionHandler` calls `IAccountSystem.RecordLogout` (updates `CharacterComponent.LastLoginUtc`), then immediately calls `IPersistenceSystem.SaveEntityAsync(characterEntityId)` so the logout timestamp is durable without waiting for the next flush cycle, removes `PlayerComponent` via `EntityService.RemoveComponent<PlayerComponent>`, and broadcasts the departure.
 
 **Cross-references.**
 - [`Server/Sessions/TelnetServer.cs`](../../Server/Sessions/TelnetServer.cs), [`Server/Sessions/TelnetSession.cs`](../../Server/Sessions/TelnetSession.cs), [`Server/Sessions/LoginFlow.cs`](../../Server/Sessions/LoginFlow.cs)
@@ -219,52 +219,55 @@ sequenceDiagram
 
 ## Flow 4 — Persistence flush cycle
 
-**Summary.** The flush timer (or shutdown) snapshots the dirty entity set, writes each entity's `[Persistent]` components atomically, and clears successful entries from the dirty set. Failures are logged and stay dirty for the next cycle.
+**Summary.** The flush timer resolves the active player footprint (rooms occupied by at least one connected player) and writes all `PersistentEntity`-carrying entities in those rooms. On shutdown `PersistenceBootstrap.StopAsync` runs a full sweep of every `PersistentEntity` entity. Authored content and lifecycle transitions use save-on-change (`SaveEntityAsync`) called directly by the command or handler that made the mutation; they do not depend on this cycle.
 
 **Trigger.** `PersistenceFlushTimer` periodic tick (`Persistence:FlushIntervalSeconds`, default 60) or `PersistenceBootstrap.StopAsync` (shutdown).
 
 ```mermaid
 sequenceDiagram
     participant Timer as PersistenceFlushTimer
-    participant PSys as PersistenceSystem
+    participant SM as ISessionManager
     participant ES as EntityService
+    participant PSys as PersistenceSystem
     participant TR as IComponentTypeRegistry
     participant CS as IComponentSerializer
     participant Disk
 
-    Timer->>PSys: FlushAsync
-    PSys->>PSys: snapshot dirty set
-    loop per dirty entity
-        PSys->>ES: GetAllComponentsForEntity
-        PSys->>TR: filter to [Persistent] types
-        loop per persistent component
-            PSys->>CS: Serialize → JSON
-        end
-        PSys->>Disk: write {id}.tmp
-        PSys->>Disk: File.Move(.tmp, ..., overwrite=true)
-        alt success
-            PSys->>PSys: remove from dirty set
-        else failure
-            PSys->>PSys: log + retain dirty for retry
+    Timer->>SM: GetAll() → sessions
+    loop per session
+        Timer->>ES: TryGet<LocationComponent>(playerEntityId) → roomId
+    end
+    Timer->>PSys: FlushActivePlayerFootprintAsync(occupiedRoomIds)
+    PSys->>ES: GetAllComponents<LocationComponent>() filtered by occupiedRoomIds
+    loop per entity in footprint
+        PSys->>ES: HasComponent<PersistentEntity>(entityId)
+        alt has PersistentEntity
+            PSys->>ES: GetAllComponentsForEntity
+            PSys->>TR: filter to [Persistent] types
+            loop per persistent component
+                PSys->>CS: Serialize → JSON
+            end
+            PSys->>Disk: write {id}.tmp
+            PSys->>Disk: File.Move(.tmp, ..., overwrite=true)
         end
     end
 ```
 
 **Steps.**
 
-1. The timer (or shutdown path) calls `PersistenceSystem.FlushAsync(ct)`.
-2. `FlushAsync` snapshots the current dirty set so the I/O loop doesn't hold a lock across writes.
-3. For each dirty entity id: `EntityService.GetAllComponentsForEntity` returns every attached component as `(Type, IComponent)`. The set is filtered through `IComponentTypeRegistry.IsPersistent` to keep only `[Persistent]`-tagged types.
-4. Each surviving component is serialized via `IComponentSerializer` (System.Text.Json, camelCase, `JsonStringEnumConverter`). The collection is wrapped in an envelope `{ entityId, components: [{ typeName, data }, …] }`.
-5. The envelope is written to `data/entities/entity-{id}.json.tmp`; once the write completes, `File.Move(tmpPath, finalPath, overwrite: true)` performs the atomic rename. A crash mid-write never produces a half-written final file.
-6. On success the entity id is removed from the dirty set. On serialization or I/O failure, the entity is logged at `LogError` level and stays in the dirty set for the next flush.
-7. `PersistenceSystem` publishes no events. Lifecycle events (`EntityPersistedEvent`) are the orchestrator's responsibility — see [`completed/slice-1-persistence-substrate.md`](../roadmap/completed/slice-1-persistence-substrate.md) for the rationale.
+1. `PersistenceFlushTimer.ExecuteAsync` ticks. It calls `ISessionManager.GetAll()` to collect all connected sessions; for each, reads `LocationComponent.RoomEntityId` to build the set of occupied room ids. If no sessions are connected the flush is skipped.
+2. Calls `PersistenceSystem.FlushActivePlayerFootprintAsync(occupiedRoomIds, ct)`.
+3. `FlushActivePlayerFootprintAsync` queries `EntityService.GetAllComponents<LocationComponent>()` and filters to entities whose `RoomEntityId` is in the occupied set. This naturally includes both player entities (whose location is one of the occupied rooms) and any other `LocationComponent`-bearing entities in those rooms.
+4. For each entity in the footprint, the system checks `HasComponent<PersistentEntity>(entityId)`. Entities without the marker are silently skipped — the two-level model guard.
+5. For entities that pass the guard: `EntityService.GetAllComponentsForEntity` returns all attached components; the set is filtered through `IComponentTypeRegistry.IsPersistent`; each surviving component is serialized via `IComponentSerializer` (System.Text.Json, camelCase). The envelope `{ entityId, components: [{ typeName, data }, …] }` is written atomically via `.tmp`→rename.
+6. `PersistenceSystem` publishes no events.
+7. **Shutdown path.** `PersistenceBootstrap.StopAsync` calls `PersistenceSystem.FlushAllPersistentAsync(ct)`, which iterates `GetAllComponents<PersistentEntity>()` and writes every entity — not just those in occupied rooms — guaranteeing a complete snapshot regardless of player positions.
 
-**New `[Persistent]` types added in slice 5:** `AccountComponent` (account entity), `CharacterComponent` (character entity), `LocationComponent` (promoted from transient). All three participate in the flush cycle from slice 5 onward.
+**Two-level model.** An entity is written only if it carries `PersistentEntity` (level 1). Among its components, only those tagged `[Persistent]` are included in the snapshot (level 2). `PlayerComponent` (transient session ref) and `TransientEffectsComponent` (session-only) are untagged and are never written.
 
 **Cross-references.**
 - [`Core/Systems/PersistenceSystem.cs`](../../Core/Systems/PersistenceSystem.cs), [`Server/PersistenceFlushTimer.cs`](../../Server/PersistenceFlushTimer.cs), [`Server/PersistenceBootstrap.cs`](../../Server/PersistenceBootstrap.cs)
-- [`docs/use-cases/persistence-substrate.md`](../use-cases/persistence-substrate.md)
+- [`docs/use-cases/persistence-substrate.md`](../use-cases/persistence-substrate.md), [`docs/use-cases/persistence-two-level-model.md`](../use-cases/persistence-two-level-model.md)
 
 ---
 
@@ -385,6 +388,7 @@ sequenceDiagram
     participant LF as LoginFlow
     participant OW as IOutputWriter
     participant AccSys as IAccountSystem
+    participant PSys as IPersistenceSystem
     participant Bus as IEventBus
 
     LF->>OW: banner + "new account?" prompt
@@ -396,8 +400,8 @@ sequenceDiagram
         LF->>OW: "Choose a password:" + confirm
         Client->>LF: password (≥6 chars, must match confirm)
         LF->>AccSys: CreateAccountAsync → AccountEntityId
-        LF->>Bus: Publish(AccountCreatedEvent)
-        LF->>LF: → character creation path
+        Note over LF,AccSys: AccountCreatedEvent deferred until after saves (see character creation)
+        LF->>LF: → character creation path (newAccountUsername set)
     else returning account (auth path, up to 3 attempts)
         LF->>OW: "Username:" + "Password:"
         Client->>LF: credentials
@@ -427,7 +431,12 @@ sequenceDiagram
         Client->>LF: name (2–16 letters, unique)
         LF->>AccSys: CharacterNameExists → reject if taken
         LF->>AccSys: CreateCharacterAsync → CharacterEntityId
-        Note over AccSys: creates entity, attaches CharacterComponent + LocationComponent
+        Note over AccSys: creates entity, attaches CharacterComponent + LocationComponent + PersistentEntity
+        LF->>PSys: SaveEntityAsync(CharacterEntityId) [character saved first]
+        LF->>PSys: SaveEntityAsync(AccountEntityId) [account saved second]
+        alt newAccountUsername set (registration path)
+            LF->>Bus: Publish(AccountCreatedEvent)
+        end
         LF->>Bus: Publish(CharacterCreatedEvent)
         LF-->>LF: return LoginResult
     end
@@ -437,10 +446,10 @@ sequenceDiagram
 
 1. `LoginFlow` is constructed by `TelnetSession` with the raw `StreamReader` (so it can read lines before the session is registered) and `IOutputWriterFactory` (so prompts are rendered through the formatter pipeline).
 2. **Banner.** The flow writes `"Welcome to Hedron.\nDo you have an existing account? (yes/no)"` via `IOutputWriter`. Any yes/y/login answer → auth path; anything else → registration.
-3. **Registration path.** Prompts for username; validates 3–20 chars, alphanumeric + underscore; calls `UsernameExists` and rejects if taken. Prompts for password (≥6 chars) with confirmation. Calls `IAccountSystem.CreateAccountAsync` → allocates an entity, attaches `AccountComponent`, marks dirty. Publishes `AccountCreatedEvent`. Falls through to character creation.
+3. **Registration path.** Prompts for username; validates 3–20 chars, alphanumeric + underscore; calls `UsernameExists` and rejects if taken. Prompts for password (≥6 chars) with confirmation. Calls `IAccountSystem.CreateAccountAsync` → allocates an entity, attaches `AccountComponent` and `PersistentEntity`, returns `AccountEntityId`. `AccountCreatedEvent` is **not** published yet — it is deferred until after both entities are saved (see step 6). Falls through to character creation.
 4. **Auth path.** Up to `MaxLoginAttempts` (3) rounds of username + password. Calls `IAccountSystem.AuthenticateAsync` (PBKDF2-SHA256 verify via `IPasswordHasher`). On success → character selection. On exhaustion → writes rejection and returns `null` (session task exits).
 5. **Character selection.** Calls `GetCharacterList(accountId)`. If the list is empty, falls through to character creation. Otherwise renders a numbered roster + "new" option. Validates input; enforces `Account:MaxCharactersPerAccount` (default 5). Picking a number returns `LoginResult(CharacterEntityId, AccountEntityId, CharacterName)` immediately.
-6. **Character creation.** Prompts for a name; validates 2–16 letters only, globally unique via `CharacterNameExists`. Calls `IAccountSystem.CreateCharacterAsync` → allocates an entity, attaches `CharacterComponent { AccountEntityId, CharacterName, CreatedAtUtc }` and `LocationComponent { RoomEntityId = WorldConfiguration.StartingRoomEntityId }`, appends id to `AccountComponent.CharacterEntityIds`, marks both entities dirty. Publishes `CharacterCreatedEvent`. Returns `LoginResult`.
+6. **Character creation.** Prompts for a name; validates 2–16 letters only, globally unique via `CharacterNameExists`. Calls `IAccountSystem.CreateCharacterAsync` → allocates an entity, attaches `CharacterComponent { AccountEntityId, CharacterName, CreatedAtUtc }`, `LocationComponent { RoomEntityId = WorldConfiguration.StartingRoomEntityId }`, and `PersistentEntity`; appends id to `AccountComponent.CharacterEntityIds`. Returns `CharacterEntityId`. `LoginFlow` then calls `IPersistenceSystem.SaveEntityAsync(characterEntityId)` first (character written before account — if the server crashes between the two writes, an orphaned character file is recoverable but a dangling account pointer to a missing character is not), then `SaveEntityAsync(accountEntityId)`. After both saves complete, if this is a new account `AccountCreatedEvent` is published, then `CharacterCreatedEvent`. Returns `LoginResult`.
 7. A `null` return from `LoginFlow.RunAsync` (disconnect, exceeded attempts) causes `TelnetSession` to exit without entering the I/O loop. `HandleDisconnectAsync` is still called but skips publishing because `PlayerEntityId == 0`.
 
 **Cross-references.**
@@ -454,7 +463,7 @@ sequenceDiagram
 
 ## Flow 8 — Admin room creation (`dig`)
 
-**Summary.** A privileged session sends `dig <direction> [name]`. `DigCommand` checks for an existing exit, delegates entity creation and exit wiring to `IRoomBuilderSystem`, publishes `RoomCreatedByAdminEvent` (caught by `AdminAuditHandler` and `PersistenceHandler`), then publishes `PlayerMovedEvent` to auto-move the admin into the new room via the existing `PlayerMovedHandler`.
+**Summary.** A privileged session sends `dig <direction> [name]`. `DigCommand` checks for an existing exit, delegates entity creation and exit wiring to `IRoomBuilderSystem`, publishes `RoomCreatedByAdminEvent` (caught by `AdminAuditHandler`), calls `IPersistenceSystem.SaveEntityAsync` directly on both rooms (save-on-change), then publishes `PlayerMovedEvent` to auto-move the admin into the new room via the existing `PlayerMovedHandler`.
 
 **Trigger.** Privileged session sends `dig <direction> [name]`.
 
@@ -465,9 +474,9 @@ sequenceDiagram
     participant Auth as IAuthorizationChecker
     participant Cmd as DigCommand
     participant RBS as IRoomBuilderSystem
+    participant PSys as IPersistenceSystem
     participant Bus as IEventBus
     participant Audit as AdminAuditHandler
-    participant PH as PersistenceHandler
     participant PMH as PlayerMovedHandler
 
     Sess->>CD: "dig north Garden"
@@ -485,7 +494,8 @@ sequenceDiagram
             Cmd->>RBS: LinkExits(sourceId, North, newRoomId, true)
             Cmd->>Bus: Publish(RoomCreatedByAdminEvent)
             Bus->>Audit: HandleAsync (priority 80) → structured log
-            Bus->>PH: HandleAsync (priority 90) → MarkDirty(newRoomId, sourceId)
+            Cmd->>PSys: SaveEntityAsync(newRoomId)
+            Cmd->>PSys: SaveEntityAsync(sourceRoomId)
             Cmd->>Bus: Publish(PlayerMovedEvent)
             Bus->>PMH: HandleAsync → departure broadcast + arrival broadcast + look
             Cmd->>Sess: confirmation PlainMessage
@@ -497,16 +507,16 @@ sequenceDiagram
 
 1. `CommandDispatcher` routes `dig` to `DigCommand` after the privilege gate (`AdminRequirement` via `IAuthorizationChecker`).
 2. `DigCommand.ExecuteAsync` reads `LocationComponent.RoomEntityId` and checks `RoomComponent.Exits` for the requested direction. If an exit already exists, writes a `PlainMessage` error and returns.
-3. Calls `IRoomBuilderSystem.CreateRoom(name)` — allocates an entity, attaches `RoomComponent` + `BlueprintComponent`, registers a minimal `RoomTemplate`, returns `RoomCreationResult(newRoomId, blueprintId)`.
+3. Calls `IRoomBuilderSystem.CreateRoom(name)` — allocates an entity, attaches `RoomComponent` + `BlueprintComponent` + `PersistentEntity`, registers a minimal `RoomTemplate`, returns `RoomCreationResult(newRoomId, blueprintId)`.
 4. Calls `IRoomBuilderSystem.LinkExits(sourceId, direction, newRoomId, bidirectional: true)` — sets `Exits` on both room entities and mirrors to both in-memory `RoomTemplate` exit maps.
-5. Publishes `RoomCreatedByAdminEvent`. `AdminAuditHandler` (priority 80) logs one structured entry; `PersistenceHandler` (priority 90) marks both rooms dirty.
+5. Publishes `RoomCreatedByAdminEvent`. `AdminAuditHandler` (priority 80) logs one structured entry. `DigCommand` then calls `IPersistenceSystem.SaveEntityAsync(newRoomId)` and `SaveEntityAsync(sourceRoomId)` directly — save-on-change means both rooms are durable before the admin sees confirmation. No `PersistenceHandler` subscription.
 6. Publishes `PlayerMovedEvent(adminId, sourceId, newRoomId, direction)`. `PlayerMovedHandler` fires: departure broadcast to the source room (excluding the admin), arrival broadcast to the new room, `look` sent to the admin.
 7. Writes a confirmation `PlainMessage` (e.g. `"Room 'Garden' (room.adhoc.a1b2c3) created to the north."`).
 
 **Cross-references.**
 - [`Core/Modules/Admin/Commands/DigCommand.cs`](../../Core/Modules/Admin/Commands/DigCommand.cs), [`Core/Modules/Admin/Systems/RoomBuilderSystem.cs`](../../Core/Modules/Admin/Systems/RoomBuilderSystem.cs)
 - [`Core/Modules/Admin/Events/RoomCreatedByAdminEvent.cs`](../../Core/Modules/Admin/Events/RoomCreatedByAdminEvent.cs)
-- [`Core/Modules/Admin/Handlers/AdminAuditHandler.cs`](../../Core/Modules/Admin/Handlers/AdminAuditHandler.cs), [`Core/Handlers/PersistenceHandler.cs`](../../Core/Handlers/PersistenceHandler.cs)
+- [`Core/Modules/Admin/Handlers/AdminAuditHandler.cs`](../../Core/Modules/Admin/Handlers/AdminAuditHandler.cs)
 - [`docs/use-cases/bare-bones-content-spawning.md`](../use-cases/bare-bones-content-spawning.md)
 
 ---

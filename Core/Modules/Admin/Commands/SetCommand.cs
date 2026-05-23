@@ -9,6 +9,7 @@ using Hedron.Core.Events;
 using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Admin.Systems;
 using Hedron.Core.Output;
+using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Admin.Commands
 {
@@ -21,6 +22,7 @@ namespace Hedron.Core.Modules.Admin.Commands
         private readonly IRoomBuilderSystem _roomBuilder;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
+        private readonly IPersistenceSystem _persistence;
 
         public string Name => "set";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -39,11 +41,16 @@ namespace Hedron.Core.Modules.Admin.Commands
                 Required: true, "New value."),
         });
 
-        public SetCommand(IRoomBuilderSystem roomBuilder, EntityService entityService, IEventBus eventBus)
+        public SetCommand(
+            IRoomBuilderSystem roomBuilder,
+            EntityService entityService,
+            IEventBus eventBus,
+            IPersistenceSystem persistence)
         {
             _roomBuilder = roomBuilder;
             _entityService = entityService;
             _eventBus = eventBus;
+            _persistence = persistence;
         }
 
         public async Task ExecuteAsync(CommandContext context)
@@ -86,6 +93,8 @@ namespace Hedron.Core.Modules.Admin.Commands
                 roomId,
                 normalizedProperty,
                 value)).ConfigureAwait(false);
+
+            await _persistence.SaveEntityAsync(roomId).ConfigureAwait(false);
 
             await context.Output.WriteAsync(new PlainMessage(
                 $"Room {normalizedProperty} set to '{value}'.",

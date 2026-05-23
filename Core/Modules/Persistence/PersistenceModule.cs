@@ -1,4 +1,3 @@
-using Hedron.Core.Handlers;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -21,7 +20,6 @@ namespace Hedron.Core.Modules.Persistence
             services.AddSingleton<IComponentTypeRegistry, ComponentTypeRegistry>();
             services.AddSingleton<IComponentSerializer, ComponentSerializer>();
             services.AddSingleton<IPersistenceSystem, PersistenceSystem>();
-            services.AddSingleton<PersistenceHandler>();
             return services;
         }
     }

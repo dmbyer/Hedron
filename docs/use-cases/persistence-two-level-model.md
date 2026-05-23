@@ -1,6 +1,6 @@
 # Use Case: Persistence Two-Level Model
 
-**Status:** planned
+**Status:** implemented
 **Actors:** System
 **Module:** `Core/Systems/` (cross-cutting); `Core/Handlers/`; `Server/`
 
@@ -70,7 +70,7 @@ No new gameplay or player-visible behaviour is added.
 
 ### C — Area-scoped periodic flush: runtime player state
 
-8. `PersistenceFlushTimer` ticks. It calls `ISessionManager.GetAllSessions()` to collect `PlayerEntityId` values for all connected sessions. For each player, it reads `LocationComponent.RoomEntityId` to collect the set of occupied room ids. It then calls `IPersistenceSystem.FlushActivePlayerFootprintAsync(occupiedRoomIds, ct)`.
+8. `PersistenceFlushTimer` ticks. It calls `ISessionManager.GetAll()` to collect `PlayerEntityId` values for all connected sessions. For each player, it reads `LocationComponent.RoomEntityId` to collect the set of occupied room ids. It then calls `IPersistenceSystem.FlushActivePlayerFootprintAsync(occupiedRoomIds, ct)`.
 9. `PersistenceSystem.FlushActivePlayerFootprintAsync` queries all entities whose `LocationComponent.RoomEntityId` is in the occupied set, plus the player entities themselves. It writes each that also carries `PersistentEntity`. This bounds flush scope to the active player footprint.
 
 ### D — Shutdown flush: full sweep
@@ -192,7 +192,7 @@ Adequate — `EntityService.GetAllComponents<T>()`, `HasComponent<T>()`, and `Tr
 Adequate — no new events. `PersistenceHandler` subscriptions are removed; the bus is net lighter.
 
 **Sessions / ISessionManager.**
-Adequate — `ISessionManager.GetAllSessions()` already exists (used by `BroadcastSystem`). `PersistenceFlushTimer` gains a new consumer of this interface, but the interface shape is unchanged.
+Adequate — `ISessionManager.GetAll()` already exists (used by `BroadcastSystem`). `PersistenceFlushTimer` gains a new consumer of this interface, but the interface shape is unchanged.
 
 **Time / periodic flush.**
 Adequate — `PersistenceFlushTimer` is a `BackgroundService` using `PeriodicTimer`. Adding the footprint-resolution step before calling `FlushActivePlayerFootprintAsync` is a mechanical change within the existing hosted-service pattern.
@@ -238,7 +238,7 @@ There is no pre-existing saved data that predates `PersistentEntity`. The backfi
 
 The flush cycle changes from a global dirty-set sweep to an area-scoped player-footprint sweep. The timer now collects session room ids before calling the system. Shutdown transitions from `FlushAsync` to `FlushAllPersistentAsync`. The mermaid diagram and steps in `06-flows.md` must be updated to reflect:
 - Removal of the dirty-set snapshot
-- Addition of `ISessionManager.GetAllSessions()` → room-id collection step
+- Addition of `ISessionManager.GetAll()` → room-id collection step
 - Rename of the system method called (`FlushActivePlayerFootprintAsync`)
 - Shutdown path update (`FlushAllPersistentAsync`)
 - The `PersistentEntity` guard on `WriteEntityAsync`

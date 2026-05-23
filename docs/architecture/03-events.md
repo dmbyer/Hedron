@@ -258,5 +258,6 @@ public class CombatHandler : IEventHandler<AttackEvent>
 | `CombatHandler` (self, priority 10) | Remove from combat |
 | `PlayerConditionHandler` (priority 20) | Apply death penalty, respawn |
 | `NotificationHandler` (priority 80) | Notify witnesses |
-| `PersistenceHandler` (priority 90) | Save state |
 | `AIHandler` (priority 95) | Update NPC threat tables |
+
+> Persistence for `PlayerDeathEvent` is handled by the save-on-change model: the handler that applies the state mutation calls `IPersistenceSystem.SaveEntityAsync` directly after the mutation, rather than routing through a cross-cutting persistence handler subscription.

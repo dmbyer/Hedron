@@ -6,7 +6,6 @@ using Hedron.Core.ECS;
 using Hedron.Core.Events;
 using Hedron.Core.Handlers;
 using Hedron.Core.Modules.Account;
-using Hedron.Core.Modules.Account.Events;
 using Hedron.Core.Modules.Account.Handlers;
 using Hedron.Core.Modules.Admin;
 using Hedron.Core.Modules.Admin.Events;
@@ -119,17 +118,6 @@ public static class Program
         bus.Subscribe<RoomCreatedByAdminEvent>(audit);
         bus.Subscribe<RoomPropertySetByAdminEvent>(audit);
         bus.Subscribe<ContentReloadedEvent>(audit);
-
-        var persistenceHandler = host.Services.GetRequiredService<PersistenceHandler>();
-        bus.Subscribe<EntitySpawnedByAdminEvent>(persistenceHandler);
-        bus.Subscribe<RoomExitAuthoredByAdminEvent>(persistenceHandler);
-        bus.Subscribe<RoomCreatedByAdminEvent>(persistenceHandler);
-        bus.Subscribe<RoomPropertySetByAdminEvent>(persistenceHandler);
-        bus.Subscribe<AccountCreatedEvent>(persistenceHandler);
-        bus.Subscribe<CharacterCreatedEvent>(persistenceHandler);
-        bus.Subscribe<PlayerDisconnectedEvent>(persistenceHandler);
-        bus.Subscribe<PlayerMovedEvent>(persistenceHandler);
-        bus.Subscribe<PlayerTeleportedByAdminEvent>(persistenceHandler);
 
         var characterHydration = host.Services.GetRequiredService<CharacterHydrationHandler>();
         bus.Subscribe<WorldContentReadyEvent>(characterHydration);

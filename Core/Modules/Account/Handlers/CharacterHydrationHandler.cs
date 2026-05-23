@@ -12,8 +12,10 @@ namespace Hedron.Core.Modules.Account.Handlers
     /// <summary>
     /// After world content loads, validates each hydrated character entity's room.
     /// Resets to the starting room if the room entity no longer exists (e.g. it was deleted
-    /// between sessions). Subscribes to <c>WorldContentReadyEvent</c> so that authored room
-    /// entities are available and <c>WorldConfiguration.StartingRoomEntityId</c> is set.
+    /// between sessions). Saves the entity immediately when a correction is made so the
+    /// fix is durable without waiting for the next flush cycle.
+    /// Subscribes to <c>WorldContentReadyEvent</c> so that authored room entities are available
+    /// and <c>WorldConfiguration.StartingRoomEntityId</c> is set.
     /// </summary>
     public sealed class CharacterHydrationHandler : IEventHandler<WorldContentReadyEvent>
     {
@@ -36,7 +38,7 @@ namespace Hedron.Core.Modules.Account.Handlers
             _logger = logger;
         }
 
-        public Task HandleAsync(WorldContentReadyEvent @event)
+        public async Task HandleAsync(WorldContentReadyEvent @event)
         {
             foreach (var (entityId, location) in _entityService.GetAllComponents<LocationComponent>())
             {
@@ -49,11 +51,9 @@ namespace Hedron.Core.Modules.Account.Handlers
                         "Character entity {EntityId} had invalid room {RoomId}; resetting to starting room.",
                         entityId, location.RoomEntityId);
                     location.RoomEntityId = _worldConfig.StartingRoomEntityId;
-                    _persistence.MarkDirty(entityId);
+                    await _persistence.SaveEntityAsync(entityId).ConfigureAwait(false);
                 }
             }
-
-            return Task.CompletedTask;
         }
     }
 }
