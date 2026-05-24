@@ -28,7 +28,7 @@ Evaluate after `TimeSystem` exists and concurrency shape is known. May not be ne
 
 ### 🔵 Heartbeat / TimeSystem
 
-Needed for combat pulses, mob AI ticks, effect expiries. Lands as part of the first Phase 3 slice that needs scheduled work — currently expected to be the mob-wandering slice (slice 6 in [`plan.md`](plan.md)).
+Needed for combat pulses, mob AI ticks, effect expiries. Lands as part of the first Phase 3 slice that needs scheduled work — currently expected to be the mob-wandering slice (slice 8 in [`plan.md`](plan.md)).
 
 ### 🔵 Web / SignalR dual client
 
@@ -74,6 +74,7 @@ Detection heuristics it should run:
 - ≥3 files with the same shape of session output formatting (`session.SendLineAsync($"{prefix} {body}")`) → output-framework promotion candidate.
 - ≥3 files iterating `[Persistent]`-tagged components with identical loops → core-helper candidate.
 - New player-facing surface (verb, prompt, output type) introduced without an `ICommand` / `ICommandDispatcher` / `IOutputMessage` / equivalent registration → infrastructure-discipline-parity violation.
+- A `.claude/skills/*.md` or `.claude/agents/*.md` that references a rule, path, or pattern no longer matching [`../architecture/checklist.md`](../architecture/checklist.md) or the code → stale-tooling candidate (`INV-20`). The spec for this lives in [`../documentation-architecture.md`](../documentation-architecture.md).
 
 Output: a punch list of promotion candidates with evidence (file:line for each instance) and a recommended slice to absorb the work. Does **not** modify code or docs — surface only.
 

@@ -58,7 +58,7 @@ Two patterns — choose based on the nature of the mutation:
 
 There is no `PersistenceHandler` class — it was removed as part of the two-level persistence redesign. Do not create a new one or add a blanket "mark dirty on event X" subscription pattern.
 
-See [docs/architecture/08-persistence.md](../../../docs/architecture/08-persistence.md) for the full model.
+See [docs/architecture/06-persistence.md](../../../docs/architecture/06-persistence.md) for the full model.
 
 ## Don't
 

@@ -2,6 +2,8 @@
 
 Claude-Code-native helpers tuned for this repo. Everything here is optional — the `/docs` tree stands on its own. These exist to speed up common workflows.
 
+For how the docs themselves are organized — what each surface owns and the discipline that keeps them current — see [`docs/documentation-architecture.md`](../docs/documentation-architecture.md); the canonical doc-map is the Related Documents table in [`docs/architecture/00-overview.md`](../docs/architecture/00-overview.md).
+
 ## Skills (`skills/`)
 
 Invoke via model-selected skill triggers or directly in prompts. Each one documents a specific architectural pattern.

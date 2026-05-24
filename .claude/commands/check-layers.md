@@ -3,17 +3,8 @@ description: Run an architecture review on the current branch's diff against mas
 argument-hint: [optional scope hint — file, folder, or note]
 ---
 
-Invoke the **architecture-reviewer** subagent with the following task:
+Invoke the **architecture-reviewer** subagent in **code mode** against the current branch's diff (`git diff master...HEAD`).
 
-Review the architectural discipline of the current branch's changes against `master`.
+Scope hint from the user (focus here if given; otherwise review the full diff): $ARGUMENTS
 
-Scope hint from the user (use this to focus if given, otherwise review the full diff): $ARGUMENTS
-
-Run your standard workflow:
-1. Determine the diff: `git diff master...HEAD --stat` and list changed files under `Core/` and `Server/`.
-2. For each changed file, read the full file and check against the rules in your agent definition.
-3. Grep the full repo for cross-cutting violations (domain systems publishing events, new `is`/`as` entity checks instead of component queries).
-4. Verify doc coherence: if new systems/handlers/events/components/use-case updates are missing from `docs/reference/` or `docs/architecture/`, call it out as doc drift.
-5. Return the standard concise report: Violations (blocking) / Smells / Doc drift / OK.
-
-Do not write code. Do not modify docs. Report only.
+Follow your agent definition exactly — its workflow, the [`docs/architecture/checklist.md`](../../docs/architecture/checklist.md) invariants it cites, and its output format are authoritative. This command is a thin wrapper and deliberately does not restate them.

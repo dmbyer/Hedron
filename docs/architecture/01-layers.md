@@ -67,7 +67,7 @@ The four numbered layers below (Handlers → Domain Systems → Core Systems →
 
 The heartbeat is not built until slice 8, but the Initiator tier is shaped now so it plugs in rather than forcing another revision. When it lands it **must** observe:
 
-1. **It is a scheduler, not one global pulse.** Different work ticks at different cadences (combat round ≈ 2s, regen ≈ 10s, wander ≈ 30s, respawn ≈ minutes). Built on `TimeSystem.RegisterTimer(duration, callback)` (see [../reference/systems.md](../reference/systems.md)) — many timers, not a single `Tick()`.
+1. **It is a scheduler, not one global pulse.** Different work ticks at different cadences (combat round ≈ 2s, regen ≈ 10s, wander ≈ 30s, respawn ≈ minutes). Built on `TimeSystem.RegisterTimer(duration, callback)` (see [../reference/systems-planned.md](../reference/systems-planned.md)) — many timers, not a single `Tick()`.
 2. **Intra-tick ordering uses the multi-phase-event pattern.** "All mobs move, then combat resolves, then DoT applies" is expressed as ordered past-tense events, each phase firing the next — see [03-events.md](03-events.md#handler-priorities--ordering). The heartbeat does not contain an ordering `if`-ladder.
 3. **Single-threaded, queue-drained.** The intended concurrency shape is a single-threaded tick that drains an event queue, keeping the bus and handlers lock-free and consistent with the synchronous `EventBus`. Do not introduce locks ad hoc; revisit only if profiling forces it (tracked in [../roadmap/backlog.md](../roadmap/backlog.md)).
 
@@ -103,8 +103,9 @@ public class PlayerConditionHandler :
         var nearby = _locations.GetEntitiesAt(e.Location);
         var witnesses = _visibility.GetWitnesses(e.Victim, nearby);
 
-        _notifications.Send(e.Victim, "You have died.");
-        _notifications.SendToMany(witnesses, $"{e.Victim.Name} has fallen.");
+        // Output is always a typed message, never a raw transport string (INV-11).
+        _notifications.Send(e.Victim, new PlainMessage("You have died."));
+        _notifications.SendToMany(witnesses, new PlainMessage($"{e.Victim.Name} has fallen."));
 
         await _death.Respawn(e.Victim);
     }

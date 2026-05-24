@@ -77,7 +77,7 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 13 | Crafting, potions | Content depth | 🟢 ready after 6 |
 | 14 | Web/SignalR client (deferred) | Dual-client transport | 🔵 deferred — see [`backlog.md`](backlog.md) |
 
-The command/output framework was split from a single combined draft into slices 3 and 4 (the slice-numbering question was resolved: "slice 3 and shift"). Account / character creation moved from slice 3 to slice 5; every downstream slice shifted **+2**. Slice 5a (bare-bones content spawning) was inserted after account creation so that slices 6+ have a path to exercising their content without pre-authored data files — quality content tooling is intentionally deferred. Order is flexible past slice 5a; some slices can run in parallel branches. Each slice gets a use-case doc *before* implementation starts.
+Order is flexible past slice 5a; some slices can run in parallel branches, and each slice gets a use-case doc *before* implementation starts. (Historical numbering: the original combined command/output draft was split into slices 3 and 4, account creation moved to slice 5 with a +2 downstream shift, and 5a was inserted to give slices 6+ a content-authoring path.)
 
 ## Phase 4 — Hardening
 
@@ -90,19 +90,19 @@ Best addressed once a handful of Phase 3 slices have stressed the architecture:
 
 Tracked in [`backlog.md`](backlog.md) until promoted into a dated slice.
 
-## Ground rules across all phases
+## Ground rules
 
-1. **Idealized API first.** If code can't match the target on first write, don't write it — fix the doc or defer the feature.
-2. **4-layer discipline.** Handlers orchestrate → domain systems decide → core systems compute → components hold data. See [`../architecture/01-layers.md`](../architecture/01-layers.md).
-3. **Component queries, not `is`/`as`.** Never.
-4. **Past-tense thin events.** Events describe *what happened*. Logic lives in handlers/systems.
-5. **One world; authored content spawns from `TemplateRegistry`.** Feature systems own bespoke construction. See [`../architecture/02-ecs.md`](../architecture/02-ecs.md).
-6. **Persistence is per-component.** `[Persistent]` on a component type marks it as save-worthy.
-7. **Docs drift is a bug.** Docs describe the target; if reality disagrees, one of them is wrong and gets fixed in the same PR.
-8. **Content-tooling discipline.** Every slice that adds gameplay state must also land the content tooling needed to author and exercise that state. Concretely:
-   - The slice's use-case doc includes a **Content tooling impact** section listing the data-file shape, admin commands, and/or `TemplateRegistry` entries the slice introduces or extends.
-   - The slice's PR ships those tooling changes alongside the gameplay code; no gameplay slice merges without a way to populate and inspect the state it adds.
-   - If a slice would need content that doesn't yet have a tool to author it, the prerequisite tooling work is split out as its own earlier slice.
+Architectural invariants (layering, ECS, events, persistence, …) are the `INV` list in [`../architecture/checklist.md`](../architecture/checklist.md); CLAUDE.md carries their day-to-day summary. This roadmap does not restate them — one rule, one home (see [`../documentation-architecture.md`](../documentation-architecture.md)).
+
+What this roadmap *owns* are the **slice-delivery obligations** — process rules the checklist enforces but explains here:
+
+- **Content-tooling discipline (INV-18).** Every slice that adds gameplay state ships the tooling to author and exercise it in the same PR:
+   - the use-case doc's **Content tooling impact** section lists the data-file shape, admin commands, and/or `TemplateRegistry` entries introduced or extended;
+   - no gameplay slice merges without a way to populate and inspect the state it adds;
+   - if a slice needs content with no authoring tool yet, the prerequisite tooling is split out as its own earlier slice.
+- **Infrastructure-discipline parity (INV-19).** A new player-facing surface, or a hand-rolled pattern repeated ≥3×, lands its framework in the same or an adjacent slice; the use-case **Cross-cutting surfaces stressed** section is the structural check.
+
+The per-slice delivery loop is the [Phase 3 ground rules](#phase-3-ground-rules) above.
 
 ## Resolved tickets
 

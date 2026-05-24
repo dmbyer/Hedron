@@ -37,7 +37,7 @@ Do **not**:
 ## Steps
 
 1. Create the file at the chosen location.
-2. **Decide persistence — two separate questions.** See [docs/architecture/08-persistence.md](../../../docs/architecture/08-persistence.md) for the full model.
+2. **Decide persistence — two separate questions.** See [docs/architecture/06-persistence.md](../../../docs/architecture/06-persistence.md) for the full model.
 
    **Question A — Should entities of this type survive a restart?**
    This is controlled by the `PersistentEntity` marker on the *entity*, not by this component. When you define the construction path for the archetype that uses this component, decide there whether to add `PersistentEntity`. If some instances persist and others don't (e.g. authored vs. generated rooms), the construction path diverges at that point — not at the component-type level.
