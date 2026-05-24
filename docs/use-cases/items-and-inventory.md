@@ -1,6 +1,6 @@
 # Use Case: Items, Inventory, and Basic Item Commands
 
-**Status:** planned
+**Status:** partial
 **Actors:** Player, Administrator, System
 **Module:** `Core/Modules/Items/` (new); `Core/ECS/Components/` (cross-cutting inventory); `Core/Commands/` (resolver contract update)
 

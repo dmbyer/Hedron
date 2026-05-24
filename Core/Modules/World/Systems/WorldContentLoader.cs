@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Items.Templates;
 using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Configuration;
@@ -29,6 +30,7 @@ namespace Hedron.Core.Modules.World.Systems
     {
         private const string AreasSubdirectory = "areas";
         private const string RoomsSubdirectory = "rooms";
+        private const string ItemsSubdirectory = "items";
         private const string VoidRoomBlueprintId = "room.void";
 
         private readonly EntityService _entityService;
@@ -75,6 +77,7 @@ namespace Hedron.Core.Modules.World.Systems
                 var liveBlueprints = BuildLiveBlueprintMap();
                 SpawnMissingEntities(liveBlueprints);
                 LinkRoomExits(liveBlueprints);
+                PlaceItemsInRooms(liveBlueprints);
             }
 
             ResolveStartingRoom();
@@ -97,6 +100,7 @@ namespace Hedron.Core.Modules.World.Systems
             var liveBlueprints = BuildLiveBlueprintMap();
             SpawnMissingEntities(liveBlueprints);
             LinkRoomExits(liveBlueprints);
+            PlaceItemsInRooms(liveBlueprints);
 
             return new ContentReloadResult(loaded, unchanged, removed);
         }
@@ -114,6 +118,7 @@ namespace Hedron.Core.Modules.World.Systems
 
             await LoadKindAsync("area", AreasSubdirectory, ct).ConfigureAwait(false);
             await LoadKindAsync("room", RoomsSubdirectory, ct).ConfigureAwait(false);
+            await LoadKindAsync("item", ItemsSubdirectory, ct).ConfigureAwait(false);
         }
 
         private async Task LoadKindAsync(string kind, string subdirectory, CancellationToken ct)
@@ -190,6 +195,37 @@ namespace Hedron.Core.Modules.World.Systems
                     }
                     room.Exits[direction] = targetEntityId;
                 }
+            }
+        }
+
+        private void PlaceItemsInRooms(Dictionary<string, uint> liveBlueprints)
+        {
+            foreach (var blueprintId in _templateRegistry.AllBlueprintIds())
+            {
+                if (!_templateRegistry.TryGet(blueprintId, out var template) ||
+                    template is not ItemTemplate itemTemplate)
+                    continue;
+
+                if (!liveBlueprints.TryGetValue(blueprintId, out var entityId))
+                    continue;
+
+                // Skip entities that already have a location: either restored from persistence
+                // (room item) or in someone's inventory (no LocationComponent — handled in Phase B).
+                if (_entityService.HasComponent<LocationComponent>(entityId))
+                    continue;
+
+                if (string.IsNullOrEmpty(itemTemplate.SpawnRoomBlueprintId))
+                    continue;
+
+                if (!liveBlueprints.TryGetValue(itemTemplate.SpawnRoomBlueprintId, out var roomEntityId))
+                {
+                    _logger.LogWarning(
+                        "WorldContentLoader: item '{Blueprint}' references unknown spawnRoomId '{RoomBlueprint}' — item created without location.",
+                        blueprintId, itemTemplate.SpawnRoomBlueprintId);
+                    continue;
+                }
+
+                _entityService.AddComponent(entityId, new LocationComponent { RoomEntityId = roomEntityId });
             }
         }
 

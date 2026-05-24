@@ -209,6 +209,37 @@ public readonly record struct RoomCreationResult(uint RoomEntityId, string Bluep
 ```
 `CreateRoom` generates a unique blueprint id (`room.adhoc.<8-char-base36>`), creates the entity, attaches `RoomComponent` + `BlueprintComponent` + `PersistentEntity`, and registers a minimal `RoomTemplate`. `LinkExits` updates both `RoomComponent.Exits` and the in-memory `RoomTemplate` exit maps for same-session `reload` consistency. The `DigCommand` initiator calls `SaveEntityAsync` on both rooms after this method returns (INV-5: systems do not call persistence). Implemented (Phase 3 slices 5a, persistence-two-level-model).
 
+### ItemSystem
+**Purpose:** Query operations on item entities — finds items in a room by entity id, and prefix-matches a token against item names and keywords to resolve a target item. Pure ECS reads only; no event publication, no persistence.
+**Location:** `Core/Modules/Items/Systems/ItemSystem.cs`
+**Dependencies:** `EntityService`.
+```csharp
+public interface IItemSystem
+{
+    IReadOnlyList<uint> GetItemsInRoom(uint roomEntityId);
+    bool TryFindItemInRoom(uint roomEntityId, string token, out uint itemEntityId);
+}
+```
+`GetItemsInRoom` iterates all `ItemDataComponent` entities and returns those whose `LocationComponent.RoomEntityId` matches. `TryFindItemInRoom` does a linear prefix-match against `ItemDataComponent.Name` and each keyword, returning the first match. Phase B will extend this interface with inventory query and mutation methods. Implemented (Phase 3 slice 6).
+
+### ItemBuilderSystem
+**Purpose:** Runtime item authoring — creates ad-hoc item entities and mutates item properties (`Name`, `Description`, `Keywords`, `ItemType`). Mirrors `IRoomBuilderSystem`: all methods mutate ECS state only; event publication and persistence calls remain in the command (INV-5). Reusable by a future in-game editor without a live player session.
+**Location:** `Core/Modules/Items/Systems/ItemBuilderSystem.cs`
+**Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<ItemBuilderSystem>`.
+```csharp
+public interface IItemBuilderSystem
+{
+    ItemCreationResult CreateItem(string name, uint roomEntityId);
+    void SetItemName(uint itemEntityId, string name);
+    void SetItemDescription(uint itemEntityId, string description);
+    void SetItemKeywords(uint itemEntityId, IReadOnlyList<string> keywords);
+    void SetItemType(uint itemEntityId, ItemType itemType);
+}
+
+public readonly record struct ItemCreationResult(uint ItemEntityId, string BlueprintId);
+```
+`CreateItem` generates a unique blueprint id (`item.adhoc.<8-char-base36>`), creates the entity, attaches `ItemDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `ItemTemplate`. The `MkitemCommand` initiator calls `SaveEntityAsync` after this method returns (INV-5). Implemented (Phase 3 slice 6).
+
 ### AdminAuthorizer
 **Purpose:** Policy seam for admin command authorization. Each admin `ICommand.Execute` calls `IsPrivileged` as its first line; non-privileged sessions get a single rejection line and the command body short-circuits.
 **Location:** `Core/Modules/Admin/Systems/AdminAuthorizer.cs`

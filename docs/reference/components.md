@@ -35,6 +35,7 @@ Persistence uses two independent opt-ins. See [../architecture/06-persistence.md
 | `PlayerComponent` | `DisplayName`, `Session` (transient ref) | Player entity | no |
 | `LocationComponent` | `RoomEntityId` (current room) | any mobile entity | yes |
 | `RoomComponent` | `Name`, `Description`, `Exits` (`Dictionary<Direction, uint>`) | Room entity | yes (tagged `[Persistent]` in slice 5a) |
+| `ItemDataComponent` | `Name`, `Description`, `Keywords` (`List<string>`), `ItemType` | Item entity; read by `BroadcastSystem` (room description) and `ItemSystem` / `ItemBuilderSystem` | yes |
 
 ### Module-owned (`Core/Modules/<Feature>/Components/`)
 

@@ -27,14 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–5b done; **next: slice 6 — items + inventory**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–5b done; slice 6 Phase A done; **next: slice 6 Phase B — inventory + get/drop**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 6 — Items + inventory + `get`/`drop`/`look <item>`.** Use case authored: [`../use-cases/items-and-inventory.md`](../use-cases/items-and-inventory.md). Two implementation phases: Phase A (item entity model, admin `mkitem`/`setitem`, `look <item>`, room description with items) and Phase B (inventory, `get`/`drop`/`inventory` commands, concrete `IArgumentResolver` implementations). Prerequisites: slices 1–5b complete.
+**Phase 3 slice 6 Phase B — inventory, `get`/`drop`/`inventory`, `IArgumentResolver` impls.** Phase A shipped: item entity model (`ItemDataComponent`, `ItemType`), admin `mkitem`/`setitem`, `look <item>` (room scan), room description with items. Phase B delivers: `InventoryComponent` (cross-cutting, `[Persistent]`), `get`/`drop`/`inventory` player commands, `ItemInRoomResolver`/`ItemInInventoryResolver` concrete `IArgumentResolver` implementations, `IArgumentResolver` return-type change (`IReadOnlyList<ResolvedCandidate>?`), `ItemInteractionHandler` for pickup/drop broadcasts. Spec: [`../use-cases/items-and-inventory.md`](../use-cases/items-and-inventory.md) (Phase B flows B-1 through B-3).
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -67,7 +67,7 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 5 | Account / character creation | Real identity instead of throwaway names; first `[Persistent]` user-facing component | ✅ done |
 | 5a | **Bare-bones content spawning** | Ad-hoc `dig`/`set` admin commands backed by `IRoomBuilderSystem`; `RoomComponent` `[Persistent]`; unblocks runtime content authoring for slices 6+ | ✅ done |
 | 5b | **Persistence two-level model** | `PersistentEntity` marker component; area-scoped periodic flush; save-on-change for admin/lifecycle transitions; `PersistenceHandler` deleted; dirty-set model removed | ✅ done |
-| 6 | Items + inventory + `get`/`drop`/`look <item>` | Object interaction and inspection; `ItemDataComponent`, `InventoryComponent`; admin `mkitem`/`setitem`; concrete `IArgumentResolver` impls | 🟡 use case authored — spec review gate next |
+| 6 | Items + inventory + `get`/`drop`/`look <item>` | Object interaction and inspection; `ItemDataComponent`, `InventoryComponent`; admin `mkitem`/`setitem`; concrete `IArgumentResolver` impls | 🟡 Phase A done (item model, admin authoring, `look <item>`, room items) — Phase B in flight |
 | 7 | Equipment + `wear`/`remove` | Gear; `EquipmentComponent`, `WornSlot` enum, `wear`/`remove`/`equipment` commands | 🟡 use case authored — blocked on slice 6 |
 | 8 | Mobs + wandering | Populated world; first `TimeSystem` use | 🟢 ready |
 | 9 | Combat | Core gameplay loop | 🟡 blocked on 8 |
