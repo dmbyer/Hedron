@@ -7,7 +7,7 @@ description: Use when adding a new player or admin command (wear, drink, cast, c
 
 A command is the thinnest possible layer: it declares its argument schema and privilege requirements, then delegates to a domain system or publishes an event. It does **not** contain gameplay logic and does **not** call `session.SendLineAsync` directly.
 
-Authoritative rules: [`docs/architecture/06-commands.md`](../../../docs/architecture/06-commands.md) · layer discipline: [`docs/architecture/01-layers.md`](../../../docs/architecture/01-layers.md) · avoid god commands: [`docs/architecture/04-pitfalls.md`](../../../docs/architecture/04-pitfalls.md).
+Authoritative rules: [`docs/architecture/subsystems/commands.md`](../../../docs/architecture/subsystems/commands.md) · layer discipline: [`docs/architecture/01-layers.md`](../../../docs/architecture/01-layers.md) · avoid god commands: [`docs/architecture/04-pitfalls.md`](../../../docs/architecture/04-pitfalls.md).
 
 ## Shape
 
@@ -115,7 +115,7 @@ await _persistence.SaveEntityAsync(result.NewRoomEntityId, ct);
 await _persistence.SaveEntityAsync(result.SourceRoomEntityId, ct);
 ```
 
-See [docs/architecture/08-persistence.md](../../../docs/architecture/08-persistence.md) for when each pattern applies.
+See [docs/architecture/06-persistence.md](../../../docs/architecture/06-persistence.md) for when each pattern applies.
 
 ## What NOT to do
 

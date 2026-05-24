@@ -1,6 +1,6 @@
 # Architecture Invariant Checklist
 
-> **This is the single authoritative list of every architectural invariant in Hedron.** It is the *enforcement list* — terse, numbered, checkable. The *explanations* live in [00-overview.md](00-overview.md) through [06-flows.md](06-flows.md); the *workflow obligations* live in [`CLAUDE.md`](../../CLAUDE.md) ground rules and [`../roadmap/plan.md`](../roadmap/plan.md). Those documents must not restate invariants in their own words — they link here.
+> **This is the single authoritative list of every architectural invariant in Hedron.** It is the *enforcement list* — terse, numbered, checkable. The *explanations* live in [00-overview.md](00-overview.md) through [06-persistence.md](06-persistence.md), plus the [subsystems/](subsystems/) and [flows/](flows/README.md) docs; the *workflow obligations* live in [`CLAUDE.md`](../../CLAUDE.md) ground rules and [`../roadmap/plan.md`](../roadmap/plan.md). Those documents must not restate invariants in their own words — they link here.
 >
 > **Consumers of this list:** the `architecture-reviewer` agent (both spec-review and code-review modes), the `use-case-planner` agent's ground-rule-9 audit, and the future on-demand debt-sweep agent. A rule change lands *here once*; every consumer picks it up. No agent prompt carries a private copy.
 >
@@ -46,7 +46,7 @@
 
 **INV-13 — Entity identity is `uint`, wrapped as `Entity(uint Id)` at call sites.** Components store `uint` ids when referencing other entities. Explanation: [02-ecs.md](02-ecs.md).
 
-**INV-14 — Persistence is a two-level opt-in.** An entity persists iff it carries the `PersistentEntity` marker component. `[Persistent]` on a component *type* controls which components are included in the snapshot for entities that are already opted in — it does not cause an entity to be saved on its own. Do not use `[Persistent]` to make an entity persistent; add `PersistentEntity` to the entity. Persistence uses `System.Text.Json`; content authoring uses YAML (`YamlDotNet`). The two serializers do not share code. Explanation: [08-persistence.md](08-persistence.md), [02-ecs.md](02-ecs.md), [05-configuration.md](05-configuration.md), CLAUDE.md ground rule 7.
+**INV-14 — Persistence is a two-level opt-in.** An entity persists iff it carries the `PersistentEntity` marker component. `[Persistent]` on a component *type* controls which components are included in the snapshot for entities that are already opted in — it does not cause an entity to be saved on its own. Do not use `[Persistent]` to make an entity persistent; add `PersistentEntity` to the entity. Persistence uses `System.Text.Json`; content authoring uses YAML (`YamlDotNet`). The two serializers do not share code. Explanation: [06-persistence.md](06-persistence.md), [02-ecs.md](02-ecs.md), [05-configuration.md](05-configuration.md), CLAUDE.md ground rule 7.
 
 ## E. Idealized-API & documentation discipline
 
@@ -54,13 +54,32 @@
 
 **INV-16 — Reference catalogs stay current.** A new/changed component, system, or handler updates the matching `docs/reference/*.md` in the same PR. Explanation: [../reference/](../reference/).
 
-**INV-17 — Canonical flows stay current.** Any change to a runtime flow specified in [06-flows.md](06-flows.md) updates that file (body *and* mermaid) in the same PR. A new recurring flow is added there. Drift blocks the review. Explanation: [06-flows.md](06-flows.md), CLAUDE.md ground rule 9.
+**INV-17 — Canonical flows stay current.** Any change to a runtime flow specified in [flows/README.md](flows/README.md) updates that file (body *and* mermaid) in the same PR. A new recurring flow is added there. Drift blocks the review. Explanation: [flows/README.md](flows/README.md), CLAUDE.md ground rule 9.
 
 ## F. Slice discipline (ground rules 8 & 9)
 
 **INV-18 — Content-tooling discipline.** A slice adding gameplay state ships the tooling to author and inspect it (data-file shape, admin commands, `TemplateRegistry` entries). The use-case doc's **Content tooling impact** section is the check. Explanation: CLAUDE.md ground rule 8, [../roadmap/plan.md](../roadmap/plan.md).
 
 **INV-19 — Infrastructure-discipline parity.** A slice introducing a new player-facing surface (commands, prompts, output formats, content schemas), or repeating a hand-rolled pattern ≥3 times, lands the supporting framework in the same or an adjacent slice. The use-case doc's **Cross-cutting surfaces stressed** section is the check; gap-exposed surfaces resolve before merge; "acknowledged debt" requires a backlog entry with rationale. Explanation: CLAUDE.md ground rule 9.
+
+**INV-20 — Agent tooling stays current with architecture.** Any slice that introduces, clarifies, or changes an architectural rule or layer pattern updates the relevant `.claude/skills/*.md` and `.claude/agents/*.md` files in the same PR. Skills and agents are developer tooling — stale guidance produces the next slice's violations.
+- *Spec:* does the use-case introduce or depend on a pattern any existing skill advises? If the spec changes that pattern, commit to updating the relevant skill file.
+- *Code:* do changed files establish a pattern not yet reflected in any skill? Does any change contradict guidance in an existing skill or agent?
+
+## G. Documentation architecture
+
+The docs-as-code rules. Full explanation: [`../documentation-architecture.md`](../documentation-architecture.md). Checked like any other INV — drift blocks the review.
+
+**INV-D1 — One fact, one home.** An architectural rule is stated authoritatively only in this checklist; a runtime flow's diagram lives only in [flows/README.md](flows/README.md); the navigation doc-map lives only in [00-overview.md](00-overview.md). Elsewhere, a one-line summary + link is allowed — a restated or duplicated copy is not. Explanation: [`../documentation-architecture.md`](../documentation-architecture.md).
+- *Code:* a diff that restates an invariant in its own words outside this file, reproduces a flow mermaid outside `flows/`, or forks the doc-map.
+
+**INV-D2 — Use-case trim-on-ship.** A use-case doc at `implemented` carries only its durable behavior spec (Status, Actors, Module, Description, Pre/Postconditions, Main flow, Events fired, Design notes, Related). Implementation-plan, cross-cutting-audit, flows, reference-catalog-diff, and open-questions sections are removed at close-out — that detail is authoritative in code, `flows/`, and `reference/`. Explanation: [`../use-cases/README.md`](../use-cases/README.md) lifecycle; enforced by the `sync-roadmap` skill.
+- *Code:* an `implemented` use-case doc still carrying in-flight-only sections.
+
+**INV-D3 — Reference catalogs list only what exists.** `reference/*.md` describes implemented components/systems/handlers/commands; idealized/planned designs live in the matching `*-planned.md` companion, clearly labeled. A planned entry must not read as if it ships. Complements INV-16.
+- *Code:* a not-yet-built design sitting in the implemented catalog (move it to `*-planned.md`); a shipped system/handler/component missing from `reference/*.md`.
+
+**INV-D4 — Content lives in its bucket.** Each doc has one responsibility per the taxonomy in [`../documentation-architecture.md`](../documentation-architecture.md): foundational rules in `00`–`06`, per-feature framework designs in `subsystems/`, runtime traces in `flows/`, catalogs in `reference/`, direction/status in `roadmap/`, retired material in `archive/`. Content in the wrong bucket moves to the bucket that owns it.
 
 ---
 
@@ -73,10 +92,6 @@ When reviewing a use-case doc *before* implementation, beyond the per-INV spec c
 - **SR-3 — The spec contradicts an established skill or convention.** e.g. it specifies a command shape that the `add-command` skill forbids. One of them is wrong; resolve before implementation.
 - **SR-4 — A referenced flow or catalog entry doesn't exist or won't be updated.** The "Flows introduced or modified" / "Cross-cutting surfaces stressed" sections name flows/surfaces; verify each is real and that the spec commits to updating it.
 - **SR-5 — An open question is load-bearing.** If a deferred decision determines whether an INV is satisfiable, it is not deferrable — it blocks implementation.
-
-**INV-20 — Agent tooling stays current with architecture.** Any slice that introduces, clarifies, or changes an architectural rule or layer pattern updates the relevant `.claude/skills/*.md` and `.claude/agents/*.md` files in the same PR. Skills and agents are developer tooling — stale guidance produces the next slice's violations.
-- *Spec:* does the use-case introduce or depend on a pattern any existing skill advises? If the spec changes that pattern, commit to updating the relevant skill file.
-- *Code:* do changed files establish a pattern not yet reflected in any skill? Does any change contradict guidance in an existing skill or agent?
 
 ---
 

@@ -40,19 +40,21 @@ Read these in order the first time:
 
 **Roadmap:** [`docs/roadmap/plan.md`](docs/roadmap/plan.md) · [`docs/roadmap/done.md`](docs/roadmap/done.md) · [`docs/roadmap/backlog.md`](docs/roadmap/backlog.md)
 
+**Documentation map & rules:** [`docs/documentation-architecture.md`](docs/documentation-architecture.md) — how the docs and `.claude/` tooling are organized, what each surface owns, and the discipline that keeps them current (enforced via checklist `INV-D*`).
+
 ## Ground rules when writing code
 
-> The authoritative, numbered list of every architectural invariant is [`docs/architecture/checklist.md`](docs/architecture/checklist.md). The ground rules below are the day-to-day summary; the checklist is what the `architecture-reviewer` agent and the per-slice gates enforce. If the two ever disagree, the checklist wins and the loser gets fixed.
+> Every architectural invariant lives in [`docs/architecture/checklist.md`](docs/architecture/checklist.md) (the `INV` list). The lines below are a day-to-day index into it — each summarizes one rule and links to its `INV`. The checklist *defines*; this list *summarizes*. If the two disagree, the checklist wins and this summary is fixed — never treat a line here as the authoritative rule. (Why each rule has one home: [`docs/documentation-architecture.md`](docs/documentation-architecture.md).)
 
-1. **Match the idealized API.** `docs/architecture/` and `docs/use-cases/` describe the **target**. New code is written against the target on first attempt. If the target needs to change, update the doc first.
-2. **4-layer discipline.** Handlers orchestrate → domain systems decide → core systems compute → components hold data. Never skip layers upward. See [`docs/architecture/01-layers.md`](docs/architecture/01-layers.md).
-3. **Component queries, not `is`/`as`.** `entityService.HasComponent<PlayerComponent>(id)` — never `entity is Player`.
-4. **Systems return results; Initiators and Handlers publish events.** Domain & core systems never touch the event bus (INV-5). Commands and the scheduled heartbeat are *Initiators* — the entry-point tier that, like handlers, may publish. See [`docs/architecture/01-layers.md`](docs/architecture/01-layers.md#initiators--entry-points).
-5. **One world model.** Every live entity lives in `EntityService`. Authored content is spawned via `TemplateRegistry`; bespoke entities are built with `EntityService.CreateEntity()` + `AddComponent` by the owning feature that needs them.
-6. **Entity identity is a wrapper.** `readonly record struct Entity(uint Id)` — the `uint` is authoritative; `Entity` is for flavour at call sites. Components still store `uint` ids when referencing other entities.
-7. **Persistence uses a two-level model.** `PersistentEntity` (a zero-data marker component) opts an entity into persistence — entities without it are never saved. `[Persistent]` on a component *type* controls which components are included in the snapshot for entities that are saved; it does not cause any entity to be saved on its own. Effects split into `PersistentEffectsComponent` (saved) and `TransientEffectsComponent` (session-only). **Two serializers, two audiences:** persistence uses `System.Text.Json` for component snapshots (machine round-trip); content authoring uses YAML via `YamlDotNet` for designer-write files under `data/content/`. They do not share serializer code. Full model: [`docs/architecture/08-persistence.md`](docs/architecture/08-persistence.md).
-8. **Content-tooling discipline.** Any slice that adds gameplay state must also land the tooling needed to author and exercise that state — data-file shape, admin commands, `TemplateRegistry` entries, etc. The slice's use-case doc must include a **Content tooling impact** section, and the PR must ship the tooling alongside the gameplay code. No gameplay slice merges without a way to populate and inspect the state it adds. See [`docs/roadmap/plan.md`](docs/roadmap/plan.md) ground rules.
-9. **Infrastructure-discipline parity.** When a slice introduces a new player-facing surface (commands, prompts, output formats, content schemas) or repeats a hand-rolled pattern ≥3 times, the supporting framework lands in the same or an adjacent slice. The use-case doc's **Cross-cutting surfaces stressed** section is the structural check; gap-exposed surfaces must resolve before merge. The slice's PR must also update [`docs/architecture/06-flows.md`](docs/architecture/06-flows.md) to reflect any flow it introduces or changes.
+1. **Match the idealized API** — write new code against the documented target; if the target is wrong, fix the doc first (INV-15).
+2. **4-layer discipline** — handlers orchestrate → domain systems decide → core systems compute → components hold data; never call upward (INV-1, INV-2).
+3. **Component queries, not `is`/`as`** — `entityService.HasComponent<T>(id)`, never `entity is Player` (INV-4).
+4. **Systems return results; Initiators and Handlers publish events** — domain & core systems never touch the event bus; commands and the heartbeat are Initiators and may publish (INV-5, INV-8–10).
+5. **One world model** — every live entity is in `EntityService`; authored content spawns via `TemplateRegistry`, bespoke entities are built by the owning feature (INV-12).
+6. **Entity identity is a `uint`, wrapped as `Entity(uint Id)`** at call sites (INV-13).
+7. **Persistence is a two-level opt-in** — `PersistentEntity` opts an entity in; `[Persistent]` on a component type controls snapshot inclusion for already-opted-in entities (INV-14).
+8. **Content-tooling discipline** — a slice adding gameplay state ships the tooling to author and inspect it, declared in its use-case **Content tooling impact** section (INV-18).
+9. **Infrastructure-discipline parity** — a new player-facing surface, or a pattern repeated ≥3×, lands its supporting framework in the same or an adjacent slice; any runtime flow it changes updates the canonical flows doc (INV-19, INV-17).
 
 When adding a new feature:
 - New component → `Core/ECS/Components/<Feature>Component.cs` or `Core/Modules/<Feature>/Components/`

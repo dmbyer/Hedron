@@ -1,6 +1,6 @@
 # Canonical Flows
 
-> Living catalog of end-to-end runtime flows in Hedron. The static architecture lives in [00-overview.md](00-overview.md) through [05-configuration.md](05-configuration.md); the inventory of components/systems/handlers lives under [`../reference/`](../reference/). **This file traces what actually happens at runtime** — the dynamic call chains a developer or designer needs to understand "if I do X, what executes, and in what order?"
+> Living catalog of end-to-end runtime flows in Hedron. The static architecture lives in [00-overview.md](../00-overview.md) through [05-configuration.md](../05-configuration.md); the inventory of components/systems/handlers lives under [`../reference/`](../../reference/). **This file traces what actually happens at runtime** — the dynamic call chains a developer or designer needs to understand "if I do X, what executes, and in what order?"
 >
 > **Update rule.** Every slice's PR must update this file to reflect the as-built code for any flow it introduces, modifies, or extends. CLAUDE.md ground rule 9 makes this a merge gate; the architecture-reviewer agent verifies the doc matches the diff.
 
@@ -70,7 +70,7 @@ sequenceDiagram
 
 1. `Program.Main` builds the generic host and registers DI singletons (`EntityService`, `IEventBus`, `ICommandDispatcher`, `ISessionManager`, broadcast, movement, world config) plus the persistence, world, and admin modules.
 2. Hosted services are queued in this order: `PersistenceBootstrap`, `WorldContentBootstrap`, `PersistenceFlushTimer`, `TelnetServer`. The .NET host runs each `StartAsync` to completion before the next one starts.
-3. Handler subscriptions to `IEventBus` are wired *after* `Build` and *before* `RunAsync` ([`Server/Program.cs`](../../Server/Program.cs)).
+3. Handler subscriptions to `IEventBus` are wired *after* `Build` and *before* `RunAsync` ([`Server/Program.cs`](../../../Server/Program.cs)).
 4. `PersistenceBootstrap.StartAsync` calls `PersistenceSystem.LoadAllAsync`, which scans `Persistence:DataDirectory` for `entity-*.json` files and silently re-attaches every component on each entity (no events fired during hydration). It returns the restored entity ids.
 5. For each restored id, `PersistenceBootstrap` publishes `EntityHydratedEvent`. **Constraint:** handlers must not query other entities at this point — the world is partially loaded.
 6. After the loop, `PersistenceBootstrap` publishes `WorldLoadedEvent`. Cross-entity startup work belongs on this event, not on per-entity hydration.
@@ -80,9 +80,9 @@ sequenceDiagram
 10. **Shutdown path.** When the host shuts down, `PersistenceBootstrap.StopAsync` calls `PersistenceSystem.FlushAllPersistentAsync`, which iterates every entity carrying `PersistentEntity` and writes it to disk — a complete sweep regardless of which rooms are occupied. This replaced the old `FlushAsync` (dirty-set sweep) when the two-level persistence model was introduced.
 
 **Cross-references.**
-- [`docs/architecture/05-configuration.md`](05-configuration.md) — startup-relevant config keys
-- [`docs/reference/systems.md`](../reference/systems.md) — `PersistenceSystem`, `WorldContentLoader`, `TemplateRegistry`
-- [`docs/use-cases/persistence-substrate.md`](../use-cases/persistence-substrate.md), [`docs/use-cases/world-content-loading-and-admin-substrate.md`](../use-cases/world-content-loading-and-admin-substrate.md) — slice specs
+- [`docs/architecture/05-configuration.md`](../05-configuration.md) — startup-relevant config keys
+- [`docs/reference/systems.md`](../../reference/systems.md) — `PersistenceSystem`, `WorldContentLoader`, `TemplateRegistry`
+- [`docs/use-cases/persistence-substrate.md`](../../use-cases/persistence-substrate.md), [`docs/use-cases/world-content-loading-and-admin-substrate.md`](../../use-cases/world-content-loading-and-admin-substrate.md) — slice specs
 
 ---
 
@@ -134,10 +134,10 @@ sequenceDiagram
 6. On disconnect, `SessionManager.Unregister` removes the session, then `PlayerDisconnectedEvent` is published. `PlayerSessionHandler` calls `IAccountSystem.RecordLogout` (updates `CharacterComponent.LastLoginUtc`), then immediately calls `IPersistenceSystem.SaveEntityAsync(characterEntityId)` so the logout timestamp is durable without waiting for the next flush cycle, removes `PlayerComponent` via `EntityService.RemoveComponent<PlayerComponent>`, and broadcasts the departure.
 
 **Cross-references.**
-- [`Server/Sessions/TelnetServer.cs`](../../Server/Sessions/TelnetServer.cs), [`Server/Sessions/TelnetSession.cs`](../../Server/Sessions/TelnetSession.cs), [`Server/Sessions/LoginFlow.cs`](../../Server/Sessions/LoginFlow.cs)
-- [`docs/reference/handlers.md`](../reference/handlers.md) — `PlayerSessionHandler`
+- [`Server/Sessions/TelnetServer.cs`](../../../Server/Sessions/TelnetServer.cs), [`Server/Sessions/TelnetSession.cs`](../../../Server/Sessions/TelnetSession.cs), [`Server/Sessions/LoginFlow.cs`](../../../Server/Sessions/LoginFlow.cs)
+- [`docs/reference/handlers.md`](../../reference/handlers.md) — `PlayerSessionHandler`
 - [Flow 7](#flow-7--login--character-flow) — full login state machine
-- [`docs/use-cases/account-character-creation.md`](../use-cases/account-character-creation.md) — slice 5 spec
+- [`docs/use-cases/account-character-creation.md`](../../use-cases/account-character-creation.md) — slice 5 spec
 
 ---
 
@@ -207,13 +207,13 @@ sequenceDiagram
 8. **`CommandExecutedEvent`.** Published on every dispatch path — success, parse-fail, unauthorized, threw. The `Verb` field carries the **resolved canonical command name** (e.g. `look` when the player typed `lo`), not the raw typed prefix. This makes log lines stable regardless of what the player typed. `CommandLoggingHandler` (priority 80) writes one structured-log line per command via `ILogger`. `AdminAuditHandler` keeps subscribing to the four richer slice-2 admin events and does **not** subscribe to `CommandExecutedEvent`.
 
 **Cross-references.**
-- [`Core/Commands/CommandDispatcher.cs`](../../Core/Commands/CommandDispatcher.cs), [`Core/Commands/ICommand.cs`](../../Core/Commands/ICommand.cs)
-- [`Core/Commands/Authorization/IAuthorizationChecker.cs`](../../Core/Commands/Authorization/IAuthorizationChecker.cs), [`Core/Commands/CommandArgumentParser.cs`](../../Core/Commands/CommandArgumentParser.cs)
-- [`Core/Output/OutputWriter.cs`](../../Core/Output/OutputWriter.cs), [`Core/Handlers/CommandLoggingHandler.cs`](../../Core/Handlers/CommandLoggingHandler.cs)
-- [`docs/architecture/06-commands.md`](06-commands.md) — command framework design
-- [`docs/architecture/07-output.md`](07-output.md) — output framework design
-- [`docs/use-cases/command-framework.md`](../use-cases/command-framework.md) — slice 3 spec; [`docs/use-cases/output-framework.md`](../use-cases/output-framework.md) — slice 4 spec
-- [`docs/reference/handlers.md`](../reference/handlers.md) — handler priority tiers
+- [`Core/Commands/CommandDispatcher.cs`](../../../Core/Commands/CommandDispatcher.cs), [`Core/Commands/ICommand.cs`](../../../Core/Commands/ICommand.cs)
+- [`Core/Commands/Authorization/IAuthorizationChecker.cs`](../../../Core/Commands/Authorization/IAuthorizationChecker.cs), [`Core/Commands/CommandArgumentParser.cs`](../../../Core/Commands/CommandArgumentParser.cs)
+- [`Core/Output/OutputWriter.cs`](../../../Core/Output/OutputWriter.cs), [`Core/Handlers/CommandLoggingHandler.cs`](../../../Core/Handlers/CommandLoggingHandler.cs)
+- [`subsystems/commands.md`](../subsystems/commands.md) — command framework design
+- [`subsystems/output.md`](../subsystems/output.md) — output framework design
+- [`docs/use-cases/command-framework.md`](../../use-cases/command-framework.md) — slice 3 spec; [`docs/use-cases/output-framework.md`](../../use-cases/output-framework.md) — slice 4 spec
+- [`docs/reference/handlers.md`](../../reference/handlers.md) — handler priority tiers
 
 ---
 
@@ -266,8 +266,8 @@ sequenceDiagram
 **Two-level model.** An entity is written only if it carries `PersistentEntity` (level 1). Among its components, only those tagged `[Persistent]` are included in the snapshot (level 2). `PlayerComponent` (transient session ref) and `TransientEffectsComponent` (session-only) are untagged and are never written.
 
 **Cross-references.**
-- [`Core/Systems/PersistenceSystem.cs`](../../Core/Systems/PersistenceSystem.cs), [`Server/PersistenceFlushTimer.cs`](../../Server/PersistenceFlushTimer.cs), [`Server/PersistenceBootstrap.cs`](../../Server/PersistenceBootstrap.cs)
-- [`docs/use-cases/persistence-substrate.md`](../use-cases/persistence-substrate.md), [`docs/use-cases/persistence-two-level-model.md`](../use-cases/persistence-two-level-model.md)
+- [`Core/Systems/PersistenceSystem.cs`](../../../Core/Systems/PersistenceSystem.cs), [`Server/PersistenceFlushTimer.cs`](../../../Server/PersistenceFlushTimer.cs), [`Server/PersistenceBootstrap.cs`](../../../Server/PersistenceBootstrap.cs)
+- [`docs/use-cases/persistence-substrate.md`](../../use-cases/persistence-substrate.md), [`docs/use-cases/persistence-two-level-model.md`](../../use-cases/persistence-two-level-model.md)
 
 ---
 
@@ -324,8 +324,8 @@ sequenceDiagram
 **Constraint.** Live entities are never mutated by reload. To pick up edits to a live room's description or components, restart the host; or use `dig` for exit changes that should apply immediately.
 
 **Cross-references.**
-- [`Core/Modules/Admin/Commands/ReloadCommand.cs`](../../Core/Modules/Admin/Commands/ReloadCommand.cs), [`Core/Modules/World/Systems/WorldContentLoader.cs`](../../Core/Modules/World/Systems/WorldContentLoader.cs)
-- [`docs/use-cases/world-content-loading-and-admin-substrate.md`](../use-cases/world-content-loading-and-admin-substrate.md)
+- [`Core/Modules/Admin/Commands/ReloadCommand.cs`](../../../Core/Modules/Admin/Commands/ReloadCommand.cs), [`Core/Modules/World/Systems/WorldContentLoader.cs`](../../../Core/Modules/World/Systems/WorldContentLoader.cs)
+- [`docs/use-cases/world-content-loading-and-admin-substrate.md`](../../use-cases/world-content-loading-and-admin-substrate.md)
 
 ---
 
@@ -363,16 +363,16 @@ sequenceDiagram
    - `MovementMessage(Blocked)` — "You cannot go that way." in `<system>`.
    - `HelpIndexMessage` — section headers in `<system>`, verb names in `<room-name>` (padded before colorizing).
    - `HelpEntryMessage` — verb/alias header in `<room-name>`.
-4. **Color application.** If `session.SupportsColor` is `true`, inline markers (`<role>text</role>`) are replaced with ANSI escape codes + reset. If `false`, markers are stripped and only the inner text remains. See [`07-output.md`](07-output.md) for the palette table.
+4. **Color application.** If `session.SupportsColor` is `true`, inline markers (`<role>text</role>`) are replaced with ANSI escape codes + reset. If `false`, markers are stripped and only the inner text remains. See [`subsystems/output.md`](../subsystems/output.md) for the palette table.
 5. The rendered string is passed to `session.SendLineAsync(rendered)`. The session acquires its write lock and writes the UTF-8 bytes to the TCP stream.
 
 **Broadcast fan-out.** For `SendToRoomAsync`, step 1 iterates `LocationComponent` entities in the room, applies the optional `Func<uint,bool>? audienceFilter` predicate (e.g. `id => id != movingPlayer`), and runs steps 2–5 for each surviving recipient. Each recipient gets their own formatter resolution so a future mixed-transport world renders correctly per client.
 
 **Cross-references.**
-- [`Core/Output/OutputWriter.cs`](../../Core/Output/OutputWriter.cs), [`Core/Output/TelnetOutputFormatter.cs`](../../Core/Output/TelnetOutputFormatter.cs), [`Core/Output/OutputFormatterRegistry.cs`](../../Core/Output/OutputFormatterRegistry.cs)
-- [`Core/Systems/BroadcastSystem.cs`](../../Core/Systems/BroadcastSystem.cs)
-- [`docs/architecture/07-output.md`](07-output.md) — full output framework design
-- [`docs/use-cases/output-framework.md`](../use-cases/output-framework.md) — slice 4 spec
+- [`Core/Output/OutputWriter.cs`](../../../Core/Output/OutputWriter.cs), [`Core/Output/TelnetOutputFormatter.cs`](../../../Core/Output/TelnetOutputFormatter.cs), [`Core/Output/OutputFormatterRegistry.cs`](../../../Core/Output/OutputFormatterRegistry.cs)
+- [`Core/Systems/BroadcastSystem.cs`](../../../Core/Systems/BroadcastSystem.cs)
+- [`subsystems/output.md`](../subsystems/output.md) — full output framework design
+- [`docs/use-cases/output-framework.md`](../../use-cases/output-framework.md) — slice 4 spec
 
 ---
 
@@ -453,11 +453,11 @@ sequenceDiagram
 7. A `null` return from `LoginFlow.RunAsync` (disconnect, exceeded attempts) causes `TelnetSession` to exit without entering the I/O loop. `HandleDisconnectAsync` is still called but skips publishing because `PlayerEntityId == 0`.
 
 **Cross-references.**
-- [`Server/Sessions/LoginFlow.cs`](../../Server/Sessions/LoginFlow.cs), [`Server/Sessions/TelnetSession.cs`](../../Server/Sessions/TelnetSession.cs)
-- [`Core/Modules/Account/Systems/AccountSystem.cs`](../../Core/Modules/Account/Systems/AccountSystem.cs)
-- [`Core/Modules/Account/Systems/IAccountSystem.cs`](../../Core/Modules/Account/Systems/IAccountSystem.cs)
-- [`docs/reference/systems.md`](../reference/systems.md) — `AccountSystem`, `PasswordHasher`
-- [`docs/use-cases/account-character-creation.md`](../use-cases/account-character-creation.md) — slice 5 spec
+- [`Server/Sessions/LoginFlow.cs`](../../../Server/Sessions/LoginFlow.cs), [`Server/Sessions/TelnetSession.cs`](../../../Server/Sessions/TelnetSession.cs)
+- [`Core/Modules/Account/Systems/AccountSystem.cs`](../../../Core/Modules/Account/Systems/AccountSystem.cs)
+- [`Core/Modules/Account/Systems/IAccountSystem.cs`](../../../Core/Modules/Account/Systems/IAccountSystem.cs)
+- [`docs/reference/systems.md`](../../reference/systems.md) — `AccountSystem`, `PasswordHasher`
+- [`docs/use-cases/account-character-creation.md`](../../use-cases/account-character-creation.md) — slice 5 spec
 
 ---
 
@@ -514,10 +514,10 @@ sequenceDiagram
 7. Writes a confirmation `PlainMessage` (e.g. `"Room 'Garden' (room.adhoc.a1b2c3) created to the north."`).
 
 **Cross-references.**
-- [`Core/Modules/Admin/Commands/DigCommand.cs`](../../Core/Modules/Admin/Commands/DigCommand.cs), [`Core/Modules/Admin/Systems/RoomBuilderSystem.cs`](../../Core/Modules/Admin/Systems/RoomBuilderSystem.cs)
-- [`Core/Modules/Admin/Events/RoomCreatedByAdminEvent.cs`](../../Core/Modules/Admin/Events/RoomCreatedByAdminEvent.cs)
-- [`Core/Modules/Admin/Handlers/AdminAuditHandler.cs`](../../Core/Modules/Admin/Handlers/AdminAuditHandler.cs)
-- [`docs/use-cases/bare-bones-content-spawning.md`](../use-cases/bare-bones-content-spawning.md)
+- [`Core/Modules/Admin/Commands/DigCommand.cs`](../../../Core/Modules/Admin/Commands/DigCommand.cs), [`Core/Modules/Admin/Systems/RoomBuilderSystem.cs`](../../../Core/Modules/Admin/Systems/RoomBuilderSystem.cs)
+- [`Core/Modules/Admin/Events/RoomCreatedByAdminEvent.cs`](../../../Core/Modules/Admin/Events/RoomCreatedByAdminEvent.cs)
+- [`Core/Modules/Admin/Handlers/AdminAuditHandler.cs`](../../../Core/Modules/Admin/Handlers/AdminAuditHandler.cs)
+- [`docs/use-cases/bare-bones-content-spawning.md`](../../use-cases/bare-bones-content-spawning.md)
 
 ---
 
@@ -533,3 +533,9 @@ When a slice introduces a recurring runtime call chain (combat round, player dea
 6. **Update the index** at the top of this file
 
 The use-case-planner agent surfaces flow additions as part of its workflow; the architecture-reviewer agent verifies the doc matches the diff. Drift between code and this file is a merge gate.
+
+---
+
+## When to split this file
+
+This single file is the flows catalog today. It is **pre-wired to split**: when it crosses **~12 flows or ~900 lines**, promote each flow to its own `flows/flow-<n>-<name>.md` and keep this `README.md` as the index (the table above). Inbound references already point at `flows/README.md` (the index) and cite flows by number, so the split is mechanical — only this index gains the per-flow links; no external reference changes.

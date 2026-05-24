@@ -279,4 +279,4 @@ Before merging a change that adds or modifies a system/handler/event, verify:
 - [ ] Each handler has a single clear responsibility
 - [ ] Component queries (not `is`/`as`) identify entity type
 - [ ] Entities and templates are not confused at system boundaries
-- [ ] Persistence shape is correct — entities that must survive restart carry `PersistentEntity`; `[Persistent]` on component types controls snapshot inclusion, not entity-level opt-in (see [08-persistence.md](08-persistence.md))
+- [ ] Persistence shape is correct — entities that must survive restart carry `PersistentEntity`; `[Persistent]` on component types controls snapshot inclusion, not entity-level opt-in (see [06-persistence.md](06-persistence.md))

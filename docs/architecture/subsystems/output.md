@@ -160,7 +160,7 @@ Task SendRoomDescriptionAsync(uint playerEntityId, uint roomEntityId);
 
 `BroadcastSystem` composes `IOutputWriterFactory` per recipient. The old `excludeEntityId` pattern degenerates to `audienceFilter: entityId => entityId != excluded`.
 
-**Channel mode (global chat, newbie channel):** not built this slice. Needs channel-membership state. Tracked in [`../roadmap/backlog.md`](../roadmap/backlog.md).
+**Channel mode (global chat, newbie channel):** not built this slice. Needs channel-membership state. Tracked in [`backlog.md`](../../roadmap/backlog.md).
 
 ---
 
@@ -185,7 +185,7 @@ Task SendRoomDescriptionAsync(uint playerEntityId, uint roomEntityId);
 
 ## Cross-references
 
-- [`docs/architecture/06-flows.md`](06-flows.md) — Flow 3 (output leg), Flow 6 (output rendering)
-- [`docs/reference/systems.md`](../reference/systems.md) — `IBroadcastSystem`, output infrastructure catalog
-- [`docs/use-cases/output-framework.md`](../use-cases/output-framework.md) — slice 4 spec
-- [`Core/Output/`](../../Core/Output/) — all message shapes, interfaces, formatter, registry
+- [`flows/README.md`](../flows/README.md) — Flow 3 (output leg), Flow 6 (output rendering)
+- [`systems.md`](../../reference/systems.md) — `IBroadcastSystem`, output infrastructure catalog
+- [`output-framework.md`](../../use-cases/output-framework.md) — slice 4 spec
+- [`Core/Output/`](../../../Core/Output/) — all message shapes, interfaces, formatter, registry

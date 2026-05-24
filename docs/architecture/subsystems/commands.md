@@ -1,6 +1,6 @@
 # Command Framework
 
-> Introduced in Phase 3 slice 3. Authoritative implementation: `Core/Commands/`. See also [`06-flows.md`](06-flows.md) Flow 3 for the runtime call chain.
+> Introduced in Phase 3 slice 3. Authoritative implementation: `Core/Commands/`. See also [Flow 3](../flows/README.md#flow-3--player-command-lifecycle) for the runtime call chain.
 
 ---
 
@@ -163,8 +163,8 @@ public record CommandExecutedEvent(
 
 ## Related
 
-- [`06-flows.md` Flow 3](06-flows.md#flow-3--player-command-lifecycle) — runtime call chain
-- [`../reference/commands.md`](../reference/commands.md) — living command catalog
-- [`../use-cases/command-framework.md`](../use-cases/command-framework.md) — slice 3 spec
-- [`01-layers.md`](01-layers.md) — Initiators tier (commands and dispatcher may publish events)
-- [`checklist.md`](checklist.md) — INV-8 through INV-11 govern the command tier
+- [Flow 3](../flows/README.md#flow-3--player-command-lifecycle) — runtime call chain
+- [`commands.md`](../../reference/commands.md) — living command catalog
+- [`command-framework.md`](../../use-cases/command-framework.md) — slice 3 spec
+- [`01-layers.md`](../01-layers.md) — Initiators tier (commands and dispatcher may publish events)
+- [`checklist.md`](../checklist.md) — INV-8 through INV-11 govern the command tier

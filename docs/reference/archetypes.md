@@ -1,8 +1,10 @@
 # Archetypes Reference
 
-Living catalog of every entity archetype. **Update this file whenever an archetype is added, removed, or its required/optional components change.**
+> **Target catalog — the archetype system is not yet built.** `EntityArchetype`, `ArchetypeRegistry`, and `ArchetypeDefinition` are marked *(target)* in [`../architecture/00-overview.md`](../architecture/00-overview.md); no archetype validation/detection ships today, and most components referenced below live in [`components-planned.md`](components-planned.md). This file is the **intended** composition catalog — design intent, not a description of running code. Re-audit against reality as gameplay slices land (tracked in [`../roadmap/backlog.md`](../roadmap/backlog.md)). Why implemented and planned are separated: [`../documentation-architecture.md`](../documentation-architecture.md).
 
-Source of truth: `Core/ECS/EntityArchetype.cs` (enum), `Core/ECS/ArchetypeRegistry.cs` (definitions), `Core/ECS/ArchetypeDefinition.cs` (shape).
+Catalog of every intended entity archetype. **Update this file whenever an archetype is added, removed, or its required/optional components change.**
+
+Source of truth (target): `Core/ECS/EntityArchetype.cs` (enum), `Core/ECS/ArchetypeRegistry.cs` (definitions), `Core/ECS/ArchetypeDefinition.cs` (shape).
 
 > Archetypes are a **validation and detection** tool — not a construction tool. Entities are built via `EntityService` / `TemplateRegistry`, not by passing an archetype to a factory. See [../architecture/02-ecs.md](../architecture/02-ecs.md).
 
@@ -28,7 +30,7 @@ Source of truth: `Core/ECS/EntityArchetype.cs` (enum), `Core/ECS/ArchetypeRegist
 | `Trigger` | World-interaction hook entity | Identity, Transform | — |
 | `Custom` | Escape hatch — no archetype contract | — | — |
 
-\* Components marked with an asterisk are planned but not yet implemented — see [components.md](components.md).
+\* Optional components, asterisked. Note: most **required** components listed above are also not yet built — see [`components-planned.md`](components-planned.md) and the target-catalog banner at the top of this file.
 
 ---
 

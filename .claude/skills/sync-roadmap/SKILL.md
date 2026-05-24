@@ -51,9 +51,9 @@ Pull the shipped pieces from:
 - The PR diff (`git show <hash> --stat` for the file list)
 - The use-case doc's "Postconditions" for things that were changed but not new files
 
-### 4. Update the use-case doc status
+### 4. Trim the use-case doc to its durable spec (trim-on-ship)
 
-Confirm the use-case doc (`docs/use-cases/<slug>.md`) has `**Status:** implemented` at the top. Set it if it does not.
+Confirm `**Status:** implemented` at the top, then **trim** the doc to its durable behavior spec — keep **Status, Actors, Module, Description, Preconditions, Postconditions, Main flow, Events fired, Design notes, Related**; delete the in-flight-only sections (Systems/handlers involved, Content tooling impact, Cross-cutting surfaces stressed, Flows introduced or modified, Reference catalog updates, Open questions). Design notes stay — they hold non-obvious rationale not captured in code. That detail is now authoritative in code, `docs/architecture/flows/README.md`, and the `docs/reference/` catalogs — keeping a second copy in the use-case doc is exactly the drift this prevents. See [`../../../docs/documentation-architecture.md`](../../../docs/documentation-architecture.md) (`INV-D2`).
 
 ## Checklist
 
@@ -62,7 +62,7 @@ Confirm the use-case doc (`docs/use-cases/<slug>.md`) has `**Status:** implement
 - [ ] `plan.md` current focus section updated
 - [ ] `done.md` row added
 - [ ] `completed/<slug>.md` created
-- [ ] Use-case doc status is `implemented`
+- [ ] Use-case doc status is `implemented` **and** trimmed to its durable spec (trim-on-ship, `INV-D2`)
 
 ## When in doubt
 
