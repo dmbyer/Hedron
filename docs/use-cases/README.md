@@ -44,6 +44,8 @@ At slice close-out, `sync-roadmap` **trims** it to its durable behavior spec —
 | `implemented` | [`account-character-creation.md`](account-character-creation.md) | Phase 3 slice 5 |
 | `implemented` | [`bare-bones-content-spawning.md`](bare-bones-content-spawning.md) | Phase 3 slice 5a |
 | `implemented` | [`persistence-two-level-model.md`](persistence-two-level-model.md) | Phase 3 slice 5b |
+| `planned` | [`items-and-inventory.md`](items-and-inventory.md) | Phase 3 slice 6 |
+| `planned` | [`equipment.md`](equipment.md) | Phase 3 slice 7 |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 
 > See [`../roadmap/plan.md`](../roadmap/plan.md#slice-queue) for the full slice queue and current focus.

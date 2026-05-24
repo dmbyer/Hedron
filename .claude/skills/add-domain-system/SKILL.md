@@ -44,6 +44,10 @@ Prefer pure resolvers:
 
 Then the handler calls the pure resolver, decides what to do with the result, and mutates state via a second call.
 
+**Void state-mutating methods are also permitted** when the operation is a single atomic mutation with no meaningful return value. Example: `IItemSystem.MoveToInventory(uint itemEntityId, uint holderEntityId)` removes `LocationComponent` from an item and appends it to `InventoryComponent` — there is no useful result to return, and artificially wrapping this in a dummy return type would be noise. `IRoomBuilderSystem.LinkExits` follows the same pattern. "Pure where possible" means prefer a return value when you have a choice; it does not prohibit inherently mutating operations.
+
+The key constraint is the same in both cases: **the system never publishes events or calls persistence**. Those stay in the command (Initiator).
+
 ## Steps
 
 1. Create the module folder if new: `Core/Modules/<Feature>/Systems/<X>System.cs` + interface `I<X>System.cs`.

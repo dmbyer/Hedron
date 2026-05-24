@@ -56,6 +56,22 @@ Deferred from slice 5a (bare-bones content spawning). Three related capabilities
 
 These are deferred together because adding coordinates without area membership is premature, and area properties without coordinates have limited value. Revisit when the mob-wandering slice (slice 8) or a mapping command surfaces a concrete need.
 
+### 🔵 Equipment slot expansion
+
+Additional worn slots deferred from slice 7 (`equipment.md`): `Legs`, `Hands`, `Neck`, `Ring` (and potentially `Waist`, `Wrist`, `Shoulders`). Adding them is a pure `WornSlot` enum + YAML extension. Revisit when the combat slice (9) needs resistance slots, or when content authoring requires them.
+
+### 🔵 Subtype-based argument matching ("get sword" = any sword)
+
+Deferred from slice 6 (`items-and-inventory.md`). `ItemType` enum lands as data on `ItemDataComponent` in slice 6, but no special matching behavior uses it. A future `ItemTypeArgumentResolver` could resolve `"sword"` → all entities of `ItemType.Weapon` with keyword "sword". Requires clarifying whether sub-type matching is a command-level concern (different resolvers per command) or a global upgrade to `IArgumentResolver`. Revisit when content needs it or when the keyword-matching miss rate in play-testing becomes notable.
+
+### 🔵 Multi-step command prompts and player config
+
+Deferred from slice 7 design notes. Two related capabilities:
+- **State-machine prompts**: a command can have confirmation steps (e.g. "You are already wearing X. Replace it? [yes/no]"). Requires per-session prompt state beyond what the current I/O loop supports.
+- **Player config**: per-character preferences (e.g. `autoswap yes`, `autoconfirm itemswap`). Requires a `PlayerConfigurationComponent` (planned in `components-planned.md`) and a `config`/`set` player command.
+
+Both are meaningful improvements to UX but would bloat slices 6–7. Revisit when the number of "are you sure?" flows justifies the infrastructure cost.
+
 ### 🔵 Archetype catalogue refresh
 
 The archetype list in [`../reference/archetypes.md`](../reference/archetypes.md) was written against the old component shapes. Re-audit once a few Phase 3 slices have landed real components.
