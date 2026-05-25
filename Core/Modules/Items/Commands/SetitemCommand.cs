@@ -1,0 +1,142 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Hedron.Core.Commands;
+using Hedron.Core.Commands.Authorization;
+using Hedron.Core.ECS;
+using Hedron.Core.ECS.Components;
+using Hedron.Core.Events;
+using Hedron.Core.Modules.Items.Events;
+using Hedron.Core.Modules.Items.Systems;
+using Hedron.Core.Output;
+using Hedron.Core.Systems;
+
+namespace Hedron.Core.Modules.Items.Commands
+{
+    /// <summary>
+    /// Admin verb <c>setitem &lt;blueprintId&gt; &lt;property&gt; &lt;value&gt;</c>.
+    /// Mutates name, description, keywords, or type on a live item entity identified by blueprint id.
+    /// </summary>
+    public sealed class SetitemCommand : ICommand
+    {
+        private readonly IItemBuilderSystem _itemBuilder;
+        private readonly EntityService _entityService;
+        private readonly ITemplateRegistry _templateRegistry;
+        private readonly IEventBus _eventBus;
+        private readonly IPersistenceSystem _persistence;
+
+        public string Name => "setitem";
+        public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
+        public CommandCategory Category => CommandCategory.Admin;
+        public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
+        public string ShortDescription => "Set a property on an item.";
+        public string LongDescription =>
+            "Sets name, description, keywords (space-separated), or type on the item with the given blueprint id. " +
+            "Valid types: none, weapon, armor, consumable, container, misc.";
+        public string Usage => "setitem <blueprintId> <property> <value>";
+        public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
+            new IAuthorizationRequirement[] { new AdminRequirement() };
+        public CommandArgumentSchema ArgumentSchema { get; } = new(new[]
+        {
+            new CommandArgument("blueprintId", typeof(string), CommandArgumentKind.Token,
+                Required: true, "Blueprint id of the target item."),
+            new CommandArgument("property", typeof(string), CommandArgumentKind.Token,
+                Required: true, "Property to set: name, description, keywords, type."),
+            new CommandArgument("value", typeof(string), CommandArgumentKind.RestOfLine,
+                Required: true, "New value."),
+        });
+
+        public SetitemCommand(
+            IItemBuilderSystem itemBuilder,
+            EntityService entityService,
+            ITemplateRegistry templateRegistry,
+            IEventBus eventBus,
+            IPersistenceSystem persistence)
+        {
+            _itemBuilder = itemBuilder;
+            _entityService = entityService;
+            _templateRegistry = templateRegistry;
+            _eventBus = eventBus;
+            _persistence = persistence;
+        }
+
+        public async Task ExecuteAsync(CommandContext context)
+        {
+            var blueprintId = context.Args.Get<string>("blueprintId");
+            var property = context.Args.Get<string>("property").ToLowerInvariant();
+            var value = context.Args.Get<string>("value");
+
+            if (!_templateRegistry.TryGet(blueprintId, out _))
+            {
+                await context.Output.WriteAsync(new PlainMessage(
+                    $"No item template found with blueprint id '{blueprintId}'.",
+                    OutputSeverity.Error)).ConfigureAwait(false);
+                return;
+            }
+
+            uint itemEntityId = 0;
+            foreach (var (entityId, bp) in _entityService.GetAllComponents<BlueprintComponent>())
+            {
+                if (string.Equals(bp.BlueprintId, blueprintId, StringComparison.OrdinalIgnoreCase) &&
+                    _entityService.HasComponent<ItemDataComponent>(entityId))
+                {
+                    itemEntityId = entityId;
+                    break;
+                }
+            }
+
+            if (itemEntityId == 0)
+            {
+                await context.Output.WriteAsync(new PlainMessage(
+                    $"Item '{blueprintId}' has no live entity in the world.",
+                    OutputSeverity.Error)).ConfigureAwait(false);
+                return;
+            }
+
+            switch (property)
+            {
+                case "name":
+                    _itemBuilder.SetItemName(itemEntityId, value);
+                    break;
+
+                case "description":
+                    _itemBuilder.SetItemDescription(itemEntityId, value);
+                    break;
+
+                case "keywords":
+                    var keywords = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    _itemBuilder.SetItemKeywords(itemEntityId, keywords);
+                    break;
+
+                case "type":
+                    if (!Enum.TryParse<ItemType>(value, ignoreCase: true, out var itemType))
+                    {
+                        await context.Output.WriteAsync(new PlainMessage(
+                            $"Unknown item type '{value}'. Valid types: none, weapon, armor, consumable, container, misc.",
+                            OutputSeverity.Error)).ConfigureAwait(false);
+                        return;
+                    }
+                    _itemBuilder.SetItemType(itemEntityId, itemType);
+                    break;
+
+                default:
+                    await context.Output.WriteAsync(new PlainMessage(
+                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type.",
+                        OutputSeverity.Error)).ConfigureAwait(false);
+                    return;
+            }
+
+            await _eventBus.PublishAsync(new ItemPropertySetByAdminEvent(
+                context.InvokerEntityId,
+                itemEntityId,
+                property,
+                value)).ConfigureAwait(false);
+
+            await _persistence.SaveEntityAsync(itemEntityId).ConfigureAwait(false);
+
+            await context.Output.WriteAsync(new PlainMessage(
+                $"Item {property} set to '{value}'.",
+                OutputSeverity.Confirmation)).ConfigureAwait(false);
+        }
+    }
+}

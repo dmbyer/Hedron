@@ -10,6 +10,8 @@ using Hedron.Core.Modules.Account.Handlers;
 using Hedron.Core.Modules.Admin;
 using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Admin.Handlers;
+using Hedron.Core.Modules.Items;
+using Hedron.Core.Modules.Items.Events;
 using Hedron.Core.Modules.Chat.Commands;
 using Hedron.Core.Modules.Chat.Events;
 using Hedron.Core.Modules.Chat.Handlers;
@@ -88,12 +90,13 @@ public static class Program
                         sp.GetRequiredService<IEventBus>()));
                 }
 
-                // Modules — Account, World, Admin (registers IAuthorizationChecker), Help
+                // Modules — Account, World, Admin (registers IAuthorizationChecker), Help, Items
                 services.AddAccountModule();
                 services.AddPersistenceModule();
                 services.AddWorldModule();
                 services.AddAdminModule();
                 services.AddHelpModule();
+                services.AddItemsModule();
 
                 // Hosted services — order matters.
                 services.AddHostedService<PersistenceBootstrap>();
@@ -118,6 +121,8 @@ public static class Program
         bus.Subscribe<RoomCreatedByAdminEvent>(audit);
         bus.Subscribe<RoomPropertySetByAdminEvent>(audit);
         bus.Subscribe<ContentReloadedEvent>(audit);
+        bus.Subscribe<ItemCreatedByAdminEvent>(audit);
+        bus.Subscribe<ItemPropertySetByAdminEvent>(audit);
 
         var characterHydration = host.Services.GetRequiredService<CharacterHydrationHandler>();
         bus.Subscribe<WorldContentReadyEvent>(characterHydration);

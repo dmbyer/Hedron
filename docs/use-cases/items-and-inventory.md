@@ -1,6 +1,6 @@
 # Use Case: Items, Inventory, and Basic Item Commands
 
-**Status:** planned
+**Status:** partial
 **Actors:** Player, Administrator, System
 **Module:** `Core/Modules/Items/` (new); `Core/ECS/Components/` (cross-cutting inventory); `Core/Commands/` (resolver contract update)
 
@@ -88,7 +88,10 @@ This slice is large enough to warrant two sequential sub-phases, each independen
 
 1. `WorldContentLoader` encounters a YAML file with `kind: item`. It calls `ItemTemplateDeserializer.Deserialize(body)` → `ItemTemplate`.
 2. `TemplateRegistry.Register(blueprintId, itemTemplate)`.
-3. `SpawnMissingEntities`: for any `ItemTemplate` with no live entity, `TemplateRegistry.Spawn(blueprintId)` creates the entity. `WorldContentLoader` attaches `PersistentEntity` and `LocationComponent { RoomEntityId }` from the template's `spawnRoomId` field. No event published (boot-time spawn).
+3. `SpawnMissingEntities`: for any `ItemTemplate` whose blueprint id has no live entity (not restored from persistence), `TemplateRegistry.Spawn(blueprintId)` creates the entity. `WorldContentLoader` attaches `PersistentEntity`. Returns the set of newly-spawned entity IDs.
+4. **Immediate save.** `WorldContentLoader` calls `SaveEntityAsync` for every newly-spawned entity. This makes entity IDs durable — if the server terminates before the shutdown flush, the same IDs are reused on the next start, preventing stale `LocationComponent` references in existing items.
+5. `PlaceItemsInRooms`: for each newly-spawned item entity (only), reads `spawnRoomId` from its template and attaches `LocationComponent { RoomEntityId }`. Restored-from-persistence entities are skipped — their saved `LocationComponent` (room or inventory, post-Phase-B) is already correct.
+6. No event published (boot-time spawn).
 
 ### Flow B-1 — `get <item>` (pickup)
 
@@ -103,7 +106,7 @@ This slice is large enough to warrant two sequential sub-phases, each independen
 1. **Argument resolve.** `DropCommand` declares `item` as `Token` with `ItemInInventoryResolver`. Resolver calls `IItemSystem.GetItemsInInventory(playerEntityId)`, builds candidate list from carried items' names + keywords.
 2. **Entity resolve.** `IItemSystem.TryFindItemInInventory(playerEntityId, canonicalName, out itemEntityId)`. Not found → "You aren't carrying that."
 3. **Drop.** `IItemSystem.DropToRoom(itemEntityId, playerEntityId, currentRoomId)` removes item id from `InventoryComponent.ItemEntityIds`, attaches `LocationComponent { RoomEntityId = currentRoom }` to item.
-4. **Event + save.** Publishes `ItemDroppedEvent(PlayerEntityId, ItemEntityId, RoomEntityId)`. Calls `SaveEntityAsync(itemEntityId)`, `SaveEntityAsync(playerEntityId)`.
+4. **Event + save.** Publishes `ItemDroppedEvent(PlayerEntityId, ItemEntityId, RoomEntityId)`. Calls `SaveEntityAsync(playerEntityId)` **only — the item entity is intentionally NOT saved after drop.** This implements "dropped items vanish on restart": the item entity's last-saved state has no `LocationComponent` (saved during pickup), so on restart it has no ground presence. Template items with a `spawnRoomId` are re-placed in their spawn room by `PlaceItemsInRooms` (see Design Notes); `mkitem` items with no spawn room simply vanish.
 5. **Handler.** `ItemInteractionHandler` broadcasts `"<PlayerName> drops <ItemName>."` to room (excluding dropper). Writes `"You drop <ItemName>."` to player.
 
 ### Flow B-3 — `inventory`
@@ -211,7 +214,7 @@ spawnRoomId: room.start   # blueprint id of the room to spawn in at startup
 | **Commands** (`ICommand`, dispatcher, schema) | Adequate | No new command-framework mechanics; `mkitem`, `setitem`, `get`, `drop`, `inventory` fit the existing declarative schema pattern. `LookCommand` gains an optional arg — parser already supports `Required: false`. |
 | **`IArgumentResolver` / argument parsing** | **Gap exposed** — resolved in Phase B | The seam was designed in slice 3a explicitly for this slice. The return type changes from `IReadOnlyList<string>?` to `IReadOnlyList<ResolvedCandidate>?` to support keyword deduplication. No concrete implementations exist, so the interface evolution is safe. Must resolve before merge. |
 | **Output** (`IOutputMessage`, formatter) | **Gap exposed** — resolved in Phase A | `RoomDescriptionMessage` has no items section; `BroadcastSystem.SendRoomDescriptionAsync` does not query for items. Both must be extended. Additionally, a new `InventoryListMessage` output shape is introduced. The `TelnetOutputFormatter` must handle both. Must resolve before merge. |
-| **Persistence** (two-level opt-in) | Adequate | `ItemDataComponent` and `InventoryComponent` are `[Persistent]`; items get `PersistentEntity` on creation. The existing flush + save-on-change model handles items and inventory without extension. |
+| **Persistence** (two-level opt-in) | **Gap exposed — resolved** | Three non-obvious rules must be enforced (see Design Notes → "Item persistence strategy"): (1) newly-spawned entities (rooms AND items) are saved immediately by `WorldContentLoader` so their entity IDs are stable across restarts; (2) `PlaceItemsInRooms` is restricted to the `newlySpawned` set so restored-from-disk items (in inventory or on the ground) are never overridden; (3) `drop` saves only the player entity, not the item, so dropped items vanish on restart. Violating any of these produces entity-ID drift or duplicate presence in Phase B. |
 | **`TemplateRegistry` / `WorldContentLoader`** | Adequate | `ITemplateDeserializer` registration pattern is used by world and area modules; `kind: item` just adds another deserializer. `SpawnMissingEntities` loops by template kind; items join the loop. `LinkRoomExits` is room-only and unaffected. |
 | **`BroadcastSystem`** | **Gap exposed** — resolved in Phase A | `SendRoomDescriptionAsync` must query for items in the room. This is a targeted extension to an existing method; no new broadcast shape or audience model is needed. Must resolve before merge. |
 | **Persistence save-on-change** | Adequate | `mkitem` and `setitem` call `SaveEntityAsync` directly (same pattern as `dig`/`set`). Get/drop also call it on both the item and the player. |
@@ -270,6 +273,14 @@ New flows (9–12) must be added to [`../architecture/flows/README.md`](../archi
 ## Design Notes
 
 - **Item location model.** Items on the ground have `LocationComponent.RoomEntityId` pointing to their room. Items in inventory have **no** `LocationComponent` — they are tracked exclusively by `InventoryComponent.ItemEntityIds` on the holder. This keeps queries clean: room items = entities with `LocationComponent.RoomEntityId == roomId` AND `ItemDataComponent`; inventory items = iterate `InventoryComponent.ItemEntityIds`. No null-room sentinel or container-chain walk needed in this slice.
+- **Item persistence strategy.** The following rules govern what survives a server restart:
+  - **`mkitem` (ad-hoc) items**: Always saved immediately on creation (`SaveEntityAsync` in `MkitemCommand`). Location (`LocationComponent`) is also saved. When picked up, saved again without `LocationComponent`. When dropped, **not** re-saved — so the item reverts to its picked-up (no-location) state on restart and effectively vanishes from the world. Admin can re-place it.
+  - **Template (YAML) items**: Spawned on first startup; entity is saved immediately by `WorldContentLoader` so its entity ID is durable across restarts (rooms and items both get entity files at startup). When picked up, saved without `LocationComponent`. When dropped, **not** saved — reverts to no-location state; `PlaceItemsInRooms` re-places it in its YAML `spawnRoomId` on next restart (see below).
+  - **Player entity (pickup/drop)**: Always saved (`SaveEntityAsync(playerEntityId)`) to durably record `InventoryComponent` changes.
+  - **`PlaceItemsInRooms` — Phase A**: Only processes entities in the `newlySpawned` set (those created in the current startup pass, not restored from disk). This prevents overriding a carried item's missing `LocationComponent` with its spawn room.
+  - **`PlaceItemsInRooms` — Phase B addition**: A second pass should re-place restored template items that have no `LocationComponent` AND are not referenced by any player's `InventoryComponent`. This handles the reset-to-spawn-room semantics for template items that were dropped before the server restarted.
+  - **Room entities**: Saved immediately by `WorldContentLoader` on first spawn, ensuring room entity IDs are stable across restarts. Without this, items' `LocationComponent.RoomEntityId` would reference stale IDs after restart.
+  - **Dropped items vanish by design**: This is the deliberate policy for Phase A/B. If a future slice needs "items persist where dropped," that requires: (a) saving item entity after drop, and (b) removing the template re-placement in `PlaceItemsInRooms` for items that have a saved location. That trade-off belongs in that slice's use-case doc.
 - **Inventory on character.** `AccountSystem.CreateCharacterAsync` is extended to attach an empty `InventoryComponent` to every new character. Existing persisted characters that lack `InventoryComponent` will have it added at hydration time (either via a migration guard in `CharacterHydrationHandler` or simply by the `[Persistent]` round-trip creating an empty component on first save after upgrade).
 - **`IItemBuilderSystem` mirrors `IRoomBuilderSystem`.** Pure domain logic only; all event publication and persistence calls remain in the command (Initiator). Same reasoning as rooms: reusable by a future in-game editor.
 - **`ItemType` is data only in this slice.** No matching behavior uses `ItemType` yet — it is a field on `ItemDataComponent` that equipment (slice 7) and combat (slice 9) will query. Setting it now via `setitem type <value>` means authors can classify items before the consuming slices land.

@@ -71,6 +71,9 @@ namespace Hedron.Core.Output
             foreach (var occupant in m.OccupantNames)
                 sb.AppendLine().Append($"{occupant} is here.");
 
+            if (m.Items.Count > 0)
+                sb.AppendLine().Append($"Items: {string.Join(", ", m.Items)}");
+
             return sb.ToString();
         }
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hedron.Core;
@@ -73,8 +74,16 @@ namespace Hedron.Core.Systems
                     occupants.Add(occupant.DisplayName);
             }
 
+            var items = new List<string>();
+            foreach (var (entityId, itemData) in _entityService.GetAllComponents<ItemDataComponent>())
+            {
+                if (_entityService.TryGet<LocationComponent>(entityId, out var itemLoc) &&
+                    itemLoc.RoomEntityId == roomEntityId)
+                    items.Add(itemData.Name);
+            }
+
             var msg = new RoomDescriptionMessage(
-                roomEntityId, room.Name, room.Description, exits, occupants);
+                roomEntityId, room.Name, room.Description, exits, occupants, items);
 
             await _writerFactory.Create(session).WriteAsync(msg).ConfigureAwait(false);
         }

@@ -63,9 +63,10 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Aliases:** `l`  
 **MatchingMode:** `Partial`  
 **Location:** `Core/Modules/World/Commands/LookCommand.cs`  
-**Description:** Displays the current room description, visible exits, and other players present. Delegates to `IBroadcastSystem.SendRoomDescriptionAsync`; output is not yet routed through the `IOutputWriter` formatter (deferred to slice 4).  
-**Usage:** `look`  
-**Schema:** no arguments  
+**Description:** With no argument, displays the current room description, visible exits, other players present, and items on the ground (via `IBroadcastSystem.SendRoomDescriptionAsync`). With a target argument, prefix-matches against items in the current room (by name and keywords) and shows the item's name and description; writes "You don't see that here." on no match. Room-only lookup in Phase A; inventory fallback added in Phase B.  
+**Usage:** `look [target]`  
+**Schema:** `RestOfLine string "target"` (optional)  
+**Dependencies:** `EntityService`, `IBroadcastSystem`, `IItemSystem`  
 **Events:** none
 
 ---
@@ -133,6 +134,30 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 ## Admin commands
 
 All admin commands require `AdminRequirement`. The dispatcher enforces this via `IAuthorizationChecker`; no per-command `IsPrivileged` call is needed or permitted.
+
+---
+
+### `mkitem`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Items/Commands/MkitemCommand.cs`  
+**Description:** Creates an ad-hoc item entity in the invoker's current room. Delegates to `IItemBuilderSystem.CreateItem`; the item gets `ItemDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent`. Prints the blueprint id (format `item.adhoc.<shortid>`) so the admin can configure it with `setitem`. Saves the item entity immediately.  
+**Usage:** `mkitem [name]`  
+**Schema:** `RestOfLine string "name"` (optional, default `"an item"`)  
+**Events:** `ItemCreatedByAdminEvent`
+
+---
+
+### `setitem`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Items/Commands/SetitemCommand.cs`  
+**Description:** Sets a property on an existing item entity identified by blueprint id. Validates the blueprint id exists in `ITemplateRegistry`; resolves the live entity by `BlueprintComponent.BlueprintId`. Delegates mutation to `IItemBuilderSystem`. Saves the item entity immediately.  
+**Usage:** `setitem <blueprintId> <property> <value>`  
+**Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`), `RestOfLine string "value"` (required). For `keywords`, value is split on whitespace. For `type`, value must parse as `ItemType` enum.  
+**Events:** `ItemPropertySetByAdminEvent`
 
 ---
 
