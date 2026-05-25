@@ -8,8 +8,8 @@ namespace Hedron.Core.Commands
     /// Default argument parser: single-pass, whitespace + double-quoted tokenization,
     /// enum-prefix matching. For <see cref="CommandArgumentKind.Token"/> string arguments
     /// that declare a non-null <see cref="IArgumentResolver"/>, the resolver is invoked and
-    /// prefix matching is applied against the candidate list. No concrete resolver ships until
-    /// slice 6; the call-site is present but exercises no live resolver in this slice.
+    /// prefix matching is applied against the candidate list. Candidates are deduplicated by
+    /// <see cref="ResolvedCandidate.CanonicalValue"/> so keyword aliases do not produce false ambiguity.
     /// </summary>
     public sealed class CommandArgumentParser : ICommandArgumentParser
     {
@@ -99,10 +99,12 @@ namespace Hedron.Core.Commands
         /// resolver to get candidates and applies prefix matching:
         /// <list type="bullet">
         ///   <item>Resolver returns null → pass token through (not applicable).</item>
-        ///   <item>Exactly one candidate starts with token → substitute canonical form.</item>
+        ///   <item>Exactly one distinct <see cref="ResolvedCandidate.CanonicalValue"/> starts with token → substitute it.</item>
         ///   <item>Zero candidates start with token → pass token through (no match, raw literal).</item>
-        ///   <item>Two or more candidates start with token → return null (ambiguous → parse failure).</item>
+        ///   <item>Two or more distinct canonical values start with token → return null (ambiguous → parse failure).</item>
         /// </list>
+        /// Deduplication by <see cref="ResolvedCandidate.CanonicalValue"/> means keyword aliases
+        /// for the same item do not produce false ambiguity.
         /// </summary>
         private static object? Coerce(string token, Type clrType,
             IArgumentResolver? resolver, CommandArgumentResolverContext resolverContext)
@@ -114,15 +116,17 @@ namespace Hedron.Core.Commands
                     var candidates = resolver.GetCandidates(resolverContext);
                     if (candidates is not null)
                     {
-                        var matches = candidates
-                            .Where(c => c.StartsWith(token, StringComparison.OrdinalIgnoreCase))
+                        var matchedCanonicals = candidates
+                            .Where(c => c.MatchString.StartsWith(token, StringComparison.OrdinalIgnoreCase))
+                            .Select(c => c.CanonicalValue)
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
                             .ToList();
 
-                        return matches.Count switch
+                        return matchedCanonicals.Count switch
                         {
-                            1 => matches[0],            // unique match → canonical form
+                            1 => matchedCanonicals[0],  // unique canonical match → substitute
                             > 1 => null,                // ambiguous → parse failure
-                            _ => token,                 // no match → fall through to raw literal
+                            _ => token,                 // no match → pass raw token through
                         };
                     }
                 }

@@ -26,6 +26,13 @@ namespace Hedron.Core.Modules.Items.Systems
             return result;
         }
 
+        public IReadOnlyList<uint> GetItemsInInventory(uint holderEntityId)
+        {
+            if (!_entityService.TryGet<InventoryComponent>(holderEntityId, out var inv))
+                return Array.Empty<uint>();
+            return inv.ItemEntityIds.AsReadOnly();
+        }
+
         public bool TryFindItemInRoom(uint roomEntityId, string token, out uint itemEntityId)
         {
             foreach (var entityId in GetItemsInRoom(roomEntityId))
@@ -48,6 +55,49 @@ namespace Hedron.Core.Modules.Items.Systems
             }
             itemEntityId = default;
             return false;
+        }
+
+        public bool TryFindItemInInventory(uint holderEntityId, string token, out uint itemEntityId)
+        {
+            foreach (var entityId in GetItemsInInventory(holderEntityId))
+            {
+                if (!_entityService.TryGet<ItemDataComponent>(entityId, out var data)) continue;
+
+                if (PrefixMatches(data.Name, token))
+                {
+                    itemEntityId = entityId;
+                    return true;
+                }
+                foreach (var keyword in data.Keywords)
+                {
+                    if (PrefixMatches(keyword, token))
+                    {
+                        itemEntityId = entityId;
+                        return true;
+                    }
+                }
+            }
+            itemEntityId = default;
+            return false;
+        }
+
+        public void MoveToInventory(uint itemEntityId, uint holderEntityId)
+        {
+            if (!_entityService.HasComponent<LocationComponent>(itemEntityId))
+                return; // already picked up — race condition, silently no-op
+
+            _entityService.RemoveComponent<LocationComponent>(itemEntityId);
+
+            if (_entityService.TryGet<InventoryComponent>(holderEntityId, out var inv))
+                inv.ItemEntityIds.Add(itemEntityId);
+        }
+
+        public void DropToRoom(uint itemEntityId, uint holderEntityId, uint roomEntityId)
+        {
+            if (_entityService.TryGet<InventoryComponent>(holderEntityId, out var inv))
+                inv.ItemEntityIds.Remove(itemEntityId);
+
+            _entityService.AddComponent(itemEntityId, new LocationComponent { RoomEntityId = roomEntityId });
         }
 
         private static bool PrefixMatches(string candidate, string token) =>

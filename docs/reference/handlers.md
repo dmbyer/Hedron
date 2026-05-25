@@ -33,9 +33,16 @@ Ask:
 ### CharacterHydrationHandler
 **Events:** `WorldContentReadyEvent`
 **Priority:** 20 (`HandlerPriority.Domain`)
-**Responsibilities:** After world content is fully loaded, iterates every entity that has both `CharacterComponent` and `LocationComponent`. Validates `LocationComponent.RoomEntityId` via `HasComponent<RoomComponent>`; if the room no longer exists (deleted YAML), resets to `WorldConfiguration.StartingRoomEntityId`, logs a warning, and calls `IPersistenceSystem.SaveEntityAsync` immediately so the correction is durable without waiting for the next flush cycle. Runs once at startup; no-op if no character entities exist.
+**Responsibilities:** After world content is fully loaded, iterates every entity that has both `CharacterComponent` and `LocationComponent`. Validates `LocationComponent.RoomEntityId` via `HasComponent<RoomComponent>`; if the room no longer exists (deleted YAML), resets to `WorldConfiguration.StartingRoomEntityId`, logs a warning, and calls `IPersistenceSystem.SaveEntityAsync` immediately so the correction is durable without waiting for the next flush cycle. Also attaches an empty `InventoryComponent` to any character entity that lacks one (migration guard for characters persisted before slice 6 Phase B). The component is not saved in the guard itself — it is persisted on the character's next save-on-change event (`get`, `drop`, or the next periodic flush). Runs once at startup; no-op if no character entities exist.
 **Location:** `Core/Modules/Account/Handlers/CharacterHydrationHandler.cs`
 **Uses:** `EntityService`, `WorldConfiguration`, `IPersistenceSystem`, `ILogger`
+
+### ItemInteractionHandler
+**Events:** `ItemPickedUpEvent`, `ItemDroppedEvent`
+**Priority:** 80 (`HandlerPriority.Notification`)
+**Responsibilities:** Pure output fan-out — no domain logic, no persistence calls. For pickup: broadcasts `"<PlayerName> picks up <ItemName>."` to all players in the room excluding the picker; writes `"You pick up <ItemName>."` to the picker only (via `SendToRoomAsync` with a filter). For drop: same pattern with drop flavour text. Player name read from `PlayerComponent.DisplayName`; item name from `ItemDataComponent.Name`. Falls back to `"Someone"` / `"something"` if either component is missing.
+**Location:** `Core/Modules/Items/Handlers/ItemInteractionHandler.cs`
+**Uses:** `EntityService`, `IBroadcastSystem`
 
 ### AdminAuditHandler
 **Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a); `ItemCreatedByAdminEvent`, `ItemPropertySetByAdminEvent` (Phase 3 slice 6).

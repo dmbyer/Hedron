@@ -22,6 +22,19 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 ---
 
+### `drop`
+
+**Aliases:** none  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Items/Commands/DropCommand.cs`  
+**Description:** Drops a named item from the player's inventory to the ground in the current room. Argument is resolved via `ItemInInventoryResolver` (prefix-matched against carried item names and keywords). On no match: "You aren't carrying that." `IItemSystem.DropToRoom` mutates ECS state (removes from `InventoryComponent`, attaches `LocationComponent`); the player entity is saved immediately; the item entity is **not** saved (dropped items vanish on restart by design — see the items-and-inventory use-case spec). Broadcasts drop messages to the room via `ItemInteractionHandler`.  
+**Usage:** `drop <item>`  
+**Schema:** `Token string "item"` (required, `ItemInInventoryResolver`)  
+**Dependencies:** `IItemSystem`, `EntityService`, `IEventBus`, `IPersistenceSystem`, `ItemInInventoryResolver`  
+**Events:** `ItemDroppedEvent`
+
+---
+
 ### `down` / `d`
 
 **Aliases:** `d`  
@@ -46,6 +59,19 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 ---
 
+### `get`
+
+**Aliases:** none  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Items/Commands/GetCommand.cs`  
+**Description:** Picks up a named item from the ground in the current room and adds it to the player's inventory. Argument is resolved via `ItemInRoomResolver` (prefix-matched against room item names and keywords). On no match after resolver: "You don't see that here." (handles race condition where item was taken between resolve and pickup). `IItemSystem.MoveToInventory` mutates ECS state (removes `LocationComponent` from item, appends to `InventoryComponent`); both item and player entities are saved immediately. Broadcasts pickup messages to the room via `ItemInteractionHandler`.  
+**Usage:** `get <item>`  
+**Schema:** `Token string "item"` (required, `ItemInRoomResolver`)  
+**Dependencies:** `IItemSystem`, `EntityService`, `IEventBus`, `IPersistenceSystem`, `ItemInRoomResolver`  
+**Events:** `ItemPickedUpEvent`
+
+---
+
 ### `help` / `?`
 
 **Aliases:** `?`  
@@ -58,12 +84,25 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 ---
 
+### `inventory` / `inv` / `i`
+
+**Aliases:** `inv`, `i`  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Items/Commands/InventoryCommand.cs`  
+**Description:** Lists the names of all items the player is currently carrying. If inventory is empty, writes "You are carrying nothing." Otherwise writes an `InventoryListMessage` (rendered as `"You are carrying:"` header + item list). No events fired.  
+**Usage:** `inventory`  
+**Schema:** no arguments  
+**Dependencies:** `IItemSystem`, `EntityService`  
+**Events:** none
+
+---
+
 ### `look` / `l`
 
 **Aliases:** `l`  
 **MatchingMode:** `Partial`  
 **Location:** `Core/Modules/World/Commands/LookCommand.cs`  
-**Description:** With no argument, displays the current room description, visible exits, other players present, and items on the ground (via `IBroadcastSystem.SendRoomDescriptionAsync`). With a target argument, prefix-matches against items in the current room (by name and keywords) and shows the item's name and description; writes "You don't see that here." on no match. Room-only lookup in Phase A; inventory fallback added in Phase B.  
+**Description:** With no argument, displays the current room description, visible exits, other players present, and items on the ground (via `IBroadcastSystem.SendRoomDescriptionAsync`). With a target argument, prefix-matches first against items in the current room, then falls back to items in the player's inventory (both by name and keywords); shows the item's name and description. Writes "You don't see that here." on no match in either location.  
 **Usage:** `look [target]`  
 **Schema:** `RestOfLine string "target"` (optional)  
 **Dependencies:** `EntityService`, `IBroadcastSystem`, `IItemSystem`  

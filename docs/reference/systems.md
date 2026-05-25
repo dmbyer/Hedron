@@ -210,17 +210,21 @@ public readonly record struct RoomCreationResult(uint RoomEntityId, string Bluep
 `CreateRoom` generates a unique blueprint id (`room.adhoc.<8-char-base36>`), creates the entity, attaches `RoomComponent` + `BlueprintComponent` + `PersistentEntity`, and registers a minimal `RoomTemplate`. `LinkExits` updates both `RoomComponent.Exits` and the in-memory `RoomTemplate` exit maps for same-session `reload` consistency. The `DigCommand` initiator calls `SaveEntityAsync` on both rooms after this method returns (INV-5: systems do not call persistence). Implemented (Phase 3 slices 5a, persistence-two-level-model).
 
 ### ItemSystem
-**Purpose:** Query operations on item entities — finds items in a room by entity id, and prefix-matches a token against item names and keywords to resolve a target item. Pure ECS reads only; no event publication, no persistence.
+**Purpose:** Query and mutation operations on item entities — finds items in a room or inventory by entity id, prefix-matches a token against item names and keywords, and moves items between ground and inventory. Mutation methods are pure ECS mutations; no event publication, no persistence calls.
 **Location:** `Core/Modules/Items/Systems/ItemSystem.cs`
 **Dependencies:** `EntityService`.
 ```csharp
 public interface IItemSystem
 {
     IReadOnlyList<uint> GetItemsInRoom(uint roomEntityId);
+    IReadOnlyList<uint> GetItemsInInventory(uint holderEntityId);
     bool TryFindItemInRoom(uint roomEntityId, string token, out uint itemEntityId);
+    bool TryFindItemInInventory(uint holderEntityId, string token, out uint itemEntityId);
+    void MoveToInventory(uint itemEntityId, uint holderEntityId);
+    void DropToRoom(uint itemEntityId, uint holderEntityId, uint roomEntityId);
 }
 ```
-`GetItemsInRoom` iterates all `ItemDataComponent` entities and returns those whose `LocationComponent.RoomEntityId` matches. `TryFindItemInRoom` does a linear prefix-match against `ItemDataComponent.Name` and each keyword, returning the first match. Phase B will extend this interface with inventory query and mutation methods. Implemented (Phase 3 slice 6).
+`GetItemsInRoom` iterates all `ItemDataComponent` entities and returns those whose `LocationComponent.RoomEntityId` matches. `GetItemsInInventory` reads `InventoryComponent.ItemEntityIds` from the holder. `TryFindItemInRoom` / `TryFindItemInInventory` do a linear prefix-match against `ItemDataComponent.Name` and each keyword, returning the first match. `MoveToInventory` removes `LocationComponent` from the item and appends its id to the holder's `InventoryComponent`; no-ops if the item has no `LocationComponent` (race condition: already picked up). `DropToRoom` removes the item id from `InventoryComponent` and attaches a `LocationComponent` pointing to the given room. Implemented (Phase 3 slice 6).
 
 ### ItemBuilderSystem
 **Purpose:** Runtime item authoring — creates ad-hoc item entities and mutates item properties (`Name`, `Description`, `Keywords`, `ItemType`). Mirrors `IRoomBuilderSystem`: all methods mutate ECS state only; event publication and persistence calls remain in the command (INV-5). Reusable by a future in-game editor without a live player session.

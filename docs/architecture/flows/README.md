@@ -18,9 +18,12 @@
 | 6 | [Output rendering](#flow-6--output-rendering) | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4 |
 | 7 | [Login / character flow](#flow-7--login--character-flow) | TCP client connects, new or returning player | Phase 3 slice 5 |
 | 8 | [Admin room creation (`dig`)](#flow-8--admin-room-creation-dig) | Privileged session sends `dig <direction> [name]` | Phase 3 slice 5a |
+| 9 | [Item pickup (`get`)](#flow-9--item-pickup-get) | Player sends `get <item>` | Phase 3 slice 6 |
+| 10 | [Item drop (`drop`)](#flow-10--item-drop-drop) | Player sends `drop <item>` | Phase 3 slice 6 |
+| 11 | [Inventory display (`inventory`)](#flow-11--inventory-display-inventory) | Player sends `inventory` / `inv` / `i` | Phase 3 slice 6 |
 | 12 | [Admin item creation (`mkitem`)](#flow-12--admin-item-creation-mkitem) | Privileged session sends `mkitem [name]` | Phase 3 slice 6 |
 
-Flows that don't yet exist (combat round, player death, item pickup, mob wander tick, etc.) get added by the slice that introduces them.
+Flows that don't yet exist (combat round, player death, mob wander tick, etc.) get added by the slice that introduces them.
 
 ---
 
@@ -207,7 +210,7 @@ sequenceDiagram
    - **Phase 1 (exact):** `_byVerb.TryGetValue(verb)` — checks primary names and all declared aliases. If found, `canonicalVerb = command.Name` and skip to step 3. Static aliases like `d` → `down` resolve here; prefix resolution is never reached.
    - **Phase 2 (prefix):** Collect all commands where `MatchingMode == Partial` and `command.Name.StartsWith(verb, OrdinalIgnoreCase)`. Sort alphabetically. Zero matches → write `PlainMessage("Unknown command: <verb>. Type 'help' for a list.")`, publish `CommandExecutedEvent(ParseFailed)`, return. Two or more matches → write `PlainMessage("Ambiguous command '<verb>'. Did you mean: <all names, comma-separated>?")`, publish `CommandExecutedEvent(ParseFailed)`, return. Exactly one match → `canonicalVerb = command.Name`.
 3. **Privilege gate.** The dispatcher iterates `command.RequiredPrivileges` and calls `IAuthorizationChecker.IsSatisfied(req, session)` for each. Any unsatisfied requirement writes a rejection `PlainMessage` via `IOutputWriter` and publishes `CommandExecutedEvent(Unauthorized, Verb=canonicalVerb)`.
-4. **Argument parse.** `ICommandArgumentParser.Parse(command.ArgumentSchema, rawTail, resolverContext)` does single-pass tokenization (whitespace + double-quoted groups), walks the declarative argument list, and coerces each token to its CLR type (`string`, `int`, `uint`, `Direction`). Enum-prefix matching works from day one (`n`/`no`/`nor` → `North`). String `Token` arguments that declare a non-null `IArgumentResolver` have prefix matching applied against the candidate list (no concrete resolver ships until slice 6). On failure: the reason + `"Type 'help <canonicalVerb>' for usage."` is written; `CommandExecutedEvent(ParseFailed, Verb=canonicalVerb)` is published.
+4. **Argument parse.** `ICommandArgumentParser.Parse(command.ArgumentSchema, rawTail, resolverContext)` does single-pass tokenization (whitespace + double-quoted groups), walks the declarative argument list, and coerces each token to its CLR type (`string`, `int`, `uint`, `Direction`). Enum-prefix matching works from day one (`n`/`no`/`nor` → `North`). String `Token` arguments that declare a non-null `IArgumentResolver` have prefix matching applied against the candidate list. The resolver returns `IReadOnlyList<ResolvedCandidate>?` where each `ResolvedCandidate(string MatchString, string CanonicalValue)` allows keyword aliases to map to a canonical item name; the parser deduplicates by `CanonicalValue` after prefix matching so multiple keyword aliases for the same item do not produce false ambiguity. Concrete resolvers (`ItemInRoomResolver`, `ItemInInventoryResolver`) ship in slice 6. On failure: the reason + `"Type 'help <canonicalVerb>' for usage."` is written; `CommandExecutedEvent(ParseFailed, Verb=canonicalVerb)` is published.
 5. **Execute.** The dispatcher constructs `CommandContext(Session, InvokerEntityId, ParsedArguments, IOutputWriter, IServiceProvider)` and calls `command.ExecuteAsync(context)`. The body reads typed args via `context.Args.Get<T>(name)`, calls domain systems or publishes events via injected `IEventBus`, and writes all output via `context.Output.WriteAsync(IOutputMessage)`. No `session.SendLineAsync` in command bodies.
 6. **Formatter-backed output.** `IOutputWriter.WriteAsync` resolves the session's formatter from `IOutputFormatterRegistry`, calls `formatter.Format(message, session)` (transport-correct ANSI or stripped plain text based on `session.SupportsColor`), and awaits `session.SendLineAsync(rendered)`. See [Flow 6](#flow-6--output-rendering) for the full rendering trace.
 7. **Exception trap.** Any uncaught exception is caught, logged at `Error` with a full stack trace, a `PlainMessage("Something went wrong. The error has been logged.")` is written, and `CommandExecutedEvent(Threw)` is published. No stack trace reaches the session.
@@ -368,6 +371,7 @@ sequenceDiagram
    - `PlainMessage` — wraps text in a severity-appropriate color marker (`<error>`, `<system>`, or plain).
    - `RoomDescriptionMessage` — room name in `<room-name>`, exit keys in `<direction>`, description and occupants plain; if `Items` is non-empty, appends an `"Items: X, Y, Z"` line. `BroadcastSystem.SendRoomDescriptionAsync` populates `Items` by iterating all `ItemDataComponent` entities whose `LocationComponent.RoomEntityId` matches the room.
    - `MovementMessage(Blocked)` — "You cannot go that way." in `<system>`.
+   - `InventoryListMessage` — `"You are carrying:"` header in `<system>` followed by a plain-text item list (one per line, two-space indent). Only sent when inventory is non-empty; empty case is a `PlainMessage("You are carrying nothing.")` from the command body.
    - `HelpIndexMessage` — section headers in `<system>`, verb names in `<room-name>` (padded before colorizing).
    - `HelpEntryMessage` — verb/alias header in `<room-name>`.
 4. **Color application.** If `session.SupportsColor` is `true`, inline markers (`<role>text</role>`) are replaced with ANSI escape codes + reset. If `false`, markers are stripped and only the inner text remains. See [`subsystems/output.md`](../subsystems/output.md) for the palette table.
@@ -525,6 +529,159 @@ sequenceDiagram
 - [`Core/Modules/Admin/Events/RoomCreatedByAdminEvent.cs`](../../../Core/Modules/Admin/Events/RoomCreatedByAdminEvent.cs)
 - [`Core/Modules/Admin/Handlers/AdminAuditHandler.cs`](../../../Core/Modules/Admin/Handlers/AdminAuditHandler.cs)
 - [`docs/use-cases/bare-bones-content-spawning.md`](../../use-cases/bare-bones-content-spawning.md)
+
+---
+
+## Flow 9 — Item pickup (`get`)
+
+**Summary.** Player sends `get <item>`. `GetCommand` uses `ItemInRoomResolver` to prefix-match the token against items in the player's room, calls `IItemSystem.MoveToInventory` to transfer the item from ground to inventory, publishes `ItemPickedUpEvent`, and saves both item and player. `ItemInteractionHandler` broadcasts the pickup messages.
+
+**Trigger.** Player sends `get <item>`.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant CD as CommandDispatcher
+    participant Parser as ICommandArgumentParser
+    participant Resolver as ItemInRoomResolver
+    participant Cmd as GetCommand
+    participant IS as IItemSystem
+    participant PSys as IPersistenceSystem
+    participant Bus as IEventBus
+    participant IIH as ItemInteractionHandler
+    participant Broadcast as IBroadcastSystem
+
+    Client->>CD: "get sword"
+    CD->>Parser: Parse(schema, "sword", resolverContext)
+    Parser->>Resolver: GetCandidates(resolverContext)
+    Resolver->>IS: GetItemsInRoom(playerRoomId)
+    Resolver-->>Parser: [ResolvedCandidate("a short sword","a short sword"), ResolvedCandidate("sword","a short sword")]
+    Parser-->>CD: ParsedArguments{item="a short sword"}
+    CD->>Cmd: ExecuteAsync(CommandContext)
+    Cmd->>IS: TryFindItemInRoom(roomId, "a short sword", out itemEntityId)
+    IS-->>Cmd: true, itemEntityId
+    Cmd->>IS: MoveToInventory(itemEntityId, playerEntityId)
+    Cmd->>Bus: Publish(ItemPickedUpEvent)
+    Bus->>IIH: HandleAsync (priority 80)
+    IIH->>Broadcast: SendToRoomAsync(roomId, "Bob picks up a short sword.", id≠player)
+    IIH->>Broadcast: SendToRoomAsync(roomId, "You pick up a short sword.", id==player)
+    Cmd->>PSys: SaveEntityAsync(itemEntityId)
+    Cmd->>PSys: SaveEntityAsync(playerEntityId)
+```
+
+**Steps.**
+
+1. `CommandDispatcher` routes `get` to `GetCommand`. No privilege requirement.
+2. **Argument resolution.** `ICommandArgumentParser` calls `ItemInRoomResolver.GetCandidates(resolverContext)`, which reads the invoker's `LocationComponent.RoomEntityId`, calls `IItemSystem.GetItemsInRoom`, and emits `ResolvedCandidate(MatchString, CanonicalValue)` pairs — one for each item name and each keyword. The parser prefix-matches the token against all `MatchString` values, deduplicates by `CanonicalValue`, and substitutes the canonical item name into `ParsedArguments.item` (unique match) or fails with an ambiguity error (two+ distinct canonical values).
+3. **Entity resolve.** `IItemSystem.TryFindItemInRoom(roomId, canonicalName, out itemEntityId)` performs a final entity lookup. If not found (race condition: item taken between resolve and pickup), writes "You don't see that here." and returns.
+4. **Pickup mutation.** `IItemSystem.MoveToInventory(itemEntityId, playerEntityId)` — removes `LocationComponent` from the item (no-op if already absent), appends item id to `InventoryComponent.ItemEntityIds`.
+5. **Event.** Publishes `ItemPickedUpEvent(PlayerEntityId, ItemEntityId, RoomEntityId)`.
+6. **Handler.** `ItemInteractionHandler` (priority 80) broadcasts `"<name> picks up <item>."` to the room excluding the picker, then `"You pick up <item>."` to the picker via `SendToRoomAsync` with opposite filters.
+7. **Save.** `SaveEntityAsync(itemEntityId)` then `SaveEntityAsync(playerEntityId)` — both are durable immediately (save-on-change pattern).
+
+**Cross-references.**
+- [`Core/Modules/Items/Commands/GetCommand.cs`](../../../Core/Modules/Items/Commands/GetCommand.cs), [`Core/Modules/Items/Systems/ItemSystem.cs`](../../../Core/Modules/Items/Systems/ItemSystem.cs)
+- [`Core/Modules/Items/Resolvers/ItemInRoomResolver.cs`](../../../Core/Modules/Items/Resolvers/ItemInRoomResolver.cs)
+- [`Core/Modules/Items/Handlers/ItemInteractionHandler.cs`](../../../Core/Modules/Items/Handlers/ItemInteractionHandler.cs)
+- [`docs/use-cases/items-and-inventory.md`](../../use-cases/items-and-inventory.md) — slice 6 spec, flow B-1
+
+---
+
+## Flow 10 — Item drop (`drop`)
+
+**Summary.** Player sends `drop <item>`. `DropCommand` uses `ItemInInventoryResolver` to prefix-match against carried items, calls `IItemSystem.DropToRoom` to move the item from inventory to the ground, publishes `ItemDroppedEvent`, and saves only the player entity (item intentionally not saved — dropped items vanish on restart by design). `ItemInteractionHandler` broadcasts the drop messages.
+
+**Trigger.** Player sends `drop <item>`.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant CD as CommandDispatcher
+    participant Parser as ICommandArgumentParser
+    participant Resolver as ItemInInventoryResolver
+    participant Cmd as DropCommand
+    participant IS as IItemSystem
+    participant PSys as IPersistenceSystem
+    participant Bus as IEventBus
+    participant IIH as ItemInteractionHandler
+    participant Broadcast as IBroadcastSystem
+
+    Client->>CD: "drop sword"
+    CD->>Parser: Parse(schema, "sword", resolverContext)
+    Parser->>Resolver: GetCandidates(resolverContext)
+    Resolver->>IS: GetItemsInInventory(playerEntityId)
+    Resolver-->>Parser: [ResolvedCandidate("a short sword","a short sword"), ResolvedCandidate("sword","a short sword")]
+    Parser-->>CD: ParsedArguments{item="a short sword"}
+    CD->>Cmd: ExecuteAsync(CommandContext)
+    Cmd->>IS: TryFindItemInInventory(playerEntityId, "a short sword", out itemEntityId)
+    IS-->>Cmd: true, itemEntityId
+    Cmd->>IS: DropToRoom(itemEntityId, playerEntityId, roomEntityId)
+    Cmd->>Bus: Publish(ItemDroppedEvent)
+    Bus->>IIH: HandleAsync (priority 80)
+    IIH->>Broadcast: SendToRoomAsync(roomId, "Bob drops a short sword.", id≠player)
+    IIH->>Broadcast: SendToRoomAsync(roomId, "You drop a short sword.", id==player)
+    Cmd->>PSys: SaveEntityAsync(playerEntityId)
+    Note over Cmd,PSys: item entity NOT saved — dropped items vanish on restart by design
+```
+
+**Steps.**
+
+1. `CommandDispatcher` routes `drop` to `DropCommand`. No privilege requirement.
+2. **Argument resolution.** `ItemInInventoryResolver.GetCandidates` reads the invoker's `InventoryComponent.ItemEntityIds` and builds `ResolvedCandidate` pairs for each carried item's name and keywords. Deduplication and substitution are the same as in Flow 9.
+3. **Entity resolve.** `IItemSystem.TryFindItemInInventory(playerEntityId, canonicalName, out itemEntityId)`. Not found → "You aren't carrying that."
+4. **Drop mutation.** `IItemSystem.DropToRoom(itemEntityId, playerEntityId, roomEntityId)` — removes item id from `InventoryComponent.ItemEntityIds`, attaches `LocationComponent { RoomEntityId }` to the item.
+5. **Event.** Publishes `ItemDroppedEvent(PlayerEntityId, ItemEntityId, RoomEntityId)`.
+6. **Handler.** `ItemInteractionHandler` broadcasts drop messages (same filter pattern as pickup, reversed flavour text).
+7. **Save.** Only `SaveEntityAsync(playerEntityId)`. The item entity is intentionally not saved — its last-persisted state has no `LocationComponent` (saved during pickup), so it reverts to that state on restart. Template items are re-placed in their `spawnRoomId` by `PlaceItemsInRooms` on next startup; `mkitem` items simply vanish. See the persistence design note in [`docs/use-cases/items-and-inventory.md`](../../use-cases/items-and-inventory.md).
+
+**Cross-references.**
+- [`Core/Modules/Items/Commands/DropCommand.cs`](../../../Core/Modules/Items/Commands/DropCommand.cs), [`Core/Modules/Items/Systems/ItemSystem.cs`](../../../Core/Modules/Items/Systems/ItemSystem.cs)
+- [`Core/Modules/Items/Resolvers/ItemInInventoryResolver.cs`](../../../Core/Modules/Items/Resolvers/ItemInInventoryResolver.cs)
+- [`Core/Modules/Items/Handlers/ItemInteractionHandler.cs`](../../../Core/Modules/Items/Handlers/ItemInteractionHandler.cs)
+- [`docs/use-cases/items-and-inventory.md`](../../use-cases/items-and-inventory.md) — slice 6 spec, flow B-2
+
+---
+
+## Flow 11 — Inventory display (`inventory`)
+
+**Summary.** Player sends `inventory` (or `inv` / `i`). `InventoryCommand` reads `InventoryComponent.ItemEntityIds`, resolves each to a display name via `ItemDataComponent`, and writes either a `PlainMessage("You are carrying nothing.")` or an `InventoryListMessage`. No events fired; no persistence.
+
+**Trigger.** Player sends `inventory`, `inv`, or `i`.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant CD as CommandDispatcher
+    participant Cmd as InventoryCommand
+    participant IS as IItemSystem
+    participant ES as EntityService
+    participant OW as IOutputWriter
+
+    Client->>CD: "inv"
+    CD->>Cmd: ExecuteAsync(CommandContext)
+    Cmd->>IS: GetItemsInInventory(playerEntityId)
+    alt empty
+        Cmd->>OW: PlainMessage("You are carrying nothing.")
+    else non-empty
+        loop per itemEntityId
+            Cmd->>ES: TryGet<ItemDataComponent>(itemEntityId) → name
+        end
+        Cmd->>OW: InventoryListMessage([names])
+    end
+```
+
+**Steps.**
+
+1. `CommandDispatcher` routes `inventory`/`inv`/`i` to `InventoryCommand`. No privilege requirement.
+2. `IItemSystem.GetItemsInInventory(playerEntityId)` returns entity ids from `InventoryComponent.ItemEntityIds` (empty list if the component is absent).
+3. If the list is empty, writes `PlainMessage("You are carrying nothing.", System)` and returns.
+4. For each item id, `EntityService.TryGet<ItemDataComponent>` resolves the display name. Items whose component is missing are silently skipped.
+5. Writes `InventoryListMessage(names)`. `TelnetOutputFormatter` renders it as `"You are carrying:\n  item1\n  item2"`.
+
+**Cross-references.**
+- [`Core/Modules/Items/Commands/InventoryCommand.cs`](../../../Core/Modules/Items/Commands/InventoryCommand.cs)
+- [`Core/Output/InventoryListMessage.cs`](../../../Core/Output/InventoryListMessage.cs), [`Core/Output/TelnetOutputFormatter.cs`](../../../Core/Output/TelnetOutputFormatter.cs)
+- [`docs/use-cases/items-and-inventory.md`](../../use-cases/items-and-inventory.md) — slice 6 spec, flow B-3
 
 ---
 
