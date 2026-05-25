@@ -117,6 +117,32 @@ await _persistence.SaveEntityAsync(result.SourceRoomEntityId, ct);
 
 See [docs/architecture/06-persistence.md](../../../docs/architecture/06-persistence.md) for when each pattern applies.
 
+## Admin blueprint-authoring commands (INV-21)
+
+When the command creates or mutates a **blueprint** — a template that seeds live entities on startup (rooms, items, mobs) — two additional responsibilities apply beyond the standard command shape:
+
+**1. Persist the template definition to disk alongside the entity.**
+Write the template file (e.g. YAML under `data/content/<kind>/`) immediately, the same way `SaveEntityAsync` makes the entity durable. Without this the blueprint definition evaporates on restart and `SpawnMissingEntities` cannot re-seed the entity.
+
+**2. Keep template and entity in sync on mutation.**
+A `set*` command that changes a property must update both the live entity (via the domain system) and the template file on disk. Player-owned instances that were already decoupled from the blueprint (see below) are NOT updated — they are fully independent.
+
+**Pickup / player-touch must decouple the instance from its blueprint.**
+When a player picks up (or otherwise takes ownership of) a blueprint-spawned entity, clear `BlueprintComponent` on that entity before saving. This frees the blueprint slot so the next restart spawns a fresh instance in the spawn room. The player-owned entity then persists independently.
+
+```csharp
+// ✅ blueprint-authoring command: persist template + entity
+var result = _itemBuilder.CreateItem(name, roomEntityId);
+_templateStore.WriteYaml(result.BlueprintId, result.Template); // write to data/content/items/
+await _persistence.SaveEntityAsync(result.ItemEntityId, ct);
+
+// ✅ pickup decouples instance — frees blueprint slot for next-restart respawn
+_entityService.RemoveComponent<BlueprintComponent>(itemEntityId);
+await _persistence.SaveEntityAsync(itemEntityId, ct);
+```
+
+See [INV-21](../../../docs/architecture/checklist.md) for the full invariant.
+
 ## What NOT to do
 
 - **No `session.SendLineAsync` calls.** Use `context.Output.WriteAsync(new PlainMessage(...))`.
