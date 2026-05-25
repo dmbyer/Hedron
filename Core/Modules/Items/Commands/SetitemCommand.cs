@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Hedron.Core;
 using Hedron.Core.Commands;
 using Hedron.Core.Commands.Authorization;
 using Hedron.Core.ECS;
@@ -32,8 +33,9 @@ namespace Hedron.Core.Modules.Items.Commands
         public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
         public string ShortDescription => "Set a property on an item.";
         public string LongDescription =>
-            "Sets name, description, keywords (space-separated), or type on the item with the given blueprint id. " +
-            "Valid types: none, weapon, armor, consumable, container, misc.";
+            "Sets name, description, keywords (space-separated), type, or slot on the item with the given blueprint id. " +
+            "Valid types: none, weapon, armor, consumable, container, misc. " +
+            "Valid slots (space-separated): mainhand, offhand, head, chest, feet.";
         public string Usage => "setitem <blueprintId> <property> <value>";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
@@ -122,9 +124,28 @@ namespace Hedron.Core.Modules.Items.Commands
                     _itemBuilder.SetItemType(itemEntityId, itemType);
                     break;
 
+                case "slot":
+                {
+                    var slotNames = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    var parsedSlots = new List<WornSlot>(slotNames.Length);
+                    foreach (var slotName in slotNames)
+                    {
+                        if (!Enum.TryParse<WornSlot>(slotName, ignoreCase: true, out var wornSlot))
+                        {
+                            await context.Output.WriteAsync(new PlainMessage(
+                                $"Unknown slot '{slotName}'. Valid slots: mainhand, offhand, head, chest, feet.",
+                                OutputSeverity.Error)).ConfigureAwait(false);
+                            return;
+                        }
+                        parsedSlots.Add(wornSlot);
+                    }
+                    _itemBuilder.SetItemSlots(itemEntityId, parsedSlots);
+                    break;
+                }
+
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
-                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type.",
+                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, slot.",
                         OutputSeverity.Error)).ConfigureAwait(false);
                     return;
             }

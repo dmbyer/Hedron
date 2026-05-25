@@ -54,6 +54,19 @@ namespace Hedron.Core.Modules.Items
                     "Item '{Id}': unknown itemType '{Type}' — defaulting to None.",
                     dto.BlueprintId, dto.ItemType);
 
+            if (dto.WornSlots is { Count: > 0 })
+            {
+                foreach (var slotStr in dto.WornSlots)
+                {
+                    if (Enum.TryParse<WornSlot>(slotStr, ignoreCase: true, out var slot))
+                        template.WornSlots.Add(slot);
+                    else
+                        _logger.LogWarning(
+                            "Item '{Id}': unknown wornSlot '{Slot}' — skipping.",
+                            dto.BlueprintId, slotStr);
+                }
+            }
+
             return template;
         }
 
@@ -64,6 +77,7 @@ namespace Hedron.Core.Modules.Items
             public string? Description { get; set; }
             public List<string>? Keywords { get; set; }
             public string? ItemType { get; set; }
+            public List<string>? WornSlots { get; set; }
             public string? SpawnRoomId { get; set; }
         }
     }

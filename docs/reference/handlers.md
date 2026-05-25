@@ -33,7 +33,7 @@ Ask:
 ### CharacterHydrationHandler
 **Events:** `WorldContentReadyEvent`
 **Priority:** 20 (`HandlerPriority.Domain`)
-**Responsibilities:** After world content is fully loaded, iterates every entity that has both `CharacterComponent` and `LocationComponent`. Validates `LocationComponent.RoomEntityId` via `HasComponent<RoomComponent>`; if the room no longer exists (deleted YAML), resets to `WorldConfiguration.StartingRoomEntityId`, logs a warning, and calls `IPersistenceSystem.SaveEntityAsync` immediately so the correction is durable without waiting for the next flush cycle. Also attaches an empty `InventoryComponent` to any character entity that lacks one (migration guard for characters persisted before slice 6 Phase B). The component is not saved in the guard itself — it is persisted on the character's next save-on-change event (`get`, `drop`, or the next periodic flush). Runs once at startup; no-op if no character entities exist.
+**Responsibilities:** After world content is fully loaded, iterates every entity that has both `CharacterComponent` and `LocationComponent`. Validates `LocationComponent.RoomEntityId` via `HasComponent<RoomComponent>`; if the room no longer exists (deleted YAML), resets to `WorldConfiguration.StartingRoomEntityId`, logs a warning, and calls `IPersistenceSystem.SaveEntityAsync` immediately so the correction is durable without waiting for the next flush cycle. Also attaches empty `InventoryComponent` and `EquipmentComponent` to any character entity that lacks them (migration guards for characters persisted before slices 6 and 7 respectively). Components are not saved in the guard itself — they are persisted on the character's next save-on-change event. Runs once at startup; no-op if no character entities exist.
 **Location:** `Core/Modules/Account/Handlers/CharacterHydrationHandler.cs`
 **Uses:** `EntityService`, `WorldConfiguration`, `IPersistenceSystem`, `ILogger`
 
@@ -42,6 +42,13 @@ Ask:
 **Priority:** 80 (`HandlerPriority.Notification`)
 **Responsibilities:** Pure output fan-out — no domain logic, no persistence calls. For pickup: broadcasts `"<PlayerName> picks up <ItemName>."` to all players in the room excluding the picker; writes `"You pick up <ItemName>."` to the picker only (via `SendToRoomAsync` with a filter). For drop: same pattern with drop flavour text. Player name read from `PlayerComponent.DisplayName`; item name from `ItemDataComponent.Name`. Falls back to `"Someone"` / `"something"` if either component is missing.
 **Location:** `Core/Modules/Items/Handlers/ItemInteractionHandler.cs`
+**Uses:** `EntityService`, `IBroadcastSystem`
+
+### EquipmentInteractionHandler
+**Events:** `ItemEquippedEvent`, `ItemUnequippedEvent`
+**Priority:** 80 (`HandlerPriority.Notification`)
+**Responsibilities:** Pure output fan-out — no domain logic, no persistence calls. For equip: broadcasts `"<PlayerName> wears <ItemName>."` to all players in the room excluding the wearer; writes `"You wear <ItemName>."` to the wearer only. For remove: same pattern with remove flavour text. Player name read from `PlayerComponent.DisplayName`; item name from `ItemDataComponent.Name`. Falls back to `"Someone"` / `"something"` if either component is missing. Silently no-ops if the player has no `LocationComponent`.
+**Location:** `Core/Modules/Items/Handlers/EquipmentInteractionHandler.cs`
 **Uses:** `EntityService`, `IBroadcastSystem`
 
 ### AdminAuditHandler

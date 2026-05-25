@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Hedron.Core;
 using Hedron.Core.Modules.Items.Templates;
 
 namespace Hedron.Core.Modules.Items.Systems
@@ -15,6 +16,7 @@ namespace Hedron.Core.Modules.Items.Systems
         void SetItemDescription(uint itemEntityId, string description);
         void SetItemKeywords(uint itemEntityId, IReadOnlyList<string> keywords);
         void SetItemType(uint itemEntityId, ItemType itemType);
+        void SetItemSlots(uint itemEntityId, IReadOnlyList<WornSlot> slots);
     }
 
     /// <summary>Result of <see cref="IItemBuilderSystem.CreateItem"/>.</summary>

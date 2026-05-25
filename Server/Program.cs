@@ -13,6 +13,7 @@ using Hedron.Core.Modules.Admin.Handlers;
 using Hedron.Core.Modules.Items;
 using Hedron.Core.Modules.Items.Events;
 using Hedron.Core.Modules.Items.Handlers;
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Chat.Commands;
 using Hedron.Core.Modules.Chat.Events;
 using Hedron.Core.Modules.Chat.Handlers;
@@ -131,6 +132,10 @@ public static class Program
         var itemInteraction = host.Services.GetRequiredService<ItemInteractionHandler>();
         bus.Subscribe<ItemPickedUpEvent>(itemInteraction);
         bus.Subscribe<ItemDroppedEvent>(itemInteraction);
+
+        var equipmentInteraction = host.Services.GetRequiredService<EquipmentInteractionHandler>();
+        bus.Subscribe<ItemEquippedEvent>(equipmentInteraction);
+        bus.Subscribe<ItemUnequippedEvent>(equipmentInteraction);
 
         var commandLogging = host.Services.GetRequiredService<CommandLoggingHandler>();
         bus.Subscribe<CommandExecutedEvent>(commandLogging);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Hedron.Core;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Items.Templates;
@@ -89,6 +90,27 @@ namespace Hedron.Core.Modules.Items.Systems
                 item.ItemType = itemType;
             var tpl = TryGetTemplate(itemEntityId);
             if (tpl is not null) tpl.ItemType = itemType;
+        }
+
+        public void SetItemSlots(uint itemEntityId, IReadOnlyList<WornSlot> slots)
+        {
+            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
+            {
+                if (slots.Count == 0)
+                    item.WornSlots = null;
+                else
+                {
+                    item.WornSlots ??= new List<WornSlot>();
+                    item.WornSlots.Clear();
+                    item.WornSlots.AddRange(slots);
+                }
+            }
+            var tpl = TryGetTemplate(itemEntityId);
+            if (tpl is not null)
+            {
+                tpl.WornSlots.Clear();
+                tpl.WornSlots.AddRange(slots);
+            }
         }
 
         private ItemTemplate? TryGetTemplate(uint itemEntityId)

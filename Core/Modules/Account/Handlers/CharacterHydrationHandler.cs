@@ -54,10 +54,14 @@ namespace Hedron.Core.Modules.Account.Handlers
                     await _persistence.SaveEntityAsync(entityId).ConfigureAwait(false);
                 }
 
-                // Migration guard: characters persisted before Phase B lack InventoryComponent.
-                // Attach an empty one now; it will be persisted on the character's next save-on-change.
+                // Migration guards: characters persisted before slice 6 lack InventoryComponent;
+                // characters persisted before slice 7 lack EquipmentComponent.
+                // Attach empty components now; they will be persisted on the next save-on-change.
                 if (!_entityService.HasComponent<InventoryComponent>(entityId))
                     _entityService.AddComponent(entityId, new InventoryComponent());
+
+                if (!_entityService.HasComponent<EquipmentComponent>(entityId))
+                    _entityService.AddComponent(entityId, new EquipmentComponent());
             }
         }
     }

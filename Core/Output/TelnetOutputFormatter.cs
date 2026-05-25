@@ -39,6 +39,7 @@ namespace Hedron.Core.Output
                 HelpIndexMessage m        => FormatHelpIndex(m, color),
                 HelpEntryMessage m        => FormatHelpEntry(m, color),
                 InventoryListMessage m    => FormatInventoryList(m, color),
+                EquipmentDisplayMessage m => FormatEquipmentDisplay(m, color),
                 _                         => message.ToString() ?? string.Empty,
             };
         }
@@ -137,6 +138,15 @@ namespace Hedron.Core.Output
             sb.AppendLine(ApplyColor("<system>You are carrying:</system>", color));
             foreach (var name in m.ItemNames)
                 sb.AppendLine($"  {name}");
+            return sb.ToString().TrimEnd();
+        }
+
+        private string FormatEquipmentDisplay(EquipmentDisplayMessage m, bool color)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(ApplyColor("<system>You are wearing:</system>", color));
+            foreach (var (slotLabel, itemName) in m.Rows)
+                sb.AppendLine($"  {slotLabel,-14} {itemName}");
             return sb.ToString().TrimEnd();
         }
 
