@@ -37,6 +37,7 @@ namespace Hedron.Core.Modules.World.Systems
         private readonly ITemplateRegistry _templateRegistry;
         private readonly IContentSerializer _serializer;
         private readonly IPersistenceSystem _persistence;
+        private readonly IRoomContentWriter _roomContentWriter;
         private readonly Hedron.Core.WorldConfiguration _worldConfig;
         private readonly ILogger<WorldContentLoader> _logger;
         private readonly string _contentDirectory;
@@ -47,6 +48,7 @@ namespace Hedron.Core.Modules.World.Systems
             ITemplateRegistry templateRegistry,
             IContentSerializer serializer,
             IPersistenceSystem persistence,
+            IRoomContentWriter roomContentWriter,
             Hedron.Core.WorldConfiguration worldConfig,
             IConfiguration configuration,
             ILogger<WorldContentLoader> logger)
@@ -55,6 +57,7 @@ namespace Hedron.Core.Modules.World.Systems
             _templateRegistry = templateRegistry;
             _serializer = serializer;
             _persistence = persistence;
+            _roomContentWriter = roomContentWriter;
             _worldConfig = worldConfig;
             _logger = logger;
             _contentDirectory = configuration["World:ContentDirectory"] ?? "data/content/";
@@ -78,9 +81,18 @@ namespace Hedron.Core.Modules.World.Systems
                     _logger.LogWarning(
                         "WorldContentLoader: content directory '{Dir}' is missing or empty — seeding void room.",
                         _contentDirectory);
-                    var voidId = SeedVoidRoom();
+                    var voidId = await SeedVoidRoomAsync(ct).ConfigureAwait(false);
                     // Save immediately so the entity ID is stable across restarts.
                     await _persistence.SaveEntityAsync(voidId, ct).ConfigureAwait(false);
+                }
+                else
+                {
+                    // Entity snapshot exists from a previous run but there is no YAML file
+                    // (e.g. content directory was wiped, or this is the first run after the
+                    // room-YAML feature was introduced). Reconstruct the template from the
+                    // live entity and write the YAML so future startups load cleanly.
+                    await RecoverVoidRoomTemplateAsync(liveBlueprints[VoidRoomBlueprintId], ct)
+                        .ConfigureAwait(false);
                 }
             }
             else
@@ -99,6 +111,15 @@ namespace Hedron.Core.Modules.World.Systems
             }
 
             ResolveStartingRoom();
+
+            // Warn about any blueprint-tagged entity whose YAML template is not in the
+            // registry. This catches JSON snapshots whose content files have been deleted
+            // or were never written (e.g. rooms created before this feature existed).
+            //
+            // Note: character and account entities do not carry BlueprintComponent, so they
+            // are naturally excluded here. Accounts are aspirationally intended to have YAML
+            // counterparts in a future slice.
+            WarnOrphanedBlueprintEntities();
         }
 
         public async Task<ContentReloadResult> ReloadAsync(CancellationToken ct = default)
@@ -121,6 +142,8 @@ namespace Hedron.Core.Modules.World.Systems
                 await _persistence.SaveEntityAsync(id, ct).ConfigureAwait(false);
             LinkRoomExits(liveBlueprints);
             PlaceItemsInRooms(liveBlueprints, newlySpawned);
+
+            WarnOrphanedBlueprintEntities();
 
             return new ContentReloadResult(loaded, unchanged, removed);
         }
@@ -166,17 +189,71 @@ namespace Hedron.Core.Modules.World.Systems
             }
         }
 
-        private uint SeedVoidRoom()
+        private async Task<uint> SeedVoidRoomAsync(CancellationToken ct)
         {
             var voidTemplate = new RoomTemplate(VoidRoomBlueprintId)
             {
                 Name = "The Void",
-                Description = "A featureless grey expanse. No content has been authored yet — use @dig to start building.",
+                Description = "A featureless grey expanse. No content has been authored yet — use dig to start building.",
             };
             _templateRegistry.Register(VoidRoomBlueprintId, voidTemplate);
             var spawned = _templateRegistry.Spawn(VoidRoomBlueprintId);
             _entityService.AddComponent(spawned.Id, new PersistentEntity());
+
+            // Write YAML immediately so the void room has a content file on first startup.
+            await _roomContentWriter.WriteAsync(voidTemplate, ct).ConfigureAwait(false);
+
             return spawned.Id;
+        }
+
+        /// <summary>
+        /// Called when the void room entity already exists in the snapshot store but its YAML
+        /// file is absent (e.g. the content directory was wiped, or this server was upgraded
+        /// from a version that did not write room YAML). Reconstructs the template from the
+        /// live entity's <see cref="RoomComponent"/> and writes the YAML so subsequent starts
+        /// load cleanly without an orphan warning.
+        /// </summary>
+        private async Task RecoverVoidRoomTemplateAsync(uint voidEntityId, CancellationToken ct)
+        {
+            _entityService.TryGet<RoomComponent>(voidEntityId, out var roomComp);
+
+            var voidTemplate = new RoomTemplate(VoidRoomBlueprintId)
+            {
+                Name        = roomComp?.Name ?? "The Void",
+                Description = roomComp?.Description
+                              ?? "A featureless grey expanse. No content has been authored yet — use dig to start building.",
+            };
+            _templateRegistry.Register(VoidRoomBlueprintId, voidTemplate);
+
+            _logger.LogInformation(
+                "WorldContentLoader: void room entity exists but has no YAML — writing recovery file.");
+            await _roomContentWriter.WriteAsync(voidTemplate, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Scans all entities that carry a <see cref="BlueprintComponent"/> and logs a warning
+        /// for any whose blueprint id is absent from the template registry. Such entities have
+        /// a JSON snapshot but no YAML counterpart, which means their template definition is
+        /// missing and they will be re-spawned as duplicates on the next start (or silently
+        /// lose blueprint identity on reload).
+        /// </summary>
+        private void WarnOrphanedBlueprintEntities()
+        {
+            foreach (var (entityId, blueprint) in _entityService.GetAllComponents<BlueprintComponent>())
+            {
+                if (string.IsNullOrEmpty(blueprint.BlueprintId))
+                    continue;
+
+                if (_templateRegistry.TryGet(blueprint.BlueprintId, out _))
+                    continue;
+
+                _logger.LogWarning(
+                    "WorldContentLoader: entity {EntityId} has blueprint '{BlueprintId}' but no " +
+                    "matching YAML template was loaded. The content file may be missing. " +
+                    "If this is a room or item created before YAML write support was added, " +
+                    "re-create it via dig/mkitem to generate the YAML file.",
+                    entityId, blueprint.BlueprintId);
+            }
         }
 
         /// <summary>

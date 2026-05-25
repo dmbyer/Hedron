@@ -23,6 +23,7 @@ namespace Hedron.Core.Modules.World
             services.AddSingleton<ITemplateRegistry, TemplateRegistry>();
             services.AddSingleton<IContentSerializer, YamlContentSerializer>();
             services.AddSingleton<IWorldContentLoader, WorldContentLoader>();
+            services.AddSingleton<IRoomContentWriter, RoomContentWriter>();
 
             // Per-kind deserializers — the World module owns the room/area kinds. Future
             // modules (mobs, items) register their own kinds the same way without touching
