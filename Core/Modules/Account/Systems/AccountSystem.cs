@@ -88,6 +88,7 @@ namespace Hedron.Core.Modules.Account.Systems
             {
                 RoomEntityId = _worldConfig.StartingRoomEntityId,
             });
+            _entityService.AddComponent(entity.Id, new InventoryComponent());
             _entityService.AddComponent(entity.Id, new PersistentEntity());
 
             if (_entityService.TryGet<AccountComponent>(accountEntityId, out var account))

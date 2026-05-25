@@ -38,6 +38,7 @@ namespace Hedron.Core.Output
                 MovementMessage m         => FormatMovement(m, color),
                 HelpIndexMessage m        => FormatHelpIndex(m, color),
                 HelpEntryMessage m        => FormatHelpEntry(m, color),
+                InventoryListMessage m    => FormatInventoryList(m, color),
                 _                         => message.ToString() ?? string.Empty,
             };
         }
@@ -128,6 +129,15 @@ namespace Hedron.Core.Output
                 sb.Append($"Usage: {m.Usage}");
             }
             return sb.ToString();
+        }
+
+        private string FormatInventoryList(InventoryListMessage m, bool color)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(ApplyColor("<system>You are carrying:</system>", color));
+            foreach (var name in m.ItemNames)
+                sb.AppendLine($"  {name}");
+            return sb.ToString().TrimEnd();
         }
 
         // ── Color helpers ────────────────────────────────────────────────────

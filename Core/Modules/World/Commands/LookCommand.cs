@@ -59,8 +59,11 @@ namespace Hedron.Core.Modules.World.Commands
                 return;
             }
 
-            if (_itemSystem.TryFindItemInRoom(location.RoomEntityId, target, out var itemEntityId) &&
-                _entityService.TryGet<ItemDataComponent>(itemEntityId, out var itemData))
+            // Room first, then inventory fallback.
+            var found = _itemSystem.TryFindItemInRoom(location.RoomEntityId, target, out var itemEntityId)
+                     || _itemSystem.TryFindItemInInventory(context.InvokerEntityId, target, out itemEntityId);
+
+            if (found && _entityService.TryGet<ItemDataComponent>(itemEntityId, out var itemData))
             {
                 await context.Output.WriteAsync(
                     new PlainMessage($"{itemData.Name}\n{itemData.Description}", OutputSeverity.System))

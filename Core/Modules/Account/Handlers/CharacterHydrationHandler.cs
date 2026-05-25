@@ -53,6 +53,11 @@ namespace Hedron.Core.Modules.Account.Handlers
                     location.RoomEntityId = _worldConfig.StartingRoomEntityId;
                     await _persistence.SaveEntityAsync(entityId).ConfigureAwait(false);
                 }
+
+                // Migration guard: characters persisted before Phase B lack InventoryComponent.
+                // Attach an empty one now; it will be persisted on the character's next save-on-change.
+                if (!_entityService.HasComponent<InventoryComponent>(entityId))
+                    _entityService.AddComponent(entityId, new InventoryComponent());
             }
         }
     }
