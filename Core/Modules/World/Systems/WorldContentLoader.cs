@@ -36,6 +36,7 @@ namespace Hedron.Core.Modules.World.Systems
         private readonly EntityService _entityService;
         private readonly ITemplateRegistry _templateRegistry;
         private readonly IContentSerializer _serializer;
+        private readonly IPersistenceSystem _persistence;
         private readonly Hedron.Core.WorldConfiguration _worldConfig;
         private readonly ILogger<WorldContentLoader> _logger;
         private readonly string _contentDirectory;
@@ -45,6 +46,7 @@ namespace Hedron.Core.Modules.World.Systems
             EntityService entityService,
             ITemplateRegistry templateRegistry,
             IContentSerializer serializer,
+            IPersistenceSystem persistence,
             Hedron.Core.WorldConfiguration worldConfig,
             IConfiguration configuration,
             ILogger<WorldContentLoader> logger)
@@ -52,6 +54,7 @@ namespace Hedron.Core.Modules.World.Systems
             _entityService = entityService;
             _templateRegistry = templateRegistry;
             _serializer = serializer;
+            _persistence = persistence;
             _worldConfig = worldConfig;
             _logger = logger;
             _contentDirectory = configuration["World:ContentDirectory"] ?? "data/content/";
@@ -67,7 +70,9 @@ namespace Hedron.Core.Modules.World.Systems
                 _logger.LogWarning(
                     "WorldContentLoader: content directory '{Dir}' is missing or empty — seeding void room.",
                     _contentDirectory);
-                SeedVoidRoom();
+                var voidId = SeedVoidRoom();
+                // Save the void room immediately so it keeps the same entity ID on restart.
+                await _persistence.SaveEntityAsync(voidId, ct).ConfigureAwait(false);
             }
             else
             {
@@ -75,9 +80,17 @@ namespace Hedron.Core.Modules.World.Systems
                 // sequence so the two steps see a consistent view (and we don't pay for three
                 // GetAllComponents passes during startup).
                 var liveBlueprints = BuildLiveBlueprintMap();
-                SpawnMissingEntities(liveBlueprints);
+                var newlySpawned = SpawnMissingEntities(liveBlueprints);
+
+                // Save every newly-spawned entity to disk immediately.
+                // This makes their entity IDs durable even if the server is killed before the
+                // shutdown flush — without this, room IDs change on each restart and item
+                // LocationComponents go stale.
+                foreach (var id in newlySpawned)
+                    await _persistence.SaveEntityAsync(id, ct).ConfigureAwait(false);
+
                 LinkRoomExits(liveBlueprints);
-                PlaceItemsInRooms(liveBlueprints);
+                PlaceItemsInRooms(liveBlueprints, newlySpawned);
             }
 
             ResolveStartingRoom();
@@ -98,9 +111,11 @@ namespace Hedron.Core.Modules.World.Systems
             // Additive only: spawn any template that has no live counterpart. Existing live
             // entities are not touched.
             var liveBlueprints = BuildLiveBlueprintMap();
-            SpawnMissingEntities(liveBlueprints);
+            var newlySpawned = SpawnMissingEntities(liveBlueprints);
+            foreach (var id in newlySpawned)
+                await _persistence.SaveEntityAsync(id, ct).ConfigureAwait(false);
             LinkRoomExits(liveBlueprints);
-            PlaceItemsInRooms(liveBlueprints);
+            PlaceItemsInRooms(liveBlueprints, newlySpawned);
 
             return new ContentReloadResult(loaded, unchanged, removed);
         }
@@ -146,7 +161,7 @@ namespace Hedron.Core.Modules.World.Systems
             }
         }
 
-        private void SeedVoidRoom()
+        private uint SeedVoidRoom()
         {
             var voidTemplate = new RoomTemplate(VoidRoomBlueprintId)
             {
@@ -156,10 +171,17 @@ namespace Hedron.Core.Modules.World.Systems
             _templateRegistry.Register(VoidRoomBlueprintId, voidTemplate);
             var spawned = _templateRegistry.Spawn(VoidRoomBlueprintId);
             _entityService.AddComponent(spawned.Id, new PersistentEntity());
+            return spawned.Id;
         }
 
-        private void SpawnMissingEntities(Dictionary<string, uint> liveBlueprints)
+        /// <summary>
+        /// Spawns a live entity for every registered blueprint that has no current live entity.
+        /// Returns the set of newly-spawned entity IDs — callers save these immediately to make
+        /// IDs durable across restarts.
+        /// </summary>
+        private HashSet<uint> SpawnMissingEntities(Dictionary<string, uint> liveBlueprints)
         {
+            var newlySpawned = new HashSet<uint>();
             foreach (var blueprintId in _templateRegistry.AllBlueprintIds())
             {
                 if (liveBlueprints.ContainsKey(blueprintId))
@@ -167,7 +189,9 @@ namespace Hedron.Core.Modules.World.Systems
                 var spawned = _templateRegistry.Spawn(blueprintId);
                 _entityService.AddComponent(spawned.Id, new PersistentEntity());
                 liveBlueprints[blueprintId] = spawned.Id;
+                newlySpawned.Add(spawned.Id);
             }
+            return newlySpawned;
         }
 
         private void LinkRoomExits(Dictionary<string, uint> liveBlueprints)
@@ -198,7 +222,15 @@ namespace Hedron.Core.Modules.World.Systems
             }
         }
 
-        private void PlaceItemsInRooms(Dictionary<string, uint> liveBlueprints)
+        /// <summary>
+        /// Attaches initial <see cref="LocationComponent"/> to template items that were
+        /// just spawned for the first time (i.e. they are in <paramref name="newlySpawned"/>).
+        /// Restored-from-persistence entities are intentionally skipped: their saved
+        /// <see cref="LocationComponent"/> already reflects either a room or an inventory slot,
+        /// and overriding it would cause duplicates (Phase B) or move a dropped item back to
+        /// its spawn point.
+        /// </summary>
+        private void PlaceItemsInRooms(Dictionary<string, uint> liveBlueprints, HashSet<uint> newlySpawned)
         {
             foreach (var blueprintId in _templateRegistry.AllBlueprintIds())
             {
@@ -209,9 +241,10 @@ namespace Hedron.Core.Modules.World.Systems
                 if (!liveBlueprints.TryGetValue(blueprintId, out var entityId))
                     continue;
 
-                // Skip entities that already have a location: either restored from persistence
-                // (room item) or in someone's inventory (no LocationComponent — handled in Phase B).
-                if (_entityService.HasComponent<LocationComponent>(entityId))
+                // Only place items that were spawned in this startup pass. Entities restored
+                // from persistence already carry a saved LocationComponent (room or inventory).
+                // Re-placing them would clobber in-progress inventory state.
+                if (!newlySpawned.Contains(entityId))
                     continue;
 
                 if (string.IsNullOrEmpty(itemTemplate.SpawnRoomBlueprintId))
