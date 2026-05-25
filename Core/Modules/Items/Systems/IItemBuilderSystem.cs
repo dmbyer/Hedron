@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Hedron.Core.Modules.Items.Templates;
 
 namespace Hedron.Core.Modules.Items.Systems
 {
@@ -17,5 +18,5 @@ namespace Hedron.Core.Modules.Items.Systems
     }
 
     /// <summary>Result of <see cref="IItemBuilderSystem.CreateItem"/>.</summary>
-    public readonly record struct ItemCreationResult(uint ItemEntityId, string BlueprintId);
+    public readonly record struct ItemCreationResult(uint ItemEntityId, string BlueprintId, ItemTemplate Template);
 }

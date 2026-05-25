@@ -20,6 +20,7 @@ namespace Hedron.Core.Modules.Items.Commands
     public sealed class MkitemCommand : ICommand
     {
         private readonly IItemBuilderSystem _itemBuilder;
+        private readonly IItemContentWriter _contentWriter;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
         private readonly IPersistenceSystem _persistence;
@@ -41,11 +42,13 @@ namespace Hedron.Core.Modules.Items.Commands
 
         public MkitemCommand(
             IItemBuilderSystem itemBuilder,
+            IItemContentWriter contentWriter,
             EntityService entityService,
             IEventBus eventBus,
             IPersistenceSystem persistence)
         {
             _itemBuilder = itemBuilder;
+            _contentWriter = contentWriter;
             _entityService = entityService;
             _eventBus = eventBus;
             _persistence = persistence;
@@ -72,6 +75,7 @@ namespace Hedron.Core.Modules.Items.Commands
                 result.BlueprintId,
                 location.RoomEntityId)).ConfigureAwait(false);
 
+            await _contentWriter.WriteAsync(result.Template).ConfigureAwait(false);
             await _persistence.SaveEntityAsync(result.ItemEntityId).ConfigureAwait(false);
 
             await context.Output.WriteAsync(new PlainMessage(

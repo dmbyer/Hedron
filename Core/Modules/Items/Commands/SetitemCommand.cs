@@ -20,6 +20,7 @@ namespace Hedron.Core.Modules.Items.Commands
     public sealed class SetitemCommand : ICommand
     {
         private readonly IItemBuilderSystem _itemBuilder;
+        private readonly IItemContentWriter _contentWriter;
         private readonly EntityService _entityService;
         private readonly ITemplateRegistry _templateRegistry;
         private readonly IEventBus _eventBus;
@@ -48,12 +49,14 @@ namespace Hedron.Core.Modules.Items.Commands
 
         public SetitemCommand(
             IItemBuilderSystem itemBuilder,
+            IItemContentWriter contentWriter,
             EntityService entityService,
             ITemplateRegistry templateRegistry,
             IEventBus eventBus,
             IPersistenceSystem persistence)
         {
             _itemBuilder = itemBuilder;
+            _contentWriter = contentWriter;
             _entityService = entityService;
             _templateRegistry = templateRegistry;
             _eventBus = eventBus;
@@ -131,6 +134,10 @@ namespace Hedron.Core.Modules.Items.Commands
                 itemEntityId,
                 property,
                 value)).ConfigureAwait(false);
+
+            if (_templateRegistry.TryGet(blueprintId, out var tpl) &&
+                tpl is Hedron.Core.Modules.Items.Templates.ItemTemplate itemTpl)
+                await _contentWriter.WriteAsync(itemTpl).ConfigureAwait(false);
 
             await _persistence.SaveEntityAsync(itemEntityId).ConfigureAwait(false);
 

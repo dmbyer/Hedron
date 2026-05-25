@@ -84,7 +84,7 @@ if (DateTime.UtcNow - item.DroppedAt > item.DecayDuration)
 |---|---|---|
 | Authored rooms, exits, item templates | Save-on-change | Admin operations are rare; immediate durability desirable |
 | Player characters | Area-scoped flush | Active sessions are bounded; frequent mutations |
-| Dropped items (persistent) | Save-on-change at drop, delete on pick-up or expiry | One write per transition; decay is timestamp-lazy |
+| Dropped items (planned) | Save-on-change at drop when an explicit persistence flag is set; delete on pick-up or expiry | One write per transition; decay is timestamp-lazy. Not yet implemented — dropped items currently vanish on restart by design (see `items-and-inventory.md` Design Notes). |
 | Session-only spawned mobs | No `PersistentEntity` — not saved | Re-spawned from templates on restart |
 | Generated dungeon content | No `PersistentEntity` — not saved | Same component types as authored content, no duplication |
 | Time-based world processes | Timestamp + lazy recalculation | No re-save needed between ticks |

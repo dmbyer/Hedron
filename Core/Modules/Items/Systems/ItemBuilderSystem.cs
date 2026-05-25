@@ -28,32 +28,44 @@ namespace Hedron.Core.Modules.Items.Systems
         {
             var blueprintId = GenerateUniqueBlueprintId();
 
+            var spawnRoomBlueprintId = string.Empty;
+            if (_entityService.TryGet<BlueprintComponent>(roomEntityId, out var roomBp))
+                spawnRoomBlueprintId = roomBp.BlueprintId;
+
             var entity = _entityService.CreateEntity();
             _entityService.AddComponent(entity.Id, new ItemDataComponent { Name = name });
             _entityService.AddComponent(entity.Id, new BlueprintComponent { BlueprintId = blueprintId });
             _entityService.AddComponent(entity.Id, new PersistentEntity());
             _entityService.AddComponent(entity.Id, new LocationComponent { RoomEntityId = roomEntityId });
 
-            var template = new ItemTemplate(blueprintId) { Name = name };
+            var template = new ItemTemplate(blueprintId)
+            {
+                Name = name,
+                SpawnRoomBlueprintId = spawnRoomBlueprintId,
+            };
             _templateRegistry.Register(blueprintId, template);
 
             _logger.LogDebug(
-                "ItemBuilderSystem: created item entity={EntityId} blueprint={BlueprintId}",
-                entity.Id, blueprintId);
+                "ItemBuilderSystem: created item entity={EntityId} blueprint={BlueprintId} spawnRoom={SpawnRoom}",
+                entity.Id, blueprintId, spawnRoomBlueprintId);
 
-            return new ItemCreationResult(entity.Id, blueprintId);
+            return new ItemCreationResult(entity.Id, blueprintId, template);
         }
 
         public void SetItemName(uint itemEntityId, string name)
         {
             if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
                 item.Name = name;
+            var tpl = TryGetTemplate(itemEntityId);
+            if (tpl is not null) tpl.Name = name;
         }
 
         public void SetItemDescription(uint itemEntityId, string description)
         {
             if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
                 item.Description = description;
+            var tpl = TryGetTemplate(itemEntityId);
+            if (tpl is not null) tpl.Description = description;
         }
 
         public void SetItemKeywords(uint itemEntityId, IReadOnlyList<string> keywords)
@@ -63,12 +75,29 @@ namespace Hedron.Core.Modules.Items.Systems
                 item.Keywords.Clear();
                 item.Keywords.AddRange(keywords);
             }
+            var tpl = TryGetTemplate(itemEntityId);
+            if (tpl is not null)
+            {
+                tpl.Keywords.Clear();
+                tpl.Keywords.AddRange(keywords);
+            }
         }
 
         public void SetItemType(uint itemEntityId, ItemType itemType)
         {
             if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
                 item.ItemType = itemType;
+            var tpl = TryGetTemplate(itemEntityId);
+            if (tpl is not null) tpl.ItemType = itemType;
+        }
+
+        private ItemTemplate? TryGetTemplate(uint itemEntityId)
+        {
+            if (_entityService.TryGet<BlueprintComponent>(itemEntityId, out var bp) &&
+                _templateRegistry.TryGet(bp.BlueprintId, out var template) &&
+                template is ItemTemplate itemTemplate)
+                return itemTemplate;
+            return null;
         }
 
         private string GenerateUniqueBlueprintId()

@@ -65,21 +65,26 @@ namespace Hedron.Core.Modules.World.Systems
         {
             await LoadTemplatesAsync(ct).ConfigureAwait(false);
 
+            // Build the live-blueprint map before any branching so both paths see the
+            // full hydrated world.  Without this, the no-YAML branch re-seeds the void
+            // room on every restart even though the entity was already loaded from disk,
+            // producing a new duplicate entity-N.json each time.
+            var liveBlueprints = BuildLiveBlueprintMap();
+
             if (_templateRegistry.AllBlueprintIds().Count == 0)
             {
-                _logger.LogWarning(
-                    "WorldContentLoader: content directory '{Dir}' is missing or empty — seeding void room.",
-                    _contentDirectory);
-                var voidId = SeedVoidRoom();
-                // Save the void room immediately so it keeps the same entity ID on restart.
-                await _persistence.SaveEntityAsync(voidId, ct).ConfigureAwait(false);
+                if (!liveBlueprints.ContainsKey(VoidRoomBlueprintId))
+                {
+                    _logger.LogWarning(
+                        "WorldContentLoader: content directory '{Dir}' is missing or empty — seeding void room.",
+                        _contentDirectory);
+                    var voidId = SeedVoidRoom();
+                    // Save immediately so the entity ID is stable across restarts.
+                    await _persistence.SaveEntityAsync(voidId, ct).ConfigureAwait(false);
+                }
             }
             else
             {
-                // Build the blueprint→entity map once and thread it through the spawn-then-link
-                // sequence so the two steps see a consistent view (and we don't pay for three
-                // GetAllComponents passes during startup).
-                var liveBlueprints = BuildLiveBlueprintMap();
                 var newlySpawned = SpawnMissingEntities(liveBlueprints);
 
                 // Save every newly-spawned entity to disk immediately.

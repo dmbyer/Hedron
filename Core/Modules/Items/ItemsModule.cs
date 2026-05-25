@@ -19,6 +19,7 @@ namespace Hedron.Core.Modules.Items
             // Domain systems
             services.AddSingleton<IItemSystem, ItemSystem>();
             services.AddSingleton<IItemBuilderSystem, ItemBuilderSystem>();
+            services.AddSingleton<IItemContentWriter, ItemContentWriter>();
 
             // Resolvers — stateless singletons, injected into commands via constructor
             services.AddSingleton<ItemInRoomResolver>();

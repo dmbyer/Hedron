@@ -87,6 +87,9 @@ namespace Hedron.Core.Modules.Items.Systems
                 return; // already picked up — race condition, silently no-op
 
             _entityService.RemoveComponent<LocationComponent>(itemEntityId);
+            // Decouple from blueprint slot (INV-21): clearing BlueprintComponent lets the
+            // template re-spawn a fresh instance in the spawn room on next restart.
+            _entityService.RemoveComponent<BlueprintComponent>(itemEntityId);
 
             if (_entityService.TryGet<InventoryComponent>(holderEntityId, out var inv))
                 inv.ItemEntityIds.Add(itemEntityId);
