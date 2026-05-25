@@ -66,12 +66,16 @@ namespace Hedron.Core.Modules.Admin.Systems
         {
             if (_entityService.TryGet<RoomComponent>(roomId, out var room))
                 room.Name = name;
+            var tpl = TryGetTemplate(roomId);
+            if (tpl is not null) tpl.Name = name;
         }
 
         public void SetRoomDescription(uint roomId, string description)
         {
             if (_entityService.TryGet<RoomComponent>(roomId, out var room))
                 room.Description = description;
+            var tpl = TryGetTemplate(roomId);
+            if (tpl is not null) tpl.Description = description;
         }
 
         private string GenerateUniqueBlueprintId()
@@ -109,6 +113,15 @@ namespace Hedron.Core.Modules.Admin.Systems
             if (!_templateRegistry.TryGet(sourceBp.BlueprintId, out var template)) return;
             if (template is RoomTemplate roomTemplate)
                 roomTemplate.Exits[direction] = targetBp.BlueprintId;
+        }
+
+        private RoomTemplate? TryGetTemplate(uint roomId)
+        {
+            if (_entityService.TryGet<BlueprintComponent>(roomId, out var bp) &&
+                _templateRegistry.TryGet(bp.BlueprintId, out var template) &&
+                template is RoomTemplate roomTemplate)
+                return roomTemplate;
+            return null;
         }
 
         private static Direction? Opposite(Direction d) => d switch

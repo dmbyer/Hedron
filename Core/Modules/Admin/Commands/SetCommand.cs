@@ -8,6 +8,8 @@ using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Admin.Systems;
+using Hedron.Core.Modules.World.Systems;
+using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Output;
 using Hedron.Core.Systems;
 
@@ -20,6 +22,8 @@ namespace Hedron.Core.Modules.Admin.Commands
     public sealed class SetCommand : ICommand
     {
         private readonly IRoomBuilderSystem _roomBuilder;
+        private readonly IRoomContentWriter _contentWriter;
+        private readonly ITemplateRegistry _templateRegistry;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
         private readonly IPersistenceSystem _persistence;
@@ -43,11 +47,15 @@ namespace Hedron.Core.Modules.Admin.Commands
 
         public SetCommand(
             IRoomBuilderSystem roomBuilder,
+            IRoomContentWriter contentWriter,
+            ITemplateRegistry templateRegistry,
             EntityService entityService,
             IEventBus eventBus,
             IPersistenceSystem persistence)
         {
             _roomBuilder = roomBuilder;
+            _contentWriter = contentWriter;
+            _templateRegistry = templateRegistry;
             _entityService = entityService;
             _eventBus = eventBus;
             _persistence = persistence;
@@ -93,6 +101,14 @@ namespace Hedron.Core.Modules.Admin.Commands
                 roomId,
                 normalizedProperty,
                 value)).ConfigureAwait(false);
+
+            // RoomBuilderSystem.SetRoomName/Description already mirrors the change to the
+            // in-memory template. Write the updated template to YAML so it round-trips on
+            // the next server start.
+            if (_entityService.TryGet<BlueprintComponent>(roomId, out var bp) &&
+                _templateRegistry.TryGet(bp.BlueprintId, out var tpl) &&
+                tpl is RoomTemplate roomTpl)
+                await _contentWriter.WriteAsync(roomTpl).ConfigureAwait(false);
 
             await _persistence.SaveEntityAsync(roomId).ConfigureAwait(false);
 

@@ -9,6 +9,8 @@ using Hedron.Core.Events;
 using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Admin.Systems;
 using Hedron.Core.Modules.Movement.Events;
+using Hedron.Core.Modules.World.Systems;
+using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Output;
 using Hedron.Core.Systems;
 
@@ -22,6 +24,8 @@ namespace Hedron.Core.Modules.Admin.Commands
     public sealed class DigCommand : ICommand
     {
         private readonly IRoomBuilderSystem _roomBuilder;
+        private readonly IRoomContentWriter _contentWriter;
+        private readonly ITemplateRegistry _templateRegistry;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
         private readonly IPersistenceSystem _persistence;
@@ -47,11 +51,15 @@ namespace Hedron.Core.Modules.Admin.Commands
 
         public DigCommand(
             IRoomBuilderSystem roomBuilder,
+            IRoomContentWriter contentWriter,
+            ITemplateRegistry templateRegistry,
             EntityService entityService,
             IEventBus eventBus,
             IPersistenceSystem persistence)
         {
             _roomBuilder = roomBuilder;
+            _contentWriter = contentWriter;
+            _templateRegistry = templateRegistry;
             _entityService = entityService;
             _eventBus = eventBus;
             _persistence = persistence;
@@ -97,6 +105,17 @@ namespace Hedron.Core.Modules.Admin.Commands
                 sourceRoomId,
                 direction,
                 BidirectionalLinkCreated: true)).ConfigureAwait(false);
+
+            // Write YAML for the new room. Also re-write the source room's YAML because
+            // LinkExits added a new exit to its template's Exits map.
+            if (_templateRegistry.TryGet(result.BlueprintId, out var newTpl) &&
+                newTpl is RoomTemplate newRoomTpl)
+                await _contentWriter.WriteAsync(newRoomTpl).ConfigureAwait(false);
+
+            if (_entityService.TryGet<BlueprintComponent>(sourceRoomId, out var srcBp) &&
+                _templateRegistry.TryGet(srcBp.BlueprintId, out var srcTpl) &&
+                srcTpl is RoomTemplate srcRoomTpl)
+                await _contentWriter.WriteAsync(srcRoomTpl).ConfigureAwait(false);
 
             // Save both rooms immediately — admin content must be durable without waiting
             // for a flush cycle.
