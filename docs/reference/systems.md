@@ -190,7 +190,7 @@ public interface IAccountSystem
     void RecordLogout(uint characterEntityId);
 }
 ```
-Maintains lazy in-memory HashSet indices for username and character name uniqueness (populated on first call, updated on every write). `CreateAccountAsync` attaches `AccountComponent` + `PersistentEntity` and returns the entity id — persistence is the caller's (`LoginFlow`) responsibility (INV-5). `CreateCharacterAsync` attaches `CharacterComponent` + `LocationComponent` (set to `StartingRoomEntityId`) + `PersistentEntity`, registers the character on the account, and returns the entity id — `LoginFlow` saves character-first, then account (crash-safety ordering). `RecordLogout` updates `CharacterComponent.LastLoginUtc`; `PlayerSessionHandler` calls `SaveEntityAsync` after `RecordLogout` returns. Implemented (Phase 3 slices 5, persistence-two-level-model).
+Maintains lazy in-memory HashSet indices for username and character name uniqueness (populated on first call, updated on every write). `CreateAccountAsync` attaches `AccountComponent` + `PersistentEntity` and returns the entity id — persistence is the caller's (`LoginFlow`) responsibility (INV-5). `CreateCharacterAsync` attaches `CharacterComponent` + `LocationComponent` (set to `StartingRoomEntityId`) + `PersistentEntity`, registers the character on the account, and returns the entity id — `LoginFlow` saves character-first, then account (crash-safety ordering). `RecordLogout` updates `CharacterComponent.LastLoginUtc`; `PlayerSessionHandler` calls `SaveEntityAsync` after `RecordLogout` returns. Extended in slice 8a: `CreateCharacterAsync` also attaches `AttributesComponent { Level=1, Strength=10, Dexterity=10, Constitution=10 }` and `PoolsComponent { MaxHp=100, CurrentHp=100 }` to every new character. Implemented (Phase 3 slices 5, persistence-two-level-model, 8a).
 
 ### RoomBuilderSystem
 **Purpose:** Runtime room authoring — creates room entities, wires bidirectional exits, and mutates room properties (`Name`, `Description`). All methods return pure results or mutate in-place; event publication is the caller's responsibility, keeping this system reusable by a future in-game editor without a live player session.
@@ -274,11 +274,12 @@ public interface IMobBuilderSystem
     void SetMobDescription(uint mobEntityId, string description);
     void SetMobKeywords(uint mobEntityId, IReadOnlyList<string> keywords);
     void SetMobType(uint mobEntityId, MobType mobType);
+    void SetAttribute(uint mobEntityId, MobTemplate template, string property, int value);
 }
 
 public readonly record struct MobCreationResult(uint MobEntityId, string BlueprintId, MobTemplate Template);
 ```
-`CreateMob` generates a unique blueprint id (`mob.adhoc.<8-char-base36>`), creates the entity, attaches `MobDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `MobTemplate`. Implemented (Phase 3 slice 8).
+`CreateMob` generates a unique blueprint id (`mob.adhoc.<8-char-base36>`), creates the entity, attaches `MobDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `MobTemplate`. Implemented (Phase 3 slice 8). Extended in slice 8a: `SetAttribute(mobEntityId, template, property, value)` mutates `AttributesComponent`/`PoolsComponent` on the live entity and updates the template. Valid properties: `level`, `hp`, `str`, `dex`, `con`. Enforces `CurrentHp ≤ MaxHp` clamp on `hp` change (INV-8). Does not call persistence or events (INV-5).
 
 ### MobContentWriter
 **Purpose:** Serializes a `MobTemplate` to YAML at `{contentDirectory}/mobs/{blueprintId}.yaml` using an atomic write (tmp → rename). Mirrors `IItemContentWriter`.
@@ -290,7 +291,7 @@ public interface IMobContentWriter
     Task WriteAsync(MobTemplate template, CancellationToken ct = default);
 }
 ```
-YAML DTO fields: `blueprintId`, `name`, `description`, `keywords`, `type` (string enum value), `spawnRoomBlueprintId`. Implemented (Phase 3 slice 8).
+YAML DTO fields: `blueprintId`, `name`, `description`, `keywords`, `type` (string enum value), `spawnRoomBlueprintId`. Implemented (Phase 3 slice 8). Extended in slice 8a: DTO now includes `level`, `maxHp`, `strength`, `dexterity`, `constitution` fields.
 
 ### AdminAuthorizer
 **Purpose:** Policy seam for admin command authorization. Each admin `ICommand.Execute` calls `IsPrivileged` as its first line; non-privileged sessions get a single rejection line and the command body short-circuits.
@@ -304,3 +305,27 @@ public interface IAdminAuthorizer
 }
 ```
 **Layered authorization model.** Bootstrap layer (slice 2): reads `Admin:PrivilegedNames` (string array) from `IConfiguration` and matches against the player's `PlayerComponent.DisplayName`. Persisted layer (deferred — see [`../use-cases/admin-privilege-elevation.md`](../use-cases/admin-privilege-elevation.md)): an `AdminPrivilegeComponent` (`[Persistent]`) on a player entity also grants admin rights. Settings is the floor — anyone in `Admin:PrivilegedNames` is always admin even without the component. Implemented (Phase 3 slice 2; component layer deferred).
+
+### AttributeSystem
+**Purpose:** Read/write seam for `AttributesComponent` and `PoolsComponent`. Getters are the surface the combat slice will call; setters serve the admin and initialization paths. Never touches the event bus or persistence (INV-5).
+**Location:** `Core/Modules/Attributes/Systems/AttributeSystem.cs`
+**Dependencies:** `EntityService`.
+```csharp
+public interface IAttributeSystem
+{
+    int GetLevel(uint entityId);
+    int GetStrength(uint entityId);
+    int GetDexterity(uint entityId);
+    int GetConstitution(uint entityId);
+    int GetMaxHp(uint entityId);
+    int GetCurrentHp(uint entityId);
+
+    void SetLevel(uint entityId, int value);
+    void SetStrength(uint entityId, int value);
+    void SetDexterity(uint entityId, int value);
+    void SetConstitution(uint entityId, int value);
+    /// Sets MaxHp and clamps CurrentHp to the new MaxHp if it would exceed it (INV-8).
+    void SetMaxHp(uint entityId, int value);
+}
+```
+All getters return the default value (Level 1, stats 10, HP 100) if the entity lacks the relevant component — safe default for pre-hydration edge cases. Implemented (Phase 3 slice 8a).

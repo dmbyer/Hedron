@@ -51,6 +51,12 @@ namespace Hedron.Core.Modules.Mobs
                     "Mob '{Id}': unknown type '{Type}' — defaulting to None.",
                     dto.BlueprintId, dto.Type);
 
+            template.Level = dto.Level;
+            template.MaxHp = dto.MaxHp;
+            template.Strength = dto.Strength;
+            template.Dexterity = dto.Dexterity;
+            template.Constitution = dto.Constitution;
+
             return template;
         }
 
@@ -62,6 +68,11 @@ namespace Hedron.Core.Modules.Mobs
             public List<string>? Keywords { get; set; }
             public string? Type { get; set; }
             public string? SpawnRoomBlueprintId { get; set; }
+            public int Level { get; set; }
+            public int MaxHp { get; set; }
+            public int Strength { get; set; }
+            public int Dexterity { get; set; }
+            public int Constitution { get; set; }
         }
     }
 }

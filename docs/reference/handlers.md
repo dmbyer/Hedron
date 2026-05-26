@@ -33,7 +33,7 @@ Ask:
 ### CharacterHydrationHandler
 **Events:** `WorldContentReadyEvent`
 **Priority:** 20 (`HandlerPriority.Domain`)
-**Responsibilities:** After world content is fully loaded, iterates every entity that has both `CharacterComponent` and `LocationComponent`. Validates `LocationComponent.RoomEntityId` via `HasComponent<RoomComponent>`; if the room no longer exists (deleted YAML), resets to `WorldConfiguration.StartingRoomEntityId`, logs a warning, and calls `IPersistenceSystem.SaveEntityAsync` immediately so the correction is durable without waiting for the next flush cycle. Also attaches empty `InventoryComponent` and `EquipmentComponent` to any character entity that lacks them (migration guards for characters persisted before slices 6 and 7 respectively). Components are not saved in the guard itself — they are persisted on the character's next save-on-change event. Runs once at startup; no-op if no character entities exist.
+**Responsibilities:** After world content is fully loaded, iterates every entity that has both `CharacterComponent` and `LocationComponent`. Validates `LocationComponent.RoomEntityId` via `HasComponent<RoomComponent>`; if the room no longer exists (deleted YAML), resets to `WorldConfiguration.StartingRoomEntityId`, logs a warning, and calls `IPersistenceSystem.SaveEntityAsync` immediately so the correction is durable without waiting for the next flush cycle. Also attaches empty `InventoryComponent` and `EquipmentComponent` to any character entity that lacks them (migration guards for characters persisted before slices 6 and 7 respectively); attaches empty `AttributesComponent` and `PoolsComponent` to any character entity that lacks them (migration guards for characters persisted before slice 8a). Components are not saved in the guard itself — they are persisted on the character's next save-on-change event. Runs once at startup; no-op if no character entities exist.
 **Location:** `Core/Modules/Account/Handlers/CharacterHydrationHandler.cs`
 **Uses:** `EntityService`, `WorldConfiguration`, `IPersistenceSystem`, `ILogger`
 
@@ -52,7 +52,7 @@ Ask:
 **Uses:** `EntityService`, `IBroadcastSystem`
 
 ### AdminAuditHandler
-**Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a); `ItemCreatedByAdminEvent`, `ItemPropertySetByAdminEvent` (Phase 3 slice 6); `MobCreatedByAdminEvent`, `MobPropertySetByAdminEvent` (Phase 3 slice 8).
+**Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a); `ItemCreatedByAdminEvent`, `ItemPropertySetByAdminEvent` (Phase 3 slice 6); `MobCreatedByAdminEvent`, `MobPropertySetByAdminEvent` (Phase 3 slice 8); `PlayerAttributeSetByAdminEvent` (Phase 3 slice 8a).
 **Priority:** 80 (`HandlerPriority.Notification`)
 **Responsibilities:** writes one structured-log entry per admin action via `ILogger<AdminAuditHandler>`. Uses a stable structured event name (`AdminCommandExecuted`) so log scrapers can filter without parsing free text. No dedicated audit-file sink in this slice.
 **Location:** `Core/Modules/Admin/Handlers/AdminAuditHandler.cs`

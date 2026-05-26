@@ -27,14 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–8 done; **next: slice 8a — attributes and vitals**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–8a done; **next: slice 9 — combat**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 8a — Attributes and vitals (`AttributesComponent`, `PoolsComponent`, `score`).** Slice 8 is complete. Slice 8a delivers: `AttributesComponent` (base stats: STR, DEX, CON, INT, WIS, CHA), `PoolsComponent` (HP pool: current/max), and the `score` command displaying a character's vitals. Also extends `MobTemplate` with `Level`, `MaxHp`, and base stat overrides. Spec: [`../use-cases/attributes.md`](../use-cases/attributes.md). Prerequisite: slice 8 (complete).
+**Phase 3 slice 9 — Combat.** Slice 8a is complete; `AttributesComponent` and `PoolsComponent` are live for both players and mobs, providing the HP and stat ground truth combat needs. Slice 9 delivers the core combat loop: `kill <mob>`, attack/defense resolution using `AttributesComponent`, damage application to `PoolsComponent.CurrentHp`, and `CombatEndedEvent`. Spec: [`../use-cases/combat.md`](../use-cases/combat.md). Prerequisites: slices 8 and 8a (both complete).
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -70,8 +70,8 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 6 | Items + inventory + `get`/`drop`/`look <item>` | Object interaction and inspection; `ItemDataComponent`, `InventoryComponent`; admin `mkitem`/`setitem`; concrete `IArgumentResolver` impls | ✅ done |
 | 7 | Equipment + `wear`/`remove` | Gear; `EquipmentComponent`, `WornSlot` enum, `wear`/`remove`/`equipment` commands | ✅ done |
 | 8 | Mobs (basic entity model and spawn) | Populated world; no wandering | ✅ done |
-| 8a | Attributes and vitals (`AttributesComponent`, `PoolsComponent`, `score`) | HP + base stats required for combat | 🟢 next |
-| 9 | Combat | Core gameplay loop | 🟡 blocked on 8a |
+| 8a | Attributes and vitals (`AttributesComponent`, `PoolsComponent`, `score`) | HP + base stats required for combat | ✅ done |
+| 9 | Combat | Core gameplay loop | 🟢 next |
 | 10 | Death and respawn | Combat is terminal until this exists | 🟡 blocked on 9 |
 | 11 | Skills | Character progression | 🟢 ready after 9 |
 | 12 | Shopping | Economy | 🟢 ready after 6 |

@@ -148,6 +148,19 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 ---
 
+### `score`
+
+**Aliases:** none  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Attributes/Commands/ScoreCommand.cs`  
+**Description:** Displays the invoking player's Level, HP (`CurrentHp/MaxHp`), Strength, Dexterity, and Constitution in a formatted `ScoreDisplayMessage`. If `AttributesComponent` or `PoolsComponent` are absent (pre-hydration edge case), defaults are shown. No events fired.  
+**Usage:** `score`  
+**Schema:** no arguments  
+**Dependencies:** `EntityService`  
+**Events:** none
+
+---
+
 ### `say`
 
 **Aliases:** none  
@@ -227,6 +240,18 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 
 ---
 
+### `mkmob`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Mobs/Commands/MkMobCommand.cs`  
+**Description:** Creates an ad-hoc mob entity in the invoker's current room. Delegates to `IMobBuilderSystem.CreateMob`; the mob gets `MobDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent`. Prints the blueprint id (format `mob.adhoc.<shortid>`) so the admin can configure it with `setmob`. Saves the mob entity immediately.  
+**Usage:** `mkmob [name]`  
+**Schema:** `RestOfLine string "name"` (optional, default `"a mob"`)  
+**Events:** `MobCreatedByAdminEvent`
+
+---
+
 ### `setitem`
 
 **Aliases:** none  
@@ -236,6 +261,31 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Usage:** `setitem <blueprintId> <property> <value>`  
 **Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`, `slot`), `RestOfLine string "value"` (required). For `keywords`, value is split on whitespace. For `type`, value must parse as `ItemType` enum. For `slot`, value is a space-separated list of `WornSlot` names (e.g. `mainhand`, `chest`); an empty list clears `WornSlots`.  
 **Events:** `ItemPropertySetByAdminEvent`
+
+---
+
+### `setmob`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Mobs/Commands/SetMobCommand.cs`  
+**Description:** Sets a property on an existing mob entity identified by blueprint id. Validates the blueprint id exists in `ITemplateRegistry`; resolves the live entity by `BlueprintComponent.BlueprintId`. Delegates mutation to `IMobBuilderSystem`. Writes the updated template to YAML via `IMobContentWriter`. Saves the mob entity immediately. Properties: `name`, `description`, `keywords` (space-separated), `type`, `level`, `hp`, `str`, `dex`, `con` (positive integer values).  
+**Usage:** `setmob <blueprintId> <property> <value>`  
+**Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`, `level`, `hp`, `str`, `dex`, `con`), `RestOfLine string "value"` (required). For `keywords`, value is split on whitespace. For `type`, value must parse as `MobType` enum. For `level`, `hp`, `str`, `dex`, `con`, value must be a positive integer.  
+**Events:** `MobPropertySetByAdminEvent`
+
+---
+
+### `setplayer`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Attributes/Commands/SetPlayerCommand.cs`  
+**Description:** Sets `level` or `hp` on a currently-connected player by character name (case-insensitive). Resolves player via `ISessionManager.GetAll()`. `hp` sets `MaxHp` and clamps `CurrentHp` if needed. Saves the player entity immediately. Protected by `AdminRequirement`.  
+**Usage:** `setplayer <characterName> <property> <value>`  
+**Schema:** `Token string "characterName"` (required), `Token string "property"` (required: `level`, `hp`), `Token string "value"` (required, positive integer)  
+**Events:** `PlayerAttributeSetByAdminEvent`  
+**RequiredPrivileges:** `AdminRequirement`
 
 ---
 

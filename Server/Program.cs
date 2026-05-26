@@ -13,6 +13,8 @@ using Hedron.Core.Modules.Admin.Handlers;
 using Hedron.Core.Modules.Items;
 using Hedron.Core.Modules.Items.Events;
 using Hedron.Core.Modules.Items.Handlers;
+using Hedron.Core.Modules.Attributes;
+using Hedron.Core.Modules.Attributes.Events;
 using Hedron.Core.Modules.Mobs;
 using Hedron.Core.Modules.Mobs.Events;
 using Hedron.Core.ECS.Components;
@@ -102,6 +104,7 @@ public static class Program
                 services.AddHelpModule();
                 services.AddItemsModule();
                 services.AddMobsModule();
+                services.AddAttributesModule();
 
                 // Hosted services — order matters.
                 services.AddHostedService<PersistenceBootstrap>();
@@ -130,6 +133,7 @@ public static class Program
         bus.Subscribe<ItemPropertySetByAdminEvent>(audit);
         bus.Subscribe<MobCreatedByAdminEvent>(audit);
         bus.Subscribe<MobPropertySetByAdminEvent>(audit);
+        bus.Subscribe<PlayerAttributeSetByAdminEvent>(audit);
 
         var characterHydration = host.Services.GetRequiredService<CharacterHydrationHandler>();
         bus.Subscribe<WorldContentReadyEvent>(characterHydration);
