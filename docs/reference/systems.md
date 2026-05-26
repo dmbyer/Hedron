@@ -227,7 +227,7 @@ public interface IItemSystem
 `GetItemsInRoom` iterates all `ItemDataComponent` entities and returns those whose `LocationComponent.RoomEntityId` matches. `GetItemsInInventory` reads `InventoryComponent.ItemEntityIds` from the holder. `TryFindItemInRoom` / `TryFindItemInInventory` do a linear prefix-match against `ItemDataComponent.Name` and each keyword, returning the first match. `MoveToInventory` removes `LocationComponent` from the item and appends its id to the holder's `InventoryComponent`; no-ops if the item has no `LocationComponent` (race condition: already picked up). `DropToRoom` removes the item id from `InventoryComponent` and attaches a `LocationComponent` pointing to the given room. Implemented (Phase 3 slice 6).
 
 ### ItemBuilderSystem
-**Purpose:** Runtime item authoring — creates ad-hoc item entities and mutates item properties (`Name`, `Description`, `Keywords`, `ItemType`). Mirrors `IRoomBuilderSystem`: all methods mutate ECS state only; event publication and persistence calls remain in the command (INV-5). Reusable by a future in-game editor without a live player session.
+**Purpose:** Runtime item authoring — creates ad-hoc item entities and mutates item properties (`Name`, `Description`, `Keywords`, `ItemType`, `WornSlots`). Mirrors `IRoomBuilderSystem`: all methods mutate ECS state only; event publication and persistence calls remain in the command (INV-5). Reusable by a future in-game editor without a live player session.
 **Location:** `Core/Modules/Items/Systems/ItemBuilderSystem.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<ItemBuilderSystem>`.
 ```csharp
@@ -238,11 +238,29 @@ public interface IItemBuilderSystem
     void SetItemDescription(uint itemEntityId, string description);
     void SetItemKeywords(uint itemEntityId, IReadOnlyList<string> keywords);
     void SetItemType(uint itemEntityId, ItemType itemType);
+    void SetItemSlots(uint itemEntityId, IReadOnlyList<WornSlot> slots);
 }
 
-public readonly record struct ItemCreationResult(uint ItemEntityId, string BlueprintId);
+public readonly record struct ItemCreationResult(uint ItemEntityId, string BlueprintId, ItemTemplate Template);
 ```
-`CreateItem` generates a unique blueprint id (`item.adhoc.<8-char-base36>`), creates the entity, attaches `ItemDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `ItemTemplate`. The `MkitemCommand` initiator calls `SaveEntityAsync` after this method returns (INV-5). Implemented (Phase 3 slice 6).
+`CreateItem` generates a unique blueprint id (`item.adhoc.<8-char-base36>`), creates the entity, attaches `ItemDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `ItemTemplate`. The `MkitemCommand` initiator calls `SaveEntityAsync` after this method returns (INV-5). `SetItemSlots` updates both `ItemDataComponent.WornSlots` and `ItemTemplate.WornSlots` in the registry. Implemented (Phase 3 slices 6, 7).
+
+### EquipmentSystem
+**Purpose:** Query and mutation operations on character equipment slots — finds equipped items, prefix-matches tokens against worn item names/keywords, equips items from inventory into their declared slots (with implicit displacement of existing occupants), and removes items from slots back to inventory. All methods are pure ECS mutations; no event publication, no persistence calls.
+**Location:** `Core/Modules/Items/Systems/EquipmentSystem.cs`
+**Dependencies:** `EntityService`.
+```csharp
+public interface IEquipmentSystem
+{
+    IReadOnlyList<WornSlot> GetWornSlots(uint itemEntityId);
+    IReadOnlyList<uint> GetEquippedItems(uint characterEntityId);
+    bool TryFindEquippedItem(uint characterEntityId, string token, out uint itemEntityId);
+    void EquipItem(uint characterEntityId, uint itemEntityId);
+    void RemoveItem(uint characterEntityId, uint itemEntityId);
+    void RemoveFromSlot(uint characterEntityId, WornSlot slot);
+}
+```
+`EquipItem` internally performs the implicit-remove pass: for each slot declared on the item, if the slot is occupied it calls `RemoveFromSlot` to silently return the displaced item to inventory before placing the new item. `WearCommand` calls only `EquipItem` — never a loop over slots. Implemented (Phase 3 slice 7).
 
 ### AdminAuthorizer
 **Purpose:** Policy seam for admin command authorization. Each admin `ICommand.Execute` calls `IsPrivileged` as its first line; non-privileged sessions get a single rejection line and the command body short-circuits.

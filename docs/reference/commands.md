@@ -22,6 +22,19 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 ---
 
+### `equipment` / `eq`
+
+**Aliases:** `eq`  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Items/Commands/EquipmentCommand.cs`  
+**Description:** Lists all items currently worn or wielded by the player, grouped by slot. Renders an `EquipmentDisplayMessage` (slot label + item name table, ordered by `WornSlot` enum ordinal). Writes "You are not wearing anything." when all slots are empty. No events fired.  
+**Usage:** `equipment`  
+**Schema:** no arguments  
+**Dependencies:** `EntityService`  
+**Events:** none
+
+---
+
 ### `drop`
 
 **Aliases:** none  
@@ -122,6 +135,19 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 ---
 
+### `remove`
+
+**Aliases:** none  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Items/Commands/RemoveCommand.cs`  
+**Description:** Takes off a worn or wielded item and returns it to the player's inventory. Argument is resolved via `ItemInEquipmentResolver` (prefix-matched against worn item names and keywords). On no match: "You aren't wearing that." `IEquipmentSystem.RemoveItem` clears the slot(s) in `EquipmentComponent` and appends the item id to `InventoryComponent`; player entity is saved immediately. Broadcasts remove messages to the room via `EquipmentInteractionHandler`.  
+**Usage:** `remove <item>`  
+**Schema:** `Token string "item"` (required, `ItemInEquipmentResolver`)  
+**Dependencies:** `IEquipmentSystem`, `IEventBus`, `IPersistenceSystem`, `ItemInEquipmentResolver`  
+**Events:** `ItemUnequippedEvent`
+
+---
+
 ### `say`
 
 **Aliases:** none  
@@ -155,6 +181,19 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Usage:** `up`  
 **Schema:** no arguments  
 **Events:** `PlayerMovedEvent`
+
+---
+
+### `wear`
+
+**Aliases:** none  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Items/Commands/WearCommand.cs`  
+**Description:** Puts on a wearable or wieldable item from the player's inventory. Argument is resolved via `ItemInInventoryResolver`. Validates the item has `ItemDataComponent.WornSlots` populated; if not, writes "You can't wear that." `IEquipmentSystem.EquipItem` handles the full slot lifecycle: implicitly removes any item occupying the target slot(s) (silently, no event), then moves the new item from `InventoryComponent` into `EquipmentComponent.Slots`. Player entity is saved immediately. Broadcasts wear messages via `EquipmentInteractionHandler`.  
+**Usage:** `wear <item>`  
+**Schema:** `Token string "item"` (required, `ItemInInventoryResolver`)  
+**Dependencies:** `IItemSystem`, `IEquipmentSystem`, `IEventBus`, `IPersistenceSystem`, `ItemInInventoryResolver`  
+**Events:** `ItemEquippedEvent`
 
 ---
 
@@ -195,7 +234,7 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Location:** `Core/Modules/Items/Commands/SetitemCommand.cs`  
 **Description:** Sets a property on an existing item entity identified by blueprint id. Validates the blueprint id exists in `ITemplateRegistry`; resolves the live entity by `BlueprintComponent.BlueprintId`. Delegates mutation to `IItemBuilderSystem`. Saves the item entity immediately.  
 **Usage:** `setitem <blueprintId> <property> <value>`  
-**Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`), `RestOfLine string "value"` (required). For `keywords`, value is split on whitespace. For `type`, value must parse as `ItemType` enum.  
+**Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`, `slot`), `RestOfLine string "value"` (required). For `keywords`, value is split on whitespace. For `type`, value must parse as `ItemType` enum. For `slot`, value is a space-separated list of `WornSlot` names (e.g. `mainhand`, `chest`); an empty list clears `WornSlots`.  
 **Events:** `ItemPropertySetByAdminEvent`
 
 ---

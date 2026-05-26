@@ -27,14 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–6 done; **next: slice 7 — equipment + `wear`/`remove`**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–7 done; **next: slice 8 — mobs + wandering**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 7 — Equipment + `wear`/`remove`.** Slice 6 is complete. Slice 7 delivers: `EquipmentComponent`, `WornSlot` enum, `wear`/`remove`/`equipment` player commands, equipment slot validation against `ItemDataComponent.ItemType`, and the admin authoring path to assign wear slots via `setitem`. Spec: [`../use-cases/equipment.md`](../use-cases/equipment.md). Prerequisite: slice 6 (complete).
+**Phase 3 slice 8 — Mobs + wandering.** Slice 7 is complete. Slice 8 delivers: mob entity model, `MobDataComponent`, wandering behavior via the first `TimeSystem` use, mob spawn from YAML, and mob room presence in `look`. Spec: to be authored. Prerequisite: slice 7 (complete).
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -68,8 +68,8 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 5a | **Bare-bones content spawning** | Ad-hoc `dig`/`set` admin commands backed by `IRoomBuilderSystem`; `RoomComponent` `[Persistent]`; unblocks runtime content authoring for slices 6+ | ✅ done |
 | 5b | **Persistence two-level model** | `PersistentEntity` marker component; area-scoped periodic flush; save-on-change for admin/lifecycle transitions; `PersistenceHandler` deleted; dirty-set model removed | ✅ done |
 | 6 | Items + inventory + `get`/`drop`/`look <item>` | Object interaction and inspection; `ItemDataComponent`, `InventoryComponent`; admin `mkitem`/`setitem`; concrete `IArgumentResolver` impls | ✅ done |
-| 7 | Equipment + `wear`/`remove` | Gear; `EquipmentComponent`, `WornSlot` enum, `wear`/`remove`/`equipment` commands | 🟢 next |
-| 8 | Mobs + wandering | Populated world; first `TimeSystem` use | 🟢 ready |
+| 7 | Equipment + `wear`/`remove` | Gear; `EquipmentComponent`, `WornSlot` enum, `wear`/`remove`/`equipment` commands | ✅ done |
+| 8 | Mobs + wandering | Populated world; first `TimeSystem` use | 🟢 next |
 | 9 | Combat | Core gameplay loop | 🟡 blocked on 8 |
 | 10 | Death and respawn | Combat is terminal until this exists | 🟡 blocked on 9 |
 | 11 | Skills | Character progression | 🟢 ready after 9 |

@@ -22,6 +22,9 @@ namespace Hedron.Core.Modules.Items.Templates
         public List<string> Keywords { get; set; } = new();
         public ItemType ItemType { get; set; } = ItemType.None;
 
+        /// <summary>Slots this item occupies when worn. Empty means the item is not wearable.</summary>
+        public List<WornSlot> WornSlots { get; set; } = new();
+
         /// <summary>Blueprint id of the room this item spawns in. Empty means no spawn location.</summary>
         public string SpawnRoomBlueprintId { get; set; } = string.Empty;
 
@@ -38,6 +41,7 @@ namespace Hedron.Core.Modules.Items.Templates
                 Description = Description,
                 Keywords = new List<string>(Keywords),
                 ItemType = ItemType,
+                WornSlots = WornSlots.Count > 0 ? new List<WornSlot>(WornSlots) : null,
             });
         }
     }

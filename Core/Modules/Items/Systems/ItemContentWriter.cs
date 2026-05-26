@@ -33,6 +33,10 @@ namespace Hedron.Core.Modules.Items.Systems
         {
             Directory.CreateDirectory(_itemsDirectory);
 
+            var wornSlots = template.WornSlots.Count > 0
+                ? template.WornSlots.ConvertAll(s => s.ToString().ToLowerInvariant())
+                : null;
+
             var dto = new ItemDto
             {
                 BlueprintId = template.BlueprintId,
@@ -40,6 +44,7 @@ namespace Hedron.Core.Modules.Items.Systems
                 Description = template.Description,
                 Keywords = new List<string>(template.Keywords),
                 ItemType = template.ItemType.ToString(),
+                WornSlots = wornSlots,
                 SpawnRoomId = template.SpawnRoomBlueprintId,
             };
 
@@ -58,6 +63,7 @@ namespace Hedron.Core.Modules.Items.Systems
             public string Description { get; set; } = string.Empty;
             public List<string> Keywords { get; set; } = new();
             public string ItemType { get; set; } = string.Empty;
+            public List<string>? WornSlots { get; set; }
             public string SpawnRoomId { get; set; } = string.Empty;
         }
     }

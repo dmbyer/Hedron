@@ -22,6 +22,8 @@
 | 10 | [Item drop (`drop`)](#flow-10--item-drop-drop) | Player sends `drop <item>` | Phase 3 slice 6 |
 | 11 | [Inventory display (`inventory`)](#flow-11--inventory-display-inventory) | Player sends `inventory` / `inv` / `i` | Phase 3 slice 6 |
 | 12 | [Admin item creation (`mkitem`)](#flow-12--admin-item-creation-mkitem) | Privileged session sends `mkitem [name]` | Phase 3 slice 6 |
+| 13 | [`wear <item>`](#flow-13--wear-item) | Player sends `wear <item>` | Phase 3 slice 7 |
+| 14 | [`remove <item>`](#flow-14--remove-item) | Player sends `remove <item>` | Phase 3 slice 7 |
 
 Flows that don't yet exist (combat round, player death, mob wander tick, etc.) get added by the slice that introduces them.
 
@@ -372,6 +374,7 @@ sequenceDiagram
    - `RoomDescriptionMessage` — room name in `<room-name>`, exit keys in `<direction>`, description and occupants plain; if `Items` is non-empty, appends an `"Items: X, Y, Z"` line. `BroadcastSystem.SendRoomDescriptionAsync` populates `Items` by iterating all `ItemDataComponent` entities whose `LocationComponent.RoomEntityId` matches the room.
    - `MovementMessage(Blocked)` — "You cannot go that way." in `<system>`.
    - `InventoryListMessage` — `"You are carrying:"` header in `<system>` followed by a plain-text item list (one per line, two-space indent). Only sent when inventory is non-empty; empty case is a `PlainMessage("You are carrying nothing.")` from the command body.
+   - `EquipmentDisplayMessage` — `"You are wearing:"` header in `<system>` followed by slot label (left-padded to 14 chars) + item name rows, ordered by `WornSlot` enum ordinal. Only sent when at least one slot is occupied; empty case is a `PlainMessage("You are not wearing anything.")` from the command body. (slice 7)
    - `HelpIndexMessage` — section headers in `<system>`, verb names in `<room-name>` (padded before colorizing).
    - `HelpEntryMessage` — verb/alias header in `<room-name>`.
 4. **Color application.** If `session.SupportsColor` is `true`, inline markers (`<role>text</role>`) are replaced with ANSI escape codes + reset. If `false`, markers are stripped and only the inner text remains. See [`subsystems/output.md`](../subsystems/output.md) for the palette table.
@@ -731,6 +734,105 @@ sequenceDiagram
 - [`Core/Modules/Items/Events/ItemCreatedByAdminEvent.cs`](../../../Core/Modules/Items/Events/ItemCreatedByAdminEvent.cs)
 - [`Core/Modules/Admin/Handlers/AdminAuditHandler.cs`](../../../Core/Modules/Admin/Handlers/AdminAuditHandler.cs)
 - [`docs/use-cases/items-and-inventory.md`](../../use-cases/items-and-inventory.md) — slice 6 spec
+
+---
+
+## Flow 13 — `wear <item>`
+
+**Summary.** Player wears a named item from their inventory. The item moves from `InventoryComponent` into `EquipmentComponent.Slots`. If any target slot is already occupied, the existing item is silently displaced back to inventory first. The player entity is saved; the room is notified.
+
+**Trigger.** Player sends `wear <item>`.
+
+```mermaid
+sequenceDiagram
+    participant Player
+    participant Dispatcher as CommandDispatcher
+    participant Cmd as WearCommand
+    participant ItemSys as IItemSystem
+    participant EqSys as IEquipmentSystem
+    participant Bus as IEventBus
+    participant Handler as EquipmentInteractionHandler
+
+    Player->>Dispatcher: "wear sword"
+    Dispatcher->>Cmd: ExecuteAsync(context)
+    Cmd->>ItemSys: TryFindItemInInventory(playerEntityId, "sword")
+    ItemSys-->>Cmd: itemEntityId
+    Cmd->>EqSys: GetWornSlots(itemEntityId)
+    EqSys-->>Cmd: [MainHand]
+    Cmd->>EqSys: EquipItem(playerEntityId, itemEntityId)
+    Note over EqSys: RemoveFromSlot for each occupied slot → inv;<br/>remove item from inv; place in Slots
+    Cmd->>Bus: PublishAsync(ItemEquippedEvent)
+    Bus->>Handler: HandleAsync(ItemEquippedEvent) [priority 80]
+    Handler-->>Player: "You wear a short sword."
+    Handler-->>Player: (others) "Korin wears a short sword."
+    Cmd->>Persistence: SaveEntityAsync(playerEntityId)
+```
+
+**Steps.**
+
+1. `CommandDispatcher` routes `wear` to `WearCommand`.
+2. `ItemInInventoryResolver` builds `ResolvedCandidate` list from the invoker's `InventoryComponent.ItemEntityIds`; prefix-match selects the canonical item name.
+3. `WearCommand.ExecuteAsync` calls `IItemSystem.TryFindItemInInventory(playerEntityId, canonicalName)`. On miss: "You aren't carrying that."
+4. Calls `IEquipmentSystem.GetWornSlots(itemEntityId)` — reads `ItemDataComponent.WornSlots`. Empty → "You can't wear that."
+5. Calls `IEquipmentSystem.EquipItem(playerEntityId, itemEntityId)`. Internally: for each declared slot, `RemoveFromSlot` displaces any existing item (silently, no event); then removes item id from `InventoryComponent`; places item id in each `EquipmentComponent.Slots` entry. Command never iterates slots.
+6. Publishes `ItemEquippedEvent(playerEntityId, itemEntityId, slots)`.
+7. `EquipmentInteractionHandler` (priority 80): reads `LocationComponent` from the player to find the room; broadcasts `"<PlayerName> wears <ItemName>."` to others; writes `"You wear <ItemName>."` to the player.
+8. `WearCommand` calls `IPersistenceSystem.SaveEntityAsync(playerEntityId)`.
+
+**Cross-references.**
+- [`Core/Modules/Items/Commands/WearCommand.cs`](../../../Core/Modules/Items/Commands/WearCommand.cs)
+- [`Core/Modules/Items/Systems/EquipmentSystem.cs`](../../../Core/Modules/Items/Systems/EquipmentSystem.cs)
+- [`Core/Modules/Items/Handlers/EquipmentInteractionHandler.cs`](../../../Core/Modules/Items/Handlers/EquipmentInteractionHandler.cs)
+- [`docs/use-cases/equipment.md`](../../use-cases/equipment.md) — slice 7 spec
+
+---
+
+## Flow 14 — `remove <item>`
+
+**Summary.** Player removes a worn item from their equipment slots. The item moves from `EquipmentComponent.Slots` back to `InventoryComponent`. The player entity is saved; the room is notified.
+
+**Trigger.** Player sends `remove <item>`.
+
+```mermaid
+sequenceDiagram
+    participant Player
+    participant Dispatcher as CommandDispatcher
+    participant Cmd as RemoveCommand
+    participant EqSys as IEquipmentSystem
+    participant Bus as IEventBus
+    participant Handler as EquipmentInteractionHandler
+
+    Player->>Dispatcher: "remove sword"
+    Dispatcher->>Cmd: ExecuteAsync(context)
+    Cmd->>EqSys: TryFindEquippedItem(playerEntityId, "sword")
+    EqSys-->>Cmd: itemEntityId
+    Cmd->>EqSys: GetWornSlots(itemEntityId)
+    EqSys-->>Cmd: [MainHand]
+    Cmd->>EqSys: RemoveItem(playerEntityId, itemEntityId)
+    Note over EqSys: Clears slot(s) in EquipmentComponent;<br/>appends itemEntityId to InventoryComponent
+    Cmd->>Bus: PublishAsync(ItemUnequippedEvent)
+    Bus->>Handler: HandleAsync(ItemUnequippedEvent) [priority 80]
+    Handler-->>Player: "You remove a short sword."
+    Handler-->>Player: (others) "Korin removes a short sword."
+    Cmd->>Persistence: SaveEntityAsync(playerEntityId)
+```
+
+**Steps.**
+
+1. `CommandDispatcher` routes `remove` to `RemoveCommand`.
+2. `ItemInEquipmentResolver` builds `ResolvedCandidate` list from the invoker's `EquipmentComponent.Slots.Values`; prefix-match selects the canonical item name.
+3. `RemoveCommand.ExecuteAsync` calls `IEquipmentSystem.TryFindEquippedItem(playerEntityId, canonicalName)`. On miss: "You aren't wearing that."
+4. Calls `IEquipmentSystem.GetWornSlots(itemEntityId)` to capture the slot list for the event payload.
+5. Calls `IEquipmentSystem.RemoveItem(playerEntityId, itemEntityId)`: clears all `EquipmentComponent.Slots` entries that map to this item, appends the item id to `InventoryComponent.ItemEntityIds`.
+6. Publishes `ItemUnequippedEvent(playerEntityId, itemEntityId, slots)`.
+7. `EquipmentInteractionHandler` (priority 80): reads `LocationComponent` from the player; broadcasts `"<PlayerName> removes <ItemName>."` to others; writes `"You remove <ItemName>."` to the player.
+8. `RemoveCommand` calls `IPersistenceSystem.SaveEntityAsync(playerEntityId)`.
+
+**Cross-references.**
+- [`Core/Modules/Items/Commands/RemoveCommand.cs`](../../../Core/Modules/Items/Commands/RemoveCommand.cs)
+- [`Core/Modules/Items/Systems/EquipmentSystem.cs`](../../../Core/Modules/Items/Systems/EquipmentSystem.cs)
+- [`Core/Modules/Items/Handlers/EquipmentInteractionHandler.cs`](../../../Core/Modules/Items/Handlers/EquipmentInteractionHandler.cs)
+- [`docs/use-cases/equipment.md`](../../use-cases/equipment.md) — slice 7 spec
 
 ---
 
