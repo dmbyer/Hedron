@@ -4,6 +4,7 @@ using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Items.Events;
+using Hedron.Core.Modules.Mobs.Events;
 using Hedron.Core.Modules.World.Events;
 using Microsoft.Extensions.Logging;
 
@@ -27,7 +28,9 @@ namespace Hedron.Core.Modules.Admin.Handlers
         IEventHandler<RoomPropertySetByAdminEvent>,
         IEventHandler<ContentReloadedEvent>,
         IEventHandler<ItemCreatedByAdminEvent>,
-        IEventHandler<ItemPropertySetByAdminEvent>
+        IEventHandler<ItemPropertySetByAdminEvent>,
+        IEventHandler<MobCreatedByAdminEvent>,
+        IEventHandler<MobPropertySetByAdminEvent>
     {
         private readonly EntityService _entityService;
         private readonly ILogger<AdminAuditHandler> _logger;
@@ -101,6 +104,22 @@ namespace Hedron.Core.Modules.Admin.Handlers
             _logger.LogInformation(
                 "AdminCommandExecuted: admin={Admin} command=setitem item={ItemEntityId} property={PropertyName} value={NewValue}",
                 ResolveName(e.AdminEntityId), e.ItemEntityId, e.PropertyName, e.NewValue);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(MobCreatedByAdminEvent e)
+        {
+            _logger.LogInformation(
+                "AdminCommandExecuted: admin={Admin} command=mkmob mob={MobEntityId} blueprint={BlueprintId} room={RoomEntityId}",
+                ResolveName(e.AdminEntityId), e.MobEntityId, e.BlueprintId, e.RoomEntityId);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(MobPropertySetByAdminEvent e)
+        {
+            _logger.LogInformation(
+                "AdminCommandExecuted: admin={Admin} command=setmob mob={MobEntityId} property={PropertyName} value={NewValue}",
+                ResolveName(e.AdminEntityId), e.MobEntityId, e.PropertyName, e.NewValue);
             return Task.CompletedTask;
         }
 

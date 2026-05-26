@@ -38,6 +38,8 @@ Persistence uses two independent opt-ins. See [../architecture/06-persistence.md
 | `ItemDataComponent` | `Name`, `Description`, `Keywords` (`List<string>`), `ItemType`, `WornSlots` (`List<WornSlot>?` — null/empty = not wearable) | Item entity; read by `BroadcastSystem` (room description) and `ItemSystem` / `ItemBuilderSystem` / `EquipmentSystem` | yes |
 | `InventoryComponent` | `ItemEntityIds` (`List<uint>`) — item entity ids carried by this entity | Player/mob entities; items in inventory have **no** `LocationComponent` — tracked here exclusively | yes |
 | `EquipmentComponent` | `Slots` (`Dictionary<WornSlot, uint>`) — maps each occupied slot to an item entity id | Player/mob entities; cross-cutting so future mob code carries it without a domain dependency | yes |
+| `MobDataComponent` | `Name`, `Description`, `Keywords` (`List<string>`), `MobType` — cross-cutting so combat, AI, and dialogue modules can read mob names without a domain dependency | Mob entities; read by `BroadcastSystem` (room description) | yes |
+| `MobType` | Enum `{ None, Vendor, Guard, Creature }` — classification only; no behavior routing in this slice | Co-located with `MobDataComponent` in `Core/ECS/Components/` | n/a (enum, not a component) |
 
 ### Module-owned (`Core/Modules/<Feature>/Components/`)
 

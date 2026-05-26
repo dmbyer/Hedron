@@ -1,31 +1,30 @@
 using System;
 using System.Collections.Generic;
-using Hedron.Core;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
-using Hedron.Core.Modules.Items.Templates;
+using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging;
 
-namespace Hedron.Core.Modules.Items.Systems
+namespace Hedron.Core.Modules.Mobs.Systems
 {
-    public sealed class ItemBuilderSystem : IItemBuilderSystem
+    public sealed class MobBuilderSystem : IMobBuilderSystem
     {
         private readonly EntityService _entityService;
         private readonly ITemplateRegistry _templateRegistry;
-        private readonly ILogger<ItemBuilderSystem> _logger;
+        private readonly ILogger<MobBuilderSystem> _logger;
 
-        public ItemBuilderSystem(
+        public MobBuilderSystem(
             EntityService entityService,
             ITemplateRegistry templateRegistry,
-            ILogger<ItemBuilderSystem> logger)
+            ILogger<MobBuilderSystem> logger)
         {
             _entityService = entityService;
             _templateRegistry = templateRegistry;
             _logger = logger;
         }
 
-        public ItemCreationResult CreateItem(string name, uint roomEntityId)
+        public MobCreationResult CreateMob(string name, uint roomEntityId)
         {
             var blueprintId = GenerateUniqueBlueprintId();
 
@@ -34,12 +33,12 @@ namespace Hedron.Core.Modules.Items.Systems
                 spawnRoomBlueprintId = roomBp.BlueprintId;
 
             var entity = _entityService.CreateEntity();
-            _entityService.AddComponent(entity.Id, new ItemDataComponent { Name = name });
+            _entityService.AddComponent(entity.Id, new MobDataComponent { Name = name });
             _entityService.AddComponent(entity.Id, new BlueprintComponent { BlueprintId = blueprintId });
             _entityService.AddComponent(entity.Id, new PersistentEntity());
             _entityService.AddComponent(entity.Id, new LocationComponent { RoomEntityId = roomEntityId });
 
-            var template = new ItemTemplate(blueprintId)
+            var template = new MobTemplate(blueprintId)
             {
                 Name = name,
                 SpawnRoomBlueprintId = spawnRoomBlueprintId,
@@ -47,36 +46,36 @@ namespace Hedron.Core.Modules.Items.Systems
             _templateRegistry.Register(blueprintId, template);
 
             _logger.LogDebug(
-                "ItemBuilderSystem: created item entity={EntityId} blueprint={BlueprintId} spawnRoom={SpawnRoom}",
+                "MobBuilderSystem: created mob entity={EntityId} blueprint={BlueprintId} spawnRoom={SpawnRoom}",
                 entity.Id, blueprintId, spawnRoomBlueprintId);
 
-            return new ItemCreationResult(entity.Id, blueprintId, template);
+            return new MobCreationResult(entity.Id, blueprintId, template);
         }
 
-        public void SetItemName(uint itemEntityId, string name)
+        public void SetMobName(uint mobEntityId, string name)
         {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-                item.Name = name;
-            var tpl = TryGetTemplate(itemEntityId);
+            if (_entityService.TryGet<MobDataComponent>(mobEntityId, out var mob))
+                mob.Name = name;
+            var tpl = TryGetTemplate(mobEntityId);
             if (tpl is not null) tpl.Name = name;
         }
 
-        public void SetItemDescription(uint itemEntityId, string description)
+        public void SetMobDescription(uint mobEntityId, string description)
         {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-                item.Description = description;
-            var tpl = TryGetTemplate(itemEntityId);
+            if (_entityService.TryGet<MobDataComponent>(mobEntityId, out var mob))
+                mob.Description = description;
+            var tpl = TryGetTemplate(mobEntityId);
             if (tpl is not null) tpl.Description = description;
         }
 
-        public void SetItemKeywords(uint itemEntityId, IReadOnlyList<string> keywords)
+        public void SetMobKeywords(uint mobEntityId, IReadOnlyList<string> keywords)
         {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
+            if (_entityService.TryGet<MobDataComponent>(mobEntityId, out var mob))
             {
-                item.Keywords.Clear();
-                item.Keywords.AddRange(keywords);
+                mob.Keywords.Clear();
+                mob.Keywords.AddRange(keywords);
             }
-            var tpl = TryGetTemplate(itemEntityId);
+            var tpl = TryGetTemplate(mobEntityId);
             if (tpl is not null)
             {
                 tpl.Keywords.Clear();
@@ -84,41 +83,20 @@ namespace Hedron.Core.Modules.Items.Systems
             }
         }
 
-        public void SetItemType(uint itemEntityId, ItemType itemType)
+        public void SetMobType(uint mobEntityId, MobType mobType)
         {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-                item.ItemType = itemType;
-            var tpl = TryGetTemplate(itemEntityId);
-            if (tpl is not null) tpl.ItemType = itemType;
+            if (_entityService.TryGet<MobDataComponent>(mobEntityId, out var mob))
+                mob.MobType = mobType;
+            var tpl = TryGetTemplate(mobEntityId);
+            if (tpl is not null) tpl.MobType = mobType;
         }
 
-        public void SetItemSlots(uint itemEntityId, IReadOnlyList<WornSlot> slots)
+        private MobTemplate? TryGetTemplate(uint mobEntityId)
         {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-            {
-                if (slots.Count == 0)
-                    item.WornSlots = null;
-                else
-                {
-                    item.WornSlots ??= new List<WornSlot>();
-                    item.WornSlots.Clear();
-                    item.WornSlots.AddRange(slots);
-                }
-            }
-            var tpl = TryGetTemplate(itemEntityId);
-            if (tpl is not null)
-            {
-                tpl.WornSlots.Clear();
-                tpl.WornSlots.AddRange(slots);
-            }
-        }
-
-        private ItemTemplate? TryGetTemplate(uint itemEntityId)
-        {
-            if (_entityService.TryGet<BlueprintComponent>(itemEntityId, out var bp) &&
+            if (_entityService.TryGet<BlueprintComponent>(mobEntityId, out var bp) &&
                 _templateRegistry.TryGet(bp.BlueprintId, out var template) &&
-                template is ItemTemplate itemTemplate)
-                return itemTemplate;
+                template is MobTemplate mobTemplate)
+                return mobTemplate;
             return null;
         }
 
@@ -127,11 +105,11 @@ namespace Hedron.Core.Modules.Items.Systems
             const int maxAttempts = 10;
             for (var i = 0; i < maxAttempts; i++)
             {
-                var id = "item.adhoc." + ToBase36(Guid.NewGuid())[..8];
+                var id = "mob.adhoc." + ToBase36(Guid.NewGuid())[..8];
                 if (!_templateRegistry.TryGet(id, out _))
                     return id;
             }
-            return "item.adhoc." + Guid.NewGuid().ToString("N")[..16];
+            return "mob.adhoc." + Guid.NewGuid().ToString("N")[..16];
         }
 
         private static string ToBase36(Guid guid)

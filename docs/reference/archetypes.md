@@ -30,6 +30,8 @@ Source of truth (target): `Core/ECS/EntityArchetype.cs` (enum), `Core/ECS/Archet
 | `Trigger` | World-interaction hook entity | Identity, Transform | — |
 | `Custom` | Escape hatch — no archetype contract | — | — |
 
+> **Slice 8 partial implementation — Mob:** Required components delivered so far: `MobDataComponent` + `LocationComponent`; `BlueprintComponent` and `PersistentEntity` present on all template-spawned instances. Archetype registry not yet built (target-state); `InventoryComponent`/`EquipmentComponent` will be added in the combat slice.
+
 \* Optional components, asterisked. Note: most **required** components listed above are also not yet built — see [`components-planned.md`](components-planned.md) and the target-catalog banner at the top of this file.
 
 ---
