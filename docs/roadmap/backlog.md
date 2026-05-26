@@ -72,6 +72,15 @@ Deferred from slice 7 design notes. Two related capabilities:
 
 Both are meaningful improvements to UX but would bloat slices 6–7. Revisit when the number of "are you sure?" flows justifies the infrastructure cost.
 
+### 🔵 Mob death / respawn and `BlueprintComponent` clearing (INV-21)
+
+When mob combat death lands (slice 9+), the death/respawn slice must decide:
+
+- **Reset in place:** HP restored on the same entity; `BlueprintComponent` is never cleared. Simple, but the entity ID is reused, which means save-file references to the dead entity slot survive.
+- **Destroy and re-seed:** The dead entity is destroyed (or archived); a new entity is spawned from the `MobTemplate`; `BlueprintComponent` is cleared from the corpse before the corpse entity is left or destroyed. Required by INV-21 ("when a player interaction makes an instance independent, clear `BlueprintComponent`").
+
+The chosen approach must be called out explicitly in the death/respawn use-case doc's Design Notes. If destroy-and-re-seed is chosen, `BlueprintComponent` must be cleared on the corpse entity before the new entity is spawned so the blueprint slot is free for the next spawn cycle (INV-21).
+
 ### 🔵 Archetype catalogue refresh
 
 The archetype list in [`../reference/archetypes.md`](../reference/archetypes.md) was written against the old component shapes. Re-audit once a few Phase 3 slices have landed real components.
