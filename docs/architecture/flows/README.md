@@ -24,6 +24,7 @@
 | 12 | [Admin item creation (`mkitem`)](#flow-12--admin-item-creation-mkitem) | Privileged session sends `mkitem [name]` | Phase 3 slice 6 |
 | 13 | [`wear <item>`](#flow-13--wear-item) | Player sends `wear <item>` | Phase 3 slice 7 |
 | 14 | [`remove <item>`](#flow-14--remove-item) | Player sends `remove <item>` | Phase 3 slice 7 |
+| 15 | [Admin mob creation (`mkmob`)](#flow-15--admin-mob-creation-mkmob) | Privileged session sends `mkmob [name]` | Phase 3 slice 8 |
 
 Flows that don't yet exist (combat round, player death, mob wander tick, etc.) get added by the slice that introduces them.
 
@@ -65,12 +66,14 @@ sequenceDiagram
     WCL->>Reg: register area templates
     WCL->>Reg: register room templates
     WCL->>Reg: register item templates (kind: item)
+    WCL->>Reg: register mob templates (kind: mob)
     WCL->>WCL: SpawnMissingEntities (skip-on-conflict; returns newlySpawned set)
     loop per newly-spawned entity
         WCL->>PSys: SaveEntityAsync (make ID durable immediately)
     end
     WCL->>WCL: LinkRoomExits
     WCL->>WCL: PlaceItemsInRooms (newlySpawned only — attach LocationComponent from spawnRoomId)
+    WCL->>WCL: PlaceMobsInRooms (newlySpawned only — attach LocationComponent from spawnRoomId)
     WCL->>WCL: ResolveStartingRoom (or void fallback)
     WCB->>Bus: Publish(WorldContentReadyEvent)
     Bus->>Bus: CharacterHydrationHandler (validate character locations)
@@ -86,7 +89,7 @@ sequenceDiagram
 4. `PersistenceBootstrap.StartAsync` calls `PersistenceSystem.LoadAllAsync`, which scans `Persistence:DataDirectory` for `entity-*.json` files and silently re-attaches every component on each entity (no events fired during hydration). It returns the restored entity ids.
 5. For each restored id, `PersistenceBootstrap` publishes `EntityHydratedEvent`. **Constraint:** handlers must not query other entities at this point — the world is partially loaded.
 6. After the loop, `PersistenceBootstrap` publishes `WorldLoadedEvent`. Cross-entity startup work belongs on this event, not on per-entity hydration.
-7. `WorldContentBootstrap.StartAsync` calls `WorldContentLoader.LoadAndSpawnAsync`. This: (a) reads YAML files under `World:ContentDirectory` for kinds `area`, `room`, and `item` and registers them with `TemplateRegistry` via per-kind `ITemplateDeserializer`s (`AreaTemplateDeserializer`, `RoomTemplateDeserializer`, `ItemTemplateDeserializer`); (b) builds a live blueprint→entity map from existing `BlueprintComponent`s; (c) spawns any template that has no live counterpart, adds `PersistentEntity` to each, and returns the set of newly-spawned entity IDs; (d) **immediately calls `SaveEntityAsync` for every newly-spawned entity** — this makes entity IDs durable regardless of whether the server shuts down gracefully; without this step, room entity IDs would change on each restart and items' `LocationComponent.RoomEntityId` references would go stale; (e) populates `RoomComponent.Exits` by resolving each room template's blueprint-id exits to live entity ids; (f) attaches `LocationComponent { RoomEntityId }` to **newly-spawned item entities only** (those in the `newlySpawned` set), resolving `ItemTemplate.SpawnRoomBlueprintId` to a live entity id — entities restored from persistence keep their saved `LocationComponent` (room or inventory slot) unchanged; if the spawn room is missing a warning is logged and the item is created without a location; (g) sets `WorldConfiguration.StartingRoomEntityId` from `World:StartingRoomBlueprintId`. If the content directory is missing or empty, a single hardcoded `room.void` is seeded (also gets `PersistentEntity` and is saved immediately) and a warning is logged. After `LoadAndSpawnAsync` completes, `WorldContentBootstrap` publishes `WorldContentReadyEvent`. `CharacterHydrationHandler` (priority `HandlerPriority.Domain`) validates every hydrated character entity's `LocationComponent.RoomEntityId` at this point, resetting stale references to `StartingRoomEntityId`.
+7. `WorldContentBootstrap.StartAsync` calls `WorldContentLoader.LoadAndSpawnAsync`. This: (a) reads YAML files under `World:ContentDirectory` for kinds `area`, `room`, `item`, and `mob` and registers them with `TemplateRegistry` via per-kind `ITemplateDeserializer`s (`AreaTemplateDeserializer`, `RoomTemplateDeserializer`, `ItemTemplateDeserializer`, `MobTemplateDeserializer`); (b) builds a live blueprint→entity map from existing `BlueprintComponent`s; (c) spawns any template that has no live counterpart, adds `PersistentEntity` to each, and returns the set of newly-spawned entity IDs; (d) **immediately calls `SaveEntityAsync` for every newly-spawned entity** — this makes entity IDs durable regardless of whether the server shuts down gracefully; without this step, room entity IDs would change on each restart and items' `LocationComponent.RoomEntityId` references would go stale; (e) populates `RoomComponent.Exits` by resolving each room template's blueprint-id exits to live entity ids; (f) attaches `LocationComponent { RoomEntityId }` to **newly-spawned item entities only** (those in the `newlySpawned` set) via `PlaceItemsInRooms`, resolving `ItemTemplate.SpawnRoomBlueprintId` to a live entity id — entities restored from persistence keep their saved `LocationComponent` (room or inventory slot) unchanged; if the spawn room is missing a warning is logged and the item is created without a location; (g) attaches `LocationComponent { RoomEntityId }` to **newly-spawned mob entities only** via `PlaceMobsInRooms`, resolving `MobTemplate.SpawnRoomBlueprintId` — same rules as items; if the spawn room changed in YAML but the live entity already exists, a warning is logged and a restart is required to move it; (h) sets `WorldConfiguration.StartingRoomEntityId` from `World:StartingRoomBlueprintId`. If the content directory is missing or empty, a single hardcoded `room.void` is seeded (also gets `PersistentEntity` and is saved immediately) and a warning is logged. After `LoadAndSpawnAsync` completes, `WorldContentBootstrap` publishes `WorldContentReadyEvent`. `CharacterHydrationHandler` (priority `HandlerPriority.Domain`) validates every hydrated character entity's `LocationComponent.RoomEntityId` at this point, resetting stale references to `StartingRoomEntityId`.
 8. `PersistenceFlushTimer.StartAsync` arms a `PeriodicTimer` reading `Persistence:FlushIntervalSeconds` (default 60). See [Flow 4](#flow-4--persistence-flush-cycle) for the full flush-cycle trace.
 9. `TelnetServer.StartAsync` opens the TCP listener on `Server:Port`. Connections accepted from this point forward see a fully assembled world.
 10. **Shutdown path.** When the host shuts down, `PersistenceBootstrap.StopAsync` calls `PersistenceSystem.FlushAllPersistentAsync`, which iterates every entity carrying `PersistentEntity` and writes it to disk — a complete sweep regardless of which rooms are occupied. This replaced the old `FlushAsync` (dirty-set sweep) when the two-level persistence model was introduced.
@@ -313,6 +316,8 @@ sequenceDiagram
         WCL->>WCL: BuildLiveBlueprintMap
         WCL->>WCL: SpawnMissingEntities (skip-on-conflict)
         WCL->>WCL: LinkRoomExits (new entities only)
+        WCL->>WCL: PlaceItemsInRooms (newlySpawned only)
+        WCL->>WCL: PlaceMobsInRooms (newlySpawned only)
         WCL-->>RC: ContentReloadResult{ loaded, unchanged, removed }
         RC->>Session: confirmation (via IOutputWriter)
         RC->>Bus: Publish(ContentReloadedEvent)
@@ -329,9 +334,11 @@ sequenceDiagram
 5. Loaded / unchanged / removed counts are computed by set difference against the previous snapshot.
 6. `BuildLiveBlueprintMap` enumerates every entity that has a `BlueprintComponent`. For each registered template that has no entry in the map, `SpawnMissingEntities` calls `TemplateRegistry.Spawn(blueprintId)` (which allocates an entity, attaches `BlueprintComponent`, and runs `IEntityTemplate.Apply`).
 7. `LinkRoomExits` populates `RoomComponent.Exits` for the newly spawned entities only — existing live rooms are not touched.
-8. `ReloadAsync` returns `ContentReloadResult { loaded, unchanged, removed }`.
-9. The command writes a confirmation `PlainMessage` via `CommandContext.Output` (`IOutputWriter`) and publishes `ContentReloadedEvent` (thin payload — the three counts).
-10. `AdminAuditHandler` (priority `HandlerPriority.Notification` = 80) writes one structured-log entry with stable event name `AdminCommandExecuted`.
+8. `PlaceItemsInRooms` attaches `LocationComponent { RoomEntityId }` to newly-spawned item entities only. If a YAML `spawnRoomBlueprintId` changed for an existing live entity, a warning is logged — live entities are never mutated by reload.
+9. `PlaceMobsInRooms` applies the same pass for newly-spawned mob entities. Same constraint and warning behavior as items.
+10. `ReloadAsync` returns `ContentReloadResult { loaded, unchanged, removed }`.
+11. The command writes a confirmation `PlainMessage` via `CommandContext.Output` (`IOutputWriter`) and publishes `ContentReloadedEvent` (thin payload — the three counts).
+12. `AdminAuditHandler` (priority `HandlerPriority.Notification` = 80) writes one structured-log entry with stable event name `AdminCommandExecuted`.
 
 **Constraint.** Live entities are never mutated by reload. To pick up edits to a live room's description or components, restart the host; or use `dig` for exit changes that should apply immediately.
 
@@ -371,7 +378,7 @@ sequenceDiagram
 2. `OutputWriter.WriteAsync` calls `IOutputFormatterRegistry.Resolve(session)` to obtain the formatter whose `TransportKey` matches `session.TransportKey` (e.g. `"telnet"`). Falls back to the first registered formatter if no exact match (safe while only telnet exists).
 3. `IOutputFormatter.Format(message, session)` pattern-matches the message shape:
    - `PlainMessage` — wraps text in a severity-appropriate color marker (`<error>`, `<system>`, or plain).
-   - `RoomDescriptionMessage` — room name in `<room-name>`, exit keys in `<direction>`, description and occupants plain; if `Items` is non-empty, appends an `"Items: X, Y, Z"` line. `BroadcastSystem.SendRoomDescriptionAsync` populates `Items` by iterating all `ItemDataComponent` entities whose `LocationComponent.RoomEntityId` matches the room.
+   - `RoomDescriptionMessage` — room name in `<room-name>`, exit keys in `<direction>`, description and occupants plain; if `Items` is non-empty, appends an `"Items: X, Y, Z"` line; if `Mobs` is non-empty, appends a `"<Name> is here."` line per mob. `BroadcastSystem.SendRoomDescriptionAsync` populates `Items` by iterating all `ItemDataComponent` entities whose `LocationComponent.RoomEntityId` matches the room, and populates `Mobs` by iterating all `MobDataComponent` entities in the same room.
    - `MovementMessage(Blocked)` — "You cannot go that way." in `<system>`.
    - `InventoryListMessage` — `"You are carrying:"` header in `<system>` followed by a plain-text item list (one per line, two-space indent). Only sent when inventory is non-empty; empty case is a `PlainMessage("You are carrying nothing.")` from the command body.
    - `EquipmentDisplayMessage` — `"You are wearing:"` header in `<system>` followed by slot label (left-padded to 14 chars) + item name rows, ordered by `WornSlot` enum ordinal. Only sent when at least one slot is occupied; empty case is a `PlainMessage("You are not wearing anything.")` from the command body. (slice 7)
@@ -833,6 +840,59 @@ sequenceDiagram
 - [`Core/Modules/Items/Systems/EquipmentSystem.cs`](../../../Core/Modules/Items/Systems/EquipmentSystem.cs)
 - [`Core/Modules/Items/Handlers/EquipmentInteractionHandler.cs`](../../../Core/Modules/Items/Handlers/EquipmentInteractionHandler.cs)
 - [`docs/use-cases/equipment.md`](../../use-cases/equipment.md) — slice 7 spec
+
+---
+
+## Flow 15 — Admin mob creation (`mkmob`)
+
+**Summary.** A privileged session sends `mkmob [name]`. `MkMobCommand` delegates entity creation to `IMobBuilderSystem`, writes the YAML blueprint file via `IMobContentWriter` (YAML first — the template is durable before the entity id is persisted), calls `IPersistenceSystem.SaveEntityAsync` on the new mob entity, publishes `MobCreatedByAdminEvent` (caught by `AdminAuditHandler`), and writes a confirmation showing the blueprint id.
+
+**Trigger.** Privileged session sends `mkmob [name]`.
+
+```mermaid
+sequenceDiagram
+    participant Sess as TelnetSession
+    participant CD as CommandDispatcher
+    participant Auth as IAuthorizationChecker
+    participant Cmd as MkMobCommand
+    participant MBS as IMobBuilderSystem
+    participant MCW as IMobContentWriter
+    participant PSys as IPersistenceSystem
+    participant Bus as IEventBus
+    participant Audit as AdminAuditHandler
+
+    Sess->>CD: "mkmob a kobold"
+    CD->>Auth: IsSatisfied(AdminRequirement, session)
+    alt unauthorized
+        CD->>Sess: rejection PlainMessage
+    else authorized
+        CD->>Cmd: ExecuteAsync(CommandContext)
+        Cmd->>MBS: CreateMob("a kobold", roomEntityId)
+        MBS-->>Cmd: MobCreationResult(mobEntityId, "mob.adhoc.x1y2z3", template)
+        Cmd->>MCW: WriteAsync(template)
+        MCW-->>Cmd: (YAML written atomically to mobs/mob.adhoc.x1y2z3.yaml)
+        Cmd->>PSys: SaveEntityAsync(mobEntityId)
+        Cmd->>Bus: Publish(MobCreatedByAdminEvent)
+        Bus->>Audit: HandleAsync (priority 80) → structured log
+        Cmd->>Sess: confirmation PlainMessage (blueprint id shown)
+    end
+```
+
+**Steps.**
+
+1. `CommandDispatcher` routes `mkmob` to `MkMobCommand` after the privilege gate (`AdminRequirement` via `IAuthorizationChecker`).
+2. `MkMobCommand.ExecuteAsync` reads `LocationComponent.RoomEntityId` from the invoker. If absent (no location), writes a `PlainMessage` error and returns.
+3. Calls `IMobBuilderSystem.CreateMob(name, roomEntityId)` — allocates an entity, attaches `MobDataComponent { Name }` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, registers a minimal `MobTemplate`, returns `MobCreationResult(mobEntityId, blueprintId, template)`. Blueprint id format: `mob.adhoc.<8-char-base36>`.
+4. Calls `IMobContentWriter.WriteAsync(template)` — serializes the template to YAML and writes it atomically (tmp→rename) to `{contentDir}/mobs/{blueprintId}.yaml`. YAML is written before the entity is persisted so the blueprint definition is durable first; if the server crashes between step 4 and step 5, the YAML file is orphaned (discoverable on next `reload`) rather than an entity existing with no blueprint.
+5. Calls `IPersistenceSystem.SaveEntityAsync(mobEntityId)` directly — save-on-change; the mob entity is durable before the admin sees confirmation.
+6. Publishes `MobCreatedByAdminEvent(adminId, mobEntityId, blueprintId, roomEntityId)`. `AdminAuditHandler` (priority 80) logs one structured entry.
+7. Writes a confirmation `PlainMessage` (e.g. `"Mob 'a kobold' created. Blueprint id: mob.adhoc.x1y2z3"`).
+
+**Cross-references.**
+- [`Core/Modules/Mobs/Commands/MkMobCommand.cs`](../../../Core/Modules/Mobs/Commands/MkMobCommand.cs), [`Core/Modules/Mobs/Systems/MobBuilderSystem.cs`](../../../Core/Modules/Mobs/Systems/MobBuilderSystem.cs)
+- [`Core/Modules/Mobs/Events/MobCreatedByAdminEvent.cs`](../../../Core/Modules/Mobs/Events/MobCreatedByAdminEvent.cs)
+- [`Core/Modules/Admin/Handlers/AdminAuditHandler.cs`](../../../Core/Modules/Admin/Handlers/AdminAuditHandler.cs)
+- [`docs/use-cases/mobs.md`](../../use-cases/mobs.md) — slice 8 spec
 
 ---
 

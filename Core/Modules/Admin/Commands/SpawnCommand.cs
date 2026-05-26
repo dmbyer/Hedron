@@ -68,8 +68,10 @@ namespace Hedron.Core.Modules.Admin.Commands
 
             var spawned = _templateRegistry.Spawn(blueprintId);
 
-            // NOTE: Placement into a room is deferred until item/mob templates land in slices 4+.
-            // Spawned rooms/areas are orphan entities; use 'dig' to wire a new room in.
+            // Room and area entities are orphan entities after spawn — use 'dig' to wire a new room in.
+            // Mob entities are placed in the invoker's current room immediately.
+            if (_entityService.HasComponent<MobDataComponent>(spawned.Id))
+                _entityService.AddComponent(spawned.Id, new LocationComponent { RoomEntityId = location.RoomEntityId });
 
             await context.Output.WriteAsync(
                 new PlainMessage($"Spawned {blueprintId} (entity #{spawned.Id}).", OutputSeverity.Confirmation))

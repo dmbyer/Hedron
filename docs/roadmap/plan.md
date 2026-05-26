@@ -27,14 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–7 done; **next: slice 8 — mobs**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–8 done; **next: slice 8a — attributes and vitals**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 8 — Mobs (basic entity model and spawn).** Slice 7 is complete. Slice 8 delivers: mob entity model (`MobDataComponent`), admin authoring (`mkmob`/`setmob`), YAML spawn (`kind: mob`), and mob room presence in `look`. Wandering is explicitly deferred — it requires a `TimeSystem` and AI infrastructure that belong in a later slice. Spec: [`../use-cases/mobs.md`](../use-cases/mobs.md). Prerequisite: slice 7 (complete).
+**Phase 3 slice 8a — Attributes and vitals (`AttributesComponent`, `PoolsComponent`, `score`).** Slice 8 is complete. Slice 8a delivers: `AttributesComponent` (base stats: STR, DEX, CON, INT, WIS, CHA), `PoolsComponent` (HP pool: current/max), and the `score` command displaying a character's vitals. Also extends `MobTemplate` with `Level`, `MaxHp`, and base stat overrides. Spec: [`../use-cases/attributes.md`](../use-cases/attributes.md). Prerequisite: slice 8 (complete).
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -69,8 +69,8 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 5b | **Persistence two-level model** | `PersistentEntity` marker component; area-scoped periodic flush; save-on-change for admin/lifecycle transitions; `PersistenceHandler` deleted; dirty-set model removed | ✅ done |
 | 6 | Items + inventory + `get`/`drop`/`look <item>` | Object interaction and inspection; `ItemDataComponent`, `InventoryComponent`; admin `mkitem`/`setitem`; concrete `IArgumentResolver` impls | ✅ done |
 | 7 | Equipment + `wear`/`remove` | Gear; `EquipmentComponent`, `WornSlot` enum, `wear`/`remove`/`equipment` commands | ✅ done |
-| 8 | Mobs (basic entity model and spawn) | Populated world; no wandering | 🟢 next |
-| 8a | Attributes and vitals (`AttributesComponent`, `PoolsComponent`, `score`) | HP + base stats required for combat | 🟡 blocked on 8 |
+| 8 | Mobs (basic entity model and spawn) | Populated world; no wandering | ✅ done |
+| 8a | Attributes and vitals (`AttributesComponent`, `PoolsComponent`, `score`) | HP + base stats required for combat | 🟢 next |
 | 9 | Combat | Core gameplay loop | 🟡 blocked on 8a |
 | 10 | Death and respawn | Combat is terminal until this exists | 🟡 blocked on 9 |
 | 11 | Skills | Character progression | 🟢 ready after 9 |

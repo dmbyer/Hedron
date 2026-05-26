@@ -24,7 +24,7 @@ Living catalog of the systems **implemented** in Hedron (core and domain). Updat
 **Purpose:** Deliver typed `IOutputMessage` output to rooms, every session, or a single player. Each recipient's message is rendered by their transport's `IOutputFormatter` via `IOutputWriterFactory`, so callers never construct raw strings.
 **Location:** `Core/Systems/BroadcastSystem.cs`
 **Dependencies:** `EntityService`, `ISessionManager`, `IOutputWriterFactory`.
-**Note:** Classified as output infrastructure rather than a pure-computation core system; it does I/O (calls `IOutputWriter` per recipient) as the designated multi-recipient fan-out seam.
+**Note:** Classified as output infrastructure rather than a pure-computation core system; it does I/O (calls `IOutputWriter` per recipient) as the designated multi-recipient fan-out seam. Extended in slice 8: `SendRoomDescriptionAsync` populates `RoomDescriptionMessage.Mobs` with `MobDataComponent.Name` for each entity in the room carrying `MobDataComponent`.
 ```csharp
 public interface IBroadcastSystem
 {
@@ -172,7 +172,7 @@ public interface IWorldContentLoader
 public readonly record struct ContentReloadResult(
     int TemplatesLoaded, int TemplatesUnchanged, int TemplatesRemoved);
 ```
-Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Every entity spawned from YAML content receives a `PersistentEntity` component so it survives restart. Implemented (Phase 3 slices 2, persistence-two-level-model).
+Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Every entity spawned from YAML content receives a `PersistentEntity` component so it survives restart. Extended in slice 8 to load `kind: mob` files from `mobs/` subdirectory and call `PlaceMobsInRooms` (mirrors `PlaceItemsInRooms`). Implemented (Phase 3 slices 2, persistence-two-level-model, 8).
 
 ### AccountSystem
 **Purpose:** Domain system owning all account and character lifecycle operations: registration, authentication, character creation, character list, and logout recording.
@@ -261,6 +261,36 @@ public interface IEquipmentSystem
 }
 ```
 `EquipItem` internally performs the implicit-remove pass: for each slot declared on the item, if the slot is occupied it calls `RemoveFromSlot` to silently return the displaced item to inventory before placing the new item. `WearCommand` calls only `EquipItem` — never a loop over slots. Implemented (Phase 3 slice 7).
+
+### MobBuilderSystem
+**Purpose:** Runtime mob authoring — creates ad-hoc mob entities and mutates mob properties (`Name`, `Description`, `Keywords`, `MobType`). Mirrors `IItemBuilderSystem`: all methods mutate ECS state only; event publication and persistence calls remain in the command (INV-5).
+**Location:** `Core/Modules/Mobs/Systems/MobBuilderSystem.cs`
+**Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<MobBuilderSystem>`.
+```csharp
+public interface IMobBuilderSystem
+{
+    MobCreationResult CreateMob(string name, uint roomEntityId);
+    void SetMobName(uint mobEntityId, string name);
+    void SetMobDescription(uint mobEntityId, string description);
+    void SetMobKeywords(uint mobEntityId, IReadOnlyList<string> keywords);
+    void SetMobType(uint mobEntityId, MobType mobType);
+}
+
+public readonly record struct MobCreationResult(uint MobEntityId, string BlueprintId, MobTemplate Template);
+```
+`CreateMob` generates a unique blueprint id (`mob.adhoc.<8-char-base36>`), creates the entity, attaches `MobDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `MobTemplate`. Implemented (Phase 3 slice 8).
+
+### MobContentWriter
+**Purpose:** Serializes a `MobTemplate` to YAML at `{contentDirectory}/mobs/{blueprintId}.yaml` using an atomic write (tmp → rename). Mirrors `IItemContentWriter`.
+**Location:** `Core/Modules/Mobs/Systems/MobContentWriter.cs`
+**Dependencies:** `IConfiguration`.
+```csharp
+public interface IMobContentWriter
+{
+    Task WriteAsync(MobTemplate template, CancellationToken ct = default);
+}
+```
+YAML DTO fields: `blueprintId`, `name`, `description`, `keywords`, `type` (string enum value), `spawnRoomBlueprintId`. Implemented (Phase 3 slice 8).
 
 ### AdminAuthorizer
 **Purpose:** Policy seam for admin command authorization. Each admin `ICommand.Execute` calls `IsPrivileged` as its first line; non-privileged sessions get a single rejection line and the command body short-circuits.

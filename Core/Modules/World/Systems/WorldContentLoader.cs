@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Items.Templates;
+using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Configuration;
@@ -31,6 +32,7 @@ namespace Hedron.Core.Modules.World.Systems
         private const string AreasSubdirectory = "areas";
         private const string RoomsSubdirectory = "rooms";
         private const string ItemsSubdirectory = "items";
+        private const string MobsSubdirectory = "mobs";
         private const string VoidRoomBlueprintId = "room.void";
 
         private readonly EntityService _entityService;
@@ -108,6 +110,7 @@ namespace Hedron.Core.Modules.World.Systems
 
                 LinkRoomExits(liveBlueprints);
                 PlaceItemsInRooms(liveBlueprints, newlySpawned);
+                PlaceMobsInRooms(liveBlueprints, newlySpawned);
             }
 
             ResolveStartingRoom();
@@ -142,6 +145,7 @@ namespace Hedron.Core.Modules.World.Systems
                 await _persistence.SaveEntityAsync(id, ct).ConfigureAwait(false);
             LinkRoomExits(liveBlueprints);
             PlaceItemsInRooms(liveBlueprints, newlySpawned);
+            PlaceMobsInRooms(liveBlueprints, newlySpawned);
 
             WarnOrphanedBlueprintEntities();
 
@@ -162,6 +166,7 @@ namespace Hedron.Core.Modules.World.Systems
             await LoadKindAsync("area", AreasSubdirectory, ct).ConfigureAwait(false);
             await LoadKindAsync("room", RoomsSubdirectory, ct).ConfigureAwait(false);
             await LoadKindAsync("item", ItemsSubdirectory, ct).ConfigureAwait(false);
+            await LoadKindAsync("mob", MobsSubdirectory, ct).ConfigureAwait(false);
         }
 
         private async Task LoadKindAsync(string kind, string subdirectory, CancellationToken ct)
@@ -337,6 +342,49 @@ namespace Hedron.Core.Modules.World.Systems
                     _logger.LogWarning(
                         "WorldContentLoader: item '{Blueprint}' references unknown spawnRoomId '{RoomBlueprint}' — item created without location.",
                         blueprintId, itemTemplate.SpawnRoomBlueprintId);
+                    continue;
+                }
+
+                _entityService.AddComponent(entityId, new LocationComponent { RoomEntityId = roomEntityId });
+            }
+        }
+
+        private void PlaceMobsInRooms(Dictionary<string, uint> liveBlueprints, HashSet<uint> newlySpawned)
+        {
+            foreach (var blueprintId in _templateRegistry.AllBlueprintIds())
+            {
+                if (!_templateRegistry.TryGet(blueprintId, out var template) ||
+                    template is not MobTemplate mobTemplate)
+                    continue;
+
+                if (!liveBlueprints.TryGetValue(blueprintId, out var entityId))
+                    continue;
+
+                if (!newlySpawned.Contains(entityId))
+                {
+                    // Warn when the YAML spawn room changed but the live entity cannot be moved
+                    // without a restart (additive-only reload contract).
+                    if (!string.IsNullOrEmpty(mobTemplate.SpawnRoomBlueprintId) &&
+                        liveBlueprints.TryGetValue(mobTemplate.SpawnRoomBlueprintId, out var expectedRoom) &&
+                        _entityService.TryGet<LocationComponent>(entityId, out var existingLoc) &&
+                        existingLoc.RoomEntityId != expectedRoom)
+                    {
+                        _logger.LogWarning(
+                            "WorldContentLoader: mob '{Blueprint}' spawnRoomBlueprintId changed in YAML " +
+                            "but the live entity is already placed — restart required to apply the new spawn room.",
+                            blueprintId);
+                    }
+                    continue;
+                }
+
+                if (string.IsNullOrEmpty(mobTemplate.SpawnRoomBlueprintId))
+                    continue;
+
+                if (!liveBlueprints.TryGetValue(mobTemplate.SpawnRoomBlueprintId, out var roomEntityId))
+                {
+                    _logger.LogWarning(
+                        "WorldContentLoader: mob '{Blueprint}' references unknown spawnRoomBlueprintId '{RoomBlueprint}' — mob created without location.",
+                        blueprintId, mobTemplate.SpawnRoomBlueprintId);
                     continue;
                 }
 

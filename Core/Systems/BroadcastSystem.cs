@@ -82,8 +82,16 @@ namespace Hedron.Core.Systems
                     items.Add(itemData.Name);
             }
 
+            var mobs = new List<string>();
+            foreach (var (entityId, mobData) in _entityService.GetAllComponents<MobDataComponent>())
+            {
+                if (_entityService.TryGet<LocationComponent>(entityId, out var mobLoc) &&
+                    mobLoc.RoomEntityId == roomEntityId)
+                    mobs.Add(mobData.Name);
+            }
+
             var msg = new RoomDescriptionMessage(
-                roomEntityId, room.Name, room.Description, exits, occupants, items);
+                roomEntityId, room.Name, room.Description, exits, occupants, items, mobs);
 
             await _writerFactory.Create(session).WriteAsync(msg).ConfigureAwait(false);
         }

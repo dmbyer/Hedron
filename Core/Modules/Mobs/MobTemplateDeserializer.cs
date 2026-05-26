@@ -1,0 +1,67 @@
+using System;
+using System.Collections.Generic;
+using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Mobs.Templates;
+using Hedron.Core.Systems;
+using Microsoft.Extensions.Logging;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
+
+namespace Hedron.Core.Modules.Mobs
+{
+    public sealed class MobTemplateDeserializer : ITemplateDeserializer
+    {
+        private readonly ILogger<MobTemplateDeserializer> _logger;
+        private readonly IDeserializer _yaml;
+
+        public string Kind => "mob";
+
+        public MobTemplateDeserializer(ILogger<MobTemplateDeserializer> logger)
+        {
+            _logger = logger;
+            _yaml = new DeserializerBuilder()
+                .WithNamingConvention(CamelCaseNamingConvention.Instance)
+                .IgnoreUnmatchedProperties()
+                .Build();
+        }
+
+        public IEntityTemplate Deserialize(string fileBody)
+        {
+            var dto = _yaml.Deserialize<MobDto>(fileBody)
+                ?? throw new InvalidOperationException("Empty mob YAML.");
+
+            if (string.IsNullOrWhiteSpace(dto.BlueprintId))
+                throw new InvalidOperationException("Mob file is missing required 'blueprintId' field.");
+
+            var template = new MobTemplate(dto.BlueprintId)
+            {
+                Name = dto.Name ?? string.Empty,
+                Description = dto.Description ?? string.Empty,
+                SpawnRoomBlueprintId = dto.SpawnRoomBlueprintId ?? string.Empty,
+            };
+
+            if (dto.Keywords is { Count: > 0 })
+                template.Keywords.AddRange(dto.Keywords);
+
+            if (!string.IsNullOrEmpty(dto.Type) &&
+                Enum.TryParse<MobType>(dto.Type, ignoreCase: true, out var mobType))
+                template.MobType = mobType;
+            else if (!string.IsNullOrEmpty(dto.Type))
+                _logger.LogWarning(
+                    "Mob '{Id}': unknown type '{Type}' — defaulting to None.",
+                    dto.BlueprintId, dto.Type);
+
+            return template;
+        }
+
+        private sealed class MobDto
+        {
+            public string? BlueprintId { get; set; }
+            public string? Name { get; set; }
+            public string? Description { get; set; }
+            public List<string>? Keywords { get; set; }
+            public string? Type { get; set; }
+            public string? SpawnRoomBlueprintId { get; set; }
+        }
+    }
+}

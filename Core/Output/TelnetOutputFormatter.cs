@@ -76,6 +76,9 @@ namespace Hedron.Core.Output
             if (m.Items.Count > 0)
                 sb.AppendLine().Append($"Items: {string.Join(", ", m.Items)}");
 
+            foreach (var mob in m.Mobs)
+                sb.AppendLine().Append($"{mob} is here.");
+
             return sb.ToString();
         }
 
