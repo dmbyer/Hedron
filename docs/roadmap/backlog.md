@@ -26,9 +26,9 @@ Evaluate after `TimeSystem` exists and concurrency shape is known. May not be ne
 
 ## Phase 3+ ideas (not yet a slice)
 
-### 🔵 Heartbeat / TimeSystem
+### ~~🔵 Heartbeat / TimeSystem~~ — promoted to slice 9-b
 
-Needed for combat pulses, mob AI ticks, effect expiries. Lands as part of the first Phase 3 slice that needs scheduled work — currently expected to be the mob-wandering slice (slice 8 in [`plan.md`](plan.md)).
+Promoted to an active slice. `IHeartbeatService` + `HeartbeatTickEvent` land as Phase 3 slice 9-b. See [`plan.md`](plan.md) slice queue.
 
 ### 🔵 Web / SignalR dual client
 
