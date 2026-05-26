@@ -46,6 +46,8 @@ At slice close-out, `sync-roadmap` **trims** it to its durable behavior spec —
 | `implemented` | [`persistence-two-level-model.md`](persistence-two-level-model.md) | Phase 3 slice 5b |
 | `planned` | [`items-and-inventory.md`](items-and-inventory.md) | Phase 3 slice 6 |
 | `planned` | [`equipment.md`](equipment.md) | Phase 3 slice 7 |
+| `planned` | [`mobs.md`](mobs.md) | Phase 3 slice 8 |
+| `planned` | [`attributes.md`](attributes.md) | Phase 3 slice 8a |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 
 > See [`../roadmap/plan.md`](../roadmap/plan.md#slice-queue) for the full slice queue and current focus.
