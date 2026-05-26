@@ -29,8 +29,9 @@ namespace Hedron.Core.Modules.Mobs.Commands
         public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
         public string ShortDescription => "Set a property on a mob.";
         public string LongDescription =>
-            "Sets name, description, keywords (space-separated), or type on the mob with the given blueprint id. " +
-            "Valid types: none, vendor, guard, creature.";
+            "Sets a property on the mob with the given blueprint id. " +
+            "Valid properties: name, description, keywords (space-separated), type (none/vendor/guard/creature), " +
+            "level, hp, str, dex, con.";
         public string Usage => "setmob <blueprintId> <property> <value>";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
@@ -119,9 +120,24 @@ namespace Hedron.Core.Modules.Mobs.Commands
                     _mobBuilder.SetMobType(mobEntityId, mobType);
                     break;
 
+                case "level":
+                case "hp":
+                case "str":
+                case "dex":
+                case "con":
+                    if (!int.TryParse(value, out var numericValue) || numericValue < 1)
+                    {
+                        await context.Output.WriteAsync(new PlainMessage(
+                            "Value must be a positive integer.",
+                            OutputSeverity.Error)).ConfigureAwait(false);
+                        return;
+                    }
+                    _mobBuilder.SetAttribute(mobEntityId, template, property, numericValue);
+                    break;
+
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
-                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type.",
+                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, level, hp, str, dex, con.",
                         OutputSeverity.Error)).ConfigureAwait(false);
                     return;
             }

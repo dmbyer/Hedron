@@ -90,6 +90,8 @@ namespace Hedron.Core.Modules.Account.Systems
             });
             _entityService.AddComponent(entity.Id, new InventoryComponent());
             _entityService.AddComponent(entity.Id, new EquipmentComponent());
+            _entityService.AddComponent(entity.Id, new AttributesComponent());
+            _entityService.AddComponent(entity.Id, new PoolsComponent());
             _entityService.AddComponent(entity.Id, new PersistentEntity());
 
             if (_entityService.TryGet<AccountComponent>(accountEntityId, out var account))

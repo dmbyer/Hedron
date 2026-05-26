@@ -14,8 +14,8 @@ The intended full component set for living entities, items, and locations once t
 | `TransformComponent` | parent/child, `RoomId`, `AreaId` | every archetype except Custom | yes |
 | `PersistentEffectsComponent` | long-term effects that survive restart (curses, quest debuffs) | Player, Mob | yes |
 | `TransientEffectsComponent` | session-only effects (buffs, potion durations, combat buffs) | Player, Mob | no |
-| `AttributesComponent` | `Might`, `Finesse`, `Will`, … with base values; modifiers come from effects at read time | Player, Mob | yes |
-| `PoolsComponent` | HP / Stamina / Energy (current + base-max; effective max computed via effects) | Player, Mob | yes |
+| ~~`AttributesComponent`~~ | **Shipped in slice 8a** — see [`components.md`](components.md). Planned shape (`Might`/`Finesse`/`Will`) was superseded by `Strength`/`Dexterity`/`Constitution`. | — | — |
+| ~~`PoolsComponent`~~ | **Shipped in slice 8a** — see [`components.md`](components.md). Planned shape (`HP/Stamina/Energy`) was narrowed to `MaxHp`/`CurrentHp` for the initial combat slice. | — | — |
 | `CurrencyComponent` | copper, silver, gold, vita, menta, astra | Player, Mob | yes |
 | `SkillsComponent` | learned skills, levels, improvement tracking | Player, Mob | yes |
 | `QualitiesComponent` | misc qualities / tags | Player, Mob | yes |

@@ -91,6 +91,46 @@ namespace Hedron.Core.Modules.Mobs.Systems
             if (tpl is not null) tpl.MobType = mobType;
         }
 
+        public void SetAttribute(uint mobEntityId, MobTemplate template, string property, int value)
+        {
+            switch (property)
+            {
+                case "level":
+                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrL))
+                        attrL.Level = value;
+                    template.Level = value;
+                    break;
+
+                case "hp":
+                    if (_entityService.TryGet<PoolsComponent>(mobEntityId, out var pools))
+                    {
+                        pools.MaxHp = value;
+                        if (pools.CurrentHp > pools.MaxHp)
+                            pools.CurrentHp = pools.MaxHp;
+                    }
+                    template.MaxHp = value;
+                    break;
+
+                case "str":
+                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrS))
+                        attrS.Strength = value;
+                    template.Strength = value;
+                    break;
+
+                case "dex":
+                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrD))
+                        attrD.Dexterity = value;
+                    template.Dexterity = value;
+                    break;
+
+                case "con":
+                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrC))
+                        attrC.Constitution = value;
+                    template.Constitution = value;
+                    break;
+            }
+        }
+
         private MobTemplate? TryGetTemplate(uint mobEntityId)
         {
             if (_entityService.TryGet<BlueprintComponent>(mobEntityId, out var bp) &&

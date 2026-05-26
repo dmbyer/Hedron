@@ -40,6 +40,7 @@ namespace Hedron.Core.Output
                 HelpEntryMessage m        => FormatHelpEntry(m, color),
                 InventoryListMessage m    => FormatInventoryList(m, color),
                 EquipmentDisplayMessage m => FormatEquipmentDisplay(m, color),
+                ScoreDisplayMessage m     => FormatScore(m, color),
                 _                         => message.ToString() ?? string.Empty,
             };
         }
@@ -151,6 +152,18 @@ namespace Hedron.Core.Output
             foreach (var (slotLabel, itemName) in m.Rows)
                 sb.AppendLine($"  {slotLabel,-14} {itemName}");
             return sb.ToString().TrimEnd();
+        }
+
+        private string FormatScore(ScoreDisplayMessage m, bool color)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(ApplyColor($"<room-name>[ {m.CharacterName} ]</room-name>", color));
+            sb.AppendLine($"  Level : {m.Level}");
+            sb.AppendLine($"  HP    : {m.CurrentHp}/{m.MaxHp}");
+            sb.AppendLine($"  Str   : {m.Strength}");
+            sb.AppendLine($"  Dex   : {m.Dexterity}");
+            sb.Append($"  Con   : {m.Constitution}");
+            return ApplyColor(sb.ToString(), color);
         }
 
         // ── Color helpers ────────────────────────────────────────────────────

@@ -40,6 +40,8 @@ Persistence uses two independent opt-ins. See [../architecture/06-persistence.md
 | `EquipmentComponent` | `Slots` (`Dictionary<WornSlot, uint>`) — maps each occupied slot to an item entity id | Player/mob entities; cross-cutting so future mob code carries it without a domain dependency | yes |
 | `MobDataComponent` | `Name`, `Description`, `Keywords` (`List<string>`), `MobType` — cross-cutting so combat, AI, and dialogue modules can read mob names without a domain dependency | Mob entities; read by `BroadcastSystem` (room description) | yes |
 | `MobType` | Enum `{ None, Vendor, Guard, Creature }` — classification only; no behavior routing in this slice | Co-located with `MobDataComponent` in `Core/ECS/Components/` | n/a (enum, not a component) |
+| `AttributesComponent` | `Level: int`, `Strength: int`, `Dexterity: int`, `Constitution: int` — base combat stats for any living entity; defaults Level 1, Str/Dex/Con 10 | Player and mob entities; read by `AttributeSystem`; combat slice will read via `IAttributeSystem` getters | yes |
+| `PoolsComponent` | `MaxHp: int`, `CurrentHp: int` — health pool; defaults MaxHp 100, CurrentHp 100. `SetMaxHp` clamps `CurrentHp` to new `MaxHp` | Player and mob entities; read by `AttributeSystem` | yes |
 
 ### Module-owned (`Core/Modules/<Feature>/Components/`)
 

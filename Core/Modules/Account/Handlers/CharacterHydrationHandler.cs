@@ -62,6 +62,14 @@ namespace Hedron.Core.Modules.Account.Handlers
 
                 if (!_entityService.HasComponent<EquipmentComponent>(entityId))
                     _entityService.AddComponent(entityId, new EquipmentComponent());
+
+                // Migration guards: characters persisted before slice 8a lack AttributesComponent
+                // and PoolsComponent. Attach defaults now; persisted on next save-on-change.
+                if (!_entityService.HasComponent<AttributesComponent>(entityId))
+                    _entityService.AddComponent(entityId, new AttributesComponent());
+
+                if (!_entityService.HasComponent<PoolsComponent>(entityId))
+                    _entityService.AddComponent(entityId, new PoolsComponent());
             }
         }
     }

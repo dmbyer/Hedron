@@ -1,6 +1,6 @@
 # Use Case: Attributes and Vitals
 
-**Status:** planned
+**Status:** implemented
 **Actors:** Player, Administrator, System
 **Module:** `Core/Modules/Attributes/` (new); `Core/ECS/Components/` (cross-cutting components); `Core/Modules/Mobs/` (`MobTemplate` and builder extended); `Core/Modules/Account/` (`CreateCharacterAsync` and `CharacterHydrationHandler` extended)
 
@@ -88,89 +88,6 @@ The `score` command gives players visibility into their own stats. Admin tooling
 |---|---|---|---|
 | `MobPropertySetByAdminEvent` | `SetMobCommand` (extended from slice 8) | `uint AdminEntityId, uint MobEntityId, string PropertyName, string NewValue` | Reused from slice 8; attribute changes on mobs share the existing audit event |
 | `PlayerAttributeSetByAdminEvent` | `SetPlayerCommand` | `uint AdminEntityId, uint PlayerEntityId, string PropertyName, string NewValue` | Audit log; future stat-recalculation hooks |
-
----
-
-## Systems / Handlers Involved
-
-| Artifact | Kind | Responsibility |
-|---|---|---|
-| `IAttributeSystem` / `AttributeSystem` | Domain system | Read-only getters for `AttributesComponent` / `PoolsComponent`; mutation methods for admin and initialization paths (event publication is callers' responsibility) |
-| `IMobBuilderSystem` (extended) | Domain system | Gains `SetAttribute(mobEntityId, template, property, value)` for `level`, `hp`, `str`, `dex`, `con` |
-| `AccountSystem` (extended) | Domain system | `CreateCharacterAsync` attaches default `AttributesComponent` + `PoolsComponent` |
-| `CharacterHydrationHandler` (extended) | Handler | Attaches default `AttributesComponent` + `PoolsComponent` to existing characters that lack them |
-| `MobTemplate` (extended) | Infrastructure | Gains `Level`, `MaxHp`, `Strength`, `Dexterity`, `Constitution` fields; `Apply` attaches both components |
-| `SetMobCommand` (extended) | Command | Handles five new properties: `level`, `hp`, `str`, `dex`, `con` |
-| `SetPlayerCommand` | Command (new) | Admin command to set `level` or `hp` on a currently-connected player by character name |
-| `ScoreCommand` | Command (new) | Player command; reads and displays `AttributesComponent` + `PoolsComponent` |
-| `AdminAuditHandler` (extended) | Handler | Subscribes to `PlayerAttributeSetByAdminEvent` |
-
----
-
-## Content Tooling Impact
-
-**`MobTemplate` YAML extension.** `kind: mob` files gain optional attribute fields:
-
-```yaml
-kind: mob
-blueprintId: mob.forest.wolf
-name: A grey wolf
-description: A lean wolf with silver-tipped fur.
-keywords:
-  - wolf
-type: Creature
-spawnRoomBlueprintId: room.forest.clearing
-level: 3
-maxHp: 45
-strength: 12
-dexterity: 14
-constitution: 11
-```
-
-Omitting any attribute field causes `MobTemplate.Apply` to use defaults (Level 1, Str/Dex/Con 10, MaxHp 100, CurrentHp 100). This is a purely additive YAML extension — existing `kind: mob` files without attribute fields remain valid.
-
-**Admin commands.** Five new `setmob` sub-properties: `level`, `hp`, `str`, `dex`, `con`. One new admin command: `setplayer <characterName> level <n>` / `setplayer <characterName> hp <n>`.
-
-**Player command.** `score` — no args, no privilege requirement.
-
-**Inspect / verify.** Players use `score` to confirm their own stats. Admins use `setmob <blueprintId> level <n>` and read the confirmation echo to verify mob attributes.
-
----
-
-## Cross-cutting Surfaces Stressed
-
-| Surface | Assessment |
-|---|---|
-| **Commands** | Adequate — `ICommand`, `AdminRequirement`, argument parsing, `IOutputWriter`, and `CommandExecutedEvent` are all established. `score` is a zero-arg player command; `setplayer` is an admin command with two positional tokens. No new command infrastructure needed. |
-| **Output** | Gap exposed (minor, resolvable in this slice) — `ScoreDisplayMessage` does not exist. A new message shape and a corresponding formatter case are added. No output infrastructure changes required — purely additive. |
-| **ECS** | Adequate — component attach/query patterns are established. Two new `[Persistent]` cross-cutting components follow existing conventions. |
-| **Persistence** | Adequate — two-level model is in place. Both components are `[Persistent]`; entities that carry them already have `PersistentEntity`. No persistence infrastructure changes. |
-| **Event bus** | Adequate — one new event type (`PlayerAttributeSetByAdminEvent`) follows the established thin-payload pattern. `AdminAuditHandler` subscribes. |
-| **Content templates** | Gap exposed (minor, resolvable in this slice) — `MobTemplate` and `MobTemplateDeserializer` gain new optional fields. No template infrastructure changes; additive-only to the YAML schema. |
-| **Broadcast** | Not stressed. `score` is a single-player write; `setplayer` confirmation goes to the admin only. |
-| **Time / heartbeat** | Not stressed. No timed or periodic behavior introduced. |
-| **Configuration** | Not stressed. No new config keys. |
-
----
-
-## Flows Introduced or Modified
-
-Flow numbering dependency: the mobs slice (slice 8, prerequisite) must have added Flow 15 (`mkmob — admin mob creation`) to `flows/README.md` before this slice closes. If that is not yet done at implementation time, the flows doc must be reconciled — Flow 16 (`score`) is stable only once Flow 15 is written.
-
-| # | Flow | Change |
-|---|---|---|
-| 1 | Server startup | Extended: `MobTemplate.Apply` now attaches `AttributesComponent` + `PoolsComponent` for newly-spawned mobs. Mermaid: add a `Note over MobTemplate,ES: also attaches AttributesComponent + PoolsComponent` annotation inside the `SpawnMissingEntities` loop, after the `Spawn(blueprintId)` call. |
-| 7 | Login / character flow | Extended: `AccountSystem.CreateCharacterAsync` attaches `AttributesComponent` + `PoolsComponent` to new characters. Mermaid: update the `Note over AccSys` in step 6 to read `creates entity, attaches CharacterComponent + LocationComponent + AttributesComponent + PoolsComponent + PersistentEntity`. |
-| 16 | `score` (new) | New flow in `flows/README.md`: player sends `score`; `CommandDispatcher` routes to `ScoreCommand`; `ScoreCommand` calls `EntityService.TryGet<AttributesComponent>` and `TryGet<PoolsComponent>`; writes `ScoreDisplayMessage` via `IOutputWriter`. No events. |
-
----
-
-## Reference Catalog Updates
-
-- `docs/reference/components.md` — add `AttributesComponent` and `PoolsComponent` rows to the cross-cutting table.
-- `docs/reference/components-planned.md` — promote `AttributesComponent` and `PoolsComponent` to `components.md` (with the adopted `Strength`/`Dexterity`/`Constitution` naming); remove or update the planned-catalog entries (`Might`/`Finesse`/`Will`) so they no longer imply the superseded design is in force.
-- `docs/reference/systems.md` — add `IAttributeSystem` / `AttributeSystem` row. **Pre-condition:** the mobs slice (slice 8) must have added the `IMobBuilderSystem` row first; update that row to add `SetAttribute` once it exists.
-- `docs/reference/commands.md` — add rows for `score` and `setplayer`. **Pre-condition:** the mobs slice (slice 8) must have added `mkmob` and `setmob` rows first; update the `setmob` row to record the five new sub-properties (`level`, `hp`, `str`, `dex`, `con`) once it exists.
 
 ---
 
