@@ -31,10 +31,12 @@ public class CombatSystem : ICombatSystem
 ## Dependency rules
 
 - **Domain systems can depend on core systems** (DiceSystem, SkillSystem, AttributeCalculator, EffectTracker, TimeSystem, RandomGeneratorSystem).
-- **Domain systems should NOT depend on other domain systems directly.** Coordinate cross-domain effects through handlers that publish events.
-- **No `IEventBus` inside a domain system.** Services don't publish — handlers do.
+- **Domain systems may depend on other domain systems** when the dependency is lower-level in the feature graph and does not form a cycle. The architecture checklist (`01-layers.md`) explicitly permits `Domain → Domain (same or lower level)`. Example: `ICombatSystem` calling `IStatSystem` to compute effective stats is valid — `IStatSystem` is a pure-read computation layer that `ICombatSystem` consumes.
+- **Prefer event-driven coordination for lateral/peer domain systems** when the callee may itself need to publish downstream events, or when tight coupling would prevent independent testing of each system. This is a design preference, not an invariant.
+- **The hard prohibition is Core → Domain** (INV-2). Core systems are generic and must not know about game-specific domain concepts.
+- **No `IEventBus` inside any system, domain or core.** Systems compute and return results; Initiators and Handlers publish events (INV-5).
 
-Why: this keeps systems composable, unit-testable, and free of side effects.
+Why: domain systems may compose each other to implement game rules (e.g. combat calls stat system calls attribute system). The constraint is that the dependency graph must remain acyclic and flow downward within the domain layer.
 
 ## Pure where possible
 

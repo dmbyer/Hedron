@@ -34,7 +34,14 @@ For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 9 — Combat.** Slice 8a is complete; `AttributesComponent` and `PoolsComponent` are live for both players and mobs, providing the HP and stat ground truth combat needs. Slice 9 delivers the core combat loop: `kill <mob>`, attack/defense resolution using `AttributesComponent`, damage application to `PoolsComponent.CurrentHp`, and `CombatEndedEvent`. Spec: [`../use-cases/combat.md`](../use-cases/combat.md). Prerequisites: slices 8 and 8a (both complete).
+**Phase 3 slices 9-a / 9-b / 9-c — Combat prerequisites (parallel).** Slice 8a is complete. Before the core combat loop can land, three independent infrastructure slices must ship: entity state management (9-a), the heartbeat time system (9-b), and the stat computation system (9-c). All three can be designed and implemented in parallel; slice 9 (combat proper) is blocked on all three.
+
+| Sub-slice | Spec | Status |
+|---|---|---|
+| **9-a — Entity state management** | [`../use-cases/entity-state-management.md`](../use-cases/entity-state-management.md) | 🟢 planning |
+| **9-b — Time system (heartbeat)** | [`../use-cases/time-system.md`](../use-cases/time-system.md) | 🟢 planning |
+| **9-c — Stat computation system** | [`../use-cases/stat-system.md`](../use-cases/stat-system.md) | 🟢 planning |
+| **9 — Combat** | [`../use-cases/combat.md`](../use-cases/combat.md) | 🟡 blocked on 9-a, 9-b, 9-c |
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -71,7 +78,10 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 7 | Equipment + `wear`/`remove` | Gear; `EquipmentComponent`, `WornSlot` enum, `wear`/`remove`/`equipment` commands | ✅ done |
 | 8 | Mobs (basic entity model and spawn) | Populated world; no wandering | ✅ done |
 | 8a | Attributes and vitals (`AttributesComponent`, `PoolsComponent`, `score`) | HP + base stats required for combat | ✅ done |
-| 9 | Combat | Core gameplay loop | 🟢 next |
+| 9-a | Entity state management | Centralized entity state flags; command gating; prereq for combat and future states (resting, incapacitation, …) | 🟢 next |
+| 9-b | Time system (heartbeat) | `IHeartbeatService`, `HeartbeatTickEvent`; prereq for combat, mob AI, effect expiry | 🟢 next |
+| 9-c | Stat computation system | `IStatSystem` effective-stat pipeline; base + equipment bonus seam for future effects/buffs | 🟢 next |
+| 9 | Combat | Core gameplay loop | 🟡 blocked on 9-a, 9-b, 9-c |
 | 10 | Death and respawn | Combat is terminal until this exists | 🟡 blocked on 9 |
 | 11 | Skills | Character progression | 🟢 ready after 9 |
 | 12 | Shopping | Economy | 🟢 ready after 6 |
