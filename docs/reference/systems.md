@@ -329,3 +329,18 @@ public interface IAttributeSystem
 }
 ```
 All getters return the default value (Level 1, stats 10, HP 100) if the entity lacks the relevant component — safe default for pre-hydration edge cases. Implemented (Phase 3 slice 8a).
+
+### EntityStateService
+**Purpose:** Centralized transition-rule enforcement for entity state flags. Attaches and removes `EntityStateComponent`; validates flag combinations against a static transition table; returns structured failure reasons to callers. Never touches the event bus or persistence (INV-5).
+**Location:** `Core/Modules/EntityState/Systems/EntityStateService.cs`
+**Dependencies:** `EntityService`.
+```csharp
+public interface IEntityStateService
+{
+    bool TryEnterState(uint entityId, EntityStateFlags state, out string? failReason);
+    void ExitState(uint entityId, EntityStateFlags state);
+    bool IsInState(uint entityId, EntityStateFlags state);
+    EntityStateFlags GetStates(uint entityId);
+}
+```
+`TryEnterState` reads current `ActiveStates` (or `None` if the component is absent), evaluates the static transition-rule table, on success attaches or OR-assigns the flag, and returns `true`. On a blocked transition it returns `false` with a caller-displayable `failReason`. `ExitState` AND-NOT clears the flag and removes the component when `ActiveStates == None` — always a no-op when the entity has no component. `IsInState` delegates to `GetStates`. Callers (commands, handlers) publish `EntityStateChangedEvent` after mutating state; the service never calls `IEventBus` (INV-5). Implemented (Phase 3 slice 9-a).

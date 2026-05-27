@@ -27,6 +27,8 @@ Persistence uses two independent opt-ins. See [../architecture/06-persistence.md
 | `PersistentEntity` | *(zero-data marker)* — opts the entity into persistence | any entity that must survive restart | yes (self-referential: the marker is `[Persistent]` so it round-trips) |
 | `BlueprintComponent` | `BlueprintId : string` — records the authored template id this entity was spawned from | every templated entity (Phase 3 slice 2+) | yes |
 | `AreaComponent` | `AreaId`, `Name`, `Description`, `RespawnRate`, `Pvp` — minimal area metadata seeded by `AreaTemplate` | Area entities (Phase 3 slice 2) | yes |
+| `EntityStateComponent` | `ActiveStates: EntityStateFlags` — tracks active state flags for any entity; absent when `ActiveStates == None` | `IEntityStateService`; commands and handlers that guard on entity state | no — transient; cleared on restart by design |
+| `EntityStateFlags` | `[Flags]` enum `{ None=0, InCombat=1, Resting=2, Incapacitated=4 }` — co-located with `EntityStateComponent` in `Core/ECS/Components/`; named with `Flags` suffix to avoid a C# namespace/type collision with the `EntityState` module | n/a (enum, not a component) | n/a |
 
 ### Gameplay / session (cross-cutting — `Core/ECS/Components/`)
 
