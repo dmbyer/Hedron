@@ -216,6 +216,7 @@ The living catalog lives in the module events folders (`Core/Modules/<Feature>/E
 
 **Player session:** `PlayerLoginEvent`, `PlayerLogoutEvent`, `CharacterCreatedEvent`, `CharacterDeletedEvent`
 **Player condition:** `PlayerDeathEvent`, `PlayerReviveEvent`, `PlayerRestStartedEvent`, `PlayerRestCompletedEvent`
+**Entity state:** `EntityStateChangedEvent` — cross-cutting; published by commands and handlers after calling `IEntityStateService.TryEnterState` / `ExitState`; payload `(uint EntityId, EntityStateFlags OldStates, EntityStateFlags NewStates)`; covers both player and mob entities; no subscribers in slice 9-a (observable surface for combat, AI, and effect slices)
 **Movement:** `PlayerMoveEvent`, `PlayerTeleportEvent`, `PlayerEnterRoomEvent`, `PlayerExitRoomEvent`
 **Combat:** `CombatStartedEvent`, `CombatEndedEvent`, `AttackEvent`, `DamageEvent`, `FleeEvent`
 **Items:** `ItemPickedUpEvent`, `ItemDroppedEvent`, `ItemEquippedEvent`, `ItemUnequippedEvent`, `ItemDestroyedEvent`, `LootDroppedEvent`, `LootCollectedEvent`, `ContainerOpenedEvent`

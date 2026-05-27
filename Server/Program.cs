@@ -15,6 +15,7 @@ using Hedron.Core.Modules.Items.Events;
 using Hedron.Core.Modules.Items.Handlers;
 using Hedron.Core.Modules.Attributes;
 using Hedron.Core.Modules.Attributes.Events;
+using Hedron.Core.Modules.EntityState;
 using Hedron.Core.Modules.Mobs;
 using Hedron.Core.Modules.Mobs.Events;
 using Hedron.Core.ECS.Components;
@@ -105,6 +106,7 @@ public static class Program
                 services.AddItemsModule();
                 services.AddMobsModule();
                 services.AddAttributesModule();
+                services.AddEntityStateModule();
 
                 // Hosted services — order matters.
                 services.AddHostedService<PersistenceBootstrap>();

@@ -27,7 +27,7 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–8a done; **next: slice 9 — combat**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–9a done; **next: slices 9-b/9-c — time & stat systems**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
@@ -38,7 +38,7 @@ For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 | Sub-slice | Spec | Status |
 |---|---|---|
-| **9-a — Entity state management** | [`../use-cases/entity-state-management.md`](../use-cases/entity-state-management.md) | 🟢 planning |
+| **9-a — Entity state management** | [`../use-cases/entity-state-management.md`](../use-cases/entity-state-management.md) | ✅ done |
 | **9-b — Time system (heartbeat)** | [`../use-cases/time-system.md`](../use-cases/time-system.md) | 🟢 planning |
 | **9-c — Stat computation system** | [`../use-cases/stat-system.md`](../use-cases/stat-system.md) | 🟢 planning |
 | **9 — Combat** | [`../use-cases/combat.md`](../use-cases/combat.md) | 🟡 blocked on 9-a, 9-b, 9-c |
@@ -78,7 +78,7 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 7 | Equipment + `wear`/`remove` | Gear; `EquipmentComponent`, `WornSlot` enum, `wear`/`remove`/`equipment` commands | ✅ done |
 | 8 | Mobs (basic entity model and spawn) | Populated world; no wandering | ✅ done |
 | 8a | Attributes and vitals (`AttributesComponent`, `PoolsComponent`, `score`) | HP + base stats required for combat | ✅ done |
-| 9-a | Entity state management | Centralized entity state flags; command gating; prereq for combat and future states (resting, incapacitation, …) | 🟢 next |
+| 9-a | Entity state management | Centralized entity state flags; command gating; prereq for combat and future states (resting, incapacitation, …) | ✅ done |
 | 9-b | Time system (heartbeat) | `IHeartbeatService`, `HeartbeatTickEvent`; prereq for combat, mob AI, effect expiry | 🟢 next |
 | 9-c | Stat computation system | `IStatSystem` effective-stat pipeline; base + equipment bonus seam for future effects/buffs | 🟢 next |
 | 9 | Combat | Core gameplay loop | 🟡 blocked on 9-a, 9-b, 9-c |

@@ -65,6 +65,8 @@ When adding a new feature:
 - Cross-cutting core system → `Core/Systems/<X>System.cs`
 - New module entry-point → `Core/Modules/<Feature>/<Feature>Module.cs` — exposes `AddXModule(IServiceCollection)` and is called from `Server/Program.cs`. No `IModule` interface; modules are features, composed via DI extensions.
 
+**Naming: resolve namespace/type collisions by renaming the type.** If a module namespace (`Core/Modules/<Feature>/`) and a type in `Core/ECS/Components/` share the same simple name, C# resolves the name as the namespace component and the type becomes unreachable via normal `using` imports. Fix by renaming the type — do not use `::` qualifier workarounds. Convention: add a `Flags` suffix to `[Flags]` enums (e.g. `EntityStateFlags` rather than `EntityState`); choose a more specific name for other types. Precedent: `EntityStateFlags` (disambiguated from the `Modules/EntityState/` namespace).
+
 ## Agent tooling available in this repo
 
 The `.claude/` directory provides Claude-Code-native helpers (skills, subagents, slash commands) tuned for this codebase. See [`.claude/README.md`](.claude/README.md) for the index.
