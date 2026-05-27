@@ -50,7 +50,7 @@ At slice close-out, `sync-roadmap` **trims** it to its durable behavior spec —
 | `planned` | [`attributes.md`](attributes.md) | Phase 3 slice 8a |
 | `planned` | [`entity-state-management.md`](entity-state-management.md) | Phase 3 slice 9-a |
 | `implemented` | [`time-system.md`](time-system.md) | Phase 3 slice 9-b |
-| `planned` | [`stat-system.md`](stat-system.md) | Phase 3 slice 9-c |
+| `implemented` | [`stat-system.md`](stat-system.md) | Phase 3 slice 9-c |
 | `planned` | [`combat.md`](combat.md) | Phase 3 slice 9 |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 

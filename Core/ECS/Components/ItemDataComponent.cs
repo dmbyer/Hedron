@@ -19,5 +19,8 @@ namespace Hedron.Core.ECS.Components
         /// Slots this item occupies when worn. Null or empty means the item is not wearable.
         /// </summary>
         public List<WornSlot>? WornSlots { get; set; }
+
+        /// <summary>Flat bonus added to the wielder's effective attack power when equipped in MainHand. Default 0.</summary>
+        public int DamageBonus { get; set; }
     }
 }

@@ -33,9 +33,10 @@ namespace Hedron.Core.Modules.Items.Commands
         public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
         public string ShortDescription => "Set a property on an item.";
         public string LongDescription =>
-            "Sets name, description, keywords (space-separated), type, or slot on the item with the given blueprint id. " +
+            "Sets name, description, keywords (space-separated), type, slot, or dmg on the item with the given blueprint id. " +
             "Valid types: none, weapon, armor, consumable, container, misc. " +
-            "Valid slots (space-separated): mainhand, offhand, head, chest, feet.";
+            "Valid slots (space-separated): mainhand, offhand, head, chest, feet. " +
+            "dmg accepts a non-negative integer (flat damage bonus applied when equipped in MainHand).";
         public string Usage => "setitem <blueprintId> <property> <value>";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
@@ -143,9 +144,29 @@ namespace Hedron.Core.Modules.Items.Commands
                     break;
                 }
 
+                case "dmg":
+                {
+                    if (!int.TryParse(value, out var dmgValue))
+                    {
+                        await context.Output.WriteAsync(new PlainMessage(
+                            $"Invalid damage bonus '{value}'. Expected a non-negative integer.",
+                            OutputSeverity.Error)).ConfigureAwait(false);
+                        return;
+                    }
+                    if (dmgValue < 0)
+                    {
+                        await context.Output.WriteAsync(new PlainMessage(
+                            "Damage bonus must be non-negative.",
+                            OutputSeverity.Error)).ConfigureAwait(false);
+                        return;
+                    }
+                    _itemBuilder.SetItemDamageBonus(itemEntityId, dmgValue);
+                    break;
+                }
+
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
-                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, slot.",
+                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, slot, dmg.",
                         OutputSeverity.Error)).ConfigureAwait(false);
                     return;
             }

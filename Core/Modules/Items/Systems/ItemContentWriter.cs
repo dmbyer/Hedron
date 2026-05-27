@@ -46,6 +46,7 @@ namespace Hedron.Core.Modules.Items.Systems
                 ItemType = template.ItemType.ToString(),
                 WornSlots = wornSlots,
                 SpawnRoomId = template.SpawnRoomBlueprintId,
+                DamageBonus = template.DamageBonus,
             };
 
             var body = _yaml.Serialize(dto);
@@ -65,6 +66,7 @@ namespace Hedron.Core.Modules.Items.Systems
             public string ItemType { get; set; } = string.Empty;
             public List<string>? WornSlots { get; set; }
             public string SpawnRoomId { get; set; } = string.Empty;
+            public int DamageBonus { get; set; }
         }
     }
 }
