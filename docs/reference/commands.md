@@ -72,6 +72,19 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 ---
 
+### `flee`
+
+**Aliases:** none  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Combat/Commands/FleeCommand.cs`  
+**Description:** Exits combat immediately. Always succeeds — no fail roll in Phase 3. Checks `IEntityStateService.IsInState(InCombat)`; if not in combat writes "You are not in combat." and returns. Reads `CombatStateComponent.OpponentEntityId`, calls `ICombatSystem.EndCombat` + `IEntityStateService.ExitState(InCombat)` on both participants, then publishes `CombatEndedEvent(PlayerFled)`. Output via `CombatHandler`.  
+**Usage:** `flee`  
+**Schema:** no arguments  
+**Dependencies:** `ICombatSystem`, `IEntityStateService`, `EntityService`, `IEventBus`  
+**Events:** `CombatEndedEvent`
+
+---
+
 ### `get`
 
 **Aliases:** none  
@@ -107,6 +120,19 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Schema:** no arguments  
 **Dependencies:** `IItemSystem`, `EntityService`  
 **Events:** none
+
+---
+
+### `kill` / `k`
+
+**Aliases:** `k`  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Combat/Commands/KillCommand.cs`  
+**Description:** Initiates melee combat with a mob in the current room. Guards: if already `InCombat` writes "You are already fighting!" and returns. Resolves target via `ICombatSystem.TryFindTargetInRoom` (prefix-match against `MobDataComponent.Name` and `Keywords`); on no match writes "You don't see that here." Calls `IEntityStateService.TryEnterState(InCombat)` on both player and mob; on blocked player transition writes the fail reason. Calls `ICombatSystem.StartCombat` to attach `CombatStateComponent` on both. Publishes `CombatStartedEvent`; output via `CombatHandler`.  
+**Usage:** `kill <target>`  
+**Schema:** `RestOfLine string "target"` (required)  
+**Dependencies:** `ICombatSystem`, `IEntityStateService`, `EntityService`, `IEventBus`, `ILogger<KillCommand>`  
+**Events:** `CombatStartedEvent`
 
 ---
 

@@ -368,6 +368,30 @@ public interface IStatSystem
 ```
 `GetEffectiveAttackPower` reads `EquipmentComponent.Slots[WornSlot.MainHand]` via `EntityService.TryGet<EquipmentComponent>` (direct dictionary lookup, not a list scan) then reads `ItemDataComponent.DamageBonus` on the equipped item — no `is`/`as` casts (INV-4). `GetEffectiveDefense` returns `dexterity / 4`; armor-slot contribution is acknowledged future debt. Registered in `StatsModule` (`Core/Modules/Stats/StatsModule.cs`) as a singleton. Implemented (Phase 3 slice 9-c).
 
+### CombatSystem
+**Purpose:** Domain system for combat resolution. Handles target lookup, combat state attachment/removal, and round resolution. Pure: no events, no persistence (INV-5, INV-8). Computes attack resolution via `IStatSystem`; mutates HP via `IAttributeSystem.SetCurrentHp`; returns structured `CombatRoundResult` to callers.
+**Location:** `Core/Modules/Combat/Systems/CombatSystem.cs`
+**Dependencies:** `EntityService`, `IStatSystem`, `IAttributeSystem`.
+```csharp
+public interface ICombatSystem
+{
+    bool TryFindTargetInRoom(uint roomEntityId, string token, out uint mobEntityId);
+    void StartCombat(uint attackerEntityId, uint defenderEntityId);
+    void EndCombat(uint attackerEntityId, uint defenderEntityId);
+    CombatRoundResult ExecuteRound(uint attackerEntityId, uint defenderEntityId);
+}
+
+public readonly record struct CombatRoundResult(
+    uint AttackerEntityId,
+    uint DefenderEntityId,
+    int DamageDealt,
+    bool AttackerHit,
+    CombatRoundOutcome Outcome);
+
+public enum CombatRoundOutcome { Hit, Miss, MobDied, PlayerIncapacitated }
+```
+`TryFindTargetInRoom` prefix-matches `token` against `MobDataComponent.Name` and `Keywords` for entities with `MobDataComponent` in the given room. `StartCombat`/`EndCombat` add/remove `CombatStateComponent` on both participants — does not call `IEntityStateService` (cohesion separation; commands and handlers coordinate both layers). `ExecuteRound` formula: hit check `roll = Random.Shared.Next(1,21) + dex/2 >= 10 + defense`; damage `Random.Shared.Next(1, attackPower+2)` applied via `IAttributeSystem.SetCurrentHp`; outcome `MobDied` if defender has `MobDataComponent` and HP == 0, `PlayerIncapacitated` if defender has `CharacterComponent` and HP == 0. Implemented (Phase 3 slice 9).
+
 ---
 
 ## Background Services / Initiators
