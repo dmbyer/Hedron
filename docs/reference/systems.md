@@ -239,11 +239,12 @@ public interface IItemBuilderSystem
     void SetItemKeywords(uint itemEntityId, IReadOnlyList<string> keywords);
     void SetItemType(uint itemEntityId, ItemType itemType);
     void SetItemSlots(uint itemEntityId, IReadOnlyList<WornSlot> slots);
+    void SetItemDamageBonus(uint itemEntityId, int value);
 }
 
 public readonly record struct ItemCreationResult(uint ItemEntityId, string BlueprintId, ItemTemplate Template);
 ```
-`CreateItem` generates a unique blueprint id (`item.adhoc.<8-char-base36>`), creates the entity, attaches `ItemDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `ItemTemplate`. The `MkitemCommand` initiator calls `SaveEntityAsync` after this method returns (INV-5). `SetItemSlots` updates both `ItemDataComponent.WornSlots` and `ItemTemplate.WornSlots` in the registry. Implemented (Phase 3 slices 6, 7).
+`CreateItem` generates a unique blueprint id (`item.adhoc.<8-char-base36>`), creates the entity, attaches `ItemDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `ItemTemplate`. The `MkitemCommand` initiator calls `SaveEntityAsync` after this method returns (INV-5). `SetItemSlots` updates both `ItemDataComponent.WornSlots` and `ItemTemplate.WornSlots` in the registry. `SetItemDamageBonus` updates both `ItemDataComponent.DamageBonus` and `ItemTemplate.DamageBonus`; called by `SetitemCommand` for the `dmg` property. Implemented (Phase 3 slices 6, 7, 9-c).
 
 ### EquipmentSystem
 **Purpose:** Query and mutation operations on character equipment slots — finds equipped items, prefix-matches tokens against worn item names/keywords, equips items from inventory into their declared slots (with implicit displacement of existing occupants), and removes items from slots back to inventory. All methods are pure ECS mutations; no event publication, no persistence calls.
@@ -326,9 +327,11 @@ public interface IAttributeSystem
     void SetConstitution(uint entityId, int value);
     /// Sets MaxHp and clamps CurrentHp to the new MaxHp if it would exceed it (INV-8).
     void SetMaxHp(uint entityId, int value);
+    /// Sets CurrentHp, clamped to [0, MaxHp]. Game rule enforced here (INV-8). No events, no persistence (INV-5).
+    void SetCurrentHp(uint entityId, int value);
 }
 ```
-All getters return the default value (Level 1, stats 10, HP 100) if the entity lacks the relevant component — safe default for pre-hydration edge cases. Implemented (Phase 3 slice 8a).
+All getters return the default value (Level 1, stats 10, HP 100) if the entity lacks the relevant component — safe default for pre-hydration edge cases. `SetCurrentHp` is the write seam the combat slice uses to apply damage; callers pass a raw new value and the clamping invariant is enforced here. Implemented (Phase 3 slices 8a, 9-c).
 
 ### EntityStateService
 **Purpose:** Centralized transition-rule enforcement for entity state flags. Attaches and removes `EntityStateComponent`; validates flag combinations against a static transition table; returns structured failure reasons to callers. Never touches the event bus or persistence (INV-5).
@@ -344,6 +347,26 @@ public interface IEntityStateService
 }
 ```
 `TryEnterState` reads current `ActiveStates` (or `None` if the component is absent), evaluates the static transition-rule table, on success attaches or OR-assigns the flag, and returns `true`. On a blocked transition it returns `false` with a caller-displayable `failReason`. `ExitState` AND-NOT clears the flag and removes the component when `ActiveStates == None` — always a no-op when the entity has no component. `IsInState` delegates to `GetStates`. Callers (commands, handlers) publish `EntityStateChangedEvent` after mutating state; the service never calls `IEventBus` (INV-5). Implemented (Phase 3 slice 9-a).
+
+### StatSystem
+**Purpose:** Aggregation seam for effective entity stats. Reads base attributes and equipment bonuses to produce ready-to-use values for the combat slice and future consumers. Never publishes events or calls persistence (INV-5). Adding a new modifier source (buffs, auras) means extending `StatSystem` methods, not changing the interface.
+**Location:** `Core/Modules/Stats/Systems/StatSystem.cs`
+**Dependencies:** `IAttributeSystem`, `EntityService`.
+```csharp
+public interface IStatSystem
+{
+    int GetEffectiveStrength(uint entityId);
+    int GetEffectiveDexterity(uint entityId);
+    int GetEffectiveConstitution(uint entityId);
+    /// Strength / 2 + MainHand item DamageBonus (0 if no weapon or no bonus).
+    int GetEffectiveAttackPower(uint entityId);
+    /// Dexterity / 4. Armor-slot bonus deferred to a future slice.
+    int GetEffectiveDefense(uint entityId);
+    int GetCurrentHp(uint entityId);
+    int GetMaxHp(uint entityId);
+}
+```
+`GetEffectiveAttackPower` reads `EquipmentComponent.Slots[WornSlot.MainHand]` via `EntityService.TryGet<EquipmentComponent>` (direct dictionary lookup, not a list scan) then reads `ItemDataComponent.DamageBonus` on the equipped item — no `is`/`as` casts (INV-4). `GetEffectiveDefense` returns `dexterity / 4`; armor-slot contribution is acknowledged future debt. Registered in `StatsModule` (`Core/Modules/Stats/StatsModule.cs`) as a singleton. Implemented (Phase 3 slice 9-c).
 
 ---
 

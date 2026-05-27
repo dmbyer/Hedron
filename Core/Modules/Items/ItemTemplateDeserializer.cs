@@ -67,6 +67,8 @@ namespace Hedron.Core.Modules.Items
                 }
             }
 
+            template.DamageBonus = dto.DamageBonus;
+
             return template;
         }
 
@@ -79,6 +81,7 @@ namespace Hedron.Core.Modules.Items
             public string? ItemType { get; set; }
             public List<string>? WornSlots { get; set; }
             public string? SpawnRoomId { get; set; }
+            public int DamageBonus { get; set; }
         }
     }
 }

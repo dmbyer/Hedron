@@ -17,6 +17,7 @@ namespace Hedron.Core.Modules.Items.Systems
         void SetItemKeywords(uint itemEntityId, IReadOnlyList<string> keywords);
         void SetItemType(uint itemEntityId, ItemType itemType);
         void SetItemSlots(uint itemEntityId, IReadOnlyList<WornSlot> slots);
+        void SetItemDamageBonus(uint itemEntityId, int value);
     }
 
     /// <summary>Result of <see cref="IItemBuilderSystem.CreateItem"/>.</summary>

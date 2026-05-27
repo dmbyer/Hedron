@@ -30,6 +30,7 @@ using Hedron.Core.Modules.Movement.Systems;
 using Hedron.Core.Modules.Persistence;
 using Hedron.Core.Modules.Session.Events;
 using Hedron.Core.Modules.Session.Handlers;
+using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.Time;
 using Hedron.Core.Modules.World;
 using Hedron.Core.Modules.World.Events;
@@ -109,6 +110,7 @@ public static class Program
                 services.AddAttributesModule();
                 services.AddEntityStateModule();
                 services.AddTimeModule();
+                services.AddStatsModule();
 
                 // Hosted services — order matters.
                 services.AddHostedService<PersistenceBootstrap>();

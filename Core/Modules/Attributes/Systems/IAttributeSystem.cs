@@ -23,5 +23,10 @@ namespace Hedron.Core.Modules.Attributes.Systems
         /// Sets MaxHp and clamps CurrentHp to the new MaxHp if it would exceed it (INV-8).
         /// </summary>
         void SetMaxHp(uint entityId, int value);
+
+        /// <summary>
+        /// Sets CurrentHp, clamped to [0, MaxHp]. Game rule enforced here (INV-8). No events, no persistence (INV-5).
+        /// </summary>
+        void SetCurrentHp(uint entityId, int value);
     }
 }

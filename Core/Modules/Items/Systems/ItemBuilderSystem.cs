@@ -113,6 +113,14 @@ namespace Hedron.Core.Modules.Items.Systems
             }
         }
 
+        public void SetItemDamageBonus(uint itemEntityId, int value)
+        {
+            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
+                item.DamageBonus = value;
+            var tpl = TryGetTemplate(itemEntityId);
+            if (tpl is not null) tpl.DamageBonus = value;
+        }
+
         private ItemTemplate? TryGetTemplate(uint itemEntityId)
         {
             if (_entityService.TryGet<BlueprintComponent>(itemEntityId, out var bp) &&

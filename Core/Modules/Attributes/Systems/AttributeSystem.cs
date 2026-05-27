@@ -62,5 +62,13 @@ namespace Hedron.Core.Modules.Attributes.Systems
             if (p.CurrentHp > p.MaxHp)
                 p.CurrentHp = p.MaxHp;
         }
+
+        public void SetCurrentHp(uint entityId, int value)
+        {
+            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
+                return;
+            var max = GetMaxHp(entityId);
+            p.CurrentHp = Math.Clamp(value, 0, max);
+        }
     }
 }
