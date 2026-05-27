@@ -23,7 +23,7 @@ public class CombatSystem : ICombatSystem
 {
     private readonly EntityService _ecs;
     private readonly IDiceSystem _dice;
-    // core systems only; no other domain systems injected
+    // core systems; lower-level domain systems are also permitted (see Dependency rules)
     ...
 }
 ```
@@ -62,7 +62,7 @@ The key constraint is the same in both cases: **the system never publishes event
 ## Anti-patterns
 
 - **System that publishes events.** Delete the bus injection; return a result.
-- **System that calls another domain system.** Insert a handler between them.
+- **Lateral/peer domain system call that couples sibling features.** Same-or-lower-level domain-on-domain calls are explicitly permitted (INV-1, `01-layers.md`). Prefer event-driven coordination instead when the callee's result needs to trigger downstream event chains that only a handler can properly publish — this is a design preference, not a blanket prohibition.
 - **System that inspects commands or sessions.** Those live in handlers, not systems.
 - **Static classes full of gameplay rules.** Those were the legacy shape. Convert to injectable classes.
 
