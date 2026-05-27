@@ -30,11 +30,30 @@ The codebase now has a working core melee loop. A player types `kill <mob>` to i
 | `docs/reference/commands.md` — `kill` and `flee` entries added | `docs/reference/commands.md` |
 | `docs/use-cases/combat.md` — status set to `implemented`; trimmed to durable spec | `docs/use-cases/combat.md` |
 
+**Validation fix additions (commit 3 — found during PR validation):**
+
+| Surface | Location |
+|---|---|
+| `EntityArchetype` — enum of 16 values (`Unknown`, `Player`, `Mob`, `Weapon`, `Armor`, `Potion`, `StaticItem`, `Consumable`, `Room`, `Area`, `World`, `Storage`, `Inventory`, `Portal`, `Trigger`, `Custom`) | `Core/ECS/EntityArchetype.cs` |
+| `ArchetypeDefinition` — declarative required/optional component lists for one archetype; `sealed class` with `Required` and `Optional` | `Core/ECS/ArchetypeDefinition.cs` |
+| `IArchetypeRegistry` — `RequiredComponents`, `OptionalComponents`, `Validate`, `Detect`, `MissingRequired` | `Core/ECS/IArchetypeRegistry.cs` |
+| `ArchetypeRegistry` — implements `IArchetypeRegistry`; `BuildDefinitions` (Mob, Player, Room, Area, StaticItem); `BuildDetectionOrder` (Mob→Player→Room→Area→StaticItem) | `Core/ECS/ArchetypeRegistry.cs` |
+| `MobBuilderSystem.CreateMob` — extended to attach `AttributesComponent` + `PoolsComponent`; previously absent, causing `SetCurrentHp` to silently discard damage on admin-built mobs | `Core/Modules/Mobs/Systems/MobBuilderSystem.cs` |
+| `CombatTickHandler` — extended with counterattack `else` branch: defender calls `ExecuteRound` back against attacker each tick; `PlayerIncapacitated` from the counterattack handled symmetrically | `Core/Modules/Combat/Handlers/CombatTickHandler.cs` |
+| `CombatHandler` — extended: injects `IStatSystem`; emits per-round HP status `[You: X/Y HP \| <mob>: X/Y HP]` to the player after every round (hit and miss) | `Core/Modules/Combat/Handlers/CombatHandler.cs` |
+| `CombatRoundResult` / `CombatRoundOutcome` — moved from `ICombatSystem.cs` (Systems namespace) to `Core/Modules/Combat/CombatRoundResult.cs` (Combat namespace) to remove the Events→Systems coupling | `Core/Modules/Combat/CombatRoundResult.cs` |
+| `WorldContentLoader.MigrateEntityComponentsAsync` — archetype-aware startup/reload migration; fills missing required components across all five registered archetypes; persists each modified entity; never removes extra components | `Core/Modules/World/Systems/WorldContentLoader.cs` |
+| `Program.cs` — `services.AddSingleton<IArchetypeRegistry, ArchetypeRegistry>()` registration added | `Server/Program.cs` |
+| `docs/reference/archetypes.md` — "not yet built" banner replaced with implementation-status note; table updated to show as-built required components for ✓ archetypes; planned-only rows marked | `docs/reference/archetypes.md` |
+| `docs/reference/systems.md` — `IArchetypeRegistry`/`ArchetypeRegistry` entry added; `WorldContentLoader` entry updated with new dependencies and `MigrateEntityComponentsAsync` | `docs/reference/systems.md` |
+| `docs/architecture/flows/flow-01-server-startup.md` — `MigrateEntityComponentsAsync` step added to mermaid and step 7 | `docs/architecture/flows/flow-01-server-startup.md` |
+| `docs/architecture/flows/flow-05-content-reload.md` — `MigrateEntityComponentsAsync` step added to mermaid and steps (new step 10; existing 10–12 renumbered to 11–13) | `docs/architecture/flows/flow-05-content-reload.md` |
+
 ## Spec-review provenance
 
 **Spec-mode gate:** Passed before implementation (use-case doc authored as part of the slice 9 planning batch and reviewed by `architecture-reviewer` in spec mode).
 
-**Code-mode gate:** Run before merge (see architecture-reviewer output). No blocking findings.
+**Code-mode gate:** Run twice — once before merge (no blocking findings) and once after validation fixes (commit 3) were applied (verdict: APPROVE WITH NITS; all nits resolved in the same commit batch).
 
 ## Notable design points
 

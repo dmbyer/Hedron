@@ -32,6 +32,7 @@ sequenceDiagram
         WCL->>WCL: LinkRoomExits (new entities only)
         WCL->>WCL: PlaceItemsInRooms (newlySpawned only)
         WCL->>WCL: PlaceMobsInRooms (newlySpawned only)
+        WCL->>WCL: MigrateEntityComponentsAsync (add missing required components; persist modified entities)
         WCL-->>RC: ContentReloadResult{ loaded, unchanged, removed }
         RC->>Session: confirmation (via IOutputWriter)
         RC->>Bus: Publish(ContentReloadedEvent)
@@ -50,9 +51,10 @@ sequenceDiagram
 7. `LinkRoomExits` populates `RoomComponent.Exits` for the newly spawned entities only — existing live rooms are not touched.
 8. `PlaceItemsInRooms` attaches `LocationComponent { RoomEntityId }` to newly-spawned item entities only. If a YAML `spawnRoomBlueprintId` changed for an existing live entity, a warning is logged — live entities are never mutated by reload.
 9. `PlaceMobsInRooms` applies the same pass for newly-spawned mob entities. Same constraint and warning behavior as items.
-10. `ReloadAsync` returns `ContentReloadResult { loaded, unchanged, removed }`.
-11. The command writes a confirmation `PlainMessage` via `CommandContext.Output` (`IOutputWriter`) and publishes `ContentReloadedEvent` (thin payload — the three counts).
-12. `AdminAuditHandler` (priority `HandlerPriority.Notification` = 80) writes one structured-log entry with stable event name `AdminCommandExecuted`.
+10. `MigrateEntityComponentsAsync` checks every loaded entity against `IArchetypeRegistry.MissingRequired` for its archetype and adds any absent required components via `Activator.CreateInstance`; calls `IPersistenceSystem.SaveEntityAsync` for each modified entity; never removes extra components. Logs each added component and a summary count.
+11. `ReloadAsync` returns `ContentReloadResult { loaded, unchanged, removed }`.
+12. The command writes a confirmation `PlainMessage` via `CommandContext.Output` (`IOutputWriter`) and publishes `ContentReloadedEvent` (thin payload — the three counts).
+13. `AdminAuditHandler` (priority `HandlerPriority.Notification` = 80) writes one structured-log entry with stable event name `AdminCommandExecuted`.
 
 **Constraint.** Live entities are never mutated by reload. To pick up edits to a live room's description or components, restart the host; or use `dig` for exit changes that should apply immediately.
 

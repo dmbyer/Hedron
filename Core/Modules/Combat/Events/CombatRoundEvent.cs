@@ -1,6 +1,5 @@
 using System;
 using Hedron.Core.Events;
-using Hedron.Core.Modules.Combat.Systems;
 
 namespace Hedron.Core.Modules.Combat.Events
 {
