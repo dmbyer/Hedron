@@ -30,6 +30,7 @@ using Hedron.Core.Modules.Movement.Systems;
 using Hedron.Core.Modules.Persistence;
 using Hedron.Core.Modules.Session.Events;
 using Hedron.Core.Modules.Session.Handlers;
+using Hedron.Core.Modules.Time;
 using Hedron.Core.Modules.World;
 using Hedron.Core.Modules.World.Events;
 using Hedron.Core.Output;
@@ -107,12 +108,14 @@ public static class Program
                 services.AddMobsModule();
                 services.AddAttributesModule();
                 services.AddEntityStateModule();
+                services.AddTimeModule();
 
                 // Hosted services — order matters.
                 services.AddHostedService<PersistenceBootstrap>();
                 services.AddHostedService<WorldContentBootstrap>();
                 services.AddHostedService<PersistenceFlushTimer>();
                 services.AddHostedService<TelnetServer>();
+                services.AddHostedService<HeartbeatBackgroundService>();
             })
             .Build();
 

@@ -344,3 +344,17 @@ public interface IEntityStateService
 }
 ```
 `TryEnterState` reads current `ActiveStates` (or `None` if the component is absent), evaluates the static transition-rule table, on success attaches or OR-assigns the flag, and returns `true`. On a blocked transition it returns `false` with a caller-displayable `failReason`. `ExitState` AND-NOT clears the flag and removes the component when `ActiveStates == None` — always a no-op when the entity has no component. `IsInState` delegates to `GetStates`. Callers (commands, handlers) publish `EntityStateChangedEvent` after mutating state; the service never calls `IEventBus` (INV-5). Implemented (Phase 3 slice 9-a).
+
+---
+
+## Background Services / Initiators
+
+Initiators drive the tick loop or startup; they are not "systems" in the domain-logic sense but are catalogued here because they publish events that domain handlers subscribe to.
+
+### HeartbeatBackgroundService (TimeModule)
+**Purpose:** Shared game clock. Fires a `PeriodicTimer` at `Heartbeat:IntervalMs` (default 2000 ms) and publishes `HeartbeatTickEvent { TickId, Timestamp, Elapsed }` on each tick. No game logic — downstream handlers (combat, mob AI, effect expiry) subscribe independently. The `TimeModule` (`Core/Modules/Time/TimeModule.cs`) is the Core-side anchor; the hosted-service registration lives in `Server/Program.cs`.
+**Location:** `Server/HeartbeatBackgroundService.cs` (service) · `Core/Modules/Time/Events/HeartbeatTickEvent.cs` (event) · `Core/Modules/Time/TimeModule.cs` (DI module)
+**Dependencies:** `IEventBus`, `IConfiguration`, `ILogger<HeartbeatBackgroundService>`.
+**Configuration:** `Heartbeat:IntervalMs` (Category 1 operational key, default 2000). `TickId` starts at 1; `TickId = 0` is an unambiguous "no tick has fired" sentinel.
+**Startup ordering:** Registered last in the hosted-service queue (after `TelnetServer`) so the first tick cannot land before the world is fully seeded. `PeriodicTimer` does not drift on handler overrun — if a tick's handlers exceed the interval, the next tick fires immediately after completion.
+Implemented (Phase 3 slice 9-b).

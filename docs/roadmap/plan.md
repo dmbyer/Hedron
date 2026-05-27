@@ -27,20 +27,20 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–9a done; **next: slices 9-b/9-c — time & stat systems**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–9b done; **next: slice 9-c — stat computation system**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slices 9-a / 9-b / 9-c — Combat prerequisites (parallel).** Slice 8a is complete. Before the core combat loop can land, three independent infrastructure slices must ship: entity state management (9-a), the heartbeat time system (9-b), and the stat computation system (9-c). All three can be designed and implemented in parallel; slice 9 (combat proper) is blocked on all three.
+**Phase 3 slice 9-c — Stat computation system.** Slices 9-a and 9-b are complete. The remaining combat prerequisite is the stat computation system (9-c), which provides the `IStatSystem` effective-stat pipeline consumed by the combat loop. Slice 9 (combat proper) is blocked until 9-c merges.
 
 | Sub-slice | Spec | Status |
 |---|---|---|
 | **9-a — Entity state management** | [`../use-cases/entity-state-management.md`](../use-cases/entity-state-management.md) | ✅ done |
-| **9-b — Time system (heartbeat)** | [`../use-cases/time-system.md`](../use-cases/time-system.md) | 🟢 planning |
-| **9-c — Stat computation system** | [`../use-cases/stat-system.md`](../use-cases/stat-system.md) | 🟢 planning |
+| **9-b — Time system (heartbeat)** | [`../use-cases/time-system.md`](../use-cases/time-system.md) | ✅ done |
+| **9-c — Stat computation system** | [`../use-cases/stat-system.md`](../use-cases/stat-system.md) | 🟢 next |
 | **9 — Combat** | [`../use-cases/combat.md`](../use-cases/combat.md) | 🟡 blocked on 9-a, 9-b, 9-c |
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
@@ -79,8 +79,9 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 8 | Mobs (basic entity model and spawn) | Populated world; no wandering | ✅ done |
 | 8a | Attributes and vitals (`AttributesComponent`, `PoolsComponent`, `score`) | HP + base stats required for combat | ✅ done |
 | 9-a | Entity state management | Centralized entity state flags; command gating; prereq for combat and future states (resting, incapacitation, …) | ✅ done |
-| 9-b | Time system (heartbeat) | `IHeartbeatService`, `HeartbeatTickEvent`; prereq for combat, mob AI, effect expiry | 🟢 next |
+| 9-b | Time system (heartbeat) | `IHeartbeatService`, `HeartbeatTickEvent`; prereq for combat, mob AI, effect expiry | ✅ done |
 | 9-c | Stat computation system | `IStatSystem` effective-stat pipeline; base + equipment bonus seam for future effects/buffs | 🟢 next |
+
 | 9 | Combat | Core gameplay loop | 🟡 blocked on 9-a, 9-b, 9-c |
 | 10 | Death and respawn | Combat is terminal until this exists | 🟡 blocked on 9 |
 | 11 | Skills | Character progression | 🟢 ready after 9 |
