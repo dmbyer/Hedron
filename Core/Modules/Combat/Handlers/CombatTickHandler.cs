@@ -97,6 +97,28 @@ namespace Hedron.Core.Modules.Combat.Handlers
                         CombatEndOutcome.PlayerIncapacitated, roomEntityId))
                         .ConfigureAwait(false);
                 }
+                else
+                {
+                    // Counterattack: the entity that was struck this round now strikes back.
+                    var counterResult = _combatSystem.ExecuteRound(defenderEntityId, attackerEntityId);
+
+                    await _eventBus.PublishAsync(new CombatRoundEvent(
+                        defenderEntityId, attackerEntityId, roomEntityId, counterResult))
+                        .ConfigureAwait(false);
+
+                    if (counterResult.Outcome == CombatRoundOutcome.PlayerIncapacitated)
+                    {
+                        _attributeSystem.SetCurrentHp(attackerEntityId, 1);
+                        _combatSystem.EndCombat(defenderEntityId, attackerEntityId);
+                        _entityStateService.ExitState(defenderEntityId, EntityStateFlags.InCombat);
+                        _entityStateService.ExitState(attackerEntityId, EntityStateFlags.InCombat);
+
+                        await _eventBus.PublishAsync(new CombatEndedEvent(
+                            defenderEntityId, attackerEntityId,
+                            CombatEndOutcome.PlayerIncapacitated, roomEntityId))
+                            .ConfigureAwait(false);
+                    }
+                }
             }
         }
     }

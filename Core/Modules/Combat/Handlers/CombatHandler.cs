@@ -3,6 +3,7 @@ using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Combat.Events;
+using Hedron.Core.Modules.Stats.Systems;
 using Hedron.Core.Output;
 using Hedron.Core.Systems;
 
@@ -20,13 +21,15 @@ namespace Hedron.Core.Modules.Combat.Handlers
     {
         private readonly EntityService _entityService;
         private readonly IBroadcastSystem _broadcast;
+        private readonly IStatSystem _statSystem;
 
         public int Priority => HandlerPriority.Domain;
 
-        public CombatHandler(EntityService entityService, IBroadcastSystem broadcast)
+        public CombatHandler(EntityService entityService, IBroadcastSystem broadcast, IStatSystem statSystem)
         {
             _entityService = entityService;
             _broadcast = broadcast;
+            _statSystem = statSystem;
         }
 
         public async Task HandleAsync(CombatStartedEvent @event)
@@ -50,10 +53,13 @@ namespace Hedron.Core.Modules.Combat.Handlers
         public async Task HandleAsync(CombatRoundEvent @event)
         {
             var result = @event.Result;
+            var isAttackerPlayer = _entityService.HasComponent<PlayerComponent>(@event.AttackerEntityId);
+            var playerEntityId = isAttackerPlayer ? @event.AttackerEntityId : @event.DefenderEntityId;
+            var mobEntityId = isAttackerPlayer ? @event.DefenderEntityId : @event.AttackerEntityId;
 
             if (!result.AttackerHit)
             {
-                var missText = GetCombatantLabel(@event.AttackerEntityId) == "player"
+                var missText = isAttackerPlayer
                     ? $"You miss {GetMobOrPlayerName(@event.DefenderEntityId)}."
                     : $"{GetMobOrPlayerName(@event.AttackerEntityId)} misses you.";
 
@@ -61,32 +67,35 @@ namespace Hedron.Core.Modules.Combat.Handlers
                     @event.RoomEntityId,
                     new PlainMessage(missText, OutputSeverity.System))
                     .ConfigureAwait(false);
-                return;
             }
-
-            var attackerName = GetMobOrPlayerName(@event.AttackerEntityId);
-            var defenderName = GetMobOrPlayerName(@event.DefenderEntityId);
-            var isAttackerPlayer = _entityService.HasComponent<PlayerComponent>(@event.AttackerEntityId);
-
-            // Personal hit message to attacker if player.
-            if (isAttackerPlayer)
+            else
             {
+                var attackerName = GetMobOrPlayerName(@event.AttackerEntityId);
+                var defenderName = GetMobOrPlayerName(@event.DefenderEntityId);
+
+                // Personal hit message to attacker if player.
+                if (isAttackerPlayer)
+                {
+                    await _broadcast.SendToRoomAsync(
+                        @event.RoomEntityId,
+                        new PlainMessage($"You hit {defenderName} for {result.DamageDealt} damage.", OutputSeverity.System),
+                        entityId => entityId == @event.AttackerEntityId)
+                        .ConfigureAwait(false);
+                }
+
+                // Observer message (and defender's perspective if they're a player).
+                var observerText = isAttackerPlayer
+                    ? $"{attackerName} hits {defenderName} for {result.DamageDealt} damage."
+                    : $"{attackerName} hits you for {result.DamageDealt} damage.";
+
                 await _broadcast.SendToRoomAsync(
                     @event.RoomEntityId,
-                    new PlainMessage($"You hit {defenderName} for {result.DamageDealt} damage.", OutputSeverity.System),
-                    entityId => entityId == @event.AttackerEntityId)
+                    new PlainMessage(observerText, OutputSeverity.System),
+                    entityId => entityId != @event.AttackerEntityId)
                     .ConfigureAwait(false);
             }
 
-            // Observer message (and defender's perspective if they're a player).
-            var observerText = isAttackerPlayer
-                ? $"{attackerName} hits {defenderName} for {result.DamageDealt} damage."
-                : $"{attackerName} hits you for {result.DamageDealt} damage.";
-
-            await _broadcast.SendToRoomAsync(
-                @event.RoomEntityId,
-                new PlainMessage(observerText, OutputSeverity.System),
-                entityId => entityId != @event.AttackerEntityId)
+            await SendHpStatusAsync(@event.RoomEntityId, playerEntityId, mobEntityId)
                 .ConfigureAwait(false);
         }
 
@@ -152,7 +161,19 @@ namespace Hedron.Core.Modules.Combat.Handlers
             return "something";
         }
 
-        private string GetCombatantLabel(uint entityId) =>
-            _entityService.HasComponent<PlayerComponent>(entityId) ? "player" : "mob";
+        private async Task SendHpStatusAsync(uint roomEntityId, uint playerEntityId, uint mobEntityId)
+        {
+            var playerCurrent = _statSystem.GetCurrentHp(playerEntityId);
+            var playerMax = _statSystem.GetMaxHp(playerEntityId);
+            var mobCurrent = _statSystem.GetCurrentHp(mobEntityId);
+            var mobMax = _statSystem.GetMaxHp(mobEntityId);
+            var mobName = GetMobName(mobEntityId);
+
+            await _broadcast.SendToRoomAsync(
+                roomEntityId,
+                new PlainMessage($"[You: {playerCurrent}/{playerMax} HP | {mobName}: {mobCurrent}/{mobMax} HP]", OutputSeverity.System),
+                entityId => entityId == playerEntityId)
+                .ConfigureAwait(false);
+        }
     }
 }

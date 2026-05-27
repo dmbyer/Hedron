@@ -63,6 +63,7 @@ public static class Program
                 var world = new EntityService();
                 EcsManager.SetWorld(world);
                 services.AddSingleton(world);
+                services.AddSingleton<IArchetypeRegistry, ArchetypeRegistry>();
 
                 services.AddSingleton<IEventBus, EventBus>();
                 services.AddSingleton<ICommandDispatcher, CommandDispatcher>();
