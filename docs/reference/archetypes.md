@@ -1,6 +1,6 @@
 # Archetypes Reference
 
-> **Target catalog — the archetype system is not yet built.** `EntityArchetype`, `ArchetypeRegistry`, and `ArchetypeDefinition` are marked *(target)* in [`../architecture/00-overview.md`](../architecture/00-overview.md); no archetype validation/detection ships today, and most components referenced below live in [`components-planned.md`](components-planned.md). This file is the **intended** composition catalog — design intent, not a description of running code. Re-audit against reality as gameplay slices land (tracked in [`../roadmap/backlog.md`](../roadmap/backlog.md)). Why implemented and planned are separated: [`../documentation-architecture.md`](../documentation-architecture.md).
+> **Implementation status.** `EntityArchetype`, `IArchetypeRegistry`, `ArchetypeRegistry`, and `ArchetypeDefinition` are **implemented** (Phase 3 slice 9). The registry currently covers five archetypes (Mob, Player, Room, Area, StaticItem); the remaining rows in the table below are the intended target composition. Re-audit and add registry definitions as slices land (tracked in [`../roadmap/backlog.md`](../roadmap/backlog.md)). Why implemented and planned are separated: [`../documentation-architecture.md`](../documentation-architecture.md).
 
 Catalog of every intended entity archetype. **Update this file whenever an archetype is added, removed, or its required/optional components change.**
 
@@ -14,25 +14,28 @@ Source of truth (target): `Core/ECS/EntityArchetype.cs` (enum), `Core/ECS/Archet
 
 | Archetype | Purpose | Required components | Optional components |
 |---|---|---|---|
-| `Player` | PC-controlled living entity | Identity, Transform, PersistentEffects, TransientEffects, Attributes, Pools, Currency, Skills, Qualities, Inventory, Equipment, PlayerData, PlayerConfiguration | — |
-| `Mob` | NPC living entity | Identity, Transform, PersistentEffects, TransientEffects, Attributes, Pools, Currency, Skills, Qualities, Inventory, Equipment, MobData | Faction*, Dialogue*, BehaviorTree* |
-| `Weapon` | Equippable damage-dealing item | Identity, Transform, ItemData, WeaponData | PersistentEffects* |
-| `Armor` | Equippable defensive item | Identity, Transform, ItemData | PersistentEffects* |
-| `Potion` | Consumable with pool restoration / effects | Identity, Transform, ItemData, PotionData | — |
-| `StaticItem` | Furniture, decoration, non-interactable | Identity, Transform, ItemData | — |
-| `Consumable` | Generic consumable (non-potion) | Identity, Transform, ItemData | — |
-| `Room` | Traversable location inside an area | Identity, Transform, ContainerData, RoomData, Inventory | PersistentEffects* |
-| `Area` | Collection of rooms | Identity, Transform, ContainerData, AreaData | — |
-| `World` | Top-level world container | Identity, Transform, ContainerData | — |
-| `Storage` | Chest, corpse, persistent container | Identity, Transform, ContainerData | — |
-| `Inventory` | Internal carried-container marker | Identity, Transform, ContainerData | — |
-| `Portal` | Non-standard exit between rooms | Identity, Transform | — |
-| `Trigger` | World-interaction hook entity | Identity, Transform | — |
+| `Player` ✓ | PC-controlled living entity | `CharacterComponent`, `AttributesComponent`, `PoolsComponent`, `InventoryComponent`, `EquipmentComponent` | — |
+| `Mob` ✓ | NPC living entity | `MobDataComponent`, `AttributesComponent`, `PoolsComponent` | `InventoryComponent`*, `EquipmentComponent`* |
+| `Weapon` | Equippable damage-dealing item | `ItemDataComponent`, `WeaponDataComponent`† | `PersistentEffectsComponent`†* |
+| `Armor` | Equippable defensive item | `ItemDataComponent`, `ArmorDataComponent`† | `PersistentEffectsComponent`†* |
+| `Potion` | Consumable with pool restoration / effects | `ItemDataComponent`, `PotionDataComponent`† | — |
+| `StaticItem` ✓ | Furniture, decoration, non-interactable | `ItemDataComponent` | — |
+| `Consumable` | Generic consumable (non-potion) | `ItemDataComponent` | — |
+| `Room` ✓ | Traversable location inside an area | `RoomComponent` | — |
+| `Area` ✓ | Collection of rooms | `AreaComponent` | — |
+| `World` | Top-level world container | *(not yet in registry)* | — |
+| `Storage` | Chest, corpse, persistent container | *(not yet in registry)* | — |
+| `Inventory` | Internal carried-container marker | *(not yet in registry)* | — |
+| `Portal` | Non-standard exit between rooms | *(not yet in registry)* | — |
+| `Trigger` | World-interaction hook entity | *(not yet in registry)* | — |
 | `Custom` | Escape hatch — no archetype contract | — | — |
 
-> **Slices 8/8a partial implementation — Mob:** Required components delivered so far: `MobDataComponent` + `LocationComponent` + `AttributesComponent` + `PoolsComponent`; `BlueprintComponent` and `PersistentEntity` present on all template-spawned instances. Player entities also carry `AttributesComponent` and `PoolsComponent` from slice 8a. Archetype registry not yet built (target-state); `InventoryComponent`/`EquipmentComponent` on mobs and the combat-specific components will be added in the combat slice.
+✓ Wired in `ArchetypeRegistry.BuildDefinitions()` — required components reflect the as-built implementation.
+Rows without ✓ are target compositions; add a `BuildDefinitions` entry and update this table as slices land.
+† Component not yet implemented; see [`components-planned.md`](components-planned.md).
+\* Optional — may be added after construction.
 
-\* Optional components, asterisked. Note: most **required** components listed above are also not yet built — see [`components-planned.md`](components-planned.md) and the target-catalog banner at the top of this file.
+> **Note on structural components.** `LocationComponent`, `BlueprintComponent`, and `PersistentEntity` are construction/persistence markers present on most template-spawned entities; they are not listed as archetype required components because they are cross-cutting infrastructure, not archetype identity. Mob `InventoryComponent`/`EquipmentComponent` are optional in the registry and planned for mob construction in a future slice (tracked in backlog).
 
 ---
 
@@ -69,7 +72,7 @@ Use the `add-archetype` skill — see `.claude/skills/add-archetype/SKILL.md`. S
 2. Register a new `ArchetypeDefinition` in `ArchetypeRegistry` with explicit required/optional component types.
 3. Update detection order in `ArchetypeRegistry` if the required set overlaps with an existing archetype.
 4. Update this catalog (add a row above, including any `*`-marked new components).
-5. Write a validation test: construct an entity → `Validate(entityId, EntityArchetype.X)` → true; remove a required component → false.
+5. Validate by constructing an entity and calling `Validate(entityId, EntityArchetype.X)` → true; remove a required component → false. (No automated test framework yet — see [`../roadmap/backlog.md`](../roadmap/backlog.md); manual verification in a running server is the current substitute.)
 
 Invariants to preserve:
 - The archetype definition is declarative. Construction code lives in the feature that needs it (`TemplateRegistry`, `ItemGeneratorSystem`, `PlayerCreationSystem`), not in the registry.

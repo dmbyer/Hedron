@@ -37,6 +37,8 @@ namespace Hedron.Core.Modules.Mobs.Systems
             _entityService.AddComponent(entity.Id, new BlueprintComponent { BlueprintId = blueprintId });
             _entityService.AddComponent(entity.Id, new PersistentEntity());
             _entityService.AddComponent(entity.Id, new LocationComponent { RoomEntityId = roomEntityId });
+            _entityService.AddComponent(entity.Id, new AttributesComponent());
+            _entityService.AddComponent(entity.Id, new PoolsComponent());
 
             var template = new MobTemplate(blueprintId)
             {

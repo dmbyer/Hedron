@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Account.Components;
 using Hedron.Core.Modules.Items.Templates;
 using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.World.Templates;
@@ -40,6 +41,7 @@ namespace Hedron.Core.Modules.World.Systems
         private readonly IContentSerializer _serializer;
         private readonly IPersistenceSystem _persistence;
         private readonly IRoomContentWriter _roomContentWriter;
+        private readonly IArchetypeRegistry _archetypeRegistry;
         private readonly Hedron.Core.WorldConfiguration _worldConfig;
         private readonly ILogger<WorldContentLoader> _logger;
         private readonly string _contentDirectory;
@@ -51,6 +53,7 @@ namespace Hedron.Core.Modules.World.Systems
             IContentSerializer serializer,
             IPersistenceSystem persistence,
             IRoomContentWriter roomContentWriter,
+            IArchetypeRegistry archetypeRegistry,
             Hedron.Core.WorldConfiguration worldConfig,
             IConfiguration configuration,
             ILogger<WorldContentLoader> logger)
@@ -60,6 +63,7 @@ namespace Hedron.Core.Modules.World.Systems
             _serializer = serializer;
             _persistence = persistence;
             _roomContentWriter = roomContentWriter;
+            _archetypeRegistry = archetypeRegistry;
             _worldConfig = worldConfig;
             _logger = logger;
             _contentDirectory = configuration["World:ContentDirectory"] ?? "data/content/";
@@ -111,6 +115,7 @@ namespace Hedron.Core.Modules.World.Systems
                 LinkRoomExits(liveBlueprints);
                 PlaceItemsInRooms(liveBlueprints, newlySpawned);
                 PlaceMobsInRooms(liveBlueprints, newlySpawned);
+                await MigrateEntityComponentsAsync(ct).ConfigureAwait(false);
             }
 
             ResolveStartingRoom();
@@ -146,6 +151,7 @@ namespace Hedron.Core.Modules.World.Systems
             LinkRoomExits(liveBlueprints);
             PlaceItemsInRooms(liveBlueprints, newlySpawned);
             PlaceMobsInRooms(liveBlueprints, newlySpawned);
+            await MigrateEntityComponentsAsync(ct).ConfigureAwait(false);
 
             WarnOrphanedBlueprintEntities();
 
@@ -233,6 +239,69 @@ namespace Hedron.Core.Modules.World.Systems
             _logger.LogInformation(
                 "WorldContentLoader: void room entity exists but has no YAML — writing recovery file.");
             await _roomContentWriter.WriteAsync(voidTemplate, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Checks every loaded entity against its detected archetype's required component set
+        /// (via <see cref="IArchetypeRegistry"/>) and fills in any missing components using
+        /// their default parameterless constructor. Extra components that are present but not
+        /// in the archetype definition are left untouched to avoid data loss or removing
+        /// runtime-attached optional effects. Entities that receive new components are
+        /// immediately persisted so the fix is durable across restarts.
+        /// </summary>
+        private async Task MigrateEntityComponentsAsync(CancellationToken ct)
+        {
+            var modified = new HashSet<uint>();
+
+            // Iterate by archetype marker component so we don't need GetAllEntities().
+            // Each set below maps a well-known marker component to the archetype it implies.
+            // The order is irrelevant — the registry handles definition lookup.
+            MigrateArchetype<MobDataComponent>(EntityArchetype.Mob, modified);
+            MigrateArchetype<CharacterComponent>(EntityArchetype.Player, modified);
+            MigrateArchetype<RoomComponent>(EntityArchetype.Room, modified);
+            MigrateArchetype<AreaComponent>(EntityArchetype.Area, modified);
+            MigrateArchetype<ItemDataComponent>(EntityArchetype.StaticItem, modified);
+
+            foreach (var id in modified)
+            {
+                ct.ThrowIfCancellationRequested();
+                await _persistence.SaveEntityAsync(id, ct).ConfigureAwait(false);
+            }
+
+            if (modified.Count > 0)
+                _logger.LogInformation(
+                    "WorldContentLoader: component migration complete — {Count} entity/entities updated.",
+                    modified.Count);
+        }
+
+        private void MigrateArchetype<TMarker>(EntityArchetype archetype, HashSet<uint> modified)
+            where TMarker : class, IComponent
+        {
+            var missing = _archetypeRegistry.RequiredComponents(archetype);
+            if (missing.Count == 0)
+                return;
+
+            foreach (var (entityId, _) in _entityService.GetAllComponents<TMarker>())
+            {
+                foreach (var componentType in _archetypeRegistry.MissingRequired(entityId, archetype))
+                {
+                    try
+                    {
+                        var instance = (IComponent)Activator.CreateInstance(componentType)!;
+                        _entityService.AddComponent(entityId, componentType, instance);
+                        modified.Add(entityId);
+                        _logger.LogInformation(
+                            "WorldContentLoader: entity {EntityId} ({Archetype}) — added missing {Component}.",
+                            entityId, archetype, componentType.Name);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex,
+                            "WorldContentLoader: entity {EntityId} ({Archetype}) — could not create default {Component}; skipping.",
+                            entityId, archetype, componentType.Name);
+                    }
+                }
+            }
         }
 
         /// <summary>

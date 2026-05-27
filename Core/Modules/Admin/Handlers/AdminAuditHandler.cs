@@ -4,6 +4,7 @@ using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Attributes.Events;
+using Hedron.Core.Modules.Combat.Events;
 using Hedron.Core.Modules.Items.Events;
 using Hedron.Core.Modules.Mobs.Events;
 using Hedron.Core.Modules.World.Events;
@@ -32,7 +33,8 @@ namespace Hedron.Core.Modules.Admin.Handlers
         IEventHandler<ItemPropertySetByAdminEvent>,
         IEventHandler<MobCreatedByAdminEvent>,
         IEventHandler<MobPropertySetByAdminEvent>,
-        IEventHandler<PlayerAttributeSetByAdminEvent>
+        IEventHandler<PlayerAttributeSetByAdminEvent>,
+        IEventHandler<CombatEndedEvent>
     {
         private readonly EntityService _entityService;
         private readonly ILogger<AdminAuditHandler> _logger;
@@ -130,6 +132,14 @@ namespace Hedron.Core.Modules.Admin.Handlers
             _logger.LogInformation(
                 "AdminCommandExecuted: admin={Admin} command=setplayer player={PlayerEntityId} property={PropertyName} value={NewValue}",
                 ResolveName(e.AdminEntityId), e.PlayerEntityId, e.PropertyName, e.NewValue);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(CombatEndedEvent e)
+        {
+            _logger.LogInformation(
+                "CombatEnded: attacker={AttackerEntityId} defender={DefenderEntityId} outcome={Outcome}",
+                e.AttackerEntityId, e.DefenderEntityId, e.Outcome);
             return Task.CompletedTask;
         }
 

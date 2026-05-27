@@ -51,8 +51,29 @@ Ask:
 **Location:** `Core/Modules/Items/Handlers/EquipmentInteractionHandler.cs`
 **Uses:** `EntityService`, `IBroadcastSystem`
 
+### CombatTickHandler
+**Events:** `HeartbeatTickEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** Bridge between the time system and the combat domain. On each tick: snapshots all entities with `CombatStateComponent`, deduplicates pairs (lower entity id = attacker, prevents double-processing), calls `ICombatSystem.ExecuteRound` for each pair, publishes `CombatRoundEvent`. Handles terminal outcomes inline before publishing: for `MobDied` — captures mob name from `MobDataComponent.Name`, calls `ICombatSystem.EndCombat`, publishes `CombatEndedEvent(MobDied)`; for `PlayerIncapacitated` — clamps player HP to 1, calls `ICombatSystem.EndCombat` + `IEntityStateService.ExitState(InCombat)` on both entities, publishes `CombatEndedEvent(PlayerIncapacitated)`.
+**Location:** `Core/Modules/Combat/Handlers/CombatTickHandler.cs`
+**Uses:** `EntityService`, `ICombatSystem`, `IEntityStateService`, `IAttributeSystem`, `IEventBus`, `ILogger<CombatTickHandler>`
+
+### CombatHandler
+**Events:** `CombatStartedEvent`, `CombatRoundEvent`, `CombatEndedEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** Pure output fan-out for all combat events. Does not call systems or mutate state. On `CombatStartedEvent`: writes "You attack \<mob\>!" to attacker; broadcasts "\<PlayerName\> attacks \<mob\>!" to other room occupants. On `CombatRoundEvent`: broadcasts hit/miss/damage narrative (first/third-person) to room. On `CombatEndedEvent(MobDied)`: broadcasts "You have slain \<mob\>!" / "\<player\> has slain \<mob\>!" using `DefenderName` from payload (captured before destruction). On `CombatEndedEvent(PlayerFled)`: writes "You flee from combat!" to player; broadcasts "\<PlayerName\> flees from combat!" to room. On `CombatEndedEvent(PlayerIncapacitated)`: writes "You have been beaten unconscious!" to player; broadcasts to room. Priority 20 ensures output runs before `CombatMobDeathHandler` (priority 80) destroys the entity.
+**Location:** `Core/Modules/Combat/Handlers/CombatHandler.cs`
+**Uses:** `EntityService`, `IBroadcastSystem`
+
+### CombatMobDeathHandler
+**Events:** `CombatEndedEvent` (acts only when `Outcome == MobDied`)
+**Priority:** 80 (`HandlerPriority.Notification`)
+**Responsibilities:** Finalizes the mob death path. Priority 80 — deliberately lower than `CombatHandler` (priority 20) so the death narrative is broadcast before entity destruction. Calls `IEntityStateService.ExitState(attackerEntityId, InCombat)`, removes `BlueprintComponent` from the mob entity (INV-21: frees the blueprint slot so `WorldContentLoader` re-seeds on next startup/reload), then calls `EntityService.DestroyEntity(mobEntityId)`. Does not publish events. Loot drop deferred to slice 10.
+**Location:** `Core/Modules/Combat/Handlers/CombatMobDeathHandler.cs`
+**Uses:** `EntityService`, `IEntityStateService`
+
 ### AdminAuditHandler
-**Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a); `ItemCreatedByAdminEvent`, `ItemPropertySetByAdminEvent` (Phase 3 slice 6); `MobCreatedByAdminEvent`, `MobPropertySetByAdminEvent` (Phase 3 slice 8); `PlayerAttributeSetByAdminEvent` (Phase 3 slice 8a).
+**Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a); `ItemCreatedByAdminEvent`, `ItemPropertySetByAdminEvent` (Phase 3 slice 6); `MobCreatedByAdminEvent`, `MobPropertySetByAdminEvent` (Phase 3 slice 8); `PlayerAttributeSetByAdminEvent` (Phase 3 slice 8a); `CombatEndedEvent` (Phase 3 slice 9).
 **Priority:** 80 (`HandlerPriority.Notification`)
 **Responsibilities:** writes one structured-log entry per admin action via `ILogger<AdminAuditHandler>`. Uses a stable structured event name (`AdminCommandExecuted`) so log scrapers can filter without parsing free text. No dedicated audit-file sink in this slice.
 **Location:** `Core/Modules/Admin/Handlers/AdminAuditHandler.cs`

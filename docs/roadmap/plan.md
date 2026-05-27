@@ -27,21 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–9c done; **next: slice 9 — combat**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–9 done; **next: slice 10 — death and respawn**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 9 — Combat.** All three prerequisites are complete: entity state management (9-a), time system / heartbeat (9-b), and stat computation system (9-c). The combat slice implements the core melee loop — `kill <mob>`, heartbeat-driven combat rounds via `CombatTickHandler`, `flee`, mob death path, and player incapacitation stub. See [`../use-cases/combat.md`](../use-cases/combat.md) for the full spec.
-
-| Sub-slice | Spec | Status |
-|---|---|---|
-| **9-a — Entity state management** | [`../use-cases/entity-state-management.md`](../use-cases/entity-state-management.md) | ✅ done |
-| **9-b — Time system (heartbeat)** | [`../use-cases/time-system.md`](../use-cases/time-system.md) | ✅ done |
-| **9-c — Stat computation system** | [`../use-cases/stat-system.md`](../use-cases/stat-system.md) | ✅ done |
-| **9 — Combat** | [`../use-cases/combat.md`](../use-cases/combat.md) | 🟢 next |
+**Phase 3 slice 10 — Death and respawn.** Combat is now fully implemented (slice 9). Slice 10 adds the full player death path: `CombatEndedEvent(PlayerIncapacitated)` subscriber, death penalty, corpse entity, respawn flow, and player restoration mechanics. `CombatEndedEvent(PlayerIncapacitated)` is already shaped and published by slice 9's `CombatTickHandler`; slice 10 only needs to subscribe. See [`../use-cases/`](../use-cases/) for the spec.
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -82,8 +75,8 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 9-b | Time system (heartbeat) | `IHeartbeatService`, `HeartbeatTickEvent`; prereq for combat, mob AI, effect expiry | ✅ done |
 | 9-c | Stat computation system | `IStatSystem` effective-stat pipeline; base + equipment bonus seam for future effects/buffs | ✅ done |
 
-| 9 | Combat | Core gameplay loop | 🟢 next |
-| 10 | Death and respawn | Combat is terminal until this exists | 🟡 blocked on 9 |
+| 9 | Combat | Core gameplay loop | ✅ done |
+| 10 | Death and respawn | Combat is terminal until this exists | 🟢 next |
 | 11 | Skills | Character progression | 🟢 ready after 9 |
 | 12 | Shopping | Economy | 🟢 ready after 6 |
 | 13 | Crafting, potions | Content depth | 🟢 ready after 6 |

@@ -141,6 +141,22 @@ public interface ITemplateDeserializer
 ```
 Persistence (slice 1) keeps `System.Text.Json` on a separate code path — content authoring (designer-write) and runtime persistence (machine round-trip) coexist by design and do not share serializer code. The World module registers `RoomTemplateDeserializer` and `AreaTemplateDeserializer`; future content modules register their own kinds the same way. Implemented (Phase 3 slice 2).
 
+### ArchetypeRegistry
+**Purpose:** Validation and detection gateway for entity archetypes. Defines the required/optional component composition for each `EntityArchetype`, validates that an entity carries all required components (`Validate`), infers the best-matching archetype by inspecting an entity's component set (`Detect`), and yields which required components are absent (`MissingRequired`). Never used for entity construction.
+**Location:** `Core/ECS/ArchetypeRegistry.cs` (implementation) · `Core/ECS/IArchetypeRegistry.cs` (interface) · `Core/ECS/ArchetypeDefinition.cs` (definition shape) · `Core/ECS/EntityArchetype.cs` (enum)
+**Dependencies:** `EntityService`.
+```csharp
+public interface IArchetypeRegistry
+{
+    IReadOnlyList<Type> RequiredComponents(EntityArchetype archetype);
+    IReadOnlyList<Type> OptionalComponents(EntityArchetype archetype);
+    bool Validate(uint entityId, EntityArchetype expected);
+    EntityArchetype Detect(uint entityId);
+    IEnumerable<Type> MissingRequired(uint entityId, EntityArchetype archetype);
+}
+```
+Detection order (most-specific → least-specific): `Mob` → `Player` → `Room` → `Area` → `StaticItem`. `Detect` returns `EntityArchetype.Custom` when no standard archetype matches. `MissingRequired` is consumed by `WorldContentLoader.MigrateEntityComponentsAsync` at startup/reload to repair entities missing required components — adding missing components without ever removing extras (data-safety guarantee). Registered as a singleton in `Server/Program.cs`. Implemented (Phase 3 slice 9).
+
 ### PasswordHasher
 **Purpose:** PBKDF2-SHA256 password hashing and verification with no external NuGet dependency.
 **Location:** `Core/Systems/PasswordHasher.cs`
@@ -161,7 +177,7 @@ public interface IPasswordHasher
 ### WorldContentLoader
 **Purpose:** Scans the configured content directory, registers authored YAML templates with `ITemplateRegistry`, and seeds room/area entities for blueprints not already represented by a hydrated entity. Wraps `LoadAndSpawnAsync` in a hosted-service shell (`Server/WorldContentBootstrap`) to enforce startup ordering after `PersistenceBootstrap`.
 **Location:** `Core/Modules/World/Systems/WorldContentLoader.cs`
-**Dependencies:** `EntityService`, `ITemplateRegistry`, `IContentSerializer`, `WorldConfiguration`, `IConfiguration`, `ILogger`.
+**Dependencies:** `EntityService`, `ITemplateRegistry`, `IContentSerializer`, `IArchetypeRegistry`, `IPersistenceSystem`, `WorldConfiguration`, `IConfiguration`, `ILogger`.
 ```csharp
 public interface IWorldContentLoader
 {
@@ -172,7 +188,7 @@ public interface IWorldContentLoader
 public readonly record struct ContentReloadResult(
     int TemplatesLoaded, int TemplatesUnchanged, int TemplatesRemoved);
 ```
-Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Every entity spawned from YAML content receives a `PersistentEntity` component so it survives restart. Extended in slice 8 to load `kind: mob` files from `mobs/` subdirectory and call `PlaceMobsInRooms` (mirrors `PlaceItemsInRooms`). Implemented (Phase 3 slices 2, persistence-two-level-model, 8).
+Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Every entity spawned from YAML content receives a `PersistentEntity` component so it survives restart. Extended in slice 8 to load `kind: mob` files from `mobs/` subdirectory and call `PlaceMobsInRooms` (mirrors `PlaceItemsInRooms`). Extended in slice 9 (validation): both `LoadAndSpawnAsync` and `ReloadAsync` now call `MigrateEntityComponentsAsync` after placement — this pass iterates all loaded entities by archetype marker, calls `IArchetypeRegistry.MissingRequired`, adds any absent required components via `Activator.CreateInstance`, and calls `IPersistenceSystem.SaveEntityAsync` for each modified entity. Never removes extra components. Implemented (Phase 3 slices 2, persistence-two-level-model, 8, 9).
 
 ### AccountSystem
 **Purpose:** Domain system owning all account and character lifecycle operations: registration, authentication, character creation, character list, and logout recording.
@@ -367,6 +383,30 @@ public interface IStatSystem
 }
 ```
 `GetEffectiveAttackPower` reads `EquipmentComponent.Slots[WornSlot.MainHand]` via `EntityService.TryGet<EquipmentComponent>` (direct dictionary lookup, not a list scan) then reads `ItemDataComponent.DamageBonus` on the equipped item — no `is`/`as` casts (INV-4). `GetEffectiveDefense` returns `dexterity / 4`; armor-slot contribution is acknowledged future debt. Registered in `StatsModule` (`Core/Modules/Stats/StatsModule.cs`) as a singleton. Implemented (Phase 3 slice 9-c).
+
+### CombatSystem
+**Purpose:** Domain system for combat resolution. Handles target lookup, combat state attachment/removal, and round resolution. Pure: no events, no persistence (INV-5, INV-8). Computes attack resolution via `IStatSystem`; mutates HP via `IAttributeSystem.SetCurrentHp`; returns structured `CombatRoundResult` to callers.
+**Location:** `Core/Modules/Combat/Systems/CombatSystem.cs`
+**Dependencies:** `EntityService`, `IStatSystem`, `IAttributeSystem`.
+```csharp
+public interface ICombatSystem
+{
+    bool TryFindTargetInRoom(uint roomEntityId, string token, out uint mobEntityId);
+    void StartCombat(uint attackerEntityId, uint defenderEntityId);
+    void EndCombat(uint attackerEntityId, uint defenderEntityId);
+    CombatRoundResult ExecuteRound(uint attackerEntityId, uint defenderEntityId);
+}
+
+public readonly record struct CombatRoundResult(
+    uint AttackerEntityId,
+    uint DefenderEntityId,
+    int DamageDealt,
+    bool AttackerHit,
+    CombatRoundOutcome Outcome);
+
+public enum CombatRoundOutcome { Hit, Miss, MobDied, PlayerIncapacitated }
+```
+`TryFindTargetInRoom` prefix-matches `token` against `MobDataComponent.Name` and `Keywords` for entities with `MobDataComponent` in the given room. `StartCombat`/`EndCombat` add/remove `CombatStateComponent` on both participants — does not call `IEntityStateService` (cohesion separation; commands and handlers coordinate both layers). `ExecuteRound` formula: hit check `roll = Random.Shared.Next(1,21) + dex/2 >= 10 + defense`; damage `Random.Shared.Next(1, attackPower+2)` applied via `IAttributeSystem.SetCurrentHp`; outcome `MobDied` if defender has `MobDataComponent` and HP == 0, `PlayerIncapacitated` if defender has `CharacterComponent` and HP == 0. Implemented (Phase 3 slice 9).
 
 ---
 
