@@ -25,6 +25,7 @@
 | 13 | [`wear <item>`](#flow-13--wear-item) | Player sends `wear <item>` | Phase 3 slice 7 |
 | 14 | [`remove <item>`](#flow-14--remove-item) | Player sends `remove <item>` | Phase 3 slice 7 |
 | 15 | [Admin mob creation (`mkmob`)](#flow-15--admin-mob-creation-mkmob) | Privileged session sends `mkmob [name]` | Phase 3 slice 8 |
+| 16 | [Heartbeat tick](#flow-16--heartbeat-tick) | `PeriodicTimer` fires in `HeartbeatBackgroundService` | Phase 3 slice 9-b |
 
 Flows that don't yet exist (combat round, player death, mob wander tick, etc.) get added by the slice that introduces them.
 
@@ -49,6 +50,7 @@ sequenceDiagram
     participant Reg as TemplateRegistry
     participant FT as PersistenceFlushTimer
     participant TS as TelnetServer
+    participant HBS as HeartbeatBackgroundService
 
     Process->>Program: Main(args)
     Program->>Host: ConfigureServices (DI registration)
@@ -79,12 +81,13 @@ sequenceDiagram
     Bus->>Bus: CharacterHydrationHandler (validate character locations; migration guards for attributes)
     Host->>FT: StartAsync (timer armed)
     Host->>TS: StartAsync (listener opens)
+    Host->>HBS: StartAsync (heartbeat armed)
 ```
 
 **Steps.**
 
 1. `Program.Main` builds the generic host and registers DI singletons (`EntityService`, `IEventBus`, `ICommandDispatcher`, `ISessionManager`, broadcast, movement, world config) plus the persistence, world, and admin modules.
-2. Hosted services are queued in this order: `PersistenceBootstrap`, `WorldContentBootstrap`, `PersistenceFlushTimer`, `TelnetServer`. The .NET host runs each `StartAsync` to completion before the next one starts.
+2. Hosted services are queued in this order: `PersistenceBootstrap`, `WorldContentBootstrap`, `PersistenceFlushTimer`, `TelnetServer`, `HeartbeatBackgroundService`. The .NET host runs each `StartAsync` to completion before the next one starts.
 3. Handler subscriptions to `IEventBus` are wired *after* `Build` and *before* `RunAsync` ([`Server/Program.cs`](../../../Server/Program.cs)).
 4. `PersistenceBootstrap.StartAsync` calls `PersistenceSystem.LoadAllAsync`, which scans `Persistence:DataDirectory` for `entity-*.json` files and silently re-attaches every component on each entity (no events fired during hydration). It returns the restored entity ids.
 5. For each restored id, `PersistenceBootstrap` publishes `EntityHydratedEvent`. **Constraint:** handlers must not query other entities at this point — the world is partially loaded.
@@ -92,7 +95,8 @@ sequenceDiagram
 7. `WorldContentBootstrap.StartAsync` calls `WorldContentLoader.LoadAndSpawnAsync`. This: (a) reads YAML files under `World:ContentDirectory` for kinds `area`, `room`, `item`, and `mob` and registers them with `TemplateRegistry` via per-kind `ITemplateDeserializer`s (`AreaTemplateDeserializer`, `RoomTemplateDeserializer`, `ItemTemplateDeserializer`, `MobTemplateDeserializer`); (b) builds a live blueprint→entity map from existing `BlueprintComponent`s; (c) spawns any template that has no live counterpart, adds `PersistentEntity` to each, and returns the set of newly-spawned entity IDs; (d) **immediately calls `SaveEntityAsync` for every newly-spawned entity** — this makes entity IDs durable regardless of whether the server shuts down gracefully; without this step, room entity IDs would change on each restart and items' `LocationComponent.RoomEntityId` references would go stale; (e) populates `RoomComponent.Exits` by resolving each room template's blueprint-id exits to live entity ids; (f) attaches `LocationComponent { RoomEntityId }` to **newly-spawned item entities only** (those in the `newlySpawned` set) via `PlaceItemsInRooms`, resolving `ItemTemplate.SpawnRoomBlueprintId` to a live entity id — entities restored from persistence keep their saved `LocationComponent` (room or inventory slot) unchanged; if the spawn room is missing a warning is logged and the item is created without a location; (g) attaches `LocationComponent { RoomEntityId }` to **newly-spawned mob entities only** via `PlaceMobsInRooms`, resolving `MobTemplate.SpawnRoomBlueprintId` — same rules as items; if the spawn room changed in YAML but the live entity already exists, a warning is logged and a restart is required to move it; (h) sets `WorldConfiguration.StartingRoomEntityId` from `World:StartingRoomBlueprintId`. If the content directory is missing or empty, a single hardcoded `room.void` is seeded (also gets `PersistentEntity` and is saved immediately) and a warning is logged. After `LoadAndSpawnAsync` completes, `WorldContentBootstrap` publishes `WorldContentReadyEvent`. `CharacterHydrationHandler` (priority `HandlerPriority.Domain`) validates every hydrated character entity's `LocationComponent.RoomEntityId` at this point, resetting stale references to `StartingRoomEntityId`. Also attaches empty-default `AttributesComponent` and `PoolsComponent` to any character that lacks them (migration guards for entities persisted before slice 8a — extended in slice 8a).
 8. `PersistenceFlushTimer.StartAsync` arms a `PeriodicTimer` reading `Persistence:FlushIntervalSeconds` (default 60). See [Flow 4](#flow-4--persistence-flush-cycle) for the full flush-cycle trace.
 9. `TelnetServer.StartAsync` opens the TCP listener on `Server:Port`. Connections accepted from this point forward see a fully assembled world.
-10. **Shutdown path.** When the host shuts down, `PersistenceBootstrap.StopAsync` calls `PersistenceSystem.FlushAllPersistentAsync`, which iterates every entity carrying `PersistentEntity` and writes it to disk — a complete sweep regardless of which rooms are occupied. This replaced the old `FlushAsync` (dirty-set sweep) when the two-level persistence model was introduced.
+10. `HeartbeatBackgroundService.StartAsync` starts the `PeriodicTimer` on a background thread; `StartAsync` itself returns immediately. The first tick fires after `Heartbeat:IntervalMs` (default 2000 ms) — the world is fully assembled and the listener is open before any tick can land. See [Flow 16](#flow-16--heartbeat-tick) for the tick-cycle trace.
+11. **Shutdown path.** When the host shuts down, `PersistenceBootstrap.StopAsync` calls `PersistenceSystem.FlushAllPersistentAsync`, which iterates every entity carrying `PersistentEntity` and writes it to disk — a complete sweep regardless of which rooms are occupied. This replaced the old `FlushAsync` (dirty-set sweep) when the two-level persistence model was introduced.
 
 **Cross-references.**
 - [`docs/architecture/05-configuration.md`](../05-configuration.md) — startup-relevant config keys
@@ -893,6 +897,45 @@ sequenceDiagram
 - [`Core/Modules/Mobs/Events/MobCreatedByAdminEvent.cs`](../../../Core/Modules/Mobs/Events/MobCreatedByAdminEvent.cs)
 - [`Core/Modules/Admin/Handlers/AdminAuditHandler.cs`](../../../Core/Modules/Admin/Handlers/AdminAuditHandler.cs)
 - [`docs/use-cases/mobs.md`](../../use-cases/mobs.md) — slice 8 spec
+
+---
+
+## Flow 16 — Heartbeat tick
+
+**Summary.** `HeartbeatBackgroundService` fires a `PeriodicTimer` at `Heartbeat:IntervalMs` (default 2000 ms), increments a monotonic counter, and publishes `HeartbeatTickEvent` to `IEventBus`. No game logic lives here; handlers subscribe independently. In slice 9-b no handlers are registered; the first subscriber (`CombatRoundHandler`) lands in slice 9.
+
+**Trigger.** `PeriodicTimer.WaitForNextTickAsync` returns in `HeartbeatBackgroundService.ExecuteAsync`.
+
+```mermaid
+sequenceDiagram
+    participant Timer as PeriodicTimer
+    participant HBS as HeartbeatBackgroundService
+    participant Bus as IEventBus
+    participant H1 as (future handlers...)
+
+    Timer->>HBS: WaitForNextTickAsync → true
+    HBS->>HBS: increment _tickId, capture Timestamp, compute Elapsed
+    HBS->>Bus: PublishAsync(HeartbeatTickEvent{TickId, Timestamp, Elapsed})
+    Bus->>H1: HandleAsync (priority N) [slice 9+]
+    HBS->>HBS: WaitForNextTickAsync (next tick)
+```
+
+**Steps.**
+
+1. `PeriodicTimer.WaitForNextTickAsync(stoppingToken)` returns `true` (or throws `OperationCanceledException` on host shutdown → service exits).
+2. `HeartbeatBackgroundService` increments `_tickId` (starts at 1 on first tick), captures `DateTimeOffset.UtcNow` as `now`, computes `Elapsed = now - _lastTimestamp`, and updates `_lastTimestamp = now`. `_lastTimestamp` is initialized to `DateTimeOffset.UtcNow` before the loop so the first tick's `Elapsed` reflects the actual interval.
+3. Publishes `HeartbeatTickEvent { TickId, Timestamp, Elapsed }` via `IEventBus.PublishAsync`. Any uncaught exception from handlers is caught and logged at `Error`; the loop continues.
+4. Event bus dispatches to all subscribed handlers in priority order. In this slice no handlers are registered.
+5. Control returns to `WaitForNextTickAsync`. `PeriodicTimer` schedules the next tick relative to its period, not relative to when handler execution completed — overruns cause the next tick to fire immediately after the current one completes.
+
+**Overrun.** If handler execution takes longer than `IntervalMs`, `PeriodicTimer` fires the next tick immediately after the current completes (no drift accumulation, but no backpressure either). Acknowledged for Phase 4 hardening.
+
+**Thread safety.** `ExecuteAsync` runs on a background thread. `IEventBus.PublishAsync` is called from that thread — the same cross-thread pattern used by `PersistenceFlushTimer` and `WorldContentBootstrap`. Single `PeriodicTimer` means no concurrent self-publish. Phase 4 thread-safety review covers the event bus under concurrent background-service access.
+
+**Cross-references.**
+- [`Core/Modules/Time/Events/HeartbeatTickEvent.cs`](../../../Core/Modules/Time/Events/HeartbeatTickEvent.cs)
+- [`Server/HeartbeatBackgroundService.cs`](../../../Server/HeartbeatBackgroundService.cs)
+- [`docs/use-cases/time-system.md`](../../use-cases/time-system.md) — slice 9-b spec
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-`planned`
+`implemented`
 
 ## Actors
 
@@ -47,108 +47,11 @@ A minimal heartbeat infrastructure that publishes `HeartbeatTickEvent` at a conf
 
 No events are published on startup or shutdown — the tick loop produces all events.
 
-## Systems / handlers involved
-
-| Piece | New / Reuse | Notes |
-|---|---|---|
-| `HeartbeatBackgroundService` (`Server/`) | New | Initiator; `BackgroundService`; owns `PeriodicTimer`, reads `IConfiguration`, publishes `HeartbeatTickEvent`. Not a domain system — no return values, no game logic (INV-5, INV-8). |
-| `IHeartbeatService` | New | Minimal interface for `HeartbeatBackgroundService`. See Design notes for why this is intentionally thin (may be absent entirely). |
-| `HeartbeatTickEvent` | New | In `Core/Modules/Time/Events/HeartbeatTickEvent.cs`. Thin past-tense payload. |
-| `TimeModule` | New | `Core/Modules/Time/TimeModule.cs`; exposes `AddTimeModule(IServiceCollection)`. Registers `HeartbeatBackgroundService` as a `BackgroundService` (via `AddHostedService`). Called from `Server/Program.cs`. |
-| `IEventBus` | Reuse | Existing cross-cutting bus; `HeartbeatBackgroundService` injects it directly (no domain system intermediary). |
-
-No domain system is needed — the heartbeat is pure infrastructure. No handler is introduced in this slice; the first handler (`CombatRoundHandler`) lands in slice 9.
-
-## Content tooling impact
-
-None. This slice adds no gameplay state, no authored content, no YAML schemas, no admin commands, no `TemplateRegistry` entries. The only authoring surface is the `Heartbeat:IntervalMs` key in `appsettings.json`, which is Category 1 operational configuration (see `docs/architecture/05-configuration.md`). Justification for "none": the heartbeat is pure infrastructure; it publishes a tick event and nothing else. Any gameplay state gated on the heartbeat belongs to the slice that introduces it.
-
-## Cross-cutting surfaces stressed
-
-### Commands
-**Adequate.** No new commands. The heartbeat is not player-visible in this slice. No admin command to change the interval is introduced (deferred; if needed, it is a slice 9 or later concern).
-
-### Output
-**Adequate.** No output in this slice. `HeartbeatBackgroundService` does not write to any session.
-
-### Persistence
-**Adequate.** No entities are created. No components are introduced. No persistence calls are made. The heartbeat has no persistent state.
-
-Persistence opt-in audit (mandatory sub-check):
-- **No entities:** `HeartbeatBackgroundService` creates no entities. `PersistentEntity` is irrelevant.
-- **No components:** `HeartbeatTickEvent` is an event record, not a component. No `[Persistent]` decisions are needed.
-- **Level 3 / 4 not applicable:** No `SpawnMissingEntities` path, no `LocationComponent` placement.
-
-### Event bus
-**Adequate.** `IEventBus.PublishAsync` is called from a background thread (`PeriodicTimer` callback). This is the **same cross-thread pattern already used by every `BackgroundService` in the codebase** (`PersistenceFlushTimer` already calls persistence methods from a background thread; `WorldContentBootstrap` fires `WorldContentReadyEvent` from its `StartAsync`). However, the event bus has not been explicitly reviewed for concurrent publish from multiple background threads at the same time. Classification: **Acknowledged debt.** The Phase 4 thread-safety review (`backlog.md`) already tracks this. Since `HeartbeatBackgroundService` has a single `PeriodicTimer` and does not publish concurrently with itself, and the existing services already cross the thread boundary once on startup, no new concurrency shape is introduced by this slice. The thread-safety review is the appropriate venue.
-
-### ECS queries
-**Adequate.** `HeartbeatBackgroundService` makes no ECS queries. Future handlers (combat, AI) will query ECS; that is their concern.
-
-### Broadcast
-**Adequate.** No broadcast in this slice.
-
-### Time
-**Gap exposed (this slice IS the time surface).** `HeartbeatBackgroundService` is the time framework. It defines the canonical shared clock via `HeartbeatTickEvent`. Any future "named timer" or "per-entity cooldown" is a subscriber to this event. The slice ships the framework before any consumer; no hand-rolled pattern is needed downstream. INV-19 satisfied: the framework lands with this slice.
-
-### Content templates
-**Adequate.** No templates introduced.
-
-### Configuration
-**Adequate.** `Heartbeat:IntervalMs` is a Category 1 operational key read from `IConfiguration` via the existing DI-provided `IConfiguration` instance. This follows the established pattern from `Persistence:FlushIntervalSeconds` and `Server:Port` (see `docs/architecture/05-configuration.md`). No new infrastructure needed.
-
-### Sessions
-**Adequate.** `HeartbeatBackgroundService` does not interact with `ISessionManager` or any session directly.
-
-### Modules
-**Adequate.** `TimeModule` follows the existing module pattern (`AddXModule(IServiceCollection)`), matching `AddItemModule`, `AddMobModule`, etc. No new infrastructure.
-
-## Flows introduced or modified
-
-### New: Flow 16 — Heartbeat tick
-
-**Introduced by this slice.** Must be added to `docs/architecture/flows/README.md` in the same PR.
-
-**Trigger.** `PeriodicTimer` fires in `HeartbeatBackgroundService.ExecuteAsync`.
-
-```mermaid
-sequenceDiagram
-    participant Timer as PeriodicTimer
-    participant HBS as HeartbeatBackgroundService
-    participant Bus as IEventBus
-    participant H1 as CombatRoundHandler (slice 9)
-    participant H2 as (future handlers...)
-
-    Timer->>HBS: WaitForNextTickAsync → true
-    HBS->>HBS: increment _tickId, capture Timestamp, compute Elapsed
-    HBS->>Bus: PublishAsync(HeartbeatTickEvent{TickId, Timestamp, Elapsed})
-    Bus->>H1: HandleAsync (priority N) [slice 9+]
-    Bus->>H2: HandleAsync (priority N) [future slices]
-    HBS->>HBS: WaitForNextTickAsync (next tick)
-```
-
-**Steps.**
-
-1. `PeriodicTimer.WaitForNextTickAsync` returns `true` (or `false` on cancellation → exit).
-2. `HeartbeatBackgroundService` increments `_tickId`, captures `DateTimeOffset.UtcNow`, computes `Elapsed = now - _lastTimestamp`, updates `_lastTimestamp = now`.
-3. Publishes `HeartbeatTickEvent { TickId, Timestamp, Elapsed }` via `IEventBus.PublishAsync`.
-4. Event bus dispatches to all subscribed handlers in priority order. In this slice, no handlers are registered; the first registers in slice 9.
-5. Loop returns to `WaitForNextTickAsync`.
-
-**Cross-references.**
-- `Core/Modules/Time/Events/HeartbeatTickEvent.cs`
-- `Server/HeartbeatBackgroundService.cs` (or `Core/Modules/Time/HeartbeatBackgroundService.cs` — see Design notes)
-- `docs/architecture/flows/README.md` — add to index as Flow 16.
-
-### Modified: Flow 1 — Server startup
-
-The `HeartbeatBackgroundService` is added as the last hosted service, after `TelnetServer`. The startup mermaid diagram and step 1 (DI registration) must be updated to include `HeartbeatBackgroundService` in the hosted-service queue.
-
 ## Design notes
 
 ### `IHeartbeatService` interface — minimal or absent
 
-The original prompt specifies `IHeartbeatService` with `Start()` / `Stop()` lifecycle methods. In practice, `BackgroundService.StartAsync` / `StopAsync` are called by the .NET host automatically — callers do not need to invoke `Start`/`Stop` directly. There are no in-game subscribers to a registry; subscribers use `IEventBus` directly. Therefore `IHeartbeatService` may be empty (a marker interface) or absent entirely. **Recommendation:** omit it unless a concrete caller other than the host needs to reference the heartbeat by interface. If needed for testability (mocking the heartbeat in unit tests), it can be introduced alongside the test framework (Phase 4). This is an open question for the implementation — see Open questions.
+The original prompt specifies `IHeartbeatService` with `Start()` / `Stop()` lifecycle methods. In practice, `BackgroundService.StartAsync` / `StopAsync` are called by the .NET host automatically — callers do not need to invoke `Start`/`Stop` directly. There are no in-game subscribers to a registry; subscribers use `IEventBus` directly. Therefore `IHeartbeatService` may be empty (a marker interface) or absent entirely. **Decision (as built):** omitted — no concrete caller other than the host needs to reference the heartbeat by interface. If needed for testability (mocking the heartbeat in unit tests), it can be introduced alongside the test framework (Phase 4).
 
 ### Background service placement: `Server/` vs. `Core/`
 
@@ -181,49 +84,6 @@ Respawn timers, buff expiry, shop restocking — all would subscribe to `Heartbe
 ### `Elapsed` on the first tick
 
 `_lastTimestamp` is set to `DateTimeOffset.UtcNow` in `ExecuteAsync` before the loop (i.e., at service start time). The first tick's `Elapsed` is approximately equal to `IntervalMs` — accurate enough for effect expiry and combat round pacing; combat does not need sub-millisecond precision on the first tick.
-
-## Reference catalog updates (in-flight only)
-
-### New: `HeartbeatTickEvent` (`Core/Modules/Time/Events/HeartbeatTickEvent.cs`)
-
-```
-public sealed record HeartbeatTickEvent
-{
-    public long TickId { get; init; }
-    public DateTimeOffset Timestamp { get; init; }
-    public TimeSpan Elapsed { get; init; }
-}
-```
-
-Not a component. Not persisted. Past-tense thin fact (INV-6).
-
-### New module: `TimeModule`
-
-`Core/Modules/Time/TimeModule.cs` — exposes `AddTimeModule(IServiceCollection)`. Registers:
-- `HeartbeatTickEvent` (no registration needed — it's an event record)
-- *(Optional)* `IHeartbeatService` → `HeartbeatBackgroundService` if the interface is retained
-
-`Server/Program.cs` — calls `services.AddTimeModule()` and adds `HeartbeatBackgroundService` via `services.AddHostedService<HeartbeatBackgroundService>()`.
-
-### `docs/reference/handlers.md` — no change in this slice
-
-No handler is introduced. The combat round handler (slice 9) will add the first `HeartbeatTickEvent` subscriber.
-
-### `docs/architecture/flows/README.md`
-
-Add Flow 16 to the index table and the flow body (see Flows section above).
-
-Update Flow 1 (Server startup) to include `HeartbeatBackgroundService` in the hosted-service queue.
-
-## Open questions
-
-1. **`IHeartbeatService` interface.** Should it exist? If the only consumer is the host's `BackgroundService` lifecycle, the interface is noise. Recommended: omit unless a test-double use case is demonstrated. Decide before implementation begins.
-
-2. **Startup ordering — is "after `TelnetServer`" the right gate?** The intent is "after the world is fully seeded." `TelnetServer.StartAsync` opens the TCP listener, which is the last step of world assembly (Flow 1). Placing `HeartbeatBackgroundService` after `TelnetServer` achieves this. Confirm this registration order is enforced in `Server/Program.cs` and does not conflict with any other hosted-service ordering constraint introduced by slices 9-a or 9-c.
-
-3. **`PeriodicTimer` overrun behavior.** If a handler subscribed to `HeartbeatTickEvent` takes longer than `IntervalMs`, the next tick fires immediately after the current one completes (standard `PeriodicTimer` semantics). This is acceptable for the MVP autocombat model but may require a backpressure mechanism if tick handlers become expensive. Acknowledged for Phase 4 hardening; no action in this slice.
-
-4. **`IEventBus.PublishAsync` — is it `async` or sync?** The current `IEventBus` shape (verify in code) should clarify whether `PublishAsync` is truly awaited by the caller or fire-and-forget. `HeartbeatBackgroundService` should `await _eventBus.PublishAsync(...)` so handler exceptions surface in the background service's error handling rather than being silently swallowed. Confirm the event bus implementation supports this.
 
 ## Related
 

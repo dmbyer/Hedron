@@ -19,12 +19,12 @@ Authoritative rules: [docs/architecture/03-events.md](../../../docs/architecture
 
 **Thin** (default): just IDs and the minimal fact.
 ```csharp
-public record ItemEquippedEvent(uint PlayerId, uint ItemId, ItemSlot Slot) : IGameEvent;
+public record ItemEquippedEvent(uint PlayerId, uint ItemId, ItemSlot Slot) : IEvent;
 ```
 
 **Enriched**: only when multiple handlers would otherwise re-fetch the same data.
 ```csharp
-public record PlayerDeathEvent(uint PlayerId, uint DeathRoomId, DamageKind FinalBlow) : IGameEvent;
+public record PlayerDeathEvent(uint PlayerId, uint DeathRoomId, DamageKind FinalBlow) : IEvent;
 ```
 Rule: "enrich" means capture **state at publish time that subscribers can't reconstruct later** (like the death location before respawn moves the player). Don't enrich with convenience lookups.
 
