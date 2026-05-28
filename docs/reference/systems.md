@@ -91,19 +91,19 @@ public interface IComponentSerializer
 Uses `System.Text.Json` with camelCase policy and `JsonStringEnumConverter`. Implemented (Phase 3 slice 1).
 
 ### PersistenceSystem
-**Purpose:** Save and load entity state using the two-level model: an entity is written only if it carries `PersistentEntity`; among its components, only those tagged `[Persistent]` are included in the snapshot.
+**Purpose:** Save and load entity state using the two-level model backed by SQLite: an entity is written only if it carries `PersistentEntity`; among its components, only those tagged `[Persistent]` are included in the snapshot. Registers `EntityService.OnPersistentEntityDestroying` so every `DestroyEntity` call for a persistent entity automatically deletes its SQLite rows — no caller ever needs to clean up manually.
 **Location:** `Core/Systems/PersistenceSystem.cs`
-**Dependencies:** `EntityService`, `IComponentTypeRegistry`, `IComponentSerializer`, `IConfiguration`, `ILogger<PersistenceSystem>`. No `IEventBus` dependency — all event publishing is the caller's responsibility.
+**Dependencies:** `EntityService`, `IComponentTypeRegistry`, `IComponentSerializer`, `IConfiguration`, `ILogger<PersistenceSystem>`, `Microsoft.Data.Sqlite`. No `IEventBus` dependency — all event publishing is the caller's responsibility.
 ```csharp
 public interface IPersistenceSystem
 {
     Task SaveEntityAsync(uint entityId, CancellationToken ct = default);
+    Task FlushAllAsync(CancellationToken ct = default);
+    Task FlushDirtyAsync(CancellationToken ct = default);
     Task<IReadOnlyList<uint>> LoadAllAsync(CancellationToken ct = default);
-    Task FlushActivePlayerFootprintAsync(IEnumerable<uint> occupiedRoomIds, CancellationToken ct = default);
-    Task FlushAllPersistentAsync(CancellationToken ct = default);
 }
 ```
-Entity files: `data/entities/entity-{id}.json`. Atomic write (`.tmp` → rename). `SaveEntityAsync` is the save-on-change path (admin commands, lifecycle transitions). `FlushActivePlayerFootprintAsync` is called by `PersistenceFlushTimer` on each tick — writes all `PersistentEntity`-carrying entities in rooms occupied by at least one player. `FlushAllPersistentAsync` is called by `PersistenceBootstrap.StopAsync` for a full shutdown sweep. Implemented (Phase 3 slices 1, persistence-two-level-model).
+SQLite schema: `entity_components(entity_id INTEGER, type_name TEXT, data TEXT, PRIMARY KEY(entity_id, type_name))`. On save: delete existing rows for the entity, then insert one row per `[Persistent]` component (wrapped in a transaction). `SaveEntityAsync` is the construction-time save path (entity creation only — admin commands, account/character creation). `FlushDirtyAsync` is called by `PersistenceFlushTimer` on each tick — performs a full sweep of all `PersistentEntity`-carrying entities (no footprint calculation). `FlushAllAsync` is called by `PersistenceBootstrap.StopAsync` for a complete shutdown sweep; identical logic to `FlushDirtyAsync`. Configuration key: `Persistence:DatabasePath` (default `data/hedron.db`); Docker env var override: `HEDRON_PERSISTENCE__DATABASEPATH`. Implements `IDisposable` — holds the open `SqliteConnection` for the process lifetime. Implemented (Phase 3 persistence-reform Stage A).
 
 ### TemplateRegistry
 **Purpose:** Cross-cutting registry of authored `IEntityTemplate`s. Every content-bearing module (world, mobs, items, shops) registers into the same registry.

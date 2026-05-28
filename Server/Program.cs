@@ -1,5 +1,6 @@
 using Hedron.Core;
 using Hedron.Core.Commands;
+using Microsoft.Extensions.Configuration;
 using Hedron.Core.Commands.Authorization;
 using Hedron.Core.Commands.Events;
 using Hedron.Core.ECS;
@@ -55,6 +56,7 @@ public static class Program
     public static async Task Main(string[] args)
     {
         var host = Host.CreateDefaultBuilder(args)
+            .ConfigureAppConfiguration((_, cfg) => cfg.AddEnvironmentVariables("HEDRON_"))
             .ConfigureServices((context, services) =>
             {
                 services.Configure<OutputConfiguration>(

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Hedron.Core.ECS.Components;
 
 namespace Hedron.Core.ECS
 {
@@ -17,6 +18,18 @@ namespace Hedron.Core.ECS
         private readonly ComponentRepository _componentRepository = new();
         private uint _nextId = 1;
 
+        // Tracks which entities carry PersistentEntity so DestroyEntity can clean up SQLite rows
+        // even after the component has been removed during teardown. Populated via AddComponent hooks;
+        // depleted via RemoveComponent<PersistentEntity> and DestroyEntity.
+        private readonly HashSet<uint> _persistentEntityIds = new();
+
+        /// <summary>
+        /// Invoked synchronously inside <see cref="DestroyEntity"/> before ECS teardown, for every
+        /// entity that carried <c>PersistentEntity</c>. Registered by <c>PersistenceSystem</c> to
+        /// issue the SQLite DELETE. Must not throw — exceptions are silently swallowed by the caller.
+        /// </summary>
+        public Action<uint>? OnPersistentEntityDestroying;
+
         /// <summary>
         /// Allocates a new entity id. The returned <see cref="Entity"/> has no components yet —
         /// callers add the component composition appropriate to the archetype being built.
@@ -28,10 +41,14 @@ namespace Hedron.Core.ECS
 
         /// <summary>
         /// Adds (or replaces) a component on an entity.
+        /// When the component is <c>PersistentEntity</c>, the entity id is recorded in the
+        /// internal persistence set so <see cref="DestroyEntity"/> can trigger the auto-delete.
         /// </summary>
         public void AddComponent<T>(uint entityId, T component) where T : IComponent
         {
             _componentRepository.AddComponent(entityId, component);
+            if (typeof(T) == typeof(PersistentEntity))
+                _persistentEntityIds.Add(entityId);
         }
 
         /// <summary>
@@ -69,10 +86,16 @@ namespace Hedron.Core.ECS
 
         /// <summary>
         /// Removes a component from an entity. Returns <c>true</c> if a component was removed.
+        /// When the component is <c>PersistentEntity</c>, the entity id is removed from the
+        /// internal persistence set so a subsequent <see cref="DestroyEntity"/> will not trigger
+        /// the auto-delete for a no-longer-persistent entity.
         /// </summary>
         public bool RemoveComponent<T>(uint entityId) where T : IComponent
         {
-            return _componentRepository.RemoveComponent<T>(entityId);
+            var removed = _componentRepository.RemoveComponent<T>(entityId);
+            if (removed && typeof(T) == typeof(PersistentEntity))
+                _persistentEntityIds.Remove(entityId);
+            return removed;
         }
 
         /// <summary>
@@ -95,10 +118,14 @@ namespace Hedron.Core.ECS
         /// Adds (or replaces) a component on an entity using a runtime <see cref="Type"/>.
         /// Used by <c>PersistenceSystem</c> during hydration when the concrete type is only
         /// known at runtime.
+        /// When the component type is <c>PersistentEntity</c>, the entity id is recorded in the
+        /// internal persistence set.
         /// </summary>
         public void AddComponent(uint entityId, Type componentType, IComponent component)
         {
             _componentRepository.AddComponent(entityId, componentType, component);
+            if (componentType == typeof(PersistentEntity))
+                _persistentEntityIds.Add(entityId);
         }
 
         /// <summary>
@@ -128,10 +155,18 @@ namespace Hedron.Core.ECS
         }
 
         /// <summary>
-        /// Removes all components for a given entity.
+        /// Removes all components for a given entity. If the entity carried <c>PersistentEntity</c>,
+        /// fires <see cref="OnPersistentEntityDestroying"/> before teardown so the persistence
+        /// backend can delete the entity's SQLite rows.
         /// </summary>
         public void DestroyEntity(uint entityId)
         {
+            if (_persistentEntityIds.Remove(entityId))
+            {
+                try { OnPersistentEntityDestroying?.Invoke(entityId); }
+                catch { /* Persistence errors must not abort ECS teardown. */ }
+            }
+
             _componentRepository.RemoveAllComponents(entityId);
         }
     }
