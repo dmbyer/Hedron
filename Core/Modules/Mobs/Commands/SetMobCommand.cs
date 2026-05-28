@@ -21,7 +21,6 @@ namespace Hedron.Core.Modules.Mobs.Commands
         private readonly EntityService _entityService;
         private readonly ITemplateRegistry _templateRegistry;
         private readonly IEventBus _eventBus;
-        private readonly IPersistenceSystem _persistence;
 
         public string Name => "setmob";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -50,15 +49,13 @@ namespace Hedron.Core.Modules.Mobs.Commands
             IMobContentWriter contentWriter,
             EntityService entityService,
             ITemplateRegistry templateRegistry,
-            IEventBus eventBus,
-            IPersistenceSystem persistence)
+            IEventBus eventBus)
         {
             _mobBuilder = mobBuilder;
             _contentWriter = contentWriter;
             _entityService = entityService;
             _templateRegistry = templateRegistry;
             _eventBus = eventBus;
-            _persistence = persistence;
         }
 
         public async Task ExecuteAsync(CommandContext context)
@@ -143,7 +140,6 @@ namespace Hedron.Core.Modules.Mobs.Commands
             }
 
             await _contentWriter.WriteAsync(template).ConfigureAwait(false);
-            await _persistence.SaveEntityAsync(mobEntityId).ConfigureAwait(false);
 
             await _eventBus.PublishAsync(new MobPropertySetByAdminEvent(
                 context.InvokerEntityId,

@@ -175,9 +175,9 @@ public interface IPasswordHasher
 ## Domain / feature Systems
 
 ### WorldContentLoader
-**Purpose:** Scans the configured content directory, registers authored YAML templates with `ITemplateRegistry`, and seeds room/area entities for blueprints not already represented by a hydrated entity. Wraps `LoadAndSpawnAsync` in a hosted-service shell (`Server/WorldContentBootstrap`) to enforce startup ordering after `PersistenceBootstrap`.
+**Purpose:** Scans the configured content directory, registers authored YAML templates with `ITemplateRegistry`, and fresh-spawns room/area/item/mob entities on every startup. Wraps `LoadAndSpawnAsync` in a hosted-service shell (`Server/WorldContentBootstrap`) to enforce startup ordering after `PersistenceBootstrap`.
 **Location:** `Core/Modules/World/Systems/WorldContentLoader.cs`
-**Dependencies:** `EntityService`, `ITemplateRegistry`, `IContentSerializer`, `IArchetypeRegistry`, `IPersistenceSystem`, `WorldConfiguration`, `IConfiguration`, `ILogger`.
+**Dependencies:** `EntityService`, `ITemplateRegistry`, `IContentSerializer`, `WorldConfiguration`, `IConfiguration`, `ILogger`.
 ```csharp
 public interface IWorldContentLoader
 {
@@ -188,7 +188,7 @@ public interface IWorldContentLoader
 public readonly record struct ContentReloadResult(
     int TemplatesLoaded, int TemplatesUnchanged, int TemplatesRemoved);
 ```
-Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Every entity spawned from YAML content receives a `PersistentEntity` component so it survives restart. Extended in slice 8 to load `kind: mob` files from `mobs/` subdirectory and call `PlaceMobsInRooms` (mirrors `PlaceItemsInRooms`). Extended in slice 9 (validation): both `LoadAndSpawnAsync` and `ReloadAsync` now call `MigrateEntityComponentsAsync` after placement — this pass iterates all loaded entities by archetype marker, calls `IArchetypeRegistry.MissingRequired`, adds any absent required components via `Activator.CreateInstance`, and calls `IPersistenceSystem.SaveEntityAsync` for each modified entity. Never removes extra components. Implemented (Phase 3 slices 2, persistence-two-level-model, 8, 9).
+Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). No `PersistentEntity` is added to any world-content entity (rooms, areas, items, mobs) — the YAML file is the sole durable state. `SpawnMissingEntities` skips blueprints already represented by a live entity (correct for `@reload`; no-op at cold start). Both `LocationComponent` fields (`RoomEntityId` + `RoomBlueprintId`) are set when placing items and mobs. `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Implemented (Phase 3 slices 2, persistence-reform-stage-b, 8).
 
 ### AccountSystem
 **Purpose:** Domain system owning all account and character lifecycle operations: registration, authentication, character creation, character list, and logout recording.

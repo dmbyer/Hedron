@@ -84,9 +84,14 @@ namespace Hedron.Core.Modules.Account.Systems
                 CreatedAtUtc = now,
                 LastLoginUtc = now,
             });
+            string? startingBlueprintId = null;
+            if (_entityService.TryGet<BlueprintComponent>(_worldConfig.StartingRoomEntityId, out var startingBp))
+                startingBlueprintId = startingBp.BlueprintId;
+
             _entityService.AddComponent(entity.Id, new LocationComponent
             {
                 RoomEntityId = _worldConfig.StartingRoomEntityId,
+                RoomBlueprintId = startingBlueprintId,
             });
             _entityService.AddComponent(entity.Id, new InventoryComponent());
             _entityService.AddComponent(entity.Id, new EquipmentComponent());

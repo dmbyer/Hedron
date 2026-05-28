@@ -28,7 +28,6 @@ namespace Hedron.Core.Modules.Admin.Commands
         private readonly ITemplateRegistry _templateRegistry;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
-        private readonly IPersistenceSystem _persistence;
 
         public string Name => "dig";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -54,15 +53,13 @@ namespace Hedron.Core.Modules.Admin.Commands
             IRoomContentWriter contentWriter,
             ITemplateRegistry templateRegistry,
             EntityService entityService,
-            IEventBus eventBus,
-            IPersistenceSystem persistence)
+            IEventBus eventBus)
         {
             _roomBuilder = roomBuilder;
             _contentWriter = contentWriter;
             _templateRegistry = templateRegistry;
             _entityService = entityService;
             _eventBus = eventBus;
-            _persistence = persistence;
         }
 
         public async Task ExecuteAsync(CommandContext context)
@@ -97,6 +94,7 @@ namespace Hedron.Core.Modules.Admin.Commands
             _roomBuilder.LinkExits(sourceRoomId, direction, result.RoomEntityId, bidirectional: true);
 
             location.RoomEntityId = result.RoomEntityId;
+            location.RoomBlueprintId = result.BlueprintId;
 
             await _eventBus.PublishAsync(new RoomCreatedByAdminEvent(
                 context.InvokerEntityId,
@@ -108,6 +106,7 @@ namespace Hedron.Core.Modules.Admin.Commands
 
             // Write YAML for the new room. Also re-write the source room's YAML because
             // LinkExits added a new exit to its template's Exits map.
+            // The YAML file is the room's only durable state — no SaveEntityAsync needed.
             if (_templateRegistry.TryGet(result.BlueprintId, out var newTpl) &&
                 newTpl is RoomTemplate newRoomTpl)
                 await _contentWriter.WriteAsync(newRoomTpl).ConfigureAwait(false);
@@ -116,11 +115,6 @@ namespace Hedron.Core.Modules.Admin.Commands
                 _templateRegistry.TryGet(srcBp.BlueprintId, out var srcTpl) &&
                 srcTpl is RoomTemplate srcRoomTpl)
                 await _contentWriter.WriteAsync(srcRoomTpl).ConfigureAwait(false);
-
-            // Save both rooms immediately — admin content must be durable without waiting
-            // for a flush cycle.
-            await _persistence.SaveEntityAsync(result.RoomEntityId).ConfigureAwait(false);
-            await _persistence.SaveEntityAsync(sourceRoomId).ConfigureAwait(false);
 
             await _eventBus.PublishAsync(new PlayerMovedEvent(
                 context.InvokerEntityId,

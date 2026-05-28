@@ -43,6 +43,8 @@ sequenceDiagram
 
 **Two-level model.** An entity is written only if it carries `PersistentEntity` (level 1). Among its components, only those tagged `[Persistent]` are included in the snapshot (level 2). `PlayerComponent` (transient session ref) and `TransientEffectsComponent` (session-only) are untagged and are never written.
 
+**Flush pool (Stage B).** World content entities — rooms, areas, mobs, world-spawn items — carry no `PersistentEntity` and are never in the flush pool. The pool contains only players, accounts, and player-owned items (Stage C). `LocationComponent.RoomEntityId` is `[JsonIgnore]`; only `RoomBlueprintId` is stored. Room entity IDs are always resolved at startup from blueprints.
+
 **Cross-references.**
 - [`Core/Systems/PersistenceSystem.cs`](../../../Core/Systems/PersistenceSystem.cs), [`Server/PersistenceFlushTimer.cs`](../../../Server/PersistenceFlushTimer.cs), [`Server/PersistenceBootstrap.cs`](../../../Server/PersistenceBootstrap.cs)
-- [`docs/use-cases/persistence-reform.md`](../../use-cases/persistence-reform.md) Stage A
+- [`docs/use-cases/persistence-reform.md`](../../use-cases/persistence-reform.md) Stages A and B

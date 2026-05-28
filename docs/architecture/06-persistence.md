@@ -8,10 +8,8 @@ Hedron uses a two-level persistence model backed by SQLite. The questions "shoul
 
 | Domain | Representative entities | `PersistentEntity`? | Persisted components | On startup |
 |---|---|---|---|---|
-| **World content** | Rooms, areas, mobs, world-spawn items | Stage B: No | None | Always fresh-spawned or refreshed from YAML/templates |
+| **World content** | Rooms, areas, mobs, world-spawn items | No | None | Always fresh-spawned from YAML/templates; no SQLite rows |
 | **Persistent entities** | Players, accounts, player-owned items, crops, items in persistent containers | Yes | All `[Persistent]`-tagged components | Loaded fully from SQLite; `CharacterHydrationHandler` resolves `RoomBlueprintId` → `RoomEntityId` after world content loads |
-
-> **Stage A note.** Room and area entities still carry `PersistentEntity` in Stage A. Stage B removes it — world content will be fully YAML-driven with no SQLite rows.
 
 **Cross-domain stable reference:** `LocationComponent` carries `RoomBlueprintId` (`string?`, `[Persistent]`) as the cross-restart room reference and `RoomEntityId` (`uint`, NOT `[Persistent]`) as the runtime entity ID resolved on startup. See Stage B in the [persistence-reform use case](../../use-cases/persistence-reform.md) for full details.
 
@@ -82,12 +80,14 @@ No handler or command ever calls a delete method. `DestroyEntity` is the single 
 
 ### Save-on-change (construction time only)
 
-Use **only** at entity construction: admin content creation (`dig`, `mkitem`, `mkmob`) and account/character creation. These are rare, deliberate boundary crossings where immediate durability is required (a crash between write and flush would lose newly authored content).
+Use **only** at entity construction: **account/character creation** (`LoginFlow`). These are rare, deliberate boundary crossings where immediate durability is required (a crash between write and flush would lose the newly created account).
 
 ```csharp
 // in LoginFlow, after CreateAccountAsync
 await _persistence.SaveEntityAsync(accountEntityId, ct);
 ```
+
+Admin content creation (`dig`, `mkitem`, `mkmob`) does **not** call `SaveEntityAsync` — the YAML file written by the command is the room/mob/item's sole durable state. Rooms, mobs, and world-spawn items carry no `PersistentEntity`.
 
 **No other code path calls `SaveEntityAsync`.** Runtime mutations (combat, movement, stat changes) are covered by the periodic flush.
 

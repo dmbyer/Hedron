@@ -56,7 +56,7 @@ If you find yourself reaching for a fine-grained priority (like 37), it's a sign
 - **State mutations** (HP changes, movement, inventory, stat changes, effect ticks, crop growth): do nothing. The `PersistenceFlushTimer` performs a full sweep of all `PersistentEntity`-carrying entities on each cycle. No handler involvement required.
 - **Entity destruction**: call `EntityService.DestroyEntity(entityId)`. SQLite cleanup is automatic. No separate delete call.
 
-The only permitted `SaveEntityAsync` call is in the entity **construction** path — admin commands or `LoginFlow` call it once immediately after `AddComponent<PersistentEntity>` to make the new entity ID durable before the operation returns. This happens in the command/initiator, not in a handler.
+The only permitted `SaveEntityAsync` call is in the **account/character creation** path (`LoginFlow`) — called once immediately after `AddComponent<PersistentEntity>` to make the new entity ID durable before the operation returns. This happens in the command/initiator, not in a handler. Admin content creation (`dig`, `mkitem`, `mkmob`, etc.) does **not** call `SaveEntityAsync` — the YAML file written by the command is the room/mob/item's sole durable state. World content carries no `PersistentEntity`.
 
 See INV-22 and [docs/architecture/06-persistence.md](../../../docs/architecture/06-persistence.md).
 
