@@ -53,6 +53,7 @@ At slice close-out, `sync-roadmap` **trims** it to its durable behavior spec —
 | `implemented` | [`stat-system.md`](stat-system.md) | Phase 3 slice 9-c |
 | `planned` | [`combat.md`](combat.md) | Phase 3 slice 9 |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
+| `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C): SQLite backend, EntityService lifecycle, world content de-persistence, context-driven item persistence, spawn slot foundation |
 
 > See [`../roadmap/plan.md`](../roadmap/plan.md#slice-queue) for the full slice queue and current focus.
 

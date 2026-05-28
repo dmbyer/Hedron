@@ -29,14 +29,22 @@ You do not write the C# code — that's for the user or the implement-use-case s
 
    This audit is what would have caught the slice-2 command-framework miss. The bar for honesty is: if you wrote *any* code that hand-rolls something the architecture hasn't specified, the surface is **gap exposed**.
 
-   **Persistence opt-in audit (mandatory sub-check).** Hedron uses a two-level persistence model (see [docs/architecture/06-persistence.md](../../docs/architecture/06-persistence.md)):
-   - **Level 1 — entity opt-in:** for every construction path this slice introduces or modifies, confirm whether `PersistentEntity` is added to the entity. If the entity must survive a restart, `PersistentEntity` must be attached at construction time. If some instances persist and others don't (e.g. authored vs. generated), the construction paths must diverge at that point — not at the component-type level.
+   **Persistence opt-in audit (mandatory sub-check).** Hedron uses a three-domain persistence model (INV-22, INV-23; see [docs/architecture/06-persistence.md](../../docs/architecture/06-persistence.md) and [docs/use-cases/persistence-reform.md](../../docs/use-cases/persistence-reform.md)):
+
+   - **Level 1 — entity domain classification:** for every entity construction path this slice introduces or modifies, identify which persistence domain it belongs to:
+     - *World structure* (rooms, areas): add `PersistentEntity` for entity-ID stability. Data components (`RoomComponent`, `AreaComponent`) must NOT be `[Persistent]` — YAML is authoritative and `WorldContentLoader` refreshes them on startup.
+     - *Respawnable world content* (mobs, world-spawn items in rooms): do NOT add `PersistentEntity`. These are always fresh-spawned from templates; they have no SQLite row.
+     - *Persistent entities* (players, accounts, player-owned items, crops, items in persistent containers): add `PersistentEntity`. All state that must survive restart should be on `[Persistent]`-tagged components.
+     - If the same entity type transitions between domains at runtime (e.g. a world-spawn item picked up by a player), identify the transition event and confirm that `ItemContextHandler` (or equivalent) adds/removes `PersistentEntity` at that point — not the pickup command itself.
+
    - **Level 2 — component inclusion:** for every component this slice introduces *or touches*, explicitly confirm its `[Persistent]` status:
-     - Does it hold world or character state that must survive a server restart? → must be `[Persistent]`.
-     - Is it transient (session reference, cached value, frame-only flag)? → must omit `[Persistent]`, with a one-sentence rationale.
-     - Existing components that were previously untagged are not exempt — if this slice reads or writes a component that lacks `[Persistent]` and that omission would cause data loss, surface it as a **Gap exposed** finding, not a silent assumption. Close it in this slice or create an explicit backlog entry.
-   - **Level 3 — entity ID stability:** for any entity type this slice introduces that is spawned by `WorldContentLoader.SpawnMissingEntities` (rooms, items, future mobs), confirm that the entity file is written to disk **immediately** at startup. If entity IDs are only saved by the shutdown flush, a non-graceful exit leaves them unsaved; on the next restart, newly-spawned entities get fresh IDs and any cross-entity `LocationComponent`-style references stored on other persisted entities go stale. Rule: every entity spawned by `SpawnMissingEntities` must be in the `newlySpawned` set that `WorldContentLoader` saves immediately.
-   - **Level 4 — restore vs. spawn placement guard:** if this slice adds any startup placement logic analogous to `PlaceItemsInRooms` (attaching a `LocationComponent` or similar relationship based on template data), confirm that placement is **restricted to the `newlySpawned` set**. Applying placement to all entities with a given template (including those restored from persistence) would override in-flight state (e.g. an item in a player's inventory that has no `LocationComponent` would be incorrectly moved back to its spawn room).
+     - Does it hold player/account/crop state that must survive a restart? → `[Persistent]`.
+     - Is it transient (session reference, cached value, frame-only flag, combat state)? → omit `[Persistent]`, with one-sentence rationale.
+     - Is it a world-structure data component (`RoomComponent`, `AreaComponent` or similar)? → must omit `[Persistent]` even if on a `PersistentEntity`-carrying entity — YAML is authoritative.
+     - Is it a spawn-state or AI-state component on a mob? → omit `[Persistent]`; mobs are never persistent.
+     - Existing components not yet confirmed: if this slice reads or writes a component whose `[Persistent]` status is wrong given the domain rules above, surface it as a **Gap exposed** finding.
+
+   - **Level 3 — save-on-change scope:** the only permitted `SaveEntityAsync` calls are at entity construction time — immediately after `AddComponent<PersistentEntity>` — to make the entity ID durable. If the spec describes any handler or command calling `SaveEntityAsync` for a runtime state change (not entity creation), flag as a violation of INV-22.
 8. **Flows audit (required).** List every canonical flow in `flows/README.md` this slice introduces, replaces, or extends. The implementation slice's PR must update `flows/README.md` to match — the architecture-reviewer agent will block on drift. If the slice introduces a recurring flow that doesn't yet have a canonical entry, add a `flows/README.md` flow specification to the slice scope.
 9. **Produce the implementation plan** as a checklist grouped by layer:
    - **New components** (with shape) — mark reused ones
