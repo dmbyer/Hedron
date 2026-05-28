@@ -81,6 +81,21 @@ When mob combat death lands (slice 9+), the death/respawn slice must decide:
 
 The chosen approach must be called out explicitly in the death/respawn use-case doc's Design Notes. If destroy-and-re-seed is chosen, `BlueprintComponent` must be cleared on the corpse entity before the new entity is spawned so the blueprint slot is free for the next spawn cycle (INV-21).
 
+### 🔵 Field-level persistence exclusion in `[Persistent]` components (`EffectsComponent`)
+
+When `EffectsComponent` lands (slice 9+ / effects system), it will carry two effect lists:
+
+- `PersistentEffects: List<Effect>` — permanent effects (curses, enchantments applied at equip) that must survive a restart.
+- `TransientEffects: List<Effect>` — spell buffs, combat debuffs, anything that drops on relog.
+
+`[Persistent]` controls which **components** are snapshotted; it does not control which **fields within a component** are serialized. To avoid writing `TransientEffects` to SQLite, the persistence system must support field-level exclusion — e.g. `[JsonIgnore]` on `TransientEffects`, or a custom `[NotPersisted]` attribute that `ComponentSerializer` honors.
+
+**Options** (decide before `EffectsComponent` is authored):
+- **Field-level exclusion**: add `[JsonIgnore]` (or `[NotPersisted]`) support to `ComponentSerializer`. One component, clean call sites — callers always read `EffectsComponent` and get both lists.
+- **Component split**: `TransientEffectsComponent` (no `[Persistent]`) + `PersistentEffectsComponent` (`[Persistent]`). More ECS-orthodox but callers must query both components when reading all active effects.
+
+Neither option blocks the persistence reform stages A–C. Revisit when the effects/combat slice begins.
+
 ### 🔵 Archetype catalogue refresh
 
 The archetype list in [`../reference/archetypes.md`](../reference/archetypes.md) was written against the old component shapes. Re-audit once a few Phase 3 slices have landed real components.

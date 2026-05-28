@@ -37,15 +37,23 @@ Do **not**:
 ## Steps
 
 1. Create the file at the chosen location.
-2. **Decide persistence — two separate questions.** See [docs/architecture/06-persistence.md](../../../docs/architecture/06-persistence.md) for the full model.
+2. **Decide persistence — two persistence domains and two questions per component.** See INV-23 and [docs/architecture/06-persistence.md](../../../docs/architecture/06-persistence.md) for the full model.
+
+   **Which persistence domain does this entity class belong to?**
+
+   | Domain | Examples | `PersistentEntity`? | Data components `[Persistent]`? |
+   |---|---|---|---|
+   | World content | Rooms, areas, mobs, world-spawn items | **No** | N/A — always fresh-spawned from YAML/templates |
+   | Persistent entities | Players, accounts, player-owned items, crops, items in containers | **Yes** | **Yes** — all state that must survive restart |
+
+   Never add `PersistentEntity` to rooms, areas, mobs, or world-spawn items. Never tag `RoomComponent` or `AreaComponent` as `[Persistent]`.
 
    **Question A — Should entities of this type survive a restart?**
-   This is controlled by the `PersistentEntity` marker on the *entity*, not by this component. When you define the construction path for the archetype that uses this component, decide there whether to add `PersistentEntity`. If some instances persist and others don't (e.g. authored vs. generated rooms), the construction path diverges at that point — not at the component-type level.
+   World content (rooms, areas, mobs, world-spawn items) **never** carries `PersistentEntity` — always fresh-spawned from YAML/templates on startup. Persistent entities (players, accounts, player-owned items, crops, items in containers) always carry `PersistentEntity`. If an item transitions between domains at runtime (e.g. a world-spawn item picked up by a player), `ItemContextHandler` (or equivalent) adds `PersistentEntity` when the item enters a persistent context and removes it when dropped — the transition happens in the handler, not the pickup command.
 
    **Question B — If the owning entity IS saved, should this component's data be included in the snapshot?**
    - **Yes → add `[Persistent]`** on the class. `PersistenceSystem` includes it when serializing entities that carry `PersistentEntity`.
-   - **No → omit `[Persistent]`** and note why (transient session reference, frame-only state, derived/recomputed on load).
-   - **Unsure?** Default to `[Persistent]` for world or character state a player or designer authored. Default to omitting for runtime-only references (`Session`, timers, cached lookups). Flag non-obvious decisions in the use-case doc's Cross-cutting surfaces section.
+   - **No → omit `[Persistent]`** and note why (transient session reference, frame-only state, derived/recomputed on load, YAML-authoritative data).
    - **Existing components touched by this work** must have both questions confirmed, not assumed.
 3. Decide the archetype set that requires this component. Update `Core/ECS/ArchetypeRegistry.cs` so the right archetypes include it as required or optional.
 4. If it's a shared component, add a one-line row to [docs/reference/components.md](../../../docs/reference/components.md) with its shape and owner. Include the persistence decision (`[Persistent]` or "transient — reason").

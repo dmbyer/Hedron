@@ -48,7 +48,7 @@ Then the handler calls the pure resolver, decides what to do with the result, an
 
 **Void state-mutating methods are also permitted** when the operation is a single atomic mutation with no meaningful return value. Example: `IItemSystem.MoveToInventory(uint itemEntityId, uint holderEntityId)` removes `LocationComponent` from an item and appends it to `InventoryComponent` — there is no useful result to return, and artificially wrapping this in a dummy return type would be noise. `IRoomBuilderSystem.LinkExits` follows the same pattern. "Pure where possible" means prefer a return value when you have a choice; it does not prohibit inherently mutating operations.
 
-The key constraint is the same in both cases: **the system never publishes events or calls persistence**. Those stay in the command (Initiator).
+The key constraint is the same in both cases: **the system never publishes events or calls persistence** (INV-5, INV-22). Those stay in the command (Initiator). In particular, systems must never inject or call `IPersistenceSystem` — persistence lifecycle is owned by `EntityService` and the periodic flush timer.
 
 ## Steps
 
