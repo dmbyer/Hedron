@@ -44,14 +44,14 @@ At slice close-out, `sync-roadmap` **trims** it to its durable behavior spec —
 | `implemented` | [`account-character-creation.md`](account-character-creation.md) | Phase 3 slice 5 |
 | `implemented` | [`bare-bones-content-spawning.md`](bare-bones-content-spawning.md) | Phase 3 slice 5a |
 | `implemented` | [`persistence-two-level-model.md`](persistence-two-level-model.md) | Phase 3 slice 5b |
-| `planned` | [`items-and-inventory.md`](items-and-inventory.md) | Phase 3 slice 6 |
-| `planned` | [`equipment.md`](equipment.md) | Phase 3 slice 7 |
-| `planned` | [`mobs.md`](mobs.md) | Phase 3 slice 8 |
-| `planned` | [`attributes.md`](attributes.md) | Phase 3 slice 8a |
-| `planned` | [`entity-state-management.md`](entity-state-management.md) | Phase 3 slice 9-a |
+| `implemented` | [`items-and-inventory.md`](items-and-inventory.md) | Phase 3 slice 6 |
+| `implemented` | [`equipment.md`](equipment.md) | Phase 3 slice 7 |
+| `implemented` | [`mobs.md`](mobs.md) | Phase 3 slice 8 |
+| `implemented` | [`attributes.md`](attributes.md) | Phase 3 slice 8a |
+| `implemented` | [`entity-state-management.md`](entity-state-management.md) | Phase 3 slice 9-a |
 | `implemented` | [`time-system.md`](time-system.md) | Phase 3 slice 9-b |
 | `implemented` | [`stat-system.md`](stat-system.md) | Phase 3 slice 9-c |
-| `planned` | [`combat.md`](combat.md) | Phase 3 slice 9 |
+| `implemented` | [`combat.md`](combat.md) | Phase 3 slice 9 |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C): SQLite backend, EntityService lifecycle, world content de-persistence, context-driven item persistence, spawn slot foundation |
 

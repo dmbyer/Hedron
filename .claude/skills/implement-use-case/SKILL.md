@@ -24,8 +24,9 @@ Your job is to turn those sections into real code without slipping gameplay logi
 6. **Handlers.** One handler per step that orchestrates; subscribe with priorities. See **add-handler**.
 7. **Command (if player-initiated).** Thin; delegates to the first handler. See **add-command**.
 8. **Update the use-case doc** — set Status to `implemented` if fully done, keep `partial` if only some paths are live.
-9. **Sync roadmap docs.** Run the **sync-roadmap** skill. Updates `plan.md` (phase summary, slice queue status, current focus), adds a row to `done.md`, and creates `completed/<slug>.md`. This is Phase 3 ground rule 7.
-10. **Code-review gate (mandatory).** Run the `architecture-reviewer` agent in **code mode** against the diff before this branch merges. This is Phase 3 ground rule 6. Do not skip it even for "infrastructure-only" slices — the code gate catches drift between the as-built code and the spec that the spec gate cannot see.
+9. **Update the use-cases index** — open [docs/use-cases/README.md](../../../docs/use-cases/README.md) and set the status cell in the index table to match the use-case doc's new Status value.
+10. **Sync roadmap docs.** Run the **sync-roadmap** skill. Updates `plan.md` (phase summary, slice queue status, current focus), adds a row to `done.md`, and creates `completed/<slug>.md`. This is Phase 3 ground rule 7.
+11. **Code-review gate (mandatory).** Run the `architecture-reviewer` agent in **code mode** against the diff before this branch merges. This is Phase 3 ground rule 6. Do not skip it even for "infrastructure-only" slices — the code gate catches drift between the as-built code and the spec that the spec gate cannot see.
 
 ## Guard the layer discipline
 
