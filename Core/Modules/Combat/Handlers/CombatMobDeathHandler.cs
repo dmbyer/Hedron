@@ -4,41 +4,50 @@ using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Combat.Events;
 using Hedron.Core.Modules.EntityState.Systems;
+using Hedron.Core.Modules.Mobs.Events;
 
 namespace Hedron.Core.Modules.Combat.Handlers
 {
     /// <summary>
-    /// Finalizes the mob death path: clears the player's combat state, frees the blueprint slot
-    /// (INV-21), and destroys the mob entity. Priority 80 (<see cref="HandlerPriority.Notification"/>)
-    /// — deliberately lower than <see cref="CombatHandler"/> (priority 20) so the death narrative
-    /// is broadcast before the entity is destroyed.
+    /// Finalizes the mob death path: clears the player's combat state, publishes
+    /// <see cref="MobDiedEvent"/> so <c>SpawnSystem</c> can mark the slot vacant, then
+    /// destroys the mob entity. Priority 80 (<see cref="HandlerPriority.Notification"/>)
+    /// — deliberately lower than <see cref="CombatHandler"/> (priority 20) so the death
+    /// narrative is broadcast before the entity is destroyed.
     /// </summary>
     public sealed class CombatMobDeathHandler : IEventHandler<CombatEndedEvent>
     {
         private readonly EntityService _entityService;
         private readonly IEntityStateService _entityStateService;
+        private readonly IEventBus _eventBus;
 
         public int Priority => HandlerPriority.Notification;
 
-        public CombatMobDeathHandler(EntityService entityService, IEntityStateService entityStateService)
+        public CombatMobDeathHandler(
+            EntityService entityService,
+            IEntityStateService entityStateService,
+            IEventBus eventBus)
         {
             _entityService = entityService;
             _entityStateService = entityStateService;
+            _eventBus = eventBus;
         }
 
-        public Task HandleAsync(CombatEndedEvent @event)
+        public async Task HandleAsync(CombatEndedEvent @event)
         {
             if (@event.Outcome != CombatEndOutcome.MobDied)
-                return Task.CompletedTask;
+                return;
 
             _entityStateService.ExitState(@event.AttackerEntityId, EntityStateFlags.InCombat);
 
-            // Clear blueprint slot so WorldContentLoader re-seeds on next startup/reload (INV-21).
-            _entityService.RemoveComponent<BlueprintComponent>(@event.DefenderEntityId);
+            // Publish MobDiedEvent while the entity is still live so SpawnSystem can inspect it.
+            var blueprintId = _entityService.TryGet<BlueprintComponent>(@event.DefenderEntityId, out var bp)
+                ? bp.BlueprintId
+                : string.Empty;
+            await _eventBus.PublishAsync(new MobDiedEvent(@event.DefenderEntityId, blueprintId))
+                .ConfigureAwait(false);
 
             _entityService.DestroyEntity(@event.DefenderEntityId);
-
-            return Task.CompletedTask;
         }
     }
 }

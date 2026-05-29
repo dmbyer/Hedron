@@ -30,6 +30,7 @@ Persistence uses two independent opt-ins. See [../architecture/06-persistence.md
 | `EntityStateComponent` | `ActiveStates: EntityStateFlags` — tracks active state flags for any entity; absent when `ActiveStates == None` | `IEntityStateService`; commands and handlers that guard on entity state | no — transient; cleared on restart by design |
 | `EntityStateFlags` | `[Flags]` enum `{ None=0, InCombat=1, Resting=2, Incapacitated=4 }` — co-located with `EntityStateComponent` in `Core/ECS/Components/`; named with `Flags` suffix to avoid a C# namespace/type collision with the `EntityState` module | n/a (enum, not a component) | n/a |
 | `CombatStateComponent` | `OpponentEntityId: uint` — holds the entity id of this entity's current combat opponent. Companion to `EntityState.InCombat`: the flag records that combat is active; this component records who the entity is fighting. Absent when not in combat. | `ICombatSystem`, `FleeCommand`, `CombatTickHandler` | no — transient; stale combat state on restart would reference entities that may not exist |
+| `SpawnConfigComponent` | `Rules: List<SpawnRule>` — each `SpawnRule` holds `BlueprintId`, `MinCount`, `MaxCount`, `RespawnDelaySeconds`; one entry per independent respawn slot. Absent if the room has no spawn rules. | Room/area entities; `SpawnSystem` reads on `WorldContentReadyEvent` to populate its tracker | no — YAML is the authoritative source; always attached via `RoomTemplate.Apply` |
 
 ### Gameplay / session (cross-cutting — `Core/ECS/Components/`)
 

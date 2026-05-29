@@ -68,9 +68,16 @@ Ask:
 ### CombatMobDeathHandler
 **Events:** `CombatEndedEvent` (acts only when `Outcome == MobDied`)
 **Priority:** 80 (`HandlerPriority.Notification`)
-**Responsibilities:** Finalizes the mob death path. Priority 80 — deliberately lower than `CombatHandler` (priority 20) so the death narrative is broadcast before entity destruction. Calls `IEntityStateService.ExitState(attackerEntityId, InCombat)`, removes `BlueprintComponent` from the mob entity (INV-21: frees the blueprint slot so `WorldContentLoader` re-seeds on next startup/reload), then calls `EntityService.DestroyEntity(mobEntityId)`. Does not publish events. Loot drop deferred to slice 10.
+**Responsibilities:** Finalizes the mob death path. Priority 80 — deliberately lower than `CombatHandler` (priority 20) so the death narrative is broadcast before entity destruction. Calls `IEntityStateService.ExitState(attackerEntityId, InCombat)`, publishes `MobDiedEvent` (while entity is still live — `SpawnSystem` observes this to mark the slot vacant), then calls `EntityService.DestroyEntity(mobEntityId)`. Loot drop deferred to slice 10.
 **Location:** `Core/Modules/Combat/Handlers/CombatMobDeathHandler.cs`
-**Uses:** `EntityService`, `IEntityStateService`
+**Uses:** `EntityService`, `IEntityStateService`, `IEventBus`
+
+### ItemContextHandler
+**Events:** `ItemPickedUpEvent`, `ItemDroppedEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** Manages item entity persistence lifecycle based on context. On `ItemPickedUpEvent`: calls `EntityService.AddComponent(itemEntityId, new PersistentEntity())` if not already present — the item enters the flush pool and will survive restarts in the player's inventory. On `ItemDroppedEvent`: calls `EntityService.RemoveComponent<PersistentEntity>(itemEntityId)` — the item leaves the flush pool and vanishes on restart. Does not save immediately; the periodic flush handles durability. No spawn slot knowledge — slot vacancy is handled by `SpawnSystem` separately.
+**Location:** `Core/Modules/Spawn/Handlers/ItemContextHandler.cs`
+**Uses:** `EntityService`
 
 ### AdminAuditHandler
 **Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a); `ItemCreatedByAdminEvent`, `ItemPropertySetByAdminEvent` (Phase 3 slice 6); `MobCreatedByAdminEvent`, `MobPropertySetByAdminEvent` (Phase 3 slice 8); `PlayerAttributeSetByAdminEvent` (Phase 3 slice 8a); `CombatEndedEvent` (Phase 3 slice 9).

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
@@ -65,6 +66,25 @@ namespace Hedron.Core.Modules.World.Templates
                 }
             }
 
+            if (dto.SpawnRules is { Count: > 0 })
+            {
+                foreach (var ruleDto in dto.SpawnRules)
+                {
+                    if (string.IsNullOrWhiteSpace(ruleDto.BlueprintId))
+                    {
+                        _logger.LogWarning(
+                            "Room '{BlueprintId}': spawn rule missing blueprintId — skipping.",
+                            dto.Id);
+                        continue;
+                    }
+                    template.SpawnRules.Add(new SpawnRule(
+                        ruleDto.BlueprintId,
+                        ruleDto.MinCount ?? 1,
+                        ruleDto.MaxCount ?? 1,
+                        ruleDto.RespawnDelaySeconds ?? 300));
+                }
+            }
+
             return template;
         }
 
@@ -76,6 +96,15 @@ namespace Hedron.Core.Modules.World.Templates
             public string? Description { get; set; }
             public string? AreaId { get; set; }
             public Dictionary<string, string>? Exits { get; set; }
+            public List<SpawnRuleDto>? SpawnRules { get; set; }
+        }
+
+        private sealed class SpawnRuleDto
+        {
+            public string? BlueprintId { get; set; }
+            public int? MinCount { get; set; }
+            public int? MaxCount { get; set; }
+            public int? RespawnDelaySeconds { get; set; }
         }
     }
 }

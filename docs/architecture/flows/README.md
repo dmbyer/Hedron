@@ -18,8 +18,8 @@
 | 6 | [Output rendering](flow-06-output-rendering.md) | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4 |
 | 7 | [Login / character flow](flow-07-login-character-flow.md) | TCP client connects, new or returning player | Phase 3 slice 5 |
 | 8 | [Admin room creation (`dig`)](flow-08-admin-room-creation.md) | Privileged session sends `dig <direction> [name]` | Phase 3 slice 5a |
-| 9 | [Item pickup (`get`)](flow-09-item-pickup.md) | Player sends `get <item>` | Phase 3 slice 6 |
-| 10 | [Item drop (`drop`)](flow-10-item-drop.md) | Player sends `drop <item>` | Phase 3 slice 6 |
+| 9 | [Item pickup (`get`)](flow-09-item-pickup.md) | Player sends `get <item>` | Phase 3 slice 6; updated persistence reform Stage C |
+| 10 | [Item drop (`drop`)](flow-10-item-drop.md) | Player sends `drop <item>` | Phase 3 slice 6; updated persistence reform Stage C |
 | 11 | [Inventory display (`inventory`)](flow-11-inventory-display.md) | Player sends `inventory` / `inv` / `i` | Phase 3 slice 6 |
 | 12 | [Admin item creation (`mkitem`)](flow-12-admin-item-creation.md) | Privileged session sends `mkitem [name]` | Phase 3 slice 6 |
 | 13 | [`wear <item>`](flow-13-wear-item.md) | Player sends `wear <item>` | Phase 3 slice 7 |
@@ -29,6 +29,7 @@
 | 17 | [`kill <mob>` — combat initiation](flow-17-kill-mob-combat-initiation.md) | Player sends `kill <mob>` | Phase 3 slice 9 |
 | 18 | [Combat round pulse](flow-18-combat-round-pulse.md) | `HeartbeatTickEvent` dispatched to `CombatTickHandler` | Phase 3 slice 9 |
 | 19 | [`flee` — combat exit](flow-19-flee-combat-exit.md) | Player sends `flee` | Phase 3 slice 9 |
+| 20 | [Mob death and respawn](flow-20-mob-death-respawn.md) | Mob HP reaches zero; `SpawnSystem` schedules and executes respawn | Persistence reform Stage C |
 
 Flows that don't yet exist (player death, mob wander tick, etc.) get added by the slice that introduces them.
 

@@ -408,6 +408,22 @@ public enum CombatRoundOutcome { Hit, Miss, MobDied, PlayerIncapacitated }
 ```
 `TryFindTargetInRoom` prefix-matches `token` against `MobDataComponent.Name` and `Keywords` for entities with `MobDataComponent` in the given room. `StartCombat`/`EndCombat` add/remove `CombatStateComponent` on both participants — does not call `IEntityStateService` (cohesion separation; commands and handlers coordinate both layers). `ExecuteRound` formula: hit check `roll = Random.Shared.Next(1,21) + dex/2 >= 10 + defense`; damage `Random.Shared.Next(1, attackPower+2)` applied via `IAttributeSystem.SetCurrentHp`; outcome `MobDied` if defender has `MobDataComponent` and HP == 0, `PlayerIncapacitated` if defender has `CharacterComponent` and HP == 0. Implemented (Phase 3 slice 9).
 
+### SpawnSystem
+**Purpose:** Tracks spawn slot occupancy for world-content entities (mobs, world-spawn items) and schedules respawns. Self-initializes from the live entity graph on `WorldContentReadyEvent`; reacts to `MobDiedEvent` and `ItemPickedUpEvent` to mark slots vacant; respawns on `HeartbeatTickEvent`. No events published; no persistence (INV-5, INV-8). Implemented (persistence reform Stage C).
+**Location:** `Core/Modules/Spawn/Systems/SpawnSystem.cs`
+**Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<SpawnSystem>`.
+**Subscribes to:** `WorldContentReadyEvent` (priority 80), `MobDiedEvent` (priority 20), `ItemPickedUpEvent` (priority 20), `HeartbeatTickEvent` (priority 95).
+
+Internal state:
+- `_slots: Dictionary<(roomEntityId, blueprintId), SlotState>` — slot registry; keyed by the owning room entity and the mob/item blueprint ID.
+- `_entityToSlot: Dictionary<entityId, (roomEntityId, blueprintId)>` — reverse map for O(1) vacancy marking on death/pickup events.
+
+On `WorldContentReadyEvent`: iterates all entities with `SpawnConfigComponent`; for each spawn rule, finds any live entity in that room with the matching blueprint ID and registers it in the tracker. Slots with no live entity get `RespawnAt = now + delay` for immediate respawn on the first heartbeat.
+
+On `MobDiedEvent` / `ItemPickedUpEvent`: removes the entity from the reverse map, sets `SlotState.LiveEntityId = null` and `SlotState.RespawnAt = now + RespawnDelaySeconds`.
+
+On `HeartbeatTickEvent`: for each slot with `RespawnAt <= UtcNow`, calls `ITemplateRegistry.Spawn(blueprintId)`, attaches `LocationComponent`, and updates the tracker.
+
 ---
 
 ## Background Services / Initiators
