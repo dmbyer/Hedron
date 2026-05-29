@@ -74,7 +74,6 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 9-a | Entity state management | Centralized entity state flags; command gating; prereq for combat and future states (resting, incapacitation, …) | ✅ done |
 | 9-b | Time system (heartbeat) | `IHeartbeatService`, `HeartbeatTickEvent`; prereq for combat, mob AI, effect expiry | ✅ done |
 | 9-c | Stat computation system | `IStatSystem` effective-stat pipeline; base + equipment bonus seam for future effects/buffs | ✅ done |
-
 | 9 | Combat | Core gameplay loop | ✅ done |
 | 10 | Death and respawn | Combat is terminal until this exists | 🟢 next |
 | 11 | Skills | Character progression | 🟢 ready after 9 |
