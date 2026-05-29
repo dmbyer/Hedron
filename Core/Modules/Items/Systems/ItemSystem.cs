@@ -100,7 +100,14 @@ namespace Hedron.Core.Modules.Items.Systems
             if (_entityService.TryGet<InventoryComponent>(holderEntityId, out var inv))
                 inv.ItemEntityIds.Remove(itemEntityId);
 
-            _entityService.AddComponent(itemEntityId, new LocationComponent { RoomEntityId = roomEntityId });
+            var blueprintId = _entityService.TryGet<BlueprintComponent>(roomEntityId, out var bp)
+                ? bp.BlueprintId
+                : null;
+            _entityService.AddComponent(itemEntityId, new LocationComponent
+            {
+                RoomEntityId = roomEntityId,
+                RoomBlueprintId = blueprintId,
+            });
         }
 
         private static bool PrefixMatches(string candidate, string token) =>

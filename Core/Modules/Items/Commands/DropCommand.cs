@@ -17,15 +17,12 @@ namespace Hedron.Core.Modules.Items.Commands
     /// <summary>
     /// Player verb <c>drop &lt;item&gt;</c>.
     /// Drops a named item from the invoker's inventory to their current room.
-    /// Intentionally does NOT save the item entity after drop — dropped items vanish on restart
-    /// (design decision documented in the items-and-inventory use-case spec).
     /// </summary>
     public sealed class DropCommand : ICommand
     {
         private readonly IItemSystem _itemSystem;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
-        private readonly IPersistenceSystem _persistence;
 
         public string Name => "drop";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -42,13 +39,11 @@ namespace Hedron.Core.Modules.Items.Commands
             IItemSystem itemSystem,
             EntityService entityService,
             IEventBus eventBus,
-            IPersistenceSystem persistence,
             ItemInInventoryResolver resolver)
         {
             _itemSystem = itemSystem;
             _entityService = entityService;
             _eventBus = eventBus;
-            _persistence = persistence;
 
             ArgumentSchema = new CommandArgumentSchema(new[]
             {
@@ -89,10 +84,6 @@ namespace Hedron.Core.Modules.Items.Commands
             await _eventBus.PublishAsync(new ItemDroppedEvent(
                 context.InvokerEntityId, itemEntityId, roomEntityId))
                 .ConfigureAwait(false);
-
-            // Save player only — item is intentionally not saved after drop so dropped items
-            // vanish on restart (see items-and-inventory use-case spec, Design Notes).
-            await _persistence.SaveEntityAsync(context.InvokerEntityId).ConfigureAwait(false);
         }
     }
 }

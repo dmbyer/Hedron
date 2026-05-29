@@ -97,48 +97,51 @@ No `IsPrivileged` call in the body. Privilege is enforced by the dispatcher befo
 
 Admin commands declare `MatchingMode.Full` so they are never accidentally dispatched by a partial prefix — typing `d` reaches `down` (a player command alias), not `dig`.
 
-## Persistence from a command
+## Persistence from a command (INV-22)
 
-A command (Initiator) may call `await _persistence.SaveEntityAsync(entityId, ct)` directly — but only under the **no-chain variant (INV-10):** the command makes a closed mutation with no downstream event fan-out needed.
+Two persistence domains exist; which one the command touches determines what it does for durability:
 
-Use this when:
-- The command creates or mutates authored content (e.g. `dig`, `set`) and immediate durability is required.
-- There is no handler that should react to the save — the command is the end of the chain.
-
-Do **not** use this to replace event-driven persistence for runtime state that is covered by the area-scoped periodic flush.
+**World content commands (`dig`, `mkitem`, `mkmob`, `set`, `setitem`, `setmob`).**
+World entities carry **no** `PersistentEntity` — they are never in the SQLite flush pool. Their sole durable form is the YAML file. A world-content command calls the domain system (which mutates the live entity) and writes the YAML template; it never calls `SaveEntityAsync`.
 
 ```csharp
-// ✅ admin command creating authored content — save-on-change
+// ✅ admin room creation — YAML is the only durable form, no SaveEntityAsync
 var result = _roomBuilder.CreateRoom(context.InvokerEntityId, direction);
 await _eventBus.PublishAsync(new RoomCreatedByAdminEvent(...));
-await _persistence.SaveEntityAsync(result.NewRoomEntityId, ct);
-await _persistence.SaveEntityAsync(result.SourceRoomEntityId, ct);
+await _roomContentWriter.WriteAsync(result.Template, ct); // writes data/content/rooms/<id>.yaml
+// no SaveEntityAsync — the YAML file is the room's durable state
 ```
 
-See [docs/architecture/06-persistence.md](../../../docs/architecture/06-persistence.md) for when each pattern applies.
+**Account/character construction commands (`LoginFlow`, `AccountSystem.CreateCharacterAsync`).**
+These create entities that must survive restart. They add `PersistentEntity` to the entity, then call `SaveEntityAsync` **once** to make the ID durable before the flow returns. This is the **only** permitted `SaveEntityAsync` call site in the codebase. Runtime state changes (movement, HP, inventory) are covered by the `PersistenceFlushTimer` periodic sweep — no command or handler calls `SaveEntityAsync` for them.
+
+```csharp
+// ✅ character construction — the only permitted SaveEntityAsync call site
+_entityService.AddComponent(entityId, new PersistentEntity());
+await _persistence.SaveEntityAsync(entityId, ct);
+```
+
+See [docs/architecture/06-persistence.md](../../../docs/architecture/06-persistence.md) and INV-22 for the full rules.
 
 ## Admin blueprint-authoring commands (INV-21)
 
-When the command creates or mutates a **blueprint** — a template that seeds live entities on startup (rooms, items, mobs) — two additional responsibilities apply beyond the standard command shape:
+When the command creates or mutates a **blueprint** — a template that seeds live entities on startup (rooms, items, mobs) — two responsibilities apply beyond the standard command shape:
 
-**1. Persist the template definition to disk alongside the entity.**
-Write the template file (e.g. YAML under `data/content/<kind>/`) immediately, the same way `SaveEntityAsync` makes the entity durable. Without this the blueprint definition evaporates on restart and `SpawnMissingEntities` cannot re-seed the entity.
+**1. Persist the template definition to disk.**
+Write the YAML file immediately via the appropriate content writer. Without this the blueprint definition evaporates on restart.
 
-**2. Keep template and entity in sync on mutation.**
-A `set*` command that changes a property must update both the live entity (via the domain system) and the template file on disk. Player-owned instances that were already decoupled from the blueprint (see below) are NOT updated — they are fully independent.
+**2. Keep template and live entity in sync on mutation.**
+A `set*` command that changes a property must update both the live entity (via the domain system) and the YAML file on disk. Player-owned instances are independent — they were promoted to persistent when picked up and are NOT retroactively updated.
 
-**Pickup / player-touch must decouple the instance from its blueprint.**
-When a player picks up (or otherwise takes ownership of) a blueprint-spawned entity, clear `BlueprintComponent` on that entity before saving. This frees the blueprint slot so the next restart spawns a fresh instance in the spawn room. The player-owned entity then persists independently.
+**`BlueprintComponent` is NOT cleared on pickup (INV-21).**
+When a player picks up a world-spawn item, `ItemContextHandler` promotes the item entity to persistent by adding `PersistentEntity`. `BlueprintComponent` stays on the entity as an origin record. Spawn-slot vacancy is tracked by `SpawnSystem` via `ItemPickedUpEvent`, not by inspecting `BlueprintComponent` on live entities. Do not remove `BlueprintComponent` from item entities.
 
 ```csharp
-// ✅ blueprint-authoring command: persist template + entity
+// ✅ blueprint-authoring command: write YAML, no SaveEntityAsync
 var result = _itemBuilder.CreateItem(name, roomEntityId);
-_templateStore.WriteYaml(result.BlueprintId, result.Template); // write to data/content/items/
-await _persistence.SaveEntityAsync(result.ItemEntityId, ct);
-
-// ✅ pickup decouples instance — frees blueprint slot for next-restart respawn
-_entityService.RemoveComponent<BlueprintComponent>(itemEntityId);
-await _persistence.SaveEntityAsync(itemEntityId, ct);
+await _itemContentWriter.WriteAsync(result.Template, ct); // write to data/content/items/
+// no SaveEntityAsync — world content is never persistent
+await _eventBus.PublishAsync(new ItemCreatedByAdminEvent(...));
 ```
 
 See [INV-21](../../../docs/architecture/checklist.md) for the full invariant.

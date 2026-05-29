@@ -71,7 +71,16 @@ namespace Hedron.Core.Modules.Admin.Commands
             // Room and area entities are orphan entities after spawn — use 'dig' to wire a new room in.
             // Mob entities are placed in the invoker's current room immediately.
             if (_entityService.HasComponent<MobDataComponent>(spawned.Id))
-                _entityService.AddComponent(spawned.Id, new LocationComponent { RoomEntityId = location.RoomEntityId });
+            {
+                var roomBlueprintId = _entityService.TryGet<BlueprintComponent>(location.RoomEntityId, out var roomBp)
+                    ? roomBp.BlueprintId
+                    : null;
+                _entityService.AddComponent(spawned.Id, new LocationComponent
+                {
+                    RoomEntityId = location.RoomEntityId,
+                    RoomBlueprintId = roomBlueprintId,
+                });
+            }
 
             await context.Output.WriteAsync(
                 new PlainMessage($"Spawned {blueprintId} (entity #{spawned.Id}).", OutputSeverity.Confirmation))

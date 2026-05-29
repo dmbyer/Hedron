@@ -36,8 +36,11 @@ namespace Hedron.Core.Modules.Items.Systems
             var entity = _entityService.CreateEntity();
             _entityService.AddComponent(entity.Id, new ItemDataComponent { Name = name });
             _entityService.AddComponent(entity.Id, new BlueprintComponent { BlueprintId = blueprintId });
-            _entityService.AddComponent(entity.Id, new PersistentEntity());
-            _entityService.AddComponent(entity.Id, new LocationComponent { RoomEntityId = roomEntityId });
+            _entityService.AddComponent(entity.Id, new LocationComponent
+            {
+                RoomEntityId = roomEntityId,
+                RoomBlueprintId = spawnRoomBlueprintId,
+            });
 
             var template = new ItemTemplate(blueprintId)
             {

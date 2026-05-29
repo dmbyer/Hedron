@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
-using Hedron.Core.Modules.Account.Components;
 using Hedron.Core.Modules.Items.Templates;
 using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.World.Templates;
@@ -18,16 +17,10 @@ namespace Hedron.Core.Modules.World.Systems
 {
     /// <summary>
     /// Default <see cref="IWorldContentLoader"/>. Reads area and room YAML files from the
-    /// configured content directory, registers templates, and seeds entities into the
-    /// world for blueprints that aren't already represented by a hydrated entity.
+    /// configured content directory, registers templates, and seeds entities into the world.
+    /// All world content (rooms, areas, mobs, items) is always fresh-spawned from YAML on
+    /// startup — no SQLite rows exist for world content.
     /// </summary>
-    /// <remarks>
-    /// <b>Startup ordering.</b> <c>WorldContentBootstrap</c> ensures
-    /// <see cref="LoadAndSpawnAsync"/> runs after <c>PersistenceBootstrap</c> has finished —
-    /// every persisted entity is already in <see cref="EntityService"/> by the time we
-    /// begin our spawn pass, so the conflict check (skip blueprint id that already has a
-    /// live entity) sees the full hydrated world.
-    /// </remarks>
     public sealed class WorldContentLoader : IWorldContentLoader
     {
         private const string AreasSubdirectory = "areas";
@@ -39,9 +32,7 @@ namespace Hedron.Core.Modules.World.Systems
         private readonly EntityService _entityService;
         private readonly ITemplateRegistry _templateRegistry;
         private readonly IContentSerializer _serializer;
-        private readonly IPersistenceSystem _persistence;
         private readonly IRoomContentWriter _roomContentWriter;
-        private readonly IArchetypeRegistry _archetypeRegistry;
         private readonly Hedron.Core.WorldConfiguration _worldConfig;
         private readonly ILogger<WorldContentLoader> _logger;
         private readonly string _contentDirectory;
@@ -51,9 +42,7 @@ namespace Hedron.Core.Modules.World.Systems
             EntityService entityService,
             ITemplateRegistry templateRegistry,
             IContentSerializer serializer,
-            IPersistenceSystem persistence,
             IRoomContentWriter roomContentWriter,
-            IArchetypeRegistry archetypeRegistry,
             Hedron.Core.WorldConfiguration worldConfig,
             IConfiguration configuration,
             ILogger<WorldContentLoader> logger)
@@ -61,9 +50,7 @@ namespace Hedron.Core.Modules.World.Systems
             _entityService = entityService;
             _templateRegistry = templateRegistry;
             _serializer = serializer;
-            _persistence = persistence;
             _roomContentWriter = roomContentWriter;
-            _archetypeRegistry = archetypeRegistry;
             _worldConfig = worldConfig;
             _logger = logger;
             _contentDirectory = configuration["World:ContentDirectory"] ?? "data/content/";
@@ -74,60 +61,28 @@ namespace Hedron.Core.Modules.World.Systems
         {
             await LoadTemplatesAsync(ct).ConfigureAwait(false);
 
-            // Build the live-blueprint map before any branching so both paths see the
-            // full hydrated world.  Without this, the no-YAML branch re-seeds the void
-            // room on every restart even though the entity was already loaded from disk,
-            // producing a new duplicate entity-N.json each time.
-            var liveBlueprints = BuildLiveBlueprintMap();
-
             if (_templateRegistry.AllBlueprintIds().Count == 0)
             {
-                if (!liveBlueprints.ContainsKey(VoidRoomBlueprintId))
-                {
-                    _logger.LogWarning(
-                        "WorldContentLoader: content directory '{Dir}' is missing or empty — seeding void room.",
-                        _contentDirectory);
-                    var voidId = await SeedVoidRoomAsync(ct).ConfigureAwait(false);
-                    // Save immediately so the entity ID is stable across restarts.
-                    await _persistence.SaveEntityAsync(voidId, ct).ConfigureAwait(false);
-                }
-                else
-                {
-                    // Entity snapshot exists from a previous run but there is no YAML file
-                    // (e.g. content directory was wiped, or this is the first run after the
-                    // room-YAML feature was introduced). Reconstruct the template from the
-                    // live entity and write the YAML so future startups load cleanly.
-                    await RecoverVoidRoomTemplateAsync(liveBlueprints[VoidRoomBlueprintId], ct)
-                        .ConfigureAwait(false);
-                }
+                _logger.LogWarning(
+                    "WorldContentLoader: content directory '{Dir}' is missing or empty — seeding void room.",
+                    _contentDirectory);
+                SeedVoidRoom();
+
+                // Write YAML immediately so the void room has a content file on first startup.
+                if (_templateRegistry.TryGet(VoidRoomBlueprintId, out var voidTpl) &&
+                    voidTpl is RoomTemplate voidRoomTpl)
+                    await _roomContentWriter.WriteAsync(voidRoomTpl, ct).ConfigureAwait(false);
             }
             else
             {
+                var liveBlueprints = BuildLiveBlueprintMap();
                 var newlySpawned = SpawnMissingEntities(liveBlueprints);
-
-                // Save every newly-spawned entity to disk immediately.
-                // This makes their entity IDs durable even if the server is killed before the
-                // shutdown flush — without this, room IDs change on each restart and item
-                // LocationComponents go stale.
-                foreach (var id in newlySpawned)
-                    await _persistence.SaveEntityAsync(id, ct).ConfigureAwait(false);
-
                 LinkRoomExits(liveBlueprints);
                 PlaceItemsInRooms(liveBlueprints, newlySpawned);
                 PlaceMobsInRooms(liveBlueprints, newlySpawned);
-                await MigrateEntityComponentsAsync(ct).ConfigureAwait(false);
             }
 
             ResolveStartingRoom();
-
-            // Warn about any blueprint-tagged entity whose YAML template is not in the
-            // registry. This catches JSON snapshots whose content files have been deleted
-            // or were never written (e.g. rooms created before this feature existed).
-            //
-            // Note: character and account entities do not carry BlueprintComponent, so they
-            // are naturally excluded here. Accounts are aspirationally intended to have YAML
-            // counterparts in a future slice.
-            WarnOrphanedBlueprintEntities();
         }
 
         public async Task<ContentReloadResult> ReloadAsync(CancellationToken ct = default)
@@ -142,18 +97,12 @@ namespace Hedron.Core.Modules.World.Systems
             var unchanged = currentIds.Intersect(previousIds, StringComparer.OrdinalIgnoreCase).Count();
             var removed = previousIds.Except(currentIds, StringComparer.OrdinalIgnoreCase).Count();
 
-            // Additive only: spawn any template that has no live counterpart. Existing live
-            // entities are not touched.
+            // Additive only: spawn any template that has no live counterpart.
             var liveBlueprints = BuildLiveBlueprintMap();
             var newlySpawned = SpawnMissingEntities(liveBlueprints);
-            foreach (var id in newlySpawned)
-                await _persistence.SaveEntityAsync(id, ct).ConfigureAwait(false);
             LinkRoomExits(liveBlueprints);
             PlaceItemsInRooms(liveBlueprints, newlySpawned);
             PlaceMobsInRooms(liveBlueprints, newlySpawned);
-            await MigrateEntityComponentsAsync(ct).ConfigureAwait(false);
-
-            WarnOrphanedBlueprintEntities();
 
             return new ContentReloadResult(loaded, unchanged, removed);
         }
@@ -200,7 +149,7 @@ namespace Hedron.Core.Modules.World.Systems
             }
         }
 
-        private async Task<uint> SeedVoidRoomAsync(CancellationToken ct)
+        private void SeedVoidRoom()
         {
             var voidTemplate = new RoomTemplate(VoidRoomBlueprintId)
             {
@@ -208,132 +157,13 @@ namespace Hedron.Core.Modules.World.Systems
                 Description = "A featureless grey expanse. No content has been authored yet — use dig to start building.",
             };
             _templateRegistry.Register(VoidRoomBlueprintId, voidTemplate);
-            var spawned = _templateRegistry.Spawn(VoidRoomBlueprintId);
-            _entityService.AddComponent(spawned.Id, new PersistentEntity());
-
-            // Write YAML immediately so the void room has a content file on first startup.
-            await _roomContentWriter.WriteAsync(voidTemplate, ct).ConfigureAwait(false);
-
-            return spawned.Id;
-        }
-
-        /// <summary>
-        /// Called when the void room entity already exists in the snapshot store but its YAML
-        /// file is absent (e.g. the content directory was wiped, or this server was upgraded
-        /// from a version that did not write room YAML). Reconstructs the template from the
-        /// live entity's <see cref="RoomComponent"/> and writes the YAML so subsequent starts
-        /// load cleanly without an orphan warning.
-        /// </summary>
-        private async Task RecoverVoidRoomTemplateAsync(uint voidEntityId, CancellationToken ct)
-        {
-            _entityService.TryGet<RoomComponent>(voidEntityId, out var roomComp);
-
-            var voidTemplate = new RoomTemplate(VoidRoomBlueprintId)
-            {
-                Name        = roomComp?.Name ?? "The Void",
-                Description = roomComp?.Description
-                              ?? "A featureless grey expanse. No content has been authored yet — use dig to start building.",
-            };
-            _templateRegistry.Register(VoidRoomBlueprintId, voidTemplate);
-
-            _logger.LogInformation(
-                "WorldContentLoader: void room entity exists but has no YAML — writing recovery file.");
-            await _roomContentWriter.WriteAsync(voidTemplate, ct).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Checks every loaded entity against its detected archetype's required component set
-        /// (via <see cref="IArchetypeRegistry"/>) and fills in any missing components using
-        /// their default parameterless constructor. Extra components that are present but not
-        /// in the archetype definition are left untouched to avoid data loss or removing
-        /// runtime-attached optional effects. Entities that receive new components are
-        /// immediately persisted so the fix is durable across restarts.
-        /// </summary>
-        private async Task MigrateEntityComponentsAsync(CancellationToken ct)
-        {
-            var modified = new HashSet<uint>();
-
-            // Iterate by archetype marker component so we don't need GetAllEntities().
-            // Each set below maps a well-known marker component to the archetype it implies.
-            // The order is irrelevant — the registry handles definition lookup.
-            MigrateArchetype<MobDataComponent>(EntityArchetype.Mob, modified);
-            MigrateArchetype<CharacterComponent>(EntityArchetype.Player, modified);
-            MigrateArchetype<RoomComponent>(EntityArchetype.Room, modified);
-            MigrateArchetype<AreaComponent>(EntityArchetype.Area, modified);
-            MigrateArchetype<ItemDataComponent>(EntityArchetype.StaticItem, modified);
-
-            foreach (var id in modified)
-            {
-                ct.ThrowIfCancellationRequested();
-                await _persistence.SaveEntityAsync(id, ct).ConfigureAwait(false);
-            }
-
-            if (modified.Count > 0)
-                _logger.LogInformation(
-                    "WorldContentLoader: component migration complete — {Count} entity/entities updated.",
-                    modified.Count);
-        }
-
-        private void MigrateArchetype<TMarker>(EntityArchetype archetype, HashSet<uint> modified)
-            where TMarker : class, IComponent
-        {
-            var missing = _archetypeRegistry.RequiredComponents(archetype);
-            if (missing.Count == 0)
-                return;
-
-            foreach (var (entityId, _) in _entityService.GetAllComponents<TMarker>())
-            {
-                foreach (var componentType in _archetypeRegistry.MissingRequired(entityId, archetype))
-                {
-                    try
-                    {
-                        var instance = (IComponent)Activator.CreateInstance(componentType)!;
-                        _entityService.AddComponent(entityId, componentType, instance);
-                        modified.Add(entityId);
-                        _logger.LogInformation(
-                            "WorldContentLoader: entity {EntityId} ({Archetype}) — added missing {Component}.",
-                            entityId, archetype, componentType.Name);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex,
-                            "WorldContentLoader: entity {EntityId} ({Archetype}) — could not create default {Component}; skipping.",
-                            entityId, archetype, componentType.Name);
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Scans all entities that carry a <see cref="BlueprintComponent"/> and logs a warning
-        /// for any whose blueprint id is absent from the template registry. Such entities have
-        /// a JSON snapshot but no YAML counterpart, which means their template definition is
-        /// missing and they will be re-spawned as duplicates on the next start (or silently
-        /// lose blueprint identity on reload).
-        /// </summary>
-        private void WarnOrphanedBlueprintEntities()
-        {
-            foreach (var (entityId, blueprint) in _entityService.GetAllComponents<BlueprintComponent>())
-            {
-                if (string.IsNullOrEmpty(blueprint.BlueprintId))
-                    continue;
-
-                if (_templateRegistry.TryGet(blueprint.BlueprintId, out _))
-                    continue;
-
-                _logger.LogWarning(
-                    "WorldContentLoader: entity {EntityId} has blueprint '{BlueprintId}' but no " +
-                    "matching YAML template was loaded. The content file may be missing. " +
-                    "If this is a room or item created before YAML write support was added, " +
-                    "re-create it via dig/mkitem to generate the YAML file.",
-                    entityId, blueprint.BlueprintId);
-            }
+            _templateRegistry.Spawn(VoidRoomBlueprintId);
         }
 
         /// <summary>
         /// Spawns a live entity for every registered blueprint that has no current live entity.
-        /// Returns the set of newly-spawned entity IDs — callers save these immediately to make
-        /// IDs durable across restarts.
+        /// Returns the set of newly-spawned entity IDs so placement helpers can avoid
+        /// overwriting existing location data on <c>ReloadAsync</c>.
         /// </summary>
         private HashSet<uint> SpawnMissingEntities(Dictionary<string, uint> liveBlueprints)
         {
@@ -343,7 +173,6 @@ namespace Hedron.Core.Modules.World.Systems
                 if (liveBlueprints.ContainsKey(blueprintId))
                     continue;
                 var spawned = _templateRegistry.Spawn(blueprintId);
-                _entityService.AddComponent(spawned.Id, new PersistentEntity());
                 liveBlueprints[blueprintId] = spawned.Id;
                 newlySpawned.Add(spawned.Id);
             }
@@ -379,12 +208,9 @@ namespace Hedron.Core.Modules.World.Systems
         }
 
         /// <summary>
-        /// Attaches initial <see cref="LocationComponent"/> to template items that were
-        /// just spawned for the first time (i.e. they are in <paramref name="newlySpawned"/>).
-        /// Restored-from-persistence entities are intentionally skipped: their saved
-        /// <see cref="LocationComponent"/> already reflects either a room or an inventory slot,
-        /// and overriding it would cause duplicates (Phase B) or move a dropped item back to
-        /// its spawn point.
+        /// Attaches initial <see cref="LocationComponent"/> (both entity ID and blueprint ID) to
+        /// item entities that were just spawned in this pass. Restored-from-persistence entities
+        /// and entities already carrying a <c>LocationComponent</c> are skipped.
         /// </summary>
         private void PlaceItemsInRooms(Dictionary<string, uint> liveBlueprints, HashSet<uint> newlySpawned)
         {
@@ -397,9 +223,6 @@ namespace Hedron.Core.Modules.World.Systems
                 if (!liveBlueprints.TryGetValue(blueprintId, out var entityId))
                     continue;
 
-                // Only place items that were spawned in this startup pass. Entities restored
-                // from persistence already carry a saved LocationComponent (room or inventory).
-                // Re-placing them would clobber in-progress inventory state.
                 if (!newlySpawned.Contains(entityId))
                     continue;
 
@@ -414,7 +237,11 @@ namespace Hedron.Core.Modules.World.Systems
                     continue;
                 }
 
-                _entityService.AddComponent(entityId, new LocationComponent { RoomEntityId = roomEntityId });
+                _entityService.AddComponent(entityId, new LocationComponent
+                {
+                    RoomEntityId = roomEntityId,
+                    RoomBlueprintId = itemTemplate.SpawnRoomBlueprintId,
+                });
             }
         }
 
@@ -431,8 +258,6 @@ namespace Hedron.Core.Modules.World.Systems
 
                 if (!newlySpawned.Contains(entityId))
                 {
-                    // Warn when the YAML spawn room changed but the live entity cannot be moved
-                    // without a restart (additive-only reload contract).
                     if (!string.IsNullOrEmpty(mobTemplate.SpawnRoomBlueprintId) &&
                         liveBlueprints.TryGetValue(mobTemplate.SpawnRoomBlueprintId, out var expectedRoom) &&
                         _entityService.TryGet<LocationComponent>(entityId, out var existingLoc) &&
@@ -457,7 +282,11 @@ namespace Hedron.Core.Modules.World.Systems
                     continue;
                 }
 
-                _entityService.AddComponent(entityId, new LocationComponent { RoomEntityId = roomEntityId });
+                _entityService.AddComponent(entityId, new LocationComponent
+                {
+                    RoomEntityId = roomEntityId,
+                    RoomBlueprintId = mobTemplate.SpawnRoomBlueprintId,
+                });
             }
         }
 
@@ -470,7 +299,6 @@ namespace Hedron.Core.Modules.World.Systems
                 return;
             }
 
-            // Fall back to the void room (which always exists in the empty-content fallback path).
             if (liveBlueprints.TryGetValue(VoidRoomBlueprintId, out var voidEntityId))
             {
                 _logger.LogWarning(
@@ -480,7 +308,6 @@ namespace Hedron.Core.Modules.World.Systems
                 return;
             }
 
-            // Last-ditch: pick any room that exists, otherwise leave starting room unset.
             var anyRoom = liveBlueprints.FirstOrDefault(kvp => kvp.Key.StartsWith("room.", StringComparison.OrdinalIgnoreCase));
             if (!string.IsNullOrEmpty(anyRoom.Key))
             {

@@ -4,7 +4,6 @@ namespace Hedron.Core.ECS.Components
     /// Author-facing metadata grouping a set of rooms.
     /// Areas are entities; rooms reference their area by blueprint id at authoring time.
     /// </summary>
-    [Persistent]
     public class AreaComponent : IComponent
     {
         public string AreaId { get; set; } = string.Empty;

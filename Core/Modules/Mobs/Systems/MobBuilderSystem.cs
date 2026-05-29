@@ -35,8 +35,11 @@ namespace Hedron.Core.Modules.Mobs.Systems
             var entity = _entityService.CreateEntity();
             _entityService.AddComponent(entity.Id, new MobDataComponent { Name = name });
             _entityService.AddComponent(entity.Id, new BlueprintComponent { BlueprintId = blueprintId });
-            _entityService.AddComponent(entity.Id, new PersistentEntity());
-            _entityService.AddComponent(entity.Id, new LocationComponent { RoomEntityId = roomEntityId });
+            _entityService.AddComponent(entity.Id, new LocationComponent
+            {
+                RoomEntityId = roomEntityId,
+                RoomBlueprintId = spawnRoomBlueprintId,
+            });
             _entityService.AddComponent(entity.Id, new AttributesComponent());
             _entityService.AddComponent(entity.Id, new PoolsComponent());
 

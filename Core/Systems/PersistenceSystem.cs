@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using System.Text.Json;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -9,38 +9,35 @@ namespace Hedron.Core.Systems
 {
     /// <summary>
     /// Core system that persists <c>[Persistent]</c>-tagged components for every entity
-    /// that carries the <c>PersistentEntity</c> opt-in marker.
+    /// that carries the <c>PersistentEntity</c> opt-in marker, backed by SQLite.
     /// </summary>
     /// <remarks>
-    /// <b>Entity snapshot format</b> (<c>entity-{id}.json</c>):
+    /// <b>SQLite schema:</b>
     /// <code>
-    /// {
-    ///   "entityId": 42,
-    ///   "components": [
-    ///     { "typeName": "Hedron.Core.ECS.Components.SomeComponent", "data": "{ ...json... }" }
-    ///   ]
-    /// }
+    /// CREATE TABLE entity_components (
+    ///   entity_id  INTEGER NOT NULL,
+    ///   type_name  TEXT    NOT NULL,
+    ///   data       TEXT    NOT NULL,
+    ///   PRIMARY KEY (entity_id, type_name)
+    /// );
     /// </code>
     /// <b>Two-level model.</b> An entity is written only if it carries <c>PersistentEntity</c>.
     /// Among its components, only those tagged <c>[Persistent]</c> are included in the snapshot.
-    /// <b>Atomic write:</b> files are written to <c>{id}.tmp</c> then renamed, so a crash
-    /// mid-write never leaves a half-written file.
+    /// <b>Auto-delete.</b> Registers <c>EntityService.OnPersistentEntityDestroying</c> so that
+    /// every <c>DestroyEntity</c> call for a persistent entity automatically issues a DELETE —
+    /// no caller ever needs to clean up SQLite rows manually.
     /// <b>No event publishing.</b> This is a pure Core System. All event publishing is the
     /// responsibility of the calling orchestrator (<c>PersistenceBootstrap</c>).
     /// </remarks>
-    public sealed class PersistenceSystem : IPersistenceSystem
+    public sealed class PersistenceSystem : IPersistenceSystem, IDisposable
     {
         private readonly EntityService _entityService;
         private readonly IComponentTypeRegistry _typeRegistry;
         private readonly IComponentSerializer _serializer;
         private readonly ILogger<PersistenceSystem> _logger;
-        private readonly string _dataDirectory;
+        private readonly string _databasePath;
 
-        private static readonly JsonSerializerOptions EnvelopeOptions = new()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = true,
-        };
+        private SqliteConnection? _connection;
 
         public PersistenceSystem(
             EntityService entityService,
@@ -53,227 +50,223 @@ namespace Hedron.Core.Systems
             _typeRegistry = typeRegistry;
             _serializer = serializer;
             _logger = logger;
+            _databasePath = configuration["Persistence:DatabasePath"] ?? "data/hedron.db";
 
-            _dataDirectory = configuration["Persistence:DataDirectory"] ?? "data/entities/";
+            entityService.OnPersistentEntityDestroying = DeleteEntitySync;
         }
 
         // ── Save ──────────────────────────────────────────────────────────────
 
         /// <inheritdoc/>
-        public async Task SaveEntityAsync(uint entityId, CancellationToken ct = default)
+        public Task SaveEntityAsync(uint entityId, CancellationToken ct = default)
         {
-            EnsureDataDirectory();
-            await WriteEntityAsync(entityId, ct);
+            EnsureConnection();
+            using var tx = _connection!.BeginTransaction();
+            WriteEntityToDb(entityId, tx);
+            tx.Commit();
+            return Task.CompletedTask;
         }
 
         // ── Flush ─────────────────────────────────────────────────────────────
 
         /// <inheritdoc/>
-        public async Task FlushActivePlayerFootprintAsync(
-            IEnumerable<uint> occupiedRoomIds, CancellationToken ct = default)
-        {
-            var roomSet = new HashSet<uint>(occupiedRoomIds);
-            if (roomSet.Count == 0) return;
-
-            EnsureDataDirectory();
-
-            var entityIds = _entityService
-                .GetAllComponents<LocationComponent>()
-                .Where(pair => roomSet.Contains(pair.Component.RoomEntityId))
-                .Select(pair => pair.EntityId)
-                .ToList();
-
-            var total = _entityService.GetAllComponents<PersistentEntity>().Count();
-
-            var saved = 0;
-            foreach (var entityId in entityIds)
-            {
-                ct.ThrowIfCancellationRequested();
-                try
-                {
-                    if (await WriteEntityAsync(entityId, ct))
-                        saved++;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex,
-                        "PersistenceSystem: failed to flush entity {EntityId} in footprint flush.",
-                        entityId);
-                }
-            }
-
-            _logger.LogInformation(
-                "PersistenceSystem: periodic flush wrote {Saved}/{Total} entity/entities ({Rooms} occupied room(s)).",
-                saved, total, roomSet.Count);
-        }
+        public Task FlushDirtyAsync(CancellationToken ct = default)
+            => FlushPersistentEntities(ct, "periodic flush");
 
         /// <inheritdoc/>
-        public async Task FlushAllPersistentAsync(CancellationToken ct = default)
-        {
-            EnsureDataDirectory();
-
-            var entityIds = _entityService
-                .GetAllComponents<PersistentEntity>()
-                .Select(pair => pair.EntityId)
-                .ToList();
-
-            var saved = 0;
-            foreach (var entityId in entityIds)
-            {
-                ct.ThrowIfCancellationRequested();
-                try
-                {
-                    if (await WriteEntityAsync(entityId, ct))
-                        saved++;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex,
-                        "PersistenceSystem: failed to flush entity {EntityId} in shutdown flush.",
-                        entityId);
-                }
-            }
-
-            _logger.LogInformation(
-                "PersistenceSystem: shutdown flush wrote {Saved}/{Total} entity/entities.",
-                saved, entityIds.Count);
-        }
+        public Task FlushAllAsync(CancellationToken ct = default)
+            => FlushPersistentEntities(ct, "shutdown flush");
 
         // ── Load ──────────────────────────────────────────────────────────────
 
         /// <inheritdoc/>
-        public async Task<IReadOnlyList<uint>> LoadAllAsync(CancellationToken ct = default)
+        public Task<IReadOnlyList<uint>> LoadAllAsync(CancellationToken ct = default)
         {
-            if (!Directory.Exists(_dataDirectory))
+            EnsureConnection();
+
+            var entityComponents = new Dictionary<uint, List<(string TypeName, string Data)>>();
+
+            using var cmd = _connection!.CreateCommand();
+            cmd.CommandText = "SELECT entity_id, type_name, data FROM entity_components ORDER BY entity_id";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
             {
-                _logger.LogInformation(
-                    "PersistenceSystem: data directory '{Dir}' not found — starting with empty world.",
-                    _dataDirectory);
-                return Array.Empty<uint>();
+                ct.ThrowIfCancellationRequested();
+                var entityId = (uint)(long)reader["entity_id"];
+                var typeName = (string)reader["type_name"];
+                var data = (string)reader["data"];
+
+                if (!entityComponents.TryGetValue(entityId, out var list))
+                    entityComponents[entityId] = list = [];
+                list.Add((typeName, data));
             }
 
-            var files = Directory.GetFiles(_dataDirectory, "entity-*.json");
             _logger.LogInformation(
-                "PersistenceSystem: loading {Count} entity file(s) from '{Dir}'.",
-                files.Length, _dataDirectory);
+                "PersistenceSystem: loading {Count} entity/entities from SQLite.",
+                entityComponents.Count);
 
-            var loaded = new List<uint>(files.Length);
-
-            foreach (var file in files)
+            var loaded = new List<uint>(entityComponents.Count);
+            foreach (var (entityId, components) in entityComponents)
             {
                 ct.ThrowIfCancellationRequested();
                 try
                 {
-                    var entityId = await LoadEntityFileAsync(file, ct);
-                    if (entityId.HasValue)
-                        loaded.Add(entityId.Value);
+                    var entity = _entityService.RestoreEntity(entityId);
+                    foreach (var (typeName, data) in components)
+                        RestoreComponent(entity.Id, typeName, data);
+                    loaded.Add(entity.Id);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex,
-                        "PersistenceSystem: failed to load entity file '{File}'; skipping.",
-                        file);
+                        "PersistenceSystem: failed to restore entity {EntityId}.", entityId);
                 }
             }
 
-            return loaded;
+            return Task.FromResult<IReadOnlyList<uint>>(loaded);
         }
 
         // ── Private helpers ───────────────────────────────────────────────────
 
-        /// <summary>
-        /// Writes entity to disk. Returns <c>true</c> if written, <c>false</c> if skipped
-        /// (entity lacks <c>PersistentEntity</c> marker or has no persistent components).
-        /// </summary>
-        private async Task<bool> WriteEntityAsync(uint entityId, CancellationToken ct)
+        private Task FlushPersistentEntities(CancellationToken ct, string context)
         {
-            if (!_entityService.HasComponent<PersistentEntity>(entityId))
-                return false;
+            EnsureConnection();
 
-            var components = _entityService
-                .GetAllComponentsForEntity(entityId)
-                .Where(pair => _typeRegistry.IsPersistent(pair.ComponentType))
-                .Select(pair => new ComponentEntry(
-                    pair.ComponentType.FullName ?? pair.ComponentType.Name,
-                    JsonSerializer.SerializeToElement(
-                        _serializer.Serialize(pair.Component),
-                        typeof(string),
-                        EnvelopeOptions)))
-                .ToList();
+            var entityIds = _entityService.GetEntitiesWith<PersistentEntity>().ToList();
+            var saved = 0;
 
-            if (components.Count == 0)
-                return false;
-
-            var snapshot = new EntitySnapshot(entityId, components);
-            var json = JsonSerializer.Serialize(snapshot, EnvelopeOptions);
-
-            var finalPath = EntityFilePath(entityId);
-            var tmpPath = finalPath + ".tmp";
-
-            await File.WriteAllTextAsync(tmpPath, json, ct);
-            File.Move(tmpPath, finalPath, overwrite: true);
-            return true;
-        }
-
-        private async Task<uint?> LoadEntityFileAsync(string filePath, CancellationToken ct)
-        {
-            var json = await File.ReadAllTextAsync(filePath, ct);
-            var snapshot = JsonSerializer.Deserialize<EntitySnapshot>(json, EnvelopeOptions);
-            if (snapshot is null)
+            using var tx = _connection!.BeginTransaction();
+            foreach (var entityId in entityIds)
             {
-                _logger.LogWarning(
-                    "PersistenceSystem: could not deserialize entity snapshot from '{File}'.", filePath);
-                return null;
-            }
-
-            var entity = _entityService.RestoreEntity(snapshot.EntityId);
-
-            foreach (var entry in snapshot.Components)
-            {
+                ct.ThrowIfCancellationRequested();
                 try
                 {
-                    var componentJson = entry.Data.GetString()
-                        ?? throw new InvalidOperationException(
-                            $"Component data for '{entry.TypeName}' is not a JSON string.");
-
-                    var resolvedType = _typeRegistry.Resolve(entry.TypeName);
-                    if (resolvedType is null)
-                    {
-                        _logger.LogWarning(
-                            "PersistenceSystem: could not resolve component type '{TypeName}' — skipping.",
-                            entry.TypeName);
-                        continue;
-                    }
-
-                    var component = _serializer.Deserialize(entry.TypeName, componentJson);
-                    if (component is null)
-                        continue;
-
-                    _entityService.AddComponent(entity.Id, resolvedType, component);
+                    WriteEntityToDb(entityId, tx);
+                    saved++;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex,
-                        "PersistenceSystem: error restoring component '{TypeName}' for entity {EntityId}.",
-                        entry.TypeName, snapshot.EntityId);
+                        "PersistenceSystem: failed to flush entity {EntityId}.", entityId);
                 }
             }
+            tx.Commit();
 
-            return entity.Id;
+            _logger.LogInformation(
+                "PersistenceSystem: {Context} wrote {Saved}/{Total} entity/entities.",
+                context, saved, entityIds.Count);
+
+            return Task.CompletedTask;
         }
 
-        private void EnsureDataDirectory()
+        private void WriteEntityToDb(uint entityId, SqliteTransaction tx)
         {
-            if (!Directory.Exists(_dataDirectory))
-                Directory.CreateDirectory(_dataDirectory);
+            if (!_entityService.HasComponent<PersistentEntity>(entityId))
+                return;
+
+            var components = _entityService
+                .GetAllComponentsForEntity(entityId)
+                .Where(pair => _typeRegistry.IsPersistent(pair.ComponentType))
+                .Select(pair => (
+                    TypeName: pair.ComponentType.FullName ?? pair.ComponentType.Name,
+                    Data: _serializer.Serialize(pair.Component)))
+                .ToList();
+
+            if (components.Count == 0)
+                return;
+
+            using var deleteCmd = _connection!.CreateCommand();
+            deleteCmd.Transaction = tx;
+            deleteCmd.CommandText = "DELETE FROM entity_components WHERE entity_id = @id";
+            deleteCmd.Parameters.AddWithValue("@id", (long)entityId);
+            deleteCmd.ExecuteNonQuery();
+
+            foreach (var (typeName, data) in components)
+            {
+                using var insertCmd = _connection.CreateCommand();
+                insertCmd.Transaction = tx;
+                insertCmd.CommandText =
+                    "INSERT INTO entity_components (entity_id, type_name, data) VALUES (@id, @type, @data)";
+                insertCmd.Parameters.AddWithValue("@id", (long)entityId);
+                insertCmd.Parameters.AddWithValue("@type", typeName);
+                insertCmd.Parameters.AddWithValue("@data", data);
+                insertCmd.ExecuteNonQuery();
+            }
         }
 
-        private string EntityFilePath(uint entityId)
-            => Path.Combine(_dataDirectory, $"entity-{entityId}.json");
+        private void RestoreComponent(uint entityId, string typeName, string data)
+        {
+            try
+            {
+                var resolvedType = _typeRegistry.Resolve(typeName);
+                if (resolvedType is null)
+                {
+                    _logger.LogWarning(
+                        "PersistenceSystem: could not resolve component type '{TypeName}' — skipping.",
+                        typeName);
+                    return;
+                }
 
-        // ── Snapshot DTOs ─────────────────────────────────────────────────────
+                var component = _serializer.Deserialize(typeName, data);
+                if (component is null) return;
 
-        private sealed record EntitySnapshot(uint EntityId, List<ComponentEntry> Components);
-        private sealed record ComponentEntry(string TypeName, JsonElement Data);
+                _entityService.AddComponent(entityId, resolvedType, component);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "PersistenceSystem: error restoring component '{TypeName}' for entity {EntityId}.",
+                    typeName, entityId);
+            }
+        }
+
+        private void DeleteEntitySync(uint entityId)
+        {
+            if (_connection is null) return;
+            try
+            {
+                using var cmd = _connection.CreateCommand();
+                cmd.CommandText = "DELETE FROM entity_components WHERE entity_id = @id";
+                cmd.Parameters.AddWithValue("@id", (long)entityId);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "PersistenceSystem: failed to delete entity {EntityId} from SQLite.", entityId);
+            }
+        }
+
+        private void EnsureConnection()
+        {
+            if (_connection != null) return;
+
+            var dir = Path.GetDirectoryName(Path.GetFullPath(_databasePath));
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            _connection = new SqliteConnection($"Data Source={_databasePath}");
+            _connection.Open();
+            BootstrapSchema();
+
+            _logger.LogInformation(
+                "PersistenceSystem: opened SQLite database at '{Path}'.", _databasePath);
+        }
+
+        private void BootstrapSchema()
+        {
+            using var cmd = _connection!.CreateCommand();
+            cmd.CommandText = """
+                CREATE TABLE IF NOT EXISTS entity_components (
+                    entity_id  INTEGER NOT NULL,
+                    type_name  TEXT    NOT NULL,
+                    data       TEXT    NOT NULL,
+                    PRIMARY KEY (entity_id, type_name)
+                );
+                """;
+            cmd.ExecuteNonQuery();
+        }
+
+        public void Dispose() => _connection?.Dispose();
     }
 }

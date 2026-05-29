@@ -6,7 +6,6 @@ namespace Hedron.Core.ECS.Components
     /// Static description and exit map for a room entity.
     /// Exits map a direction to the entity id of the connected room.
     /// </summary>
-    [Persistent]
     public class RoomComponent : IComponent
     {
         public string Name { get; set; } = string.Empty;

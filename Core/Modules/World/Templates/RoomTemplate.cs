@@ -19,6 +19,7 @@ namespace Hedron.Core.Modules.World.Templates
     /// <para>
     /// <see cref="Apply"/> attaches a <see cref="RoomComponent"/> with name and description set
     /// but the runtime exit map left empty — the loader populates it during the linking pass.
+    /// If <see cref="SpawnRules"/> is non-empty, also attaches a <see cref="SpawnConfigComponent"/>.
     /// </para>
     /// </remarks>
     public sealed class RoomTemplate : IEntityTemplate
@@ -30,6 +31,9 @@ namespace Hedron.Core.Modules.World.Templates
 
         /// <summary>Exits keyed by direction; values are target room blueprint ids.</summary>
         public Dictionary<Direction, string> Exits { get; } = new();
+
+        /// <summary>Spawn rules declared in YAML; each entry is one respawnable slot.</summary>
+        public List<SpawnRule> SpawnRules { get; } = new();
 
         public RoomTemplate(string blueprintId)
         {
@@ -43,6 +47,13 @@ namespace Hedron.Core.Modules.World.Templates
                 Name = Name,
                 Description = Description,
             });
+
+            if (SpawnRules.Count > 0)
+            {
+                var spawnConfig = new SpawnConfigComponent();
+                spawnConfig.Rules.AddRange(SpawnRules);
+                entityService.AddComponent(entity.Id, spawnConfig);
+            }
         }
     }
 }

@@ -23,6 +23,9 @@ namespace Hedron.Core.Modules.Movement.Systems
 
             var fromRoomId = location.RoomEntityId;
             location.RoomEntityId = destinationRoomId;
+            location.RoomBlueprintId = _entityService.TryGet<BlueprintComponent>(destinationRoomId, out var destBp)
+                ? destBp.BlueprintId
+                : null;
 
             return MoveResult.Moved(fromRoomId, destinationRoomId);
         }

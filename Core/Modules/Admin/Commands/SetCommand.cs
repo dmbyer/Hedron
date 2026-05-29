@@ -26,7 +26,6 @@ namespace Hedron.Core.Modules.Admin.Commands
         private readonly ITemplateRegistry _templateRegistry;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
-        private readonly IPersistenceSystem _persistence;
 
         public string Name => "set";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -50,15 +49,13 @@ namespace Hedron.Core.Modules.Admin.Commands
             IRoomContentWriter contentWriter,
             ITemplateRegistry templateRegistry,
             EntityService entityService,
-            IEventBus eventBus,
-            IPersistenceSystem persistence)
+            IEventBus eventBus)
         {
             _roomBuilder = roomBuilder;
             _contentWriter = contentWriter;
             _templateRegistry = templateRegistry;
             _entityService = entityService;
             _eventBus = eventBus;
-            _persistence = persistence;
         }
 
         public async Task ExecuteAsync(CommandContext context)
@@ -103,14 +100,12 @@ namespace Hedron.Core.Modules.Admin.Commands
                 value)).ConfigureAwait(false);
 
             // RoomBuilderSystem.SetRoomName/Description already mirrors the change to the
-            // in-memory template. Write the updated template to YAML so it round-trips on
-            // the next server start.
+            // in-memory template. Write the updated template to YAML — that is the room's
+            // only durable state. No SaveEntityAsync needed.
             if (_entityService.TryGet<BlueprintComponent>(roomId, out var bp) &&
                 _templateRegistry.TryGet(bp.BlueprintId, out var tpl) &&
                 tpl is RoomTemplate roomTpl)
                 await _contentWriter.WriteAsync(roomTpl).ConfigureAwait(false);
-
-            await _persistence.SaveEntityAsync(roomId).ConfigureAwait(false);
 
             await context.Output.WriteAsync(new PlainMessage(
                 $"Room {normalizedProperty} set to '{value}'.",

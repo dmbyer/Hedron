@@ -23,7 +23,6 @@ namespace Hedron.Core.Modules.Items.Commands
         private readonly IItemSystem _itemSystem;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
-        private readonly IPersistenceSystem _persistence;
 
         public string Name => "get";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -40,13 +39,11 @@ namespace Hedron.Core.Modules.Items.Commands
             IItemSystem itemSystem,
             EntityService entityService,
             IEventBus eventBus,
-            IPersistenceSystem persistence,
             ItemInRoomResolver resolver)
         {
             _itemSystem = itemSystem;
             _entityService = entityService;
             _eventBus = eventBus;
-            _persistence = persistence;
 
             ArgumentSchema = new CommandArgumentSchema(new[]
             {
@@ -87,9 +84,6 @@ namespace Hedron.Core.Modules.Items.Commands
             await _eventBus.PublishAsync(new ItemPickedUpEvent(
                 context.InvokerEntityId, itemEntityId, roomEntityId))
                 .ConfigureAwait(false);
-
-            await _persistence.SaveEntityAsync(itemEntityId).ConfigureAwait(false);
-            await _persistence.SaveEntityAsync(context.InvokerEntityId).ConfigureAwait(false);
         }
     }
 }

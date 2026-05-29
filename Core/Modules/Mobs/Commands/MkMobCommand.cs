@@ -9,7 +9,6 @@ using Hedron.Core.Events;
 using Hedron.Core.Modules.Mobs.Events;
 using Hedron.Core.Modules.Mobs.Systems;
 using Hedron.Core.Output;
-using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Mobs.Commands
 {
@@ -19,7 +18,6 @@ namespace Hedron.Core.Modules.Mobs.Commands
         private readonly IMobContentWriter _contentWriter;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
-        private readonly IPersistenceSystem _persistence;
 
         public string Name => "mkmob";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -40,14 +38,12 @@ namespace Hedron.Core.Modules.Mobs.Commands
             IMobBuilderSystem mobBuilder,
             IMobContentWriter contentWriter,
             EntityService entityService,
-            IEventBus eventBus,
-            IPersistenceSystem persistence)
+            IEventBus eventBus)
         {
             _mobBuilder = mobBuilder;
             _contentWriter = contentWriter;
             _entityService = entityService;
             _eventBus = eventBus;
-            _persistence = persistence;
         }
 
         public async Task ExecuteAsync(CommandContext context)
@@ -66,7 +62,6 @@ namespace Hedron.Core.Modules.Mobs.Commands
             var result = _mobBuilder.CreateMob(name, location.RoomEntityId);
 
             await _contentWriter.WriteAsync(result.Template).ConfigureAwait(false);
-            await _persistence.SaveEntityAsync(result.MobEntityId).ConfigureAwait(false);
 
             await _eventBus.PublishAsync(new MobCreatedByAdminEvent(
                 context.InvokerEntityId,

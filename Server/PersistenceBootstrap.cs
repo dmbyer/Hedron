@@ -71,7 +71,7 @@ namespace Hedron.Server
         public async Task StopAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("PersistenceBootstrap: shutdown flush — writing all persistent entities...");
-            await _persistence.FlushAllPersistentAsync(cancellationToken);
+            await _persistence.FlushAllAsync(cancellationToken);
             _logger.LogInformation("PersistenceBootstrap: shutdown flush complete.");
         }
     }

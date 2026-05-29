@@ -26,18 +26,19 @@ Persistence uses two independent opt-ins. See [../architecture/06-persistence.md
 |---|---|---|---|
 | `PersistentEntity` | *(zero-data marker)* — opts the entity into persistence | any entity that must survive restart | yes (self-referential: the marker is `[Persistent]` so it round-trips) |
 | `BlueprintComponent` | `BlueprintId : string` — records the authored template id this entity was spawned from | every templated entity (Phase 3 slice 2+) | yes |
-| `AreaComponent` | `AreaId`, `Name`, `Description`, `RespawnRate`, `Pvp` — minimal area metadata seeded by `AreaTemplate` | Area entities (Phase 3 slice 2) | yes |
+| `AreaComponent` | `AreaId`, `Name`, `Description`, `RespawnRate`, `Pvp` — minimal area metadata seeded by `AreaTemplate` | Area entities (Phase 3 slice 2) | no — world content; always fresh-spawned from YAML |
 | `EntityStateComponent` | `ActiveStates: EntityStateFlags` — tracks active state flags for any entity; absent when `ActiveStates == None` | `IEntityStateService`; commands and handlers that guard on entity state | no — transient; cleared on restart by design |
 | `EntityStateFlags` | `[Flags]` enum `{ None=0, InCombat=1, Resting=2, Incapacitated=4 }` — co-located with `EntityStateComponent` in `Core/ECS/Components/`; named with `Flags` suffix to avoid a C# namespace/type collision with the `EntityState` module | n/a (enum, not a component) | n/a |
 | `CombatStateComponent` | `OpponentEntityId: uint` — holds the entity id of this entity's current combat opponent. Companion to `EntityState.InCombat`: the flag records that combat is active; this component records who the entity is fighting. Absent when not in combat. | `ICombatSystem`, `FleeCommand`, `CombatTickHandler` | no — transient; stale combat state on restart would reference entities that may not exist |
+| `SpawnConfigComponent` | `Rules: List<SpawnRule>` — each `SpawnRule` holds `BlueprintId`, `MinCount`, `MaxCount`, `RespawnDelaySeconds`; one entry per independent respawn slot. Absent if the room has no spawn rules. | Room/area entities; `SpawnSystem` reads on `WorldContentReadyEvent` to populate its tracker | no — YAML is the authoritative source; always attached via `RoomTemplate.Apply` |
 
 ### Gameplay / session (cross-cutting — `Core/ECS/Components/`)
 
 | Component | Shape | Used by | Persisted? |
 |---|---|---|---|
 | `PlayerComponent` | `DisplayName`, `Session` (transient ref) | Player entity | no |
-| `LocationComponent` | `RoomEntityId` (current room) | any mobile entity | yes |
-| `RoomComponent` | `Name`, `Description`, `Exits` (`Dictionary<Direction, uint>`) | Room entity | yes (tagged `[Persistent]` in slice 5a) |
+| `LocationComponent` | `RoomEntityId` (`uint`, `[JsonIgnore]` — runtime entity ID resolved at startup from blueprint) + `RoomBlueprintId` (`string?` — stable cross-restart room reference stored in SQLite) | any mobile entity | yes (`[Persistent]` on class; `RoomEntityId` excluded via `[JsonIgnore]`, `RoomBlueprintId` included) |
+| `RoomComponent` | `Name`, `Description`, `Exits` (`Dictionary<Direction, uint>`) | Room entity | no — world content; always fresh-spawned from YAML |
 | `ItemDataComponent` | `Name`, `Description`, `Keywords` (`List<string>`), `ItemType`, `WornSlots` (`List<WornSlot>?` — null/empty = not wearable), `DamageBonus: int` (default 0 — flat attack bonus when equipped in MainHand) | Item entity; read by `BroadcastSystem` (room description) and `ItemSystem` / `ItemBuilderSystem` / `EquipmentSystem` / `StatSystem` | yes |
 | `InventoryComponent` | `ItemEntityIds` (`List<uint>`) — item entity ids carried by this entity | Player/mob entities; items in inventory have **no** `LocationComponent` — tracked here exclusively | yes |
 | `EquipmentComponent` | `Slots` (`Dictionary<WornSlot, uint>`) — maps each occupied slot to an item entity id | Player/mob entities; cross-cutting so future mob code carries it without a domain dependency | yes |

@@ -91,19 +91,19 @@ public interface IComponentSerializer
 Uses `System.Text.Json` with camelCase policy and `JsonStringEnumConverter`. Implemented (Phase 3 slice 1).
 
 ### PersistenceSystem
-**Purpose:** Save and load entity state using the two-level model: an entity is written only if it carries `PersistentEntity`; among its components, only those tagged `[Persistent]` are included in the snapshot.
+**Purpose:** Save and load entity state using the two-level model backed by SQLite: an entity is written only if it carries `PersistentEntity`; among its components, only those tagged `[Persistent]` are included in the snapshot. Registers `EntityService.OnPersistentEntityDestroying` so every `DestroyEntity` call for a persistent entity automatically deletes its SQLite rows — no caller ever needs to clean up manually.
 **Location:** `Core/Systems/PersistenceSystem.cs`
-**Dependencies:** `EntityService`, `IComponentTypeRegistry`, `IComponentSerializer`, `IConfiguration`, `ILogger<PersistenceSystem>`. No `IEventBus` dependency — all event publishing is the caller's responsibility.
+**Dependencies:** `EntityService`, `IComponentTypeRegistry`, `IComponentSerializer`, `IConfiguration`, `ILogger<PersistenceSystem>`, `Microsoft.Data.Sqlite`. No `IEventBus` dependency — all event publishing is the caller's responsibility.
 ```csharp
 public interface IPersistenceSystem
 {
     Task SaveEntityAsync(uint entityId, CancellationToken ct = default);
+    Task FlushAllAsync(CancellationToken ct = default);
+    Task FlushDirtyAsync(CancellationToken ct = default);
     Task<IReadOnlyList<uint>> LoadAllAsync(CancellationToken ct = default);
-    Task FlushActivePlayerFootprintAsync(IEnumerable<uint> occupiedRoomIds, CancellationToken ct = default);
-    Task FlushAllPersistentAsync(CancellationToken ct = default);
 }
 ```
-Entity files: `data/entities/entity-{id}.json`. Atomic write (`.tmp` → rename). `SaveEntityAsync` is the save-on-change path (admin commands, lifecycle transitions). `FlushActivePlayerFootprintAsync` is called by `PersistenceFlushTimer` on each tick — writes all `PersistentEntity`-carrying entities in rooms occupied by at least one player. `FlushAllPersistentAsync` is called by `PersistenceBootstrap.StopAsync` for a full shutdown sweep. Implemented (Phase 3 slices 1, persistence-two-level-model).
+SQLite schema: `entity_components(entity_id INTEGER, type_name TEXT, data TEXT, PRIMARY KEY(entity_id, type_name))`. On save: delete existing rows for the entity, then insert one row per `[Persistent]` component (wrapped in a transaction). `SaveEntityAsync` is the construction-time save path (entity creation only — admin commands, account/character creation). `FlushDirtyAsync` is called by `PersistenceFlushTimer` on each tick — performs a full sweep of all `PersistentEntity`-carrying entities (no footprint calculation). `FlushAllAsync` is called by `PersistenceBootstrap.StopAsync` for a complete shutdown sweep; identical logic to `FlushDirtyAsync`. Configuration key: `Persistence:DatabasePath` (default `data/hedron.db`); Docker env var override: `HEDRON_PERSISTENCE__DATABASEPATH`. Implements `IDisposable` — holds the open `SqliteConnection` for the process lifetime. Implemented (Phase 3 persistence-reform Stage A).
 
 ### TemplateRegistry
 **Purpose:** Cross-cutting registry of authored `IEntityTemplate`s. Every content-bearing module (world, mobs, items, shops) registers into the same registry.
@@ -175,9 +175,9 @@ public interface IPasswordHasher
 ## Domain / feature Systems
 
 ### WorldContentLoader
-**Purpose:** Scans the configured content directory, registers authored YAML templates with `ITemplateRegistry`, and seeds room/area entities for blueprints not already represented by a hydrated entity. Wraps `LoadAndSpawnAsync` in a hosted-service shell (`Server/WorldContentBootstrap`) to enforce startup ordering after `PersistenceBootstrap`.
+**Purpose:** Scans the configured content directory, registers authored YAML templates with `ITemplateRegistry`, and fresh-spawns room/area/item/mob entities on every startup. Wraps `LoadAndSpawnAsync` in a hosted-service shell (`Server/WorldContentBootstrap`) to enforce startup ordering after `PersistenceBootstrap`.
 **Location:** `Core/Modules/World/Systems/WorldContentLoader.cs`
-**Dependencies:** `EntityService`, `ITemplateRegistry`, `IContentSerializer`, `IArchetypeRegistry`, `IPersistenceSystem`, `WorldConfiguration`, `IConfiguration`, `ILogger`.
+**Dependencies:** `EntityService`, `ITemplateRegistry`, `IContentSerializer`, `WorldConfiguration`, `IConfiguration`, `ILogger`.
 ```csharp
 public interface IWorldContentLoader
 {
@@ -188,7 +188,7 @@ public interface IWorldContentLoader
 public readonly record struct ContentReloadResult(
     int TemplatesLoaded, int TemplatesUnchanged, int TemplatesRemoved);
 ```
-Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Every entity spawned from YAML content receives a `PersistentEntity` component so it survives restart. Extended in slice 8 to load `kind: mob` files from `mobs/` subdirectory and call `PlaceMobsInRooms` (mirrors `PlaceItemsInRooms`). Extended in slice 9 (validation): both `LoadAndSpawnAsync` and `ReloadAsync` now call `MigrateEntityComponentsAsync` after placement — this pass iterates all loaded entities by archetype marker, calls `IArchetypeRegistry.MissingRequired`, adds any absent required components via `Activator.CreateInstance`, and calls `IPersistenceSystem.SaveEntityAsync` for each modified entity. Never removes extra components. Implemented (Phase 3 slices 2, persistence-two-level-model, 8, 9).
+Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). No `PersistentEntity` is added to any world-content entity (rooms, areas, items, mobs) — the YAML file is the sole durable state. `SpawnMissingEntities` skips blueprints already represented by a live entity (correct for `@reload`; no-op at cold start). Both `LocationComponent` fields (`RoomEntityId` + `RoomBlueprintId`) are set when placing items and mobs. `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Implemented (Phase 3 slices 2, persistence-reform-stage-b, 8).
 
 ### AccountSystem
 **Purpose:** Domain system owning all account and character lifecycle operations: registration, authentication, character creation, character list, and logout recording.
@@ -407,6 +407,22 @@ public readonly record struct CombatRoundResult(
 public enum CombatRoundOutcome { Hit, Miss, MobDied, PlayerIncapacitated }
 ```
 `TryFindTargetInRoom` prefix-matches `token` against `MobDataComponent.Name` and `Keywords` for entities with `MobDataComponent` in the given room. `StartCombat`/`EndCombat` add/remove `CombatStateComponent` on both participants — does not call `IEntityStateService` (cohesion separation; commands and handlers coordinate both layers). `ExecuteRound` formula: hit check `roll = Random.Shared.Next(1,21) + dex/2 >= 10 + defense`; damage `Random.Shared.Next(1, attackPower+2)` applied via `IAttributeSystem.SetCurrentHp`; outcome `MobDied` if defender has `MobDataComponent` and HP == 0, `PlayerIncapacitated` if defender has `CharacterComponent` and HP == 0. Implemented (Phase 3 slice 9).
+
+### SpawnSystem
+**Purpose:** Tracks spawn slot occupancy for world-content entities (mobs, world-spawn items) and schedules respawns. Self-initializes from the live entity graph on `WorldContentReadyEvent`; reacts to `MobDiedEvent` and `ItemPickedUpEvent` to mark slots vacant; respawns on `HeartbeatTickEvent`. No events published; no persistence (INV-5, INV-8). Implemented (persistence reform Stage C).
+**Location:** `Core/Modules/Spawn/Systems/SpawnSystem.cs`
+**Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<SpawnSystem>`.
+**Subscribes to:** `WorldContentReadyEvent` (priority 80), `MobDiedEvent` (priority 20), `ItemPickedUpEvent` (priority 20), `HeartbeatTickEvent` (priority 95).
+
+Internal state:
+- `_slots: Dictionary<(roomEntityId, blueprintId), SlotState>` — slot registry; keyed by the owning room entity and the mob/item blueprint ID.
+- `_entityToSlot: Dictionary<entityId, (roomEntityId, blueprintId)>` — reverse map for O(1) vacancy marking on death/pickup events.
+
+On `WorldContentReadyEvent`: iterates all entities with `SpawnConfigComponent`; for each spawn rule, finds any live entity in that room with the matching blueprint ID and registers it in the tracker. Slots with no live entity get `RespawnAt = now + delay` for immediate respawn on the first heartbeat.
+
+On `MobDiedEvent` / `ItemPickedUpEvent`: removes the entity from the reverse map, sets `SlotState.LiveEntityId = null` and `SlotState.RespawnAt = now + RespawnDelaySeconds`.
+
+On `HeartbeatTickEvent`: for each slot with `RespawnAt <= UtcNow`, calls `ITemplateRegistry.Spawn(blueprintId)`, attaches `LocationComponent`, and updates the tracker.
 
 ---
 

@@ -69,6 +69,9 @@ namespace Hedron.Core.Modules.Admin.Commands
             }
 
             location.RoomEntityId = resolvedRoomId.Value;
+            location.RoomBlueprintId = _entityService.TryGet<BlueprintComponent>(resolvedRoomId.Value, out var destBp)
+                ? destBp.BlueprintId
+                : null;
 
             await context.Output.WriteAsync(
                 new PlainMessage($"Teleported to entity #{resolvedRoomId.Value}.", OutputSeverity.Confirmation))

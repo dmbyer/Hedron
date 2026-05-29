@@ -1,24 +1,35 @@
 # Persistence
 
-Hedron uses a two-level persistence model. The questions "should this entity survive a restart?" and "which of its components are worth saving?" have separate, independent answers.
+Hedron uses a two-level persistence model backed by SQLite. The questions "should this entity survive a restart?" and "which of its components are worth saving?" have separate, independent answers.
+
+---
+
+## Two Persistence Domains
+
+| Domain | Representative entities | `PersistentEntity`? | Persisted components | On startup |
+|---|---|---|---|---|
+| **World content** | Rooms, areas, mobs, world-spawn items | No | None | Always fresh-spawned from YAML/templates; no SQLite rows |
+| **Persistent entities** | Players, accounts, player-owned items, crops, items in persistent containers | Yes | All `[Persistent]`-tagged components | Loaded fully from SQLite; `CharacterHydrationHandler` resolves `RoomBlueprintId` → `RoomEntityId` after world content loads |
+
+**Cross-domain stable reference:** `LocationComponent` carries `RoomBlueprintId` (`string?`, `[Persistent]`) as the cross-restart room reference and `RoomEntityId` (`uint`, NOT `[Persistent]`) as the runtime entity ID resolved on startup. See Stage B in the [persistence-reform use case](../../use-cases/persistence-reform.md) for full details.
 
 ---
 
 ## Level 1 — Does this entity participate in persistence?
 
-Add the `PersistentEntity` marker component to any entity that must survive a server restart. `PersistentEntity` is a zero-data component tagged `[Persistent]`, so it round-trips through the snapshot and is restored on hydration — the entity knows it persists without any extra bookkeeping.
+Add the `PersistentEntity` marker component to any entity that must survive a server restart. `PersistentEntity` is a zero-data component tagged `[Persistent]`, so it round-trips through the SQLite snapshot and is restored on hydration — the entity knows it persists without any extra bookkeeping.
 
-Entities **without** `PersistentEntity` are never written to disk. This applies to: template-spawned mobs that re-spawn from templates on restart, randomly generated dungeon content, session-only transient effects, etc. Same component types, no duplication required — the marker is the only difference.
+Entities **without** `PersistentEntity` are never written to SQLite.
 
 ```csharp
-// authored room — survives restart
-var room = _entityService.CreateEntity();
-_entityService.AddComponent(room.Id, new RoomComponent { ... });
-_entityService.AddComponent(room.Id, new PersistentEntity());   // opts in
+// authored player character — survives restart
+var player = _entityService.CreateEntity();
+_entityService.AddComponent(player.Id, new CharacterComponent { ... });
+_entityService.AddComponent(player.Id, new PersistentEntity());   // opts in
 
-// generated dungeon room — session-only, same component types
-var dungeonRoom = _entityService.CreateEntity();
-_entityService.AddComponent(dungeonRoom.Id, new RoomComponent { ... });
+// spawned mob — session-only, fresh-spawned from template on restart
+var mob = _entityService.CreateEntity();
+_entityService.AddComponent(mob.Id, new MobDataComponent { ... });
 // no PersistentEntity — not saved
 ```
 
@@ -28,66 +39,77 @@ _entityService.AddComponent(dungeonRoom.Id, new RoomComponent { ... });
 
 `[Persistent]` on a component *type* tells `PersistenceSystem` to include that component when serializing an entity that **already** has `PersistentEntity`. It does not cause any entity to be saved on its own.
 
-The attribute is still meaningful: even for entities that do carry `PersistentEntity`, some components must be excluded. `PlayerComponent` holds a transient session reference. `TransientEffectsComponent` is session-only by design. Those stay untagged; `PersistenceSystem` skips them.
-
 ```
 Entity has PersistentEntity?
   No  → never written, full stop.
   Yes → write all components tagged [Persistent] on that entity.
 ```
 
----
-
-## The three save patterns
-
-### Save-on-change
-
-Use for: authored content created or mutated by admin commands (rooms, exits, item templates), and entity lifecycle transitions (item dropped, item picked up, item sold).
-
-The handler calls `SaveEntityAsync` directly. No flush cycle dependency — the entity is durable as soon as the operation completes.
-
-```csharp
-// in a handler responding to RoomCreatedByAdminEvent
-await _persistence.SaveEntityAsync(e.NewRoomEntityId, ct);
-await _persistence.SaveEntityAsync(e.SourceRoomEntityId, ct);
-```
-
-Use save-on-change when: (a) the change is infrequent and deliberate, (b) crash-between-change-and-flush is unacceptable, or (c) the entity is authored content that should be durable immediately.
-
-### Area-scoped periodic flush
-
-Use for: runtime state that changes gradually — player character stats, positions, inventory, active mob state. The `PersistenceFlushTimer` fires on the configured interval and saves all `PersistentEntity`-carrying entities in active player areas (the player entity plus entities in the rooms those players occupy).
-
-This bounds the save set to the active player footprint rather than the full world, which keeps flush cost proportional to concurrent sessions rather than total world size.
-
-### Timestamp + lazy recalculation
-
-Use for: offline processes — item decay, crop growth, shop restocking, anything that evolves without requiring a player or system to be present.
-
-Save a `*_at` timestamp on the relevant persistent component when the process starts. On next query (player enters area, system ticks with a player nearby), compute the current state from the elapsed time. No periodic re-save needed between ticks; the timestamp is the durable state.
-
-```csharp
-// DroppedItemComponent (Persistent)
-public DateTime DroppedAt { get; set; }
-public TimeSpan DecayDuration { get; set; }
-
-// on hydration or area-entry, skip expired items
-if (DateTime.UtcNow - item.DroppedAt > item.DecayDuration)
-    _entityService.DestroyEntity(entityId);
-```
+Some components must be excluded even for persistent entities. `PlayerComponent` holds a transient session reference. `TransientEffectsComponent` is session-only by design. Those stay untagged; `PersistenceSystem` skips them.
 
 ---
 
-## Choosing a pattern
+## SQLite schema
 
-| Entity class | Pattern | Why |
+```sql
+CREATE TABLE IF NOT EXISTS entity_components (
+    entity_id  INTEGER NOT NULL,
+    type_name  TEXT    NOT NULL,
+    data       TEXT    NOT NULL,
+    PRIMARY KEY (entity_id, type_name)
+);
+```
+
+Each row stores one component for one entity. `data` is the JSON string produced by `IComponentSerializer`. On save: the entity's existing rows are deleted, then fresh rows are inserted (delete-then-insert within a transaction). On load: rows are grouped by `entity_id`; each group is restored via `EntityService.RestoreEntity` + `EntityService.AddComponent`.
+
+---
+
+## EntityService lifecycle integration
+
+`EntityService` tracks which entities have `PersistentEntity` in an internal set:
+
+- `AddComponent<PersistentEntity>` / `AddComponent(Type = PersistentEntity, ...)` → registers entity in the set.
+- `RemoveComponent<PersistentEntity>` → removes entity from the set (item context demotion in Stage C).
+- `DestroyEntity` → if the entity is in the set, fires `OnPersistentEntityDestroying` (which `PersistenceSystem` registers to issue `DELETE FROM entity_components WHERE entity_id = ?`) **before** ECS teardown.
+
+No handler or command ever calls a delete method. `DestroyEntity` is the single exit point.
+
+---
+
+## Save patterns
+
+### Save-on-change (construction time only)
+
+Use **only** at entity construction: **account/character creation** (`LoginFlow`). These are rare, deliberate boundary crossings where immediate durability is required (a crash between write and flush would lose the newly created account).
+
+```csharp
+// in LoginFlow, after CreateAccountAsync
+await _persistence.SaveEntityAsync(accountEntityId, ct);
+```
+
+Admin content creation (`dig`, `mkitem`, `mkmob`) does **not** call `SaveEntityAsync` — the YAML file written by the command is the room/mob/item's sole durable state. Rooms, mobs, and world-spawn items carry no `PersistentEntity`.
+
+**No other code path calls `SaveEntityAsync`.** Runtime mutations (combat, movement, stat changes) are covered by the periodic flush.
+
+### Periodic full flush
+
+`PersistenceFlushTimer` fires on the configured interval (`Persistence:FlushIntervalSeconds`, default 60 s) and calls `IPersistenceSystem.FlushDirtyAsync`. This writes **all** `PersistentEntity`-carrying entities — no footprint calculation, no dirty tracking. The flush pool is small enough that a full sweep is always cheap.
+
+### Shutdown flush
+
+`PersistenceBootstrap.StopAsync` calls `IPersistenceSystem.FlushAllAsync`, which performs the same full sweep as `FlushDirtyAsync`. Guarantees a complete snapshot on graceful shutdown regardless of the flush timer position.
+
+---
+
+## Configuration
+
+| Key | Default | Docker env var |
 |---|---|---|
-| Authored rooms, exits, item templates | Save-on-change | Admin operations are rare; immediate durability desirable |
-| Player characters | Area-scoped flush | Active sessions are bounded; frequent mutations |
-| Dropped items (planned) | Save-on-change at drop when an explicit persistence flag is set; delete on pick-up or expiry | One write per transition; decay is timestamp-lazy. Not yet implemented — dropped items currently vanish on restart by design (see `items-and-inventory.md` Design Notes). |
-| Session-only spawned mobs | No `PersistentEntity` — not saved | Re-spawned from templates on restart |
-| Generated dungeon content | No `PersistentEntity` — not saved | Same component types as authored content, no duplication |
-| Time-based world processes | Timestamp + lazy recalculation | No re-save needed between ticks |
+| `Persistence:DatabasePath` | `data/hedron.db` | `HEDRON_PERSISTENCE__DATABASEPATH` |
+| `Persistence:FlushIntervalSeconds` | `60` | `HEDRON_PERSISTENCE__FLUSHINTERVALSECONDS` |
+| `World:ContentDirectory` | `data/content/` | `HEDRON_WORLD__CONTENTDIRECTORY` |
+
+Mount `data/` as a Docker volume to make both the database and content files durable across container restarts.
 
 ---
 
@@ -95,11 +117,11 @@ if (DateTime.UtcNow - item.DroppedAt > item.DecayDuration)
 
 Before writing any code, answer two questions explicitly:
 
-1. **Should instances of this entity class persist?** → If yes, the construction path adds `PersistentEntity`. If some instances persist and others don't (authored vs generated room), the construction path diverges at that decision point — not at the component type level.
+1. **Should instances of this entity class persist?** → If yes, the construction path adds `PersistentEntity`. If some instances persist and others don't (e.g. authored vs generated), the construction path diverges at that decision point — not at the component type level.
 
 2. **For each component on this entity: should it be included in the snapshot?** → If yes, tag the component class `[Persistent]`. If no (transient ref, session-only state, derived/recomputed on load), leave it untagged.
 
-Do not use `[Persistent]` to control whether an entity persists. That is `PersistentEntity`'s job. An entity without `PersistentEntity` is never saved regardless of how many `[Persistent]` components it carries.
+Do not use `[Persistent]` to control whether an entity persists. That is `PersistentEntity`'s job.
 
 ---
 
@@ -107,5 +129,5 @@ Do not use `[Persistent]` to control whether an entity persists. That is `Persis
 
 Two serializers, two audiences — they do not share code:
 
-- **`System.Text.Json`** — component snapshots. Machine round-trip. Used by `PersistenceSystem`.
+- **`System.Text.Json`** — component snapshots. Machine round-trip. Used by `PersistenceSystem` via `IComponentSerializer`. Stored in the SQLite `data` column.
 - **`YamlDotNet`** — designer-authored content files under `data/content/`. Human-readable. Used by `WorldContentLoader`.

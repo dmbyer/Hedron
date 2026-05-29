@@ -1,5 +1,6 @@
 using Hedron.Core;
 using Hedron.Core.Commands;
+using Microsoft.Extensions.Configuration;
 using Hedron.Core.Commands.Authorization;
 using Hedron.Core.Commands.Events;
 using Hedron.Core.ECS;
@@ -33,6 +34,9 @@ using Hedron.Core.Modules.Session.Handlers;
 using Hedron.Core.Modules.Combat;
 using Hedron.Core.Modules.Combat.Events;
 using Hedron.Core.Modules.Combat.Handlers;
+using Hedron.Core.Modules.Spawn;
+using Hedron.Core.Modules.Spawn.Handlers;
+using Hedron.Core.Modules.Spawn.Systems;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.Time;
 using Hedron.Core.Modules.Time.Events;
@@ -55,6 +59,7 @@ public static class Program
     public static async Task Main(string[] args)
     {
         var host = Host.CreateDefaultBuilder(args)
+            .ConfigureAppConfiguration((_, cfg) => cfg.AddEnvironmentVariables("HEDRON_"))
             .ConfigureServices((context, services) =>
             {
                 services.Configure<OutputConfiguration>(
@@ -117,6 +122,7 @@ public static class Program
                 services.AddTimeModule();
                 services.AddStatsModule();
                 services.AddCombatModule();
+                services.AddSpawnModule();
 
                 // Hosted services — order matters.
                 services.AddHostedService<PersistenceBootstrap>();
@@ -173,6 +179,16 @@ public static class Program
 
         var commandLogging = host.Services.GetRequiredService<CommandLoggingHandler>();
         bus.Subscribe<CommandExecutedEvent>(commandLogging);
+
+        var spawnSystem = host.Services.GetRequiredService<SpawnSystem>();
+        bus.Subscribe<WorldContentReadyEvent>(spawnSystem);
+        bus.Subscribe<MobDiedEvent>(spawnSystem);
+        bus.Subscribe<ItemPickedUpEvent>(spawnSystem);
+        bus.Subscribe<HeartbeatTickEvent>(spawnSystem);
+
+        var itemContext = host.Services.GetRequiredService<ItemContextHandler>();
+        bus.Subscribe<ItemPickedUpEvent>(itemContext);
+        bus.Subscribe<ItemDroppedEvent>(itemContext);
 
         await host.RunAsync();
     }
