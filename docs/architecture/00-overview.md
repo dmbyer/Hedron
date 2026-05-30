@@ -85,6 +85,7 @@ Rows marked *(target)* describe locations that are rebuilt as part of Phase 2. T
 | [../reference/components.md](../reference/components.md) | Catalog of implemented components (target model: `components-planned.md`) |
 | [../reference/archetypes.md](../reference/archetypes.md) | Target archetype catalog (the archetype system is not yet built) |
 | [../use-cases/](../use-cases/) | Designer-level feature specs |
+| [../design/gameplay-model.md](../design/gameplay-model.md) | Forward design north-star for gameplay systems (Aspects, Abilities, Effects, Scaling, Progression) — feeds the roadmap; draft, not yet built |
 | [../roadmap/plan.md](../roadmap/plan.md) | Strategy, end goal, phase summary, current focus |
 | [../roadmap/done.md](../roadmap/done.md) | Short ledger of completed phases / slices |
 | [../roadmap/backlog.md](../roadmap/backlog.md) | Deferred work queue |

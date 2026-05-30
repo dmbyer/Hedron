@@ -27,14 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–9 done; **next: slice 10 — death and respawn**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–9 done; **next: slice 9-d — stat & resource substrate**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 10 — Death and respawn.** Combat is now fully implemented (slice 9). Slice 10 adds the full player death path: `CombatEndedEvent(PlayerIncapacitated)` subscriber, death penalty, corpse entity, respawn flow, and player restoration mechanics. `CombatEndedEvent(PlayerIncapacitated)` is already shaped and published by slice 9's `CombatTickHandler`; slice 10 only needs to subscribe. See [`../use-cases/`](../use-cases/) for the spec.
+**Phase 3 slice 9-d — Stat & resource substrate.** Combat is fully implemented (slice 9). Before death/respawn, two gameplay-model foundation slices land: **9-d (stat & resource substrate)** then **9-e (effect substrate)**, pulled ahead of death/respawn (slice 10) so death penalties and every later spine can rely on the finished stat/pool and effect models. 9-d migrates the interim `Str`/`Dex`/`Con` stats to the four attributes (Mind/Body/Spirit/Attunement), adds the Mana/Stamina/Astra pools, and introduces the `ScoreId`/`IStatRegistry` seam. See [`../use-cases/stat-resource-substrate.md`](../use-cases/stat-resource-substrate.md) for the spec and its sub-agent work packages, and [`../design/gameplay-model.md`](../design/gameplay-model.md) for the design these slices implement.
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -75,13 +75,17 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 9-b | Time system (heartbeat) | `IHeartbeatService`, `HeartbeatTickEvent`; prereq for combat, mob AI, effect expiry | ✅ done |
 | 9-c | Stat computation system | `IStatSystem` effective-stat pipeline; base + equipment bonus seam for future effects/buffs | ✅ done |
 | 9 | Combat | Core gameplay loop | ✅ done |
-| 10 | Death and respawn | Combat is terminal until this exists | 🟢 next |
-| 11 | Skills | Character progression | 🟢 ready after 9 |
+| 9-d | **Stat & resource substrate** (gameplay-model S1) | Four attributes (Mind/Body/Spirit/Attunement), Mana/Stamina/Astra pools, `ScoreId`/`IStatRegistry` seam — substrate every later spine writes to | 🟢 next |
+| 9-e | **Effect substrate** (gameplay-model S2) | Effect kinds + lifetime/stacking/phase/Power + `EffectSystem`; bedrock for skills, potions, curses, auras | 🟢 ready after 9-d |
+| 10 | Death and respawn | Combat is terminal until this exists | 🟢 after 9-e |
+| 11 | Abilities — skills + spells (gameplay-model S4) | Character progression; one ability pipeline (reframes "Skills") | 🟡 after 9-e (needs effects) |
 | 12 | Shopping | Economy | 🟢 ready after 6 |
 | 13 | Crafting, potions | Content depth | 🟢 ready after 6 |
 | 14 | Web/SignalR client (deferred) | Dual-client transport | 🔵 deferred — see [`backlog.md`](backlog.md) |
 
 Order is flexible past slice 5a; some slices can run in parallel branches, and each slice gets a use-case doc *before* implementation starts. (Historical numbering: the original combined command/output draft was split into slices 3 and 4, account creation moved to slice 5 with a +2 downstream shift, and 5a was inserted to give slices 6+ a content-authoring path.)
+
+Slices 9-d, 9-e, and 11 onward implement the gameplay-model spines; see [`../design/gameplay-model.md`](../design/gameplay-model.md) §5 for the full S1–S9 decomposition, dependency order, and per-slice testability.
 
 ## Phase 4 — Hardening
 

@@ -213,14 +213,15 @@ public int GetEffectiveMaxHealth(uint entityId)
 
 This sidesteps the classic "equipment changed / effect expired / did I remember to recalc?" family of bugs. The base value is the only persistent truth; everything else is recomputed.
 
-To keep persistence clean, active effects live in **two separate components**:
+To keep persistence clean, active effects live in **one `EffectsComponent`** (a single `List<Effect>` of standalone effects), and persistence is decided per-effect by its `Lifetime`:
 
-| Component | Content | Persisted? |
+| Lifetime | Example | Stored / persisted? |
 |---|---|---|
-| `PersistentEffectsComponent` | Long-term effects a player expects to survive restart: curses, disease, quest-tied debuffs. | Yes |
-| `TransientEffectsComponent` | Short-term effects tied to the session: buffs from potions, combat buffs, spell durations. | No |
+| `UntilRemoved` (`-1`) | curses, disease, quest-tied debuffs | stored **and persisted** |
+| `Timed` (finite) | potion buffs, combat buffs, spell durations | stored, **not persisted** (drop on relog) |
+| `WhileEquipped` / `WhileKnown` / `WhilePresent` | gear / ability / area effects | **not stored** — derived on read from the source |
 
-When an effect wears off, `EffectTracker` removes it from whichever component it lives in — no further side effects needed, because stat recomputation on read is automatic.
+`EffectsComponent` is `[Persistent]` with a `[JsonConverter]` that writes only the `UntilRemoved` entries — `Lifetime` is the single source of truth for what survives a save (no `Persistent`/`Transient` component split; `System.Text.Json` honors the attribute natively, so no new persistence infra). When an effect wears off, `EffectSystem` removes it from the list — stat recomputation on read is automatic. **Full effect model: [gameplay-model Spine C](../design/gameplay-model.md).**
 
 ---
 
@@ -235,7 +236,6 @@ public class IdentityComponent : IComponent { /* saved */ }
 [Persistent]
 public class PoolsComponent : IComponent { /* saved */ }
 
-public class TransientEffectsComponent : IComponent { /* NOT saved */ }
 public class CombatStateComponent : IComponent       { /* NOT saved */ }
 ```
 
@@ -265,8 +265,7 @@ Core/ECS/Components/              # cross-cutting components
   TransformComponent.cs           # Parent/child, room/area
   AttributesComponent.cs          # Might, Finesse, Will, …
   PoolsComponent.cs               # HP / Stamina / Energy
-  PersistentEffectsComponent.cs   # survives save/load
-  TransientEffectsComponent.cs    # session-only
+  EffectsComponent.cs             # standalone effects; lifetime-filtered persistence
   ...
 
 Core/Modules/<Feature>/Components/   # feature-owned components
@@ -287,6 +286,6 @@ A component belongs **under a module** only if it's exclusively used by that fea
 | `TemplateRegistry` | Authored content → live entity on spawn |
 | Archetype | Required/optional component composition for validation + detection |
 | `[Persistent]` attribute | Marks component types as save-worthy; entity persistence is derived |
-| `PersistentEffectsComponent` / `TransientEffectsComponent` | Splits effects by lifetime so persistence is automatic |
+| `EffectsComponent` | Single list of standalone effects; `Lifetime` drives persistence (only `UntilRemoved` is written) |
 | Computed stats | Effective values recomputed on read; base + effects |
 | Blueprint-seeds-world | Authored templates seed; persisted components win on reload |
