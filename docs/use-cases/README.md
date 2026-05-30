@@ -17,6 +17,7 @@ Every use-case file contains:
 - **Main flow** — numbered steps
 - **Events fired** — so an agent can find publishers/subscribers
 - **Systems / handlers involved** — traceable to the reference catalogs
+- **Implementation plan — work packages** — decompose the build into **1–3 independently-executable work packages**, each sized for a limited-context sub-agent: scope, files, dependencies (which package lands first), out-of-scope bounds, and a *testable* exit criterion. Packages depending only on a shared earlier package (not on each other) may run in parallel. The **primary agent runs `architecture-reviewer` (code mode) across the combined diff** once all packages land — sub-agents do not self-review. This keeps each agent run inside a small context window. See [`stat-resource-substrate.md`](stat-resource-substrate.md) for a worked example.
 - **Content tooling impact** — required: list every data-file shape, admin command, and `TemplateRegistry` entry the slice introduces or extends. If the slice adds gameplay state, this section must describe how a designer authors and inspects that state in the same PR. Pure-infrastructure slices (no new gameplay state) may state "none" with one sentence of justification. See [`../architecture/checklist.md`](../architecture/checklist.md) INV-18 ("Content-tooling discipline").
 - **Cross-cutting surfaces stressed** — required (ground rule 9). Enumerate the cross-cutting infrastructure this slice exercises (commands, output, persistence, event bus, ECS queries, broadcast, time, content templates, configuration, …). For each surface, classify as one of:
   - **Adequate** — existing shape covers what this slice adds; no change needed. State why.
@@ -52,6 +53,8 @@ At slice close-out, `sync-roadmap` **trims** it to its durable behavior spec —
 | `implemented` | [`time-system.md`](time-system.md) | Phase 3 slice 9-b |
 | `implemented` | [`stat-system.md`](stat-system.md) | Phase 3 slice 9-c |
 | `implemented` | [`combat.md`](combat.md) | Phase 3 slice 9 |
+| `planned` | [`stat-resource-substrate.md`](stat-resource-substrate.md) | Phase 3 slice 9-d (gameplay-model S1) |
+| `planned` | [`effect-substrate.md`](effect-substrate.md) | Phase 3 slice 9-e (gameplay-model S2) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C): SQLite backend, EntityService lifecycle, world content de-persistence, context-driven item persistence, spawn slot foundation |
 

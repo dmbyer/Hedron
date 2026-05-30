@@ -81,24 +81,32 @@ When mob combat death lands (slice 9+), the death/respawn slice must decide:
 
 The chosen approach must be called out explicitly in the death/respawn use-case doc's Design Notes. If destroy-and-re-seed is chosen, `BlueprintComponent` must be cleared on the corpse entity before the new entity is spawned so the blueprint slot is free for the next spawn cycle (INV-21).
 
-### 🔵 Field-level persistence exclusion in `[Persistent]` components (`EffectsComponent`)
+### 🟢 EffectsComponent persistence — RESOLVED (single list, lifetime-filtered) → slice 9-e
 
-When `EffectsComponent` lands (slice 9+ / effects system), it will carry two effect lists:
+**Decision (2026-05-30).** One `EffectsComponent` with a **single `List<Effect>`** of standalone effects — no `Persistent`/`Transient` component split, and no two-list split. Persistence is **lifetime-filtered**: the component is `[Persistent]`, and a `[JsonConverter]` on it writes only entries whose `Lifetime == UntilRemoved`. `System.Text.Json` (already used by `ComponentSerializer`) honors the attribute natively — **no new persistence infrastructure**. Source-bound effects (`WhileEquipped`/`WhileKnown`/`WhilePresent`) are not stored at all — derived on read from their persisted source. Rationale: two near-identical components were duplication; `Lifetime` is already the single source of truth for what survives a save. Design in [`../design/gameplay-model.md`](../design/gameplay-model.md) Spine C; built in slice 9-e ([`../use-cases/effect-substrate.md`](../use-cases/effect-substrate.md)).
 
-- `PersistentEffects: List<Effect>` — permanent effects (curses, enchantments applied at equip) that must survive a restart.
-- `TransientEffects: List<Effect>` — spell buffs, combat debuffs, anything that drops on relog.
+**Reference-sweep when 9-e lands.** These docs use the old two-component names as examples/stubs and must reconcile to the single `EffectsComponent` (already updated with the decision: the model, `02-ecs.md`, `components-planned.md`, and `.claude/skills/add-archetype/SKILL.md`): `architecture/06-persistence.md` (excluded-component example), `architecture/flows/flow-04-persistence-flush-cycle.md`, `reference/archetypes.md` (Weapon/Armor optional component), `use-cases/persistence-substrate.md` (example).
 
-`[Persistent]` controls which **components** are snapshotted; it does not control which **fields within a component** are serialized. To avoid writing `TransientEffects` to SQLite, the persistence system must support field-level exclusion — e.g. `[JsonIgnore]` on `TransientEffects`, or a custom `[NotPersisted]` attribute that `ComponentSerializer` honors.
+### 🔵 Balance & tuning surface + reference doc
 
-**Options** (decide before `EffectsComponent` is authored):
-- **Field-level exclusion**: add `[JsonIgnore]` (or `[NotPersisted]`) support to `ComponentSerializer`. One component, clean call sites — callers always read `EffectsComponent` and get both lists.
-- **Component split**: `TransientEffectsComponent` (no `[Persistent]`) + `PersistentEffectsComponent` (`[Persistent]`). More ECS-orthodox but callers must query both components when reading all active effects.
+As the gameplay-model spines land (effect Power-scaling, ability costs, rarity/scaling budgets, progression XP curves, character defaults), each introduces tunable numbers — [`../architecture/05-configuration.md`](../architecture/05-configuration.md) **Category 3 (System Math / Balance)**. Today these live as co-located `*Constants` per the config strategy (and `CharacterDefaults`, slice 9-d, is the first set surfaced as settings under the OD-2 promotion trigger). Worth describing as a standalone concern because the knobs accumulate across systems:
 
-Neither option blocks the persistence reform stages A–C. Revisit when the effects/combat slice begins.
+- **Reference doc** — a balance catalog (likely `reference/balance.md` or under `design/`) listing every tunable knob, its owning system, current value, and design rationale, so tuning is coherent rather than archaeology across a dozen constant classes.
+- **Promotion tracking (OD-2)** — when designer iteration without recompile is needed for a subset, promote those constants to an authored content definition (Category 2), editable by the future content editor.
+
+Not a runtime "module" — balance math stays co-located with its owning system (Category 3); this item is the *documentation + promotion discipline* around it. Becomes worthwhile once 2–3 spines (effects, abilities, scaling) have introduced enough knobs to justify the catalog — likely around slices 11–13.
+
+### 🔵 Full-featured content editor (transition from command-driven authoring)
+
+Content authoring today is command-driven (`mkmob`/`setmob`/`mkitem`/`setitem`/`dig`/`set`, …); a full-featured editor is a known future (Ticket B resolution in [`plan.md`](plan.md): in-game commands first, web/desktop editor deferred alongside the SignalR/dual-client transport). To keep that transition cheap, the established convention — reinforced by slice 9-d — is that **all authoring logic lives in builder/writer *systems*** (`IRoomBuilderSystem`, `IItemBuilderSystem`, `IMobBuilderSystem`, `*ContentWriter`), with the command as a thin caller. The editor becomes a second thin caller of the same systems; no authoring logic is trapped in command classes. New content-mutating features must add their logic to a system, not a command body. Revisit building the editor itself once the dual-client transport lands (it shares that deferral).
 
 ### 🔵 Archetype catalogue refresh
 
 The archetype list in [`../reference/archetypes.md`](../reference/archetypes.md) was written against the old component shapes. Re-audit once a few Phase 3 slices have landed real components.
+
+### 🔵 Use-case → subsystem-doc conversion audit (docs lifecycle, 2026-05)
+
+The docs lifecycle changed: a slice now graduates a system's *design* into [`../architecture/subsystems/`](../architecture/subsystems/) (or a higher-level [`../architecture/`](../architecture/) doc for a complex system such as effects), leaving the use-case as a requirements + implementation-plan artifact. See [`../documentation-architecture.md`](../documentation-architecture.md) ("Use-case lifecycle" → "Design graduates to its durable home"). Existing implemented use-cases predate this split and still carry their design inline. Audit them and convert the durable design into subsystem docs — prioritizing the systems most likely to be extended (stats, combat, items). Two enforcement surfaces still need a matching update to make the new lifecycle binding: the `sync-roadmap` skill's step list, and a checklist clause (extend `INV-D2`). Forward slices follow the new split natively; this is the retroactive cleanup.
 
 ### 🔵 Use-case catalogue audit
 

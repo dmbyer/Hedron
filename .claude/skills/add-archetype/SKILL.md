@@ -14,7 +14,7 @@ Authoritative rules: [docs/architecture/02-ecs.md](../../../docs/architecture/02
 First check [docs/reference/archetypes.md](../../../docs/reference/archetypes.md) — there are already 15 archetypes. Most new ideas are a **variant** (different default data) of an existing archetype, not a new archetype. A new archetype is only justified when the **required component set** differs.
 
 Examples:
-- A "cursed weapon" → still `Weapon` archetype; curse is an effect on `PersistentEffectsComponent`.
+- A "cursed weapon" → still `Weapon` archetype; the curse is an `UntilRemoved` effect on the bearer's `EffectsComponent` (not on the weapon).
 - A "shopkeeper" → still `Mob` archetype; a `ShopComponent` is added.
 - A "portal" → new archetype; its required components (`TransformComponent` + `PortalComponent`) differ from Static Item.
 

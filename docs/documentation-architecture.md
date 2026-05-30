@@ -23,7 +23,8 @@ A growing codebase accretes overlapping docs: the same rule restated in three fi
 | [`CLAUDE.md`](CLAUDE.md) | Entry point + AI directives + a *day-to-day summary* of the rules | Pointers, ground-rule summaries (each linking to its INV), where-to-read order | An authoritative rule copy; per-feature detail; history | Every agent session (always loaded) |
 | [`architecture/`](architecture/) `00`–`06` | Foundational, cross-cutting, slice-independent design (layers, ECS, events, pitfalls, config, persistence) | The *explanation* of how the engine is shaped | Per-feature framework designs; runtime traces; invariant restatements | Anyone writing a system/handler/event |
 | [`architecture/checklist.md`](architecture/checklist.md) | **The only** authoritative invariant list | Every `INV-n` / `SR-n` / `INV-D*`, terse and checkable | Long explanations (those link out to `00`–`06`) | `architecture-reviewer`, planner gates |
-| `architecture/subsystems/` | Per-feature framework *design records* (commands, output, future combat/items) | "How feature X's framework is built," scoped to one feature, born in one slice | Cross-cutting rules (→ `00`–`06`); the catalog of what exists (→ `reference/`) | Implementers of/around that feature |
+| `architecture/subsystems/` | Per-feature framework / **scoped-system** *design records* (commands, output, stats, future combat/effects) | "How feature X works," scoped to one feature/system — including the living design of a scoped system (e.g. stats) | Cross-cutting rules (→ `00`–`06`); the catalog of what exists (→ `reference/`) | Implementers of/around that feature |
+| [`design/`](design/) | Cross-cutting **forward design models** spanning many future slices (precede use-cases) | A scenario-spanning "north-star" model; a clearly-labeled draft with a graduate/trim lifecycle | Authoritative rules (→ `checklist.md`); single-feature design (→ `subsystems/`); single-scenario behavior (→ `use-cases/`) | Planner; designers scoping a multi-slice feature |
 | `architecture/flows/` | Runtime call-chain *traces* (the dynamic axis) | "If X happens, what executes and in what order," one flow per concern | Static structure; design rationale | Anyone tracing behavior; `use-case-planner` |
 | [`reference/`](reference/) | Terse catalog of **what exists** | Implemented components/systems/handlers/archetypes/commands | Idealized API for unbuilt features (segregate into a clearly-labeled `*-planned.md` companion file) | Planner ("what can I reuse?"); reviewers |
 | [`use-cases/`](use-cases/) | Desired behavior — the *what* | One scenario per file; the per-slice work artifact while in-flight (see lifecycle) | A permanent home for impl plans, flow diagrams, or catalog diffs | Designers; planner; spec-review gate |
@@ -43,6 +44,7 @@ A growing codebase accretes overlapping docs: the same rule restated in three fi
 | A runtime call chain | `architecture/flows/` (one flow) | references "Flow N"; never reproduces the diagram |
 | What components/systems/handlers/etc. *exist* | `reference/` (implemented) | links to the row |
 | An idealized/planned API not yet built | `reference/<catalog>-planned.md`, clearly labeled | links, never implies it exists |
+| A cross-cutting forward design model (spans many future slices) | `design/<model>.md`, a clearly-labeled draft | links; graduates to `subsystems/` / `architecture/` as spines land |
 | Desired behavior | `use-cases/<slug>.md` | links to it |
 | Direction / status / ledger | `roadmap/` | links to it |
 | A retired approach | `archive/` | links if history is relevant |
@@ -63,6 +65,8 @@ A use-case doc moves through three states:
 
 A shipped use-case later superseded by a redesign gets a one-line banner pointing to its successor, or is re-trimmed to match the new truth — never left silently stale.
 
+**Design graduates to its durable home on ship (going forward).** As of 2026-05, a slice that introduces or changes a system documents that system's *design* in its durable home — a scoped-system record under [`architecture/subsystems/`](architecture/subsystems/), or a higher-level design doc under [`architecture/`](architecture/) for a complex cross-cutting system (e.g. effects). The use-case is then the **requirements + implementation-plan** artifact, not the living design doc. The three surfaces divide cleanly: **flows** answer *where to look* to follow a critical path; **subsystem / architecture design docs** describe *how a feature works* (the living design); **use-cases** define *required behavior* for implementation. Existing use-cases predate this split — converting them is a backlogged audit (see [`roadmap/backlog.md`](roadmap/backlog.md)).
+
 ## Maintenance triggers (what to update, when, enforced by what)
 
 | When you… | Update (only) | Enforced by |
@@ -70,7 +74,7 @@ A shipped use-case later superseded by a redesign gets a one-line banner pointin
 | add or change an architectural rule | `checklist.md` (+ link from its explanation doc) | `INV-15`, reviewer |
 | add/rename/remove a system, handler, component, or event | the matching `reference/` catalog | `INV-16` |
 | introduce or change a runtime flow | `architecture/flows/` (body **and** mermaid) | `INV-17` |
-| ship a use-case slice | trim the use-case doc; update `done.md` + `completed/`; advance `plan.md` | `sync-roadmap` skill, `INV-D2` |
+| ship a use-case slice | graduate the system's design into `architecture/subsystems/` (or `architecture/` if complex); trim the use-case to requirements + impl-plan; update `done.md` + `completed/`; advance `plan.md` | `sync-roadmap` skill, `INV-D2` |
 | repeat a hand-rolled pattern ≥3× | promote it to a framework + skill | `INV-19` |
 | change an architectural pattern a skill/agent teaches | that `.claude/` file, same PR | `INV-20` |
 | establish a new recurring pattern / exercise / task | a new skill / agent / command | tooling lifecycle (below) |
