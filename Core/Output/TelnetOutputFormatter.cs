@@ -158,11 +158,15 @@ namespace Hedron.Core.Output
         {
             var sb = new StringBuilder();
             sb.AppendLine(ApplyColor($"<room-name>[ {m.CharacterName} ]</room-name>", color));
-            sb.AppendLine($"  Level : {m.Level}");
-            sb.AppendLine($"  HP    : {m.CurrentHp}/{m.MaxHp}");
-            sb.AppendLine($"  Str   : {m.Strength}");
-            sb.AppendLine($"  Dex   : {m.Dexterity}");
-            sb.Append($"  Con   : {m.Constitution}");
+            sb.AppendLine($"  Level     : {m.Level}");
+            sb.AppendLine($"  HP        : {m.CurrentHp}/{m.MaxHp}");
+            sb.AppendLine($"  Mana      : {m.CurrentMana}/{m.MaxMana}");
+            sb.AppendLine($"  Stamina   : {m.CurrentStamina}/{m.MaxStamina}");
+            sb.AppendLine($"  Astra     : {m.CurrentAstra}/{m.MaxAstra}");
+            sb.AppendLine($"  Mind      : {m.Mind}");
+            sb.AppendLine($"  Body      : {m.Body}");
+            sb.AppendLine($"  Spirit    : {m.Spirit}");
+            sb.Append($"  Attunement: {m.Attunement}");
             return ApplyColor(sb.ToString(), color);
         }
 

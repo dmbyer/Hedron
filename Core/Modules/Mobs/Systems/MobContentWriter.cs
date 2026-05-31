@@ -37,9 +37,13 @@ namespace Hedron.Core.Modules.Mobs.Systems
                 SpawnRoomBlueprintId = template.SpawnRoomBlueprintId,
                 Level = template.Level,
                 MaxHp = template.MaxHp,
-                Strength = template.Strength,
-                Dexterity = template.Dexterity,
-                Constitution = template.Constitution,
+                Mind = template.Mind,
+                Body = template.Body,
+                Spirit = template.Spirit,
+                Attunement = template.Attunement,
+                MaxMana = template.MaxMana,
+                MaxStamina = template.MaxStamina,
+                MaxAstra = template.MaxAstra,
             };
 
             var body = _yaml.Serialize(dto);
@@ -60,9 +64,13 @@ namespace Hedron.Core.Modules.Mobs.Systems
             public string SpawnRoomBlueprintId { get; set; } = string.Empty;
             public int Level { get; set; }
             public int MaxHp { get; set; }
-            public int Strength { get; set; }
-            public int Dexterity { get; set; }
-            public int Constitution { get; set; }
+            public int Mind { get; set; }
+            public int Body { get; set; }
+            public int Spirit { get; set; }
+            public int Attunement { get; set; }
+            public int MaxMana { get; set; }
+            public int MaxStamina { get; set; }
+            public int MaxAstra { get; set; }
         }
     }
 }

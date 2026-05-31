@@ -15,14 +15,17 @@ namespace Hedron.Core.Modules.Attributes.Systems
         public int GetLevel(uint entityId)
             => _entityService.TryGet<AttributesComponent>(entityId, out var a) ? a.Level : 1;
 
-        public int GetStrength(uint entityId)
-            => _entityService.TryGet<AttributesComponent>(entityId, out var a) ? a.Strength : 10;
+        public int GetMind(uint entityId)
+            => _entityService.TryGet<AttributesComponent>(entityId, out var a) ? a.Mind : 10;
 
-        public int GetDexterity(uint entityId)
-            => _entityService.TryGet<AttributesComponent>(entityId, out var a) ? a.Dexterity : 10;
+        public int GetBody(uint entityId)
+            => _entityService.TryGet<AttributesComponent>(entityId, out var a) ? a.Body : 10;
 
-        public int GetConstitution(uint entityId)
-            => _entityService.TryGet<AttributesComponent>(entityId, out var a) ? a.Constitution : 10;
+        public int GetSpirit(uint entityId)
+            => _entityService.TryGet<AttributesComponent>(entityId, out var a) ? a.Spirit : 10;
+
+        public int GetAttunement(uint entityId)
+            => _entityService.TryGet<AttributesComponent>(entityId, out var a) ? a.Attunement : 10;
 
         public int GetMaxHp(uint entityId)
             => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.MaxHp : 100;
@@ -30,28 +33,52 @@ namespace Hedron.Core.Modules.Attributes.Systems
         public int GetCurrentHp(uint entityId)
             => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.CurrentHp : 100;
 
+        public int GetMaxMana(uint entityId)
+            => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.MaxMana : 50;
+
+        public int GetCurrentMana(uint entityId)
+            => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.CurrentMana : 50;
+
+        public int GetMaxStamina(uint entityId)
+            => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.MaxStamina : 50;
+
+        public int GetCurrentStamina(uint entityId)
+            => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.CurrentStamina : 50;
+
+        public int GetMaxAstra(uint entityId)
+            => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.MaxAstra : 10;
+
+        public int GetCurrentAstra(uint entityId)
+            => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.CurrentAstra : 10;
+
         public void SetLevel(uint entityId, int value)
         {
             if (_entityService.TryGet<AttributesComponent>(entityId, out var a))
                 a.Level = value;
         }
 
-        public void SetStrength(uint entityId, int value)
+        public void SetMind(uint entityId, int value)
         {
             if (_entityService.TryGet<AttributesComponent>(entityId, out var a))
-                a.Strength = value;
+                a.Mind = value;
         }
 
-        public void SetDexterity(uint entityId, int value)
+        public void SetBody(uint entityId, int value)
         {
             if (_entityService.TryGet<AttributesComponent>(entityId, out var a))
-                a.Dexterity = value;
+                a.Body = value;
         }
 
-        public void SetConstitution(uint entityId, int value)
+        public void SetSpirit(uint entityId, int value)
         {
             if (_entityService.TryGet<AttributesComponent>(entityId, out var a))
-                a.Constitution = value;
+                a.Spirit = value;
+        }
+
+        public void SetAttunement(uint entityId, int value)
+        {
+            if (_entityService.TryGet<AttributesComponent>(entityId, out var a))
+                a.Attunement = value;
         }
 
         public void SetMaxHp(uint entityId, int value)
@@ -67,8 +94,55 @@ namespace Hedron.Core.Modules.Attributes.Systems
         {
             if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
                 return;
-            var max = GetMaxHp(entityId);
-            p.CurrentHp = Math.Clamp(value, 0, max);
+            p.CurrentHp = Math.Clamp(value, 0, GetMaxHp(entityId));
+        }
+
+        public void SetMaxMana(uint entityId, int value)
+        {
+            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
+                return;
+            p.MaxMana = value;
+            if (p.CurrentMana > p.MaxMana)
+                p.CurrentMana = p.MaxMana;
+        }
+
+        public void SetCurrentMana(uint entityId, int value)
+        {
+            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
+                return;
+            p.CurrentMana = Math.Clamp(value, 0, GetMaxMana(entityId));
+        }
+
+        public void SetMaxStamina(uint entityId, int value)
+        {
+            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
+                return;
+            p.MaxStamina = value;
+            if (p.CurrentStamina > p.MaxStamina)
+                p.CurrentStamina = p.MaxStamina;
+        }
+
+        public void SetCurrentStamina(uint entityId, int value)
+        {
+            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
+                return;
+            p.CurrentStamina = Math.Clamp(value, 0, GetMaxStamina(entityId));
+        }
+
+        public void SetMaxAstra(uint entityId, int value)
+        {
+            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
+                return;
+            p.MaxAstra = value;
+            if (p.CurrentAstra > p.MaxAstra)
+                p.CurrentAstra = p.MaxAstra;
+        }
+
+        public void SetCurrentAstra(uint entityId, int value)
+        {
+            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
+                return;
+            p.CurrentAstra = Math.Clamp(value, 0, GetMaxAstra(entityId));
         }
     }
 }

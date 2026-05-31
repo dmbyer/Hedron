@@ -19,7 +19,7 @@ namespace Hedron.Core.Modules.Attributes.Commands
         public CommandCategory Category => CommandCategory.Player;
         public CommandMatchingMode MatchingMode => CommandMatchingMode.Partial;
         public string ShortDescription => "Display your character stats.";
-        public string LongDescription => "Shows your level, hit points, and base combat stats.";
+        public string LongDescription => "Shows your level, hit points, mana, stamina, astra, and base attributes.";
         public string Usage => "score";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             Array.Empty<IAuthorizationRequirement>();
@@ -51,9 +51,16 @@ namespace Hedron.Core.Modules.Attributes.Commands
                 attrs.Level,
                 pools.CurrentHp,
                 pools.MaxHp,
-                attrs.Strength,
-                attrs.Dexterity,
-                attrs.Constitution)).ConfigureAwait(false);
+                attrs.Mind,
+                attrs.Body,
+                attrs.Spirit,
+                attrs.Attunement,
+                pools.CurrentMana,
+                pools.MaxMana,
+                pools.CurrentStamina,
+                pools.MaxStamina,
+                pools.CurrentAstra,
+                pools.MaxAstra)).ConfigureAwait(false);
         }
     }
 }

@@ -30,7 +30,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
         public string LongDescription =>
             "Sets a property on the mob with the given blueprint id. " +
             "Valid properties: name, description, keywords (space-separated), type (none/vendor/guard/creature), " +
-            "level, hp, str, dex, con.";
+            "level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra.";
         public string Usage => "setmob <blueprintId> <property> <value>";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
@@ -119,9 +119,13 @@ namespace Hedron.Core.Modules.Mobs.Commands
 
                 case "level":
                 case "hp":
-                case "str":
-                case "dex":
-                case "con":
+                case "mind":
+                case "body":
+                case "spirit":
+                case "attunement":
+                case "maxmana":
+                case "maxstamina":
+                case "maxastra":
                     if (!int.TryParse(value, out var numericValue) || numericValue < 1)
                     {
                         await context.Output.WriteAsync(new PlainMessage(
@@ -134,7 +138,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
 
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
-                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, level, hp, str, dex, con.",
+                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra.",
                         OutputSeverity.Error)).ConfigureAwait(false);
                     return;
             }

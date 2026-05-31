@@ -6,6 +6,7 @@ using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Account.Components;
 using Hedron.Core.Systems;
+using Microsoft.Extensions.Configuration;
 
 namespace Hedron.Core.Modules.Account.Systems
 {
@@ -24,6 +25,7 @@ namespace Hedron.Core.Modules.Account.Systems
         private readonly EntityService _entityService;
         private readonly IPasswordHasher _passwordHasher;
         private readonly WorldConfiguration _worldConfig;
+        private readonly CharacterDefaultsOptions _characterDefaults;
 
         private HashSet<string>? _usernameIndex;
         private HashSet<string>? _characterNameIndex;
@@ -31,11 +33,20 @@ namespace Hedron.Core.Modules.Account.Systems
         public AccountSystem(
             EntityService entityService,
             IPasswordHasher passwordHasher,
-            WorldConfiguration worldConfig)
+            WorldConfiguration worldConfig,
+            IConfiguration configuration)
         {
             _entityService = entityService;
             _passwordHasher = passwordHasher;
             _worldConfig = worldConfig;
+
+            _characterDefaults = new CharacterDefaultsOptions();
+            var section = configuration.GetSection("CharacterDefaults");
+            if (int.TryParse(section["AttributeDefault"], out var attrDefault)) _characterDefaults.AttributeDefault = attrDefault;
+            if (int.TryParse(section["MaxHp"], out var maxHp)) _characterDefaults.MaxHp = maxHp;
+            if (int.TryParse(section["MaxMana"], out var maxMana)) _characterDefaults.MaxMana = maxMana;
+            if (int.TryParse(section["MaxStamina"], out var maxStamina)) _characterDefaults.MaxStamina = maxStamina;
+            if (int.TryParse(section["MaxAstra"], out var maxAstra)) _characterDefaults.MaxAstra = maxAstra;
         }
 
         public bool UsernameExists(string username)
@@ -95,8 +106,24 @@ namespace Hedron.Core.Modules.Account.Systems
             });
             _entityService.AddComponent(entity.Id, new InventoryComponent());
             _entityService.AddComponent(entity.Id, new EquipmentComponent());
-            _entityService.AddComponent(entity.Id, new AttributesComponent());
-            _entityService.AddComponent(entity.Id, new PoolsComponent());
+            _entityService.AddComponent(entity.Id, new AttributesComponent
+            {
+                Mind = _characterDefaults.AttributeDefault,
+                Body = _characterDefaults.AttributeDefault,
+                Spirit = _characterDefaults.AttributeDefault,
+                Attunement = _characterDefaults.AttributeDefault,
+            });
+            _entityService.AddComponent(entity.Id, new PoolsComponent
+            {
+                MaxHp = _characterDefaults.MaxHp,
+                CurrentHp = _characterDefaults.MaxHp,
+                MaxMana = _characterDefaults.MaxMana,
+                CurrentMana = _characterDefaults.MaxMana,
+                MaxStamina = _characterDefaults.MaxStamina,
+                CurrentStamina = _characterDefaults.MaxStamina,
+                MaxAstra = _characterDefaults.MaxAstra,
+                CurrentAstra = _characterDefaults.MaxAstra,
+            });
             _entityService.AddComponent(entity.Id, new PersistentEntity());
 
             if (_entityService.TryGet<AccountComponent>(accountEntityId, out var account))

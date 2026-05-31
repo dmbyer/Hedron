@@ -116,22 +116,58 @@ namespace Hedron.Core.Modules.Mobs.Systems
                     template.MaxHp = value;
                     break;
 
-                case "str":
-                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrS))
-                        attrS.Strength = value;
-                    template.Strength = value;
+                case "mind":
+                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrM))
+                        attrM.Mind = value;
+                    template.Mind = value;
                     break;
 
-                case "dex":
-                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrD))
-                        attrD.Dexterity = value;
-                    template.Dexterity = value;
+                case "body":
+                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrB))
+                        attrB.Body = value;
+                    template.Body = value;
                     break;
 
-                case "con":
-                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrC))
-                        attrC.Constitution = value;
-                    template.Constitution = value;
+                case "spirit":
+                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrSp))
+                        attrSp.Spirit = value;
+                    template.Spirit = value;
+                    break;
+
+                case "attunement":
+                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrAt))
+                        attrAt.Attunement = value;
+                    template.Attunement = value;
+                    break;
+
+                case "maxmana":
+                    if (_entityService.TryGet<PoolsComponent>(mobEntityId, out var poolsMana))
+                    {
+                        poolsMana.MaxMana = value;
+                        if (poolsMana.CurrentMana > poolsMana.MaxMana)
+                            poolsMana.CurrentMana = poolsMana.MaxMana;
+                    }
+                    template.MaxMana = value;
+                    break;
+
+                case "maxstamina":
+                    if (_entityService.TryGet<PoolsComponent>(mobEntityId, out var poolsStam))
+                    {
+                        poolsStam.MaxStamina = value;
+                        if (poolsStam.CurrentStamina > poolsStam.MaxStamina)
+                            poolsStam.CurrentStamina = poolsStam.MaxStamina;
+                    }
+                    template.MaxStamina = value;
+                    break;
+
+                case "maxastra":
+                    if (_entityService.TryGet<PoolsComponent>(mobEntityId, out var poolsAstra))
+                    {
+                        poolsAstra.MaxAstra = value;
+                        if (poolsAstra.CurrentAstra > poolsAstra.MaxAstra)
+                            poolsAstra.CurrentAstra = poolsAstra.MaxAstra;
+                    }
+                    template.MaxAstra = value;
                     break;
             }
         }

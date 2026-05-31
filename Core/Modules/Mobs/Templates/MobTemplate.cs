@@ -18,9 +18,13 @@ namespace Hedron.Core.Modules.Mobs.Templates
 
         public int Level { get; set; } = 0;
         public int MaxHp { get; set; } = 0;
-        public int Strength { get; set; } = 0;
-        public int Dexterity { get; set; } = 0;
-        public int Constitution { get; set; } = 0;
+        public int Mind { get; set; } = 0;
+        public int Body { get; set; } = 0;
+        public int Spirit { get; set; } = 0;
+        public int Attunement { get; set; } = 0;
+        public int MaxMana { get; set; } = 0;
+        public int MaxStamina { get; set; } = 0;
+        public int MaxAstra { get; set; } = 0;
 
         public MobTemplate(string blueprintId)
         {
@@ -42,14 +46,24 @@ namespace Hedron.Core.Modules.Mobs.Templates
             entityService.AddComponent(entity.Id, new AttributesComponent
             {
                 Level = level,
-                Strength = Strength > 0 ? Strength : 10,
-                Dexterity = Dexterity > 0 ? Dexterity : 10,
-                Constitution = Constitution > 0 ? Constitution : 10,
+                Mind = Mind > 0 ? Mind : 10,
+                Body = Body > 0 ? Body : 10,
+                Spirit = Spirit > 0 ? Spirit : 10,
+                Attunement = Attunement > 0 ? Attunement : 10,
             });
+            var maxMana = MaxMana > 0 ? MaxMana : 50;
+            var maxStamina = MaxStamina > 0 ? MaxStamina : 50;
+            var maxAstra = MaxAstra > 0 ? MaxAstra : 10;
             entityService.AddComponent(entity.Id, new PoolsComponent
             {
                 MaxHp = maxHp,
                 CurrentHp = maxHp,
+                MaxMana = maxMana,
+                CurrentMana = maxMana,
+                MaxStamina = maxStamina,
+                CurrentStamina = maxStamina,
+                MaxAstra = maxAstra,
+                CurrentAstra = maxAstra,
             });
         }
     }
