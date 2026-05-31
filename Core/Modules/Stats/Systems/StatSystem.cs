@@ -1,6 +1,7 @@
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Attributes.Systems;
+using Hedron.Core.Modules.Effects.Systems;
 
 namespace Hedron.Core.Modules.Stats.Systems
 {
@@ -8,11 +9,13 @@ namespace Hedron.Core.Modules.Stats.Systems
     {
         private readonly IAttributeSystem _attributes;
         private readonly EntityService _entityService;
+        private readonly IEffectSystem _effectSystem;
 
-        public StatSystem(IAttributeSystem attributes, EntityService entityService)
+        public StatSystem(IAttributeSystem attributes, EntityService entityService, IEffectSystem effectSystem)
         {
             _attributes = attributes;
             _entityService = entityService;
+            _effectSystem = effectSystem;
         }
 
         public int GetEffectiveMind(uint entityId) => _attributes.GetMind(entityId);
@@ -42,10 +45,10 @@ namespace Hedron.Core.Modules.Stats.Systems
 
         public int Get(uint entityId, ScoreId score) => score switch
         {
-            ScoreId.Mind            => GetEffectiveMind(entityId),
-            ScoreId.Body            => GetEffectiveBody(entityId),
-            ScoreId.Spirit          => GetEffectiveSpirit(entityId),
-            ScoreId.Attunement      => GetEffectiveAttunement(entityId),
+            ScoreId.Mind            => GetEffectiveMind(entityId) + _effectSystem.GetModifiers(entityId, score),
+            ScoreId.Body            => GetEffectiveBody(entityId) + _effectSystem.GetModifiers(entityId, score),
+            ScoreId.Spirit          => GetEffectiveSpirit(entityId) + _effectSystem.GetModifiers(entityId, score),
+            ScoreId.Attunement      => GetEffectiveAttunement(entityId) + _effectSystem.GetModifiers(entityId, score),
             ScoreId.HpMax           => _attributes.GetMaxHp(entityId),
             ScoreId.HpCurrent       => _attributes.GetCurrentHp(entityId),
             ScoreId.ManaMax         => _attributes.GetMaxMana(entityId),
@@ -54,8 +57,8 @@ namespace Hedron.Core.Modules.Stats.Systems
             ScoreId.StaminaCurrent  => _attributes.GetCurrentStamina(entityId),
             ScoreId.AstraMax        => _attributes.GetMaxAstra(entityId),
             ScoreId.AstraCurrent    => _attributes.GetCurrentAstra(entityId),
-            ScoreId.AttackPower     => GetEffectiveAttackPower(entityId),
-            ScoreId.Defense         => GetEffectiveDefense(entityId),
+            ScoreId.AttackPower     => GetEffectiveAttackPower(entityId) + _effectSystem.GetModifiers(entityId, score),
+            ScoreId.Defense         => GetEffectiveDefense(entityId) + _effectSystem.GetModifiers(entityId, score),
             _                       => 0,
         };
     }

@@ -79,8 +79,15 @@ Ask:
 **Location:** `Core/Modules/Spawn/Handlers/ItemContextHandler.cs`
 **Uses:** `EntityService`
 
+### EffectTickHandler
+**Events:** `HeartbeatTickEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** Bridge between the time system and the effects domain. On each tick: calls `IEffectSystem.AdvanceTick(elapsed)` to advance all timed effects. For each `PeriodicApplication` in `DueApplications` (sorted Early → Normal → Late by the system), applies the magnitude via `IAttributeSystem.SetCurrentHp` (for `HpCurrent` target) or the appropriate `IAttributeSystem` setter. For each expired effect in `Expired`, publishes `EffectExpiredEvent(targetId, effectId)`.
+**Location:** `Core/Modules/Effects/Handlers/EffectTickHandler.cs`
+**Uses:** `IEffectSystem`, `IAttributeSystem`, `IEventBus`
+
 ### AdminAuditHandler
-**Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a); `ItemCreatedByAdminEvent`, `ItemPropertySetByAdminEvent` (Phase 3 slice 6); `MobCreatedByAdminEvent`, `MobPropertySetByAdminEvent` (Phase 3 slice 8); `PlayerAttributeSetByAdminEvent` (Phase 3 slice 8a); `CombatEndedEvent` (Phase 3 slice 9).
+**Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a); `ItemCreatedByAdminEvent`, `ItemPropertySetByAdminEvent` (Phase 3 slice 6); `MobCreatedByAdminEvent`, `MobPropertySetByAdminEvent` (Phase 3 slice 8); `PlayerAttributeSetByAdminEvent` (Phase 3 slice 8a); `CombatEndedEvent` (Phase 3 slice 9); `EffectAppliedByAdminEvent` (Phase 3 slice 9-e).
 **Priority:** 80 (`HandlerPriority.Notification`)
 **Responsibilities:** writes one structured-log entry per admin action via `ILogger<AdminAuditHandler>`. Uses a stable structured event name (`AdminCommandExecuted`) so log scrapers can filter without parsing free text. No dedicated audit-file sink in this slice.
 **Location:** `Core/Modules/Admin/Handlers/AdminAuditHandler.cs`

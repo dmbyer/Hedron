@@ -37,6 +37,9 @@ using Hedron.Core.Modules.Combat.Handlers;
 using Hedron.Core.Modules.Spawn;
 using Hedron.Core.Modules.Spawn.Handlers;
 using Hedron.Core.Modules.Spawn.Systems;
+using Hedron.Core.Modules.Effects;
+using Hedron.Core.Modules.Effects.Events;
+using Hedron.Core.Modules.Effects.Handlers;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.Time;
 using Hedron.Core.Modules.Time.Events;
@@ -121,6 +124,7 @@ public static class Program
                 services.AddEntityStateModule();
                 services.AddTimeModule();
                 services.AddStatsModule();
+                services.AddEffectsModule();
                 services.AddCombatModule();
                 services.AddSpawnModule();
 
@@ -140,6 +144,9 @@ public static class Program
         bus.Subscribe<PlayerMovedEvent>(host.Services.GetRequiredService<PlayerMovedHandler>());
         bus.Subscribe<PlayerTeleportedByAdminEvent>(host.Services.GetRequiredService<PlayerMovedHandler>());
         bus.Subscribe<PlayerSaidEvent>(host.Services.GetRequiredService<PlayerSaidHandler>());
+
+        var effectTick = host.Services.GetRequiredService<EffectTickHandler>();
+        bus.Subscribe<HeartbeatTickEvent>(effectTick);
 
         var combatTick = host.Services.GetRequiredService<CombatTickHandler>();
         bus.Subscribe<HeartbeatTickEvent>(combatTick);
@@ -165,6 +172,7 @@ public static class Program
         bus.Subscribe<MobPropertySetByAdminEvent>(audit);
         bus.Subscribe<PlayerAttributeSetByAdminEvent>(audit);
         bus.Subscribe<CombatEndedEvent>(audit);
+        bus.Subscribe<EffectAppliedByAdminEvent>(audit);
 
         var characterHydration = host.Services.GetRequiredService<CharacterHydrationHandler>();
         bus.Subscribe<WorldContentReadyEvent>(characterHydration);

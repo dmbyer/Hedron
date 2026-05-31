@@ -54,6 +54,7 @@ Persistence uses two independent opt-ins. See [../architecture/06-persistence.md
 |---|---|---|---|
 | Account | `AccountComponent` | `Username` (lowercase-normalized), `PasswordHash` (PBKDF2-SHA256), `CharacterEntityIds`, `CreatedAtUtc` | yes |
 | Account | `CharacterComponent` | `AccountEntityId`, `CharacterName`, `CreatedAtUtc`, `LastLoginUtc` | yes |
+| Effects | `EffectsComponent` | `List<Effect> Effects` — active timed/permanent effects on an entity. `[Persistent]`, lifetime-filtered `JsonConverter` (`EffectsComponentJsonConverter`) serializes only `UntilRemoved` effects — timed effects are transient by design. Located in `Core/ECS/Components/` (cross-cutting). | yes |
 
 ---
 

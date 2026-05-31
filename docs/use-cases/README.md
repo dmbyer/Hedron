@@ -54,7 +54,7 @@ At slice close-out, `sync-roadmap` **trims** it to its durable behavior spec —
 | `implemented` | [`stat-system.md`](stat-system.md) | Phase 3 slice 9-c |
 | `implemented` | [`combat.md`](combat.md) | Phase 3 slice 9 |
 | `planned` | [`stat-resource-substrate.md`](stat-resource-substrate.md) | Phase 3 slice 9-d (gameplay-model S1) |
-| `planned` | [`effect-substrate.md`](effect-substrate.md) | Phase 3 slice 9-e (gameplay-model S2) |
+| `implemented` | [`effect-substrate.md`](effect-substrate.md) | Phase 3 slice 9-e (gameplay-model S2) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C): SQLite backend, EntityService lifecycle, world content de-persistence, context-driven item persistence, spawn slot foundation |
 

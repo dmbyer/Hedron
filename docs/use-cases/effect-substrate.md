@@ -1,10 +1,10 @@
 # Use Case: Effect Substrate
 
-**Status:** planned
+**Status:** implemented
 **Actors:** Player, Mob, System, Administrator
 **Module:** `Core/Modules/Effects/` (new — `IEffectSystem`, `EffectsComponent`, registry, tick handler, commands), `Core/Modules/Stats/` (`IStatSystem` folds effect modifiers), `Core/Modules/Time/` (heartbeat consumer)
 
-**Spine:** gameplay-model **S2** — the bedrock most later spines depend on (skills/spells produce effects, potions apply them, curses/auras are effects, rarity treatments grant them). See [`../design/gameplay-model.md`](../design/gameplay-model.md) Spine C and decisions R5 (stacking + Power) / R6 (lifetimes). **Design lives in the model; this doc is requirements + implementation plan.** On ship, the effect design graduates to a higher-level `architecture/` design doc (R7 — effects warrant one due to complexity).
+**Spine:** gameplay-model **S2** — the bedrock most later spines depend on (skills/spells produce effects, potions apply them, curses/auras are effects, rarity treatments grant them). See [`../design/gameplay-model.md`](../design/gameplay-model.md) Spine C and decisions R5 (stacking + Power) / R6 (lifetimes). **Design lives in the model; this doc is requirements + durable spec.** See [`../architecture/effects.md`](../architecture/effects.md) for the higher-level effects design doc (R7).
 
 ---
 
@@ -88,51 +88,6 @@ This slice wires the **load-bearing kinds end-to-end** — `StatModifier` (feeds
 
 ---
 
-## Implementation plan — work packages
-
-> **WP-1 lands first** (model + system). **WP-2 and WP-3 depend on WP-1**; WP-3's "remaining/ticking" display reads state WP-2 advances, so prefer WP-2 before WP-3 (or run WP-3 against stored state and accept that durations show only after WP-2). Primary agent runs `architecture-reviewer` (code mode) across the combined diff.
-
-### WP-1 — Effect model + `EffectSystem` core *(depends on S1)*
-- **Scope:** the record, enums, component (+ converter), and the core system — no consumers.
-- **Files:** `Effect.cs` (record + `EffectKind`/`EffectCategory`/`EffectLifetime`/`StackPolicy`/`EffectSource`/`EffectGroup`), `EffectsComponent.cs` + `EffectsComponentJsonConverter.cs` (`[Persistent]`, lifetime filter), `IEffectSystem.cs`/`EffectSystem.cs` (Apply + Power + stacking + phase + Remove/RemoveByCategory/GetActive/GetModifiers/AdvanceTick), `PowerScaling.cs` + a named-formula registry, `EffectsModule.cs`.
-- **Reference & tooling sweep (WP-1 owns the rename):** reconcile the superseded two-component effect names to the single `EffectsComponent` in the doc examples that still reference them — `architecture/06-persistence.md`, `architecture/flows/flow-04-persistence-flush-cycle.md`, `reference/archetypes.md` (Weapon/Armor optional-component row), `use-cases/persistence-substrate.md` (example). (`.claude/skills/add-archetype/SKILL.md` was already reconciled with the design decision per INV-20.) Full list tracked in [`../roadmap/backlog.md`](../roadmap/backlog.md).
-- **Out of scope:** stat integration, heartbeat, commands. `GrantAbility`/`Trigger`/`TransformModifier` are enum values with **no handler** here.
-- **Exit (testable):** two `StatModifier(Body)` effects of differing `Power` → `HighestWins` keeps the stronger; a `Timed` effect is stored, an `UntilRemoved` effect is stored; serializing `EffectsComponent` writes only the `UntilRemoved` entry; `RemoveByCategory(Curse)` strips curses; `AdvanceTick` returns due/expired sets in `Phase` order.
-
-### WP-2 — Stat summation + heartbeat tick *(depends on WP-1)*
-- **Scope:** fold effect modifiers into the read seam; drive periodic/expiry from the heartbeat.
-- **Files:** `StatSystem.cs` (`Get` sums `IEffectSystem.GetModifiers`), `EffectTickHandler.cs` (subscribes `HeartbeatTickEvent`; applies periodic magnitudes via `IAttributeSystem`; publishes `EffectExpiredEvent`), `EffectAppliedEvent.cs`/`EffectExpiredEvent.cs`.
-- **Out of scope:** commands; source-bound (equipment/ability/area) derivation — wired by the slices that give sources effect data.
-- **Exit (testable):** a `+10 Body StatModifier` raises `Get(Body)` by 10 with no consumer change; a `regen` HoT heals each heartbeat then expires on schedule; a HoT + DoT on one entity resolve heal-before-damage.
-
-### WP-3 — Effect registry + admin apply/inspect tooling *(depends on WP-1, +WP-2 for live display)*
-- **Scope:** authorable/inspectable surface for the new state (INV-18).
-- **Files:** `EffectRegistry.cs` + starter definitions, `AffectCommand.cs` (admin, `Full` match), `AffectsCommand.cs` (player/admin, `Partial`), `EffectDisplayMessage`. **WP-3 owns the consolidated reference-catalog sweep:** `components.md` (`EffectsComponent`, from WP-1), `systems.md` (`EffectSystem` + the `StatSystem` extension, WP-1/WP-2), `handlers.md` (`EffectTickHandler`, WP-2), `commands.md` (`affect`/`affects`).
-- **Out of scope:** data-file effect authoring; composites; aspect.
-- **Exit (testable):** `affect <player> empower 5` applies and `affects` shows it (category, Power, remaining); `affect <player> empower 8` replaces it (`HighestWins`); `affect <player> poison` ticks damage on the heartbeat; `affect`-ing a `minor_curse` then dispelling by category removes it.
-
----
-
-## Content tooling impact
-
-- `EffectRegistry` (hardcoded) + `affect`/`affects` are the author + inspect path shipped in-slice (INV-18). Effect **definitions** are Category-3 balance data, hardcoded now; the documented promotion is to a data-file effect catalog when content authoring matures (see the balance-surface + content-editor backlog items). **Editor-forward:** application logic lives in `IEffectSystem` and the registry, never in the command — the future editor and future ability/potion systems are all thin callers.
-
-## Cross-cutting surfaces stressed
-
-- **Persistence — Adequate (resolved).** Field-selective serialization via an attribute `[JsonConverter]` on `EffectsComponent`; `System.Text.Json` honors it natively, so **no `ComponentSerializer` change**. Resolves the EffectsComponent backlog item.
-- **Time / heartbeat — Adequate.** `EffectTickHandler` is a standard `HeartbeatTickEvent` subscriber; no heartbeat change.
-- **Stat pipeline — Modified (in-slice).** `StatSystem.Get` folds `IEffectSystem.GetModifiers`; the interface is unchanged, so combat/`score` are untouched.
-- **Commands / output — Adequate.** Two new commands + one `IOutputMessage`; existing framework.
-- **Configuration — Acknowledged debt.** Effect definitions are Category-3 constants (hardcoded registry); promotion to a tunable data file is tracked (balance backlog). Justified: no designer-iteration-without-recompile need yet.
-- **Event bus / ECS — Adequate.**
-
-## Flows introduced or modified
-
-- **New flow — effect tick** (periodic application + expiry on the heartbeat): recurs, so promote to `flows/README.md` when implemented; extends **Flow 16 — heartbeat tick**.
-- **Modified — effective stat read**: `IStatSystem.Get` now folds effect modifiers (transparent to consumers); a one-line note on the stat-read path.
-
----
-
 ## Design notes
 
 - **Single list, lifetime-filtered (the resolved decision).** One `EffectsComponent` with a single `List<Effect>`; `Lifetime` is the sole determinant of persistence; the `[JsonConverter]` writes only `UntilRemoved`. No `Persistent`/`Transient` component split and no two-list split — `Lifetime` is not duplicated into a bucket choice. See [`../roadmap/backlog.md`](../roadmap/backlog.md) (resolved item) and [02-ecs.md](../architecture/02-ecs.md).
@@ -144,16 +99,6 @@ This slice wires the **load-bearing kinds end-to-end** — `StatModifier` (feeds
 - **Kinds wired vs deferred.** `StatModifier`/`Instant`/`Periodic`/`GrantFlag` are fully handled. `GrantAbility` (needs S4), `Trigger` (needs world-event hooks), `TransformModifier` (needs S5 generation) are enum values with deferred handlers — adding a handler later is additive, no model change.
 - **Composites deferred.** The `Category` tag and `RemoveByCategory` ship (dispel substrate); the `CompositeEffectDefinition` bundle (one named curse → several effects sharing a `GroupId`) lands with the content slice that needs authored curses/blessings.
 - **Source-bound derivation deferred.** `GetModifiers` sums standalone `StatModifier`s only; equipment/ability/area-derived effects fold in when those sources carry effect data (items later, abilities S4, areas S3) — the seam is the same `GetActive`/`GetModifiers` call.
-- **On ship:** author `architecture/<effects>.md` (the higher-level effects design doc, R7) and trim this use-case to requirements + durable spec.
-
----
-
-## Resolved planning inputs
-
-- **Persistence** — single `EffectsComponent`, lifetime-filtered via `[JsonConverter]` (owner-confirmed 2026-05-30).
-- **Power** — one number (stack key + magnitude scalar), named-formula `PowerScaling` registry; provisional per model §6, carried into the build.
-- **Scope** — load-bearing kinds (`StatModifier`/`Instant`/`Periodic`/`GrantFlag`) wired; others enum-defined, handlers deferred to their spines.
-
 ---
 
 ## Related

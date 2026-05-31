@@ -16,8 +16,8 @@ Source of truth (target): `Core/ECS/EntityArchetype.cs` (enum), `Core/ECS/Archet
 |---|---|---|---|
 | `Player` ✓ | PC-controlled living entity | `CharacterComponent`, `AttributesComponent`, `PoolsComponent`, `InventoryComponent`, `EquipmentComponent` | — |
 | `Mob` ✓ | NPC living entity | `MobDataComponent`, `AttributesComponent`, `PoolsComponent` | `InventoryComponent`*, `EquipmentComponent`* |
-| `Weapon` | Equippable damage-dealing item | `ItemDataComponent`, `WeaponDataComponent`† | `PersistentEffectsComponent`†* |
-| `Armor` | Equippable defensive item | `ItemDataComponent`, `ArmorDataComponent`† | `PersistentEffectsComponent`†* |
+| `Weapon` | Equippable damage-dealing item | `ItemDataComponent`, `WeaponDataComponent`† | `EffectsComponent`†* |
+| `Armor` | Equippable defensive item | `ItemDataComponent`, `ArmorDataComponent`† | `EffectsComponent`†* |
 | `Potion` | Consumable with pool restoration / effects | `ItemDataComponent`, `PotionDataComponent`† | — |
 | `StaticItem` ✓ | Furniture, decoration, non-interactable | `ItemDataComponent` | — |
 | `Consumable` | Generic consumable (non-potion) | `ItemDataComponent` | — |

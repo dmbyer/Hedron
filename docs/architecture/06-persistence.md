@@ -45,7 +45,7 @@ Entity has PersistentEntity?
   Yes → write all components tagged [Persistent] on that entity.
 ```
 
-Some components must be excluded even for persistent entities. `PlayerComponent` holds a transient session reference. `TransientEffectsComponent` is session-only by design. Those stay untagged; `PersistenceSystem` skips them.
+Some components must be excluded even for persistent entities. `PlayerComponent` holds a transient session reference. Those stay untagged; `PersistenceSystem` skips them. `EffectsComponent` is tagged `[Persistent]` but uses a `[JsonConverter]` that writes only `UntilRemoved` effects; timed and other transient-lifetime effects are dropped at serialization time.
 
 ---
 

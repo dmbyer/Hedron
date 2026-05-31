@@ -1,6 +1,6 @@
 ---
 name: add-domain-system
-description: Use when adding a new domain (feature) system under Core/Modules/<Feature>/Systems/. Covers interface-first shape, dependency rules (domain-on-core is fine; domain-on-domain via events only), pure-result pattern, and registration. Invoke when the user asks to add a system, extract gameplay logic, or stand up a new feature module.
+description: Use when adding a new domain (feature) system under Core/Modules/<Feature>/Systems/. Covers interface-first shape, dependency rules (domain-on-core fine; same-or-lower-level domain-on-domain direct calls permitted; peer/lateral coordination prefers events), pure-result pattern, and registration. Invoke when the user asks to add a system, extract gameplay logic, or stand up a new feature module.
 ---
 
 # Add a Domain System
