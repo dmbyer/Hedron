@@ -28,8 +28,8 @@ namespace Hedron.Core.Modules.Attributes.Commands
         public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
         public string ShortDescription => "Set an attribute on a connected player.";
         public string LongDescription =>
-            "Sets level or hp on a currently-connected player by character name. " +
-            "Valid properties: level, hp.";
+            "Sets a stat on a currently-connected player by character name. " +
+            "Valid properties: level, hp, mind, body, spirit, attunement, mana, maxmana, stamina, maxstamina, astra, maxastra.";
         public string Usage => "setplayer <characterName> <property> <value>";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
@@ -38,7 +38,7 @@ namespace Hedron.Core.Modules.Attributes.Commands
             new CommandArgument("characterName", typeof(string), CommandArgumentKind.Token,
                 Required: true, "Name of the connected character."),
             new CommandArgument("property", typeof(string), CommandArgumentKind.Token,
-                Required: true, "Property to set: level, hp."),
+                Required: true, "Property to set: level, hp, mind, body, spirit, attunement, mana, maxmana, stamina, maxstamina, astra, maxastra."),
             new CommandArgument("value", typeof(string), CommandArgumentKind.Token,
                 Required: true, "New numeric value."),
         });
@@ -102,9 +102,49 @@ namespace Hedron.Core.Modules.Attributes.Commands
                     _attributeSystem.SetMaxHp(playerEntityId, value);
                     break;
 
+                case "mind":
+                    _attributeSystem.SetMind(playerEntityId, value);
+                    break;
+
+                case "body":
+                    _attributeSystem.SetBody(playerEntityId, value);
+                    break;
+
+                case "spirit":
+                    _attributeSystem.SetSpirit(playerEntityId, value);
+                    break;
+
+                case "attunement":
+                    _attributeSystem.SetAttunement(playerEntityId, value);
+                    break;
+
+                case "mana":
+                    _attributeSystem.SetCurrentMana(playerEntityId, value);
+                    break;
+
+                case "maxmana":
+                    _attributeSystem.SetMaxMana(playerEntityId, value);
+                    break;
+
+                case "stamina":
+                    _attributeSystem.SetCurrentStamina(playerEntityId, value);
+                    break;
+
+                case "maxstamina":
+                    _attributeSystem.SetMaxStamina(playerEntityId, value);
+                    break;
+
+                case "astra":
+                    _attributeSystem.SetCurrentAstra(playerEntityId, value);
+                    break;
+
+                case "maxastra":
+                    _attributeSystem.SetMaxAstra(playerEntityId, value);
+                    break;
+
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
-                        $"Unknown property '{property}'. Valid properties: level, hp.",
+                        $"Unknown property '{property}'. Valid properties: level, hp, mind, body, spirit, attunement, mana, maxmana, stamina, maxstamina, astra, maxastra.",
                         OutputSeverity.Error)).ConfigureAwait(false);
                     return;
             }

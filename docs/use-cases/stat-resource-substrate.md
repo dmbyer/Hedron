@@ -1,6 +1,6 @@
 # Use Case: Stat & Resource Substrate
 
-**Status:** planned
+**Status:** implemented
 **Actors:** Player, Mob, System, Administrator
 **Module:** `Core/ECS/Components/` (`AttributesComponent`, `PoolsComponent`), `Core/Modules/Attributes/` (`IAttributeSystem`, `score`, `setplayer`), `Core/Modules/Stats/` (`IStatSystem`, new `IStatRegistry`/`ScoreId`), `Core/Modules/Mobs/` (`setmob`, builder, content writer, template), `Core/Modules/Account/` (character defaults), `Core/Modules/Combat/` (stat references)
 

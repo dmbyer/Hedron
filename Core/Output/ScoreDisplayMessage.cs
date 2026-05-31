@@ -8,9 +8,16 @@ namespace Hedron.Core.Output
         int Level,
         int CurrentHp,
         int MaxHp,
-        int Strength,
-        int Dexterity,
-        int Constitution) : IOutputMessage
+        int Mind,
+        int Body,
+        int Spirit,
+        int Attunement,
+        int CurrentMana,
+        int MaxMana,
+        int CurrentStamina,
+        int MaxStamina,
+        int CurrentAstra,
+        int MaxAstra) : IOutputMessage
     {
         public OutputCategory Category => OutputCategory.Info;
     }

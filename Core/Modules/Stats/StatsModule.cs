@@ -8,6 +8,7 @@ namespace Hedron.Core.Modules.Stats
         public static IServiceCollection AddStatsModule(this IServiceCollection services)
         {
             services.AddSingleton<IStatSystem, StatSystem>();
+            services.AddSingleton<IStatRegistry, StatRegistry>();
             return services;
         }
     }

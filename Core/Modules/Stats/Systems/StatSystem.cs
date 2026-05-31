@@ -15,15 +15,14 @@ namespace Hedron.Core.Modules.Stats.Systems
             _entityService = entityService;
         }
 
-        public int GetEffectiveStrength(uint entityId) => _attributes.GetStrength(entityId);
-
-        public int GetEffectiveDexterity(uint entityId) => _attributes.GetDexterity(entityId);
-
-        public int GetEffectiveConstitution(uint entityId) => _attributes.GetConstitution(entityId);
+        public int GetEffectiveMind(uint entityId) => _attributes.GetMind(entityId);
+        public int GetEffectiveBody(uint entityId) => _attributes.GetBody(entityId);
+        public int GetEffectiveSpirit(uint entityId) => _attributes.GetSpirit(entityId);
+        public int GetEffectiveAttunement(uint entityId) => _attributes.GetAttunement(entityId);
 
         public int GetEffectiveAttackPower(uint entityId)
         {
-            var strength = _attributes.GetStrength(entityId);
+            var body = _attributes.GetBody(entityId);
             var bonus = 0;
 
             if (_entityService.TryGet<EquipmentComponent>(entityId, out var equipment) &&
@@ -33,13 +32,31 @@ namespace Hedron.Core.Modules.Stats.Systems
                 bonus = itemData.DamageBonus;
             }
 
-            return strength / 2 + bonus;
+            return body / 2 + bonus;
         }
 
-        public int GetEffectiveDefense(uint entityId) => _attributes.GetDexterity(entityId) / 4;
+        public int GetEffectiveDefense(uint entityId) => _attributes.GetBody(entityId) / 4;
 
         public int GetCurrentHp(uint entityId) => _attributes.GetCurrentHp(entityId);
-
         public int GetMaxHp(uint entityId) => _attributes.GetMaxHp(entityId);
+
+        public int Get(uint entityId, ScoreId score) => score switch
+        {
+            ScoreId.Mind            => GetEffectiveMind(entityId),
+            ScoreId.Body            => GetEffectiveBody(entityId),
+            ScoreId.Spirit          => GetEffectiveSpirit(entityId),
+            ScoreId.Attunement      => GetEffectiveAttunement(entityId),
+            ScoreId.HpMax           => _attributes.GetMaxHp(entityId),
+            ScoreId.HpCurrent       => _attributes.GetCurrentHp(entityId),
+            ScoreId.ManaMax         => _attributes.GetMaxMana(entityId),
+            ScoreId.ManaCurrent     => _attributes.GetCurrentMana(entityId),
+            ScoreId.StaminaMax      => _attributes.GetMaxStamina(entityId),
+            ScoreId.StaminaCurrent  => _attributes.GetCurrentStamina(entityId),
+            ScoreId.AstraMax        => _attributes.GetMaxAstra(entityId),
+            ScoreId.AstraCurrent    => _attributes.GetCurrentAstra(entityId),
+            ScoreId.AttackPower     => GetEffectiveAttackPower(entityId),
+            ScoreId.Defense         => GetEffectiveDefense(entityId),
+            _                       => 0,
+        };
     }
 }

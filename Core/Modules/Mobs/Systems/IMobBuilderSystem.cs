@@ -13,9 +13,9 @@ namespace Hedron.Core.Modules.Mobs.Systems
         void SetMobType(uint mobEntityId, MobType mobType);
         /// <summary>
         /// Mutates an attribute on the live entity and the in-memory template.
-        /// Valid properties: level, hp, str, dex, con.
+        /// Valid properties: level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra.
         /// INV-5: does not publish events or call persistence.
-        /// INV-8: CurrentHp clamping on hp change is enforced here.
+        /// Pool invariant: when hp/maxmana/maxstamina/maxastra is set, CurrentX is clamped to the new max.
         /// </summary>
         void SetAttribute(uint mobEntityId, MobTemplate template, string property, int value);
     }

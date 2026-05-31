@@ -206,7 +206,7 @@ public interface IAccountSystem
     void RecordLogout(uint characterEntityId);
 }
 ```
-Maintains lazy in-memory HashSet indices for username and character name uniqueness (populated on first call, updated on every write). `CreateAccountAsync` attaches `AccountComponent` + `PersistentEntity` and returns the entity id — persistence is the caller's (`LoginFlow`) responsibility (INV-5). `CreateCharacterAsync` attaches `CharacterComponent` + `LocationComponent` (set to `StartingRoomEntityId`) + `PersistentEntity`, registers the character on the account, and returns the entity id — `LoginFlow` saves character-first, then account (crash-safety ordering). `RecordLogout` updates `CharacterComponent.LastLoginUtc`; `PlayerSessionHandler` calls `SaveEntityAsync` after `RecordLogout` returns. Extended in slice 8a: `CreateCharacterAsync` also attaches `AttributesComponent { Level=1, Strength=10, Dexterity=10, Constitution=10 }` and `PoolsComponent { MaxHp=100, CurrentHp=100 }` to every new character. Implemented (Phase 3 slices 5, persistence-two-level-model, 8a).
+Maintains lazy in-memory HashSet indices for username and character name uniqueness (populated on first call, updated on every write). `CreateAccountAsync` attaches `AccountComponent` + `PersistentEntity` and returns the entity id — persistence is the caller's (`LoginFlow`) responsibility (INV-5). `CreateCharacterAsync` attaches `CharacterComponent` + `LocationComponent` (set to `StartingRoomEntityId`) + `PersistentEntity`, registers the character on the account, and returns the entity id — `LoginFlow` saves character-first, then account (crash-safety ordering). `RecordLogout` updates `CharacterComponent.LastLoginUtc`; `PlayerSessionHandler` calls `SaveEntityAsync` after `RecordLogout` returns. Extended in slice 8a: `CreateCharacterAsync` also attaches `AttributesComponent { Level=1, Mind=10, Body=10, Spirit=10, Attunement=10 }` and `PoolsComponent { MaxHp=100, CurrentHp=100, MaxMana=50, CurrentMana=50, MaxStamina=50, CurrentStamina=50, MaxAstra=10, CurrentAstra=10 }` to every new character (attribute names updated to Mind/Body/Spirit/Attunement in slice 9-d). Implemented (Phase 3 slices 5, persistence-two-level-model, 8a, 9-d).
 
 ### RoomBuilderSystem
 **Purpose:** Runtime room authoring — creates room entities, wires bidirectional exits, and mutates room properties (`Name`, `Description`). All methods return pure results or mutate in-place; event publication is the caller's responsibility, keeping this system reusable by a future in-game editor without a live player session.
@@ -296,7 +296,7 @@ public interface IMobBuilderSystem
 
 public readonly record struct MobCreationResult(uint MobEntityId, string BlueprintId, MobTemplate Template);
 ```
-`CreateMob` generates a unique blueprint id (`mob.adhoc.<8-char-base36>`), creates the entity, attaches `MobDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `MobTemplate`. Implemented (Phase 3 slice 8). Extended in slice 8a: `SetAttribute(mobEntityId, template, property, value)` mutates `AttributesComponent`/`PoolsComponent` on the live entity and updates the template. Valid properties: `level`, `hp`, `str`, `dex`, `con`. Enforces `CurrentHp ≤ MaxHp` clamp on `hp` change (INV-8). Does not call persistence or events (INV-5).
+`CreateMob` generates a unique blueprint id (`mob.adhoc.<8-char-base36>`), creates the entity, attaches `MobDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `MobTemplate`. Implemented (Phase 3 slice 8). Extended in slice 8a: `SetAttribute(mobEntityId, template, property, value)` mutates `AttributesComponent`/`PoolsComponent` on the live entity and updates the template. Valid properties: `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra`. Enforces `CurrentX ≤ MaxX` clamp on pool max changes (INV-8). Does not call persistence or events (INV-5). Updated `str`/`dex`/`con` to `mind`/`body`/`spirit`/`attunement` in slice 9-d.
 
 ### MobContentWriter
 **Purpose:** Serializes a `MobTemplate` to YAML at `{contentDirectory}/mobs/{blueprintId}.yaml` using an atomic write (tmp → rename). Mirrors `IItemContentWriter`.
@@ -308,7 +308,7 @@ public interface IMobContentWriter
     Task WriteAsync(MobTemplate template, CancellationToken ct = default);
 }
 ```
-YAML DTO fields: `blueprintId`, `name`, `description`, `keywords`, `type` (string enum value), `spawnRoomBlueprintId`. Implemented (Phase 3 slice 8). Extended in slice 8a: DTO now includes `level`, `maxHp`, `strength`, `dexterity`, `constitution` fields.
+YAML DTO fields: `blueprintId`, `name`, `description`, `keywords`, `type` (string enum value), `spawnRoomBlueprintId`. Implemented (Phase 3 slice 8). Extended in slice 8a: DTO includes `level`, `maxHp`, and attribute fields. Updated in slice 9-d: attribute fields are now `mind`, `body`, `spirit`, `attunement`; added `maxMana`, `maxStamina`, `maxAstra` pool fields.
 
 ### AdminAuthorizer
 **Purpose:** Policy seam for admin command authorization. Each admin `ICommand.Execute` calls `IsPrivileged` as its first line; non-privileged sessions get a single rejection line and the command body short-circuits.
@@ -331,23 +331,37 @@ public interface IAdminAuthorizer
 public interface IAttributeSystem
 {
     int GetLevel(uint entityId);
-    int GetStrength(uint entityId);
-    int GetDexterity(uint entityId);
-    int GetConstitution(uint entityId);
+    int GetMind(uint entityId);
+    int GetBody(uint entityId);
+    int GetSpirit(uint entityId);
+    int GetAttunement(uint entityId);
     int GetMaxHp(uint entityId);
     int GetCurrentHp(uint entityId);
+    int GetMaxMana(uint entityId);
+    int GetCurrentMana(uint entityId);
+    int GetMaxStamina(uint entityId);
+    int GetCurrentStamina(uint entityId);
+    int GetMaxAstra(uint entityId);
+    int GetCurrentAstra(uint entityId);
 
     void SetLevel(uint entityId, int value);
-    void SetStrength(uint entityId, int value);
-    void SetDexterity(uint entityId, int value);
-    void SetConstitution(uint entityId, int value);
+    void SetMind(uint entityId, int value);
+    void SetBody(uint entityId, int value);
+    void SetSpirit(uint entityId, int value);
+    void SetAttunement(uint entityId, int value);
     /// Sets MaxHp and clamps CurrentHp to the new MaxHp if it would exceed it (INV-8).
     void SetMaxHp(uint entityId, int value);
     /// Sets CurrentHp, clamped to [0, MaxHp]. Game rule enforced here (INV-8). No events, no persistence (INV-5).
     void SetCurrentHp(uint entityId, int value);
+    void SetMaxMana(uint entityId, int value);
+    void SetCurrentMana(uint entityId, int value);
+    void SetMaxStamina(uint entityId, int value);
+    void SetCurrentStamina(uint entityId, int value);
+    void SetMaxAstra(uint entityId, int value);
+    void SetCurrentAstra(uint entityId, int value);
 }
 ```
-All getters return the default value (Level 1, stats 10, HP 100) if the entity lacks the relevant component — safe default for pre-hydration edge cases. `SetCurrentHp` is the write seam the combat slice uses to apply damage; callers pass a raw new value and the clamping invariant is enforced here. Implemented (Phase 3 slices 8a, 9-c).
+All getters return the default value (Level 1, attributes 10, HP/Mana/Stamina 100/50/50, Astra 10) if the entity lacks the relevant component — safe default for pre-hydration edge cases. `SetCurrentHp` is the write seam the combat slice uses to apply damage; callers pass a raw new value and the clamping invariant is enforced here. Replaced `Strength`/`Dexterity`/`Constitution` with `Mind`/`Body`/`Spirit`/`Attunement` in slice 9-d (WP-1). Added Mana/Stamina/Astra pool getters/setters in the same slice. Implemented (Phase 3 slices 8a, 9-c, 9-d).
 
 ### EntityStateService
 **Purpose:** Centralized transition-rule enforcement for entity state flags. Attaches and removes `EntityStateComponent`; validates flag combinations against a static transition table; returns structured failure reasons to callers. Never touches the event bus or persistence (INV-5).
@@ -371,18 +385,21 @@ public interface IEntityStateService
 ```csharp
 public interface IStatSystem
 {
-    int GetEffectiveStrength(uint entityId);
-    int GetEffectiveDexterity(uint entityId);
-    int GetEffectiveConstitution(uint entityId);
-    /// Strength / 2 + MainHand item DamageBonus (0 if no weapon or no bonus).
+    int GetEffectiveMind(uint entityId);
+    int GetEffectiveBody(uint entityId);
+    int GetEffectiveSpirit(uint entityId);
+    int GetEffectiveAttunement(uint entityId);
+    /// Body / 2 + MainHand item DamageBonus (0 if no weapon or no bonus).
     int GetEffectiveAttackPower(uint entityId);
-    /// Dexterity / 4. Armor-slot bonus deferred to a future slice.
+    /// Body / 4. Armor-slot bonus deferred to a future slice.
     int GetEffectiveDefense(uint entityId);
     int GetCurrentHp(uint entityId);
     int GetMaxHp(uint entityId);
+    /// Generic stat getter by ScoreId — expandable seam for future effect/buff consumers.
+    int Get(uint entityId, ScoreId scoreId);
 }
 ```
-`GetEffectiveAttackPower` reads `EquipmentComponent.Slots[WornSlot.MainHand]` via `EntityService.TryGet<EquipmentComponent>` (direct dictionary lookup, not a list scan) then reads `ItemDataComponent.DamageBonus` on the equipped item — no `is`/`as` casts (INV-4). `GetEffectiveDefense` returns `dexterity / 4`; armor-slot contribution is acknowledged future debt. Registered in `StatsModule` (`Core/Modules/Stats/StatsModule.cs`) as a singleton. Implemented (Phase 3 slice 9-c).
+`GetEffectiveAttackPower` reads `EquipmentComponent.Slots[WornSlot.MainHand]` via `EntityService.TryGet<EquipmentComponent>` (direct dictionary lookup, not a list scan) then reads `ItemDataComponent.DamageBonus` on the equipped item — no `is`/`as` casts (INV-4). `GetEffectiveDefense` returns `Body / 4`; armor-slot contribution is acknowledged future debt. `Get(uint, ScoreId)` is the expandable enum-keyed seam for future effect and ability consumers. Registered in `StatsModule` (`Core/Modules/Stats/StatsModule.cs`) as a singleton. `IStatRegistry` (singleton, `Core/Modules/Stats/StatRegistry.cs`) records pool governance metadata (Mana↔Mind, Stamina↔Body, Astra↔Attunement). Updated `Strength`/`Dexterity`/`Constitution` references to `Mind`/`Body`/`Spirit`/`Attunement` in slice 9-d. Implemented (Phase 3 slices 9-c, 9-d).
 
 ### CombatSystem
 **Purpose:** Domain system for combat resolution. Handles target lookup, combat state attachment/removal, and round resolution. Pure: no events, no persistence (INV-5, INV-8). Computes attack resolution via `IStatSystem`; mutates HP via `IAttributeSystem.SetCurrentHp`; returns structured `CombatRoundResult` to callers.

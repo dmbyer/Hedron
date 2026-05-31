@@ -4,8 +4,9 @@ namespace Hedron.Core.ECS.Components
     public sealed class AttributesComponent : IComponent
     {
         public int Level { get; set; } = 1;
-        public int Strength { get; set; } = 10;
-        public int Dexterity { get; set; } = 10;
-        public int Constitution { get; set; } = 10;
+        public int Mind { get; set; } = 10;
+        public int Body { get; set; } = 10;
+        public int Spirit { get; set; } = 10;
+        public int Attunement { get; set; } = 10;
     }
 }
