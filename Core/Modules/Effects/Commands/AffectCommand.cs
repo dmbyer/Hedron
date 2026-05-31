@@ -60,12 +60,13 @@ namespace Hedron.Core.Modules.Effects.Commands
         {
             var targetArg = context.Args.Get<string>("target");
             var effectId = context.Args.Get<string>("effectId");
-            var powerArg = context.Args.Get<string?>("power");
+            context.Args.TryGet<string>("power", out var powerArg);
 
             if (!_effectRegistry.TryGet(effectId, out var definition))
             {
+                var available = string.Join(", ", _effectRegistry.AllIds);
                 await context.Output.WriteAsync(new PlainMessage(
-                    $"Unknown effect '{effectId}'. Use 'effects list' to see available effects.",
+                    $"Unknown effect '{effectId}'. Available: {available}.",
                     OutputSeverity.Error)).ConfigureAwait(false);
                 return;
             }
