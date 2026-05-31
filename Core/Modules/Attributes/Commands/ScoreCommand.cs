@@ -6,6 +6,8 @@ using Hedron.Core.Commands.Authorization;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Account.Components;
+using Hedron.Core.Modules.Stats;
+using Hedron.Core.Modules.Stats.Systems;
 using Hedron.Core.Output;
 
 namespace Hedron.Core.Modules.Attributes.Commands
@@ -13,6 +15,7 @@ namespace Hedron.Core.Modules.Attributes.Commands
     public sealed class ScoreCommand : ICommand
     {
         private readonly EntityService _entityService;
+        private readonly IStatSystem _statSystem;
 
         public string Name => "score";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -25,9 +28,10 @@ namespace Hedron.Core.Modules.Attributes.Commands
             Array.Empty<IAuthorizationRequirement>();
         public CommandArgumentSchema ArgumentSchema { get; } = new(Array.Empty<CommandArgument>());
 
-        public ScoreCommand(EntityService entityService)
+        public ScoreCommand(EntityService entityService, IStatSystem statSystem)
         {
             _entityService = entityService;
+            _statSystem = statSystem;
         }
 
         public async Task ExecuteAsync(CommandContext context)
@@ -38,29 +42,25 @@ namespace Hedron.Core.Modules.Attributes.Commands
                 ? ch.CharacterName
                 : "Unknown";
 
-            var attrs = _entityService.TryGet<AttributesComponent>(entityId, out var a)
-                ? a
-                : new AttributesComponent();
-
-            var pools = _entityService.TryGet<PoolsComponent>(entityId, out var p)
-                ? p
-                : new PoolsComponent();
+            var level = _entityService.TryGet<AttributesComponent>(entityId, out var a)
+                ? a.Level
+                : 1;
 
             await context.Output.WriteAsync(new ScoreDisplayMessage(
                 charName,
-                attrs.Level,
-                pools.CurrentHp,
-                pools.MaxHp,
-                attrs.Mind,
-                attrs.Body,
-                attrs.Spirit,
-                attrs.Attunement,
-                pools.CurrentMana,
-                pools.MaxMana,
-                pools.CurrentStamina,
-                pools.MaxStamina,
-                pools.CurrentAstra,
-                pools.MaxAstra)).ConfigureAwait(false);
+                level,
+                _statSystem.Get(entityId, ScoreId.HpCurrent),
+                _statSystem.Get(entityId, ScoreId.HpMax),
+                _statSystem.Get(entityId, ScoreId.Mind),
+                _statSystem.Get(entityId, ScoreId.Body),
+                _statSystem.Get(entityId, ScoreId.Spirit),
+                _statSystem.Get(entityId, ScoreId.Attunement),
+                _statSystem.Get(entityId, ScoreId.ManaCurrent),
+                _statSystem.Get(entityId, ScoreId.ManaMax),
+                _statSystem.Get(entityId, ScoreId.StaminaCurrent),
+                _statSystem.Get(entityId, ScoreId.StaminaMax),
+                _statSystem.Get(entityId, ScoreId.AstraCurrent),
+                _statSystem.Get(entityId, ScoreId.AstraMax))).ConfigureAwait(false);
         }
     }
 }
