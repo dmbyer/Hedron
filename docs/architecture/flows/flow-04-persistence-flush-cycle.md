@@ -41,7 +41,7 @@ sequenceDiagram
 7. **Shutdown path.** `PersistenceBootstrap.StopAsync` calls `PersistenceSystem.FlushAllAsync(ct)` — identical logic, different log context (`"shutdown flush"`).
 8. **Auto-delete.** When `EntityService.DestroyEntity(id)` is called for a persistent entity, `PersistenceSystem.DeleteEntitySync` fires synchronously (via `EntityService.OnPersistentEntityDestroying`) and issues `DELETE FROM entity_components WHERE entity_id = ?` before ECS teardown. No handler or command is involved.
 
-**Two-level model.** An entity is written only if it carries `PersistentEntity` (level 1). Among its components, only those tagged `[Persistent]` are included in the snapshot (level 2). `PlayerComponent` (transient session ref) and `TransientEffectsComponent` (session-only) are untagged and are never written.
+**Two-level model.** An entity is written only if it carries `PersistentEntity` (level 1). Among its components, only those tagged `[Persistent]` are included in the snapshot (level 2). `PlayerComponent` (transient session ref) is untagged and is never written. `EffectsComponent` is tagged `[Persistent]` but its `[JsonConverter]` filters out all effects except `UntilRemoved` ones before writing.
 
 **Flush pool (Stage B).** World content entities — rooms, areas, mobs, world-spawn items — carry no `PersistentEntity` and are never in the flush pool. The pool contains only players, accounts, and player-owned items (Stage C). `LocationComponent.RoomEntityId` is `[JsonIgnore]`; only `RoomBlueprintId` is stored. Room entity IDs are always resolved at startup from blueprints.
 

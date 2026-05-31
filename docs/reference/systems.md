@@ -379,7 +379,7 @@ public interface IEntityStateService
 `TryEnterState` reads current `ActiveStates` (or `None` if the component is absent), evaluates the static transition-rule table, on success attaches or OR-assigns the flag, and returns `true`. On a blocked transition it returns `false` with a caller-displayable `failReason`. `ExitState` AND-NOT clears the flag and removes the component when `ActiveStates == None` — always a no-op when the entity has no component. `IsInState` delegates to `GetStates`. Callers (commands, handlers) publish `EntityStateChangedEvent` after mutating state; the service never calls `IEventBus` (INV-5). Implemented (Phase 3 slice 9-a).
 
 ### StatSystem
-**Purpose:** Aggregation seam for effective entity stats. Reads base attributes and equipment bonuses to produce ready-to-use values for the combat slice and future consumers. Never publishes events or calls persistence (INV-5). Adding a new modifier source (buffs, auras) means extending `StatSystem` methods, not changing the interface.
+**Purpose:** Aggregation seam for effective entity stats. Reads base attributes, equipment bonuses, and active effect modifiers to produce ready-to-use values for the combat slice and future consumers. Never publishes events or calls persistence (INV-5). Adding a new modifier source means extending `StatSystem` methods, not changing the interface.
 **Location:** `Core/Modules/Stats/Systems/StatSystem.cs`
 **Dependencies:** `IAttributeSystem`, `EntityService`.
 ```csharp
@@ -399,7 +399,37 @@ public interface IStatSystem
     int Get(uint entityId, ScoreId scoreId);
 }
 ```
-`GetEffectiveAttackPower` reads `EquipmentComponent.Slots[WornSlot.MainHand]` via `EntityService.TryGet<EquipmentComponent>` (direct dictionary lookup, not a list scan) then reads `ItemDataComponent.DamageBonus` on the equipped item — no `is`/`as` casts (INV-4). `GetEffectiveDefense` returns `Body / 4`; armor-slot contribution is acknowledged future debt. `Get(uint, ScoreId)` is the expandable enum-keyed seam for future effect and ability consumers. Registered in `StatsModule` (`Core/Modules/Stats/StatsModule.cs`) as a singleton. `IStatRegistry` (singleton, `Core/Modules/Stats/StatRegistry.cs`) records pool governance metadata (Mana↔Mind, Stamina↔Body, Astra↔Attunement). Updated `Strength`/`Dexterity`/`Constitution` references to `Mind`/`Body`/`Spirit`/`Attunement` in slice 9-d. Implemented (Phase 3 slices 9-c, 9-d).
+`GetEffectiveAttackPower` reads `EquipmentComponent.Slots[WornSlot.MainHand]` via `EntityService.TryGet<EquipmentComponent>` (direct dictionary lookup, not a list scan) then reads `ItemDataComponent.DamageBonus` on the equipped item — no `is`/`as` casts (INV-4). `GetEffectiveDefense` returns `Body / 4`; armor-slot contribution is acknowledged future debt. `Get(uint, ScoreId)` is the expandable enum-keyed seam used by effect/ability consumers; it folds `IEffectSystem.GetModifiers(entityId, scoreId)` into the returned value for `StatModifier`-kind effects. Registered in `StatsModule` (`Core/Modules/Stats/StatsModule.cs`) as a singleton. `IStatRegistry` (singleton, `Core/Modules/Stats/StatRegistry.cs`) records pool governance metadata (Mana↔Mind, Stamina↔Body, Astra↔Attunement). Updated `Strength`/`Dexterity`/`Constitution` references to `Mind`/`Body`/`Spirit`/`Attunement` in slice 9-d. Extended in slice 9-e: `Get` folds `IEffectSystem.GetModifiers`. Implemented (Phase 3 slices 9-c, 9-d, 9-e).
+
+### EffectSystem
+**Purpose:** Core system that manages active effects on entities. Applies/removes individual effects or entire categories; returns active effect lists and per-`ScoreId` stat modifier sums; advances time on each tick, collecting expired and periodic-due effects. Never touches the event bus (INV-5).
+**Location:** `Core/Modules/Effects/Systems/EffectSystem.cs` (implementation) · `Core/Modules/Effects/Systems/IEffectSystem.cs` (interface)
+**Dependencies:** `EntityService`.
+```csharp
+public interface IEffectSystem
+{
+    Effect? Apply(uint targetEntityId, EffectDefinition definition, uint sourceEntityId);
+    void Remove(uint entityId, string effectId);
+    void RemoveByCategory(uint entityId, EffectCategory category);
+    IReadOnlyList<Effect> GetActive(uint entityId);
+    int GetModifiers(uint entityId, ScoreId scoreId);
+    EffectTickResult AdvanceTick(TimeSpan elapsed);
+}
+```
+`Apply` returns `null` when `StackPolicy.HighestWins` blocks application (existing effect has equal or greater power). `AdvanceTick` advances elapsed time on timed effects, removes expired ones, and returns `EffectTickResult { DueApplications, Expired }` sorted by `EffectPhase` (Early → Normal → Late). Registered via `AddEffectsModule()`. Implemented (Phase 3 slice 9-e).
+
+### EffectRegistry
+**Purpose:** Hardcoded read-only catalog of starter `EffectDefinition` records. Pure data — no event bus, no persistence. Promotion to a data file is deferred per the use-case spec (Category-3 balance data).
+**Location:** `Core/Modules/Effects/EffectRegistry.cs` (implementation) · interface `IEffectRegistry` in the same file.
+**Dependencies:** none.
+```csharp
+public interface IEffectRegistry
+{
+    bool TryGet(string effectId, out EffectDefinition definition);
+    IReadOnlyCollection<string> AllIds { get; }
+}
+```
+Registered entries: `empower` (Body +5, Buff, 30s, HighestWins), `weaken` (Body -5, Debuff, 30s, HighestWins), `regen` (HpCurrent +10/tick, Blessing, 60s, Stack, Early), `poison` (HpCurrent -8/tick, Poison, 30s, Stack, Late), `minor_curse` (Mind -3, Curse, permanent, Stack). Registered via `AddEffectsModule()`. Implemented (Phase 3 slice 9-e).
 
 ### CombatSystem
 **Purpose:** Domain system for combat resolution. Handles target lookup, combat state attachment/removal, and round resolution. Pure: no events, no persistence (INV-5, INV-8). Computes attack resolution via `IStatSystem`; mutates HP via `IAttributeSystem.SetCurrentHp`; returns structured `CombatRoundResult` to callers.

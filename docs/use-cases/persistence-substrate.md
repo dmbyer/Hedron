@@ -26,7 +26,7 @@ Infrastructure slice that gives every future feature a working save/load substra
 - Every entity that has at least one `[Persistent]` component can be saved to disk and reloaded into a fresh `EntityService` without triggering any event-bus events during component attachment.
 - Only `[Persistent]`-tagged components are written to disk; transient components are omitted.
 - On load, hydrated entities match their pre-save component data exactly.
-- `TransientEffectsComponent` is never written to disk; `PersistentEffectsComponent` always is.
+- `EffectsComponent` is tagged `[Persistent]`; its `[JsonConverter]` writes only `UntilRemoved` effects — timed and other transient-lifetime effects are dropped at serialization time.
 - No gameplay behaviour changes; no player-visible output is added.
 
 ---

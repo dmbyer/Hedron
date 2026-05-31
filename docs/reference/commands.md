@@ -10,6 +10,19 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 ## Player commands
 
+### `affects`
+
+**Aliases:** none  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Effects/Commands/AffectsCommand.cs`  
+**Description:** Lists all effects currently active on the invoking player, including effect id, category, power (signed), and remaining duration (or `permanent` for `UntilRemoved` effects). Writes "You have no active effects." when the effects list is empty. No events fired.  
+**Usage:** `affects`  
+**Schema:** no arguments  
+**Dependencies:** `IEffectSystem`  
+**Events:** none
+
+---
+
 ### `commands`
 
 **Aliases:** none  
@@ -251,6 +264,20 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 ## Admin commands
 
 All admin commands require `AdminRequirement`. The dispatcher enforces this via `IAuthorizationChecker`; no per-command `IsPrivileged` call is needed or permitted.
+
+---
+
+### `affect`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Effects/Commands/AffectCommand.cs`  
+**Description:** Applies a named effect from the `IEffectRegistry` to the specified target. Target is resolved by character name (connected players only) or by raw `uint` entity id. If an optional `power` integer is provided, the definition's `BaseMagnitude` and `PowerScalingFormula` are overridden — useful for testing effect boundaries. Returns an error if the effect id is not in the registry, the target cannot be resolved, or `HighestWins` blocks application (existing effect has equal or greater power).  
+**Usage:** `affect <target> <effectId> [power]`  
+**Schema:** `Token string "target"` (required), `Token string "effectId"` (required), `Token string "power"` (optional)  
+**Dependencies:** `IEffectSystem`, `IEffectRegistry`, `EntityService`, `IEventBus`, `ISessionManager`  
+**Events:** `EffectAppliedEvent`, `EffectAppliedByAdminEvent`  
+**RequiredPrivileges:** `AdminRequirement`
 
 ---
 
