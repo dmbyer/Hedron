@@ -72,6 +72,18 @@ Deferred from slice 7 design notes. Two related capabilities:
 
 Both are meaningful improvements to UX but would bloat slices 6–7. Revisit when the number of "are you sure?" flows justifies the infrastructure cost.
 
+### 🟢 Persistence save-on-change cleanup + manual `save`/`quit` commands
+
+Follow-up from the death-and-respawn slice (slice 10), where INV-22 was reworded to name **three** permitted `SaveEntityAsync` boundary categories — construction, admin boundary, session-end. Two cleanup items and two new commands remain:
+
+**Cleanup — migrate stray runtime saves to the flush.**
+- `WearCommand` and `RemoveCommand` (`Core/Modules/Items/Commands/`, lines ~90/~80) call `SaveEntityAsync` after an equip/unequip. Equipment changes are ordinary runtime inventory mutations and do **not** warrant an immediate save — drop these calls and let the periodic flush cover them. ([`../use-cases/equipment.md`](../use-cases/equipment.md) steps 4–5 also spec the save and must be updated to match.)
+- Audit `CharacterHydrationHandler` (`Core/Modules/Account/Handlers/`, ~line 70), which calls `SaveEntityAsync` in its startup error-recovery path (unresolvable `RoomBlueprintId` → reset to starting room → persist the correction). Decide whether this is a legitimate startup/hydration boundary (if so, name it as a fourth INV-22 category) or should be restructured. It is currently the one `SaveEntityAsync` site that does not fit the three named categories.
+
+**New `save` command (admin).** An admin-gated command that forces an immediate persistence write, with arguments selecting scope: a specific player and/or the world. Player save → `SaveEntityAsync(playerEntityId)` (admin boundary save, paired with an audit event). "World" save → a full flush (`FlushAllAsync`) and/or YAML write of authored content (exact scope to be designed). Admin-gated; audited.
+
+**New `quit` command (player).** A player command that force-saves the player (session-end boundary save) and then disconnects gracefully. Today a raw disconnect is already force-saved by `PlayerSessionHandler`; `quit` makes the player-initiated graceful exit explicit. **Cross-ref:** when this lands it should be flagged `UsableWhileIncapacitated = true` so an incapacitated/dying player can still quit — the death-and-respawn slice ([`../use-cases/death-and-respawn.md`](../use-cases/death-and-respawn.md)) deliberately omitted `quit` from its allowlist because no `quit` command existed yet.
+
 ### 🔵 Mob death / respawn and `BlueprintComponent` clearing (INV-21)
 
 When mob combat death lands (slice 9+), the death/respawn slice must decide:
