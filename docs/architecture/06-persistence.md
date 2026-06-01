@@ -78,9 +78,9 @@ No handler or command ever calls a delete method. `DestroyEntity` is the single 
 
 ## Save patterns
 
-### Save-on-change (construction time only)
+### Caller-initiated save (construction, admin boundary, session end)
 
-Use **only** at entity construction: **account/character creation** (`LoginFlow`). These are rare, deliberate boundary crossings where immediate durability is required (a crash between write and flush would lose the newly created account).
+Use at entity construction: **account/character creation** (`LoginFlow`). These are rare, deliberate boundary crossings where immediate durability is required (a crash between write and flush would lose the newly created account).
 
 ```csharp
 // in LoginFlow, after CreateAccountAsync
@@ -89,7 +89,9 @@ await _persistence.SaveEntityAsync(accountEntityId, ct);
 
 Admin content creation (`dig`, `mkitem`, `mkmob`) does **not** call `SaveEntityAsync` — the YAML file written by the command is the room/mob/item's sole durable state. Rooms, mobs, and world-spawn items carry no `PersistentEntity`.
 
-**No other code path calls `SaveEntityAsync`.** Runtime mutations (combat, movement, stat changes) are covered by the periodic flush.
+**Admin boundary saves** are the second permitted caller. An admin-gated command that mutates a persistent entity through a domain system (`setplayer`, `setrespawn`) may call `SaveEntityAsync` **once** after the mutation, paired with an audit event, so the deliberate administrative change lands durably without waiting for the flush.
+
+**Session-end boundary saves** are the third. When a player session ends (logout, raw disconnect, or the `quit` command), the player is force-saved **once** so their final state is durable before they leave — this is the **one** legitimate handler save site (`PlayerSessionHandler`), plus the `quit` command. **No other code path calls `SaveEntityAsync`** — ordinary runtime mutations (combat, movement, stat changes) and non-admin player commands are covered by the periodic flush.
 
 ### Periodic full flush
 

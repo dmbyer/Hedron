@@ -112,14 +112,37 @@ await _roomContentWriter.WriteAsync(result.Template, ct); // writes data/content
 // no SaveEntityAsync — the YAML file is the room's durable state
 ```
 
-**Account/character construction commands (`LoginFlow`, `AccountSystem.CreateCharacterAsync`).**
-These create entities that must survive restart. They add `PersistentEntity` to the entity, then call `SaveEntityAsync` **once** to make the ID durable before the flow returns. This is the **only** permitted `SaveEntityAsync` call site in the codebase. Runtime state changes (movement, HP, inventory) are covered by the `PersistenceFlushTimer` periodic sweep — no command or handler calls `SaveEntityAsync` for them.
+There are **three** permitted `SaveEntityAsync` call categories (INV-22); every other state change relies on the periodic flush.
+
+**1. Account/character construction commands (`LoginFlow`, `AccountSystem.CreateCharacterAsync`).**
+These create entities that must survive restart. They add `PersistentEntity` to the entity, then call `SaveEntityAsync` **once** to make the ID durable before the flow returns.
 
 ```csharp
-// ✅ character construction — the only permitted SaveEntityAsync call site
+// ✅ character construction — make the new persistent entity durable before returning
 _entityService.AddComponent(entityId, new PersistentEntity());
 await _persistence.SaveEntityAsync(entityId, ct);
 ```
+
+**2. Admin boundary save (`setplayer`, `setrespawn`).**
+An admin-gated command that mutates an *already-persistent* entity's state through a domain system may call `SaveEntityAsync` **once** after the mutation, so the deliberate, out-of-band administrative change lands durably without waiting for the next flush. The shape is: mutate via the system → `SaveEntityAsync` → publish an audit event. This applies **only** behind the admin privilege gate — it does not license ordinary gameplay commands or handlers to save runtime mutations.
+
+```csharp
+// ✅ admin boundary save — mutate via system, persist, then audit
+_deathSystem.SetRespawn(playerEntityId, roomBlueprintId);
+await _persistence.SaveEntityAsync(playerEntityId);
+await _eventBus.PublishAsync(new PlayerRespawnSetByAdminEvent(...));
+```
+
+**3. Session-end boundary save (`quit`, raw disconnect).**
+When a player session ends, the player is force-saved **once** so their final state is durable before they leave. The player `quit` command force-saves then disconnects; a raw disconnect is handled by `PlayerSessionHandler`. This is the only save category that legitimately runs in a handler.
+
+```csharp
+// ✅ quit command — force-save the player, then disconnect
+await _persistence.SaveEntityAsync(context.InvokerEntityId);
+await _eventBus.PublishAsync(new PlayerQuitEvent(...)); // the session layer tears down the connection
+```
+
+Runtime state changes (movement, HP, inventory) outside these three categories are covered by the `PersistenceFlushTimer` periodic sweep — no command or handler calls `SaveEntityAsync` for them.
 
 See [docs/architecture/06-persistence.md](../../../docs/architecture/06-persistence.md) and INV-22 for the full rules.
 

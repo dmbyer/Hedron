@@ -33,9 +33,9 @@ pools.CurrentHp -= damage;   // EntityService has no visibility here
 
 Transparent tracking requires either immutable record components with a `SetComponent` replace-the-whole-instance pattern (changes every mutation callsite) or observable property wrappers (heavy overhead). Requiring callers to call `MarkDirty` after every property mutation was the pre-slice-5b model and was removed because it was being missed. Making it automatic at the property level is prohibitively expensive. The correct answer is: **don't track property changes; flush periodically.** A MUD's entity count makes a full-sweep flush cheap. The flush-interval loss window (typically 60 s) is acceptable for all mutable runtime state (HP, location, crop growth, inventory).
 
-### Why save-on-change is restricted to entity creation only
+### Why save-on-change is tightly restricted
 
-Admin-authored content creation (`dig`, `mkitem`, `mkmob`) and account/character creation are rare, deliberate boundary crossings where a crash-between-write-and-flush would lose work the user just did. These are the only cases where immediate durability is required. All other mutations — every combat round, movement, stat change, effect application — are covered by the periodic flush. Handlers and commands never call `SaveEntityAsync` for runtime state changes.
+Admin-authored content creation (`dig`, `mkitem`, `mkmob`) and account/character creation are rare, deliberate boundary crossings where a crash-between-write-and-flush would lose work the user just did. Immediate durability is required there; for **admin boundary saves** — an admin-gated command that mutates a persistent entity (e.g. `setplayer`, `setrespawn`) saves once after the mutation, paired with an audit event; and for **session-end boundary saves** — a player logout/disconnect/`quit` force-saves the player so their final state is durable before they leave. All other mutations — every combat round, movement, stat change, effect application — are covered by the periodic flush. Outside those cases, handlers and player commands never call `SaveEntityAsync` for runtime state changes.
 
 ### Why `DestroyEntity` must auto-delete from SQLite
 
@@ -96,7 +96,7 @@ If the spawn slot concept were encoded on item or mob entities, every mechanic t
 
 - `PersistenceSystem` is backed by SQLite. No JSON entity files remain in use.
 - `EntityService.AddComponent<PersistentEntity>(id, ...)` registers the entity in the SQLite-backed persistence pool. `EntityService.DestroyEntity(id)` deletes the entity from SQLite automatically if it carried `PersistentEntity`. No handler or command calls any delete method.
-- Handlers and commands call `SaveEntityAsync` only at entity construction time (admin content creation, account/character creation). All other persistence is covered by the periodic flush.
+- Handlers and commands call `SaveEntityAsync` only at one of three boundaries — entity construction (account/character creation), an admin boundary save (an admin-gated mutation command paired with an audit event, e.g. `setplayer`), or a session-end force-save (player logout/disconnect/`quit`). All other persistence is covered by the periodic flush.
 - `PersistenceFlushTimer` performs a full sweep of all `PersistentEntity`-carrying entities on each cycle. No footprint calculation.
 - Room and area entities carry `PersistentEntity` (for ID stability) but `RoomComponent` is no longer `[Persistent]`. Room data is always refreshed from YAML on startup.
 - Mob entities and world-spawn item entities never carry `PersistentEntity`.
@@ -126,7 +126,7 @@ All of the overall preconditions above.
   );
   ```
 - `IPersistenceSystem` interface simplified to:
-  - `Task SaveEntityAsync(uint entityId, CancellationToken ct = default)` — construction-time save only
+  - `Task SaveEntityAsync(uint entityId, CancellationToken ct = default)` — boundary saves only (construction, admin boundary, session end)
   - `Task FlushAllAsync(CancellationToken ct = default)` — writes all `PersistentEntity` entities (shutdown)
   - `Task FlushDirtyAsync(CancellationToken ct = default)` — writes all `PersistentEntity` entities (timer cycle; "dirty" is implicit — all persistent entities are always flushed)
   - `Task<IReadOnlyList<uint>> LoadAllAsync(CancellationToken ct = default)` — startup hydration
