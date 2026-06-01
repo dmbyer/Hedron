@@ -21,6 +21,7 @@ namespace Hedron.Core.Modules.Help.Commands
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
         public CommandCategory Category => CommandCategory.Player;
         public CommandMatchingMode MatchingMode => CommandMatchingMode.Partial;
+        public bool UsableWhileIncapacitated => true;
         public string ShortDescription => "List available commands.";
         public string LongDescription => "Lists all commands available to you, grouped by category.";
         public string Usage => "commands";

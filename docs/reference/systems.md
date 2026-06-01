@@ -455,6 +455,28 @@ public enum CombatRoundOutcome { Hit, Miss, MobDied, PlayerIncapacitated }
 ```
 `TryFindTargetInRoom` prefix-matches `token` against `MobDataComponent.Name` and `Keywords` for entities with `MobDataComponent` in the given room. `StartCombat`/`EndCombat` add/remove `CombatStateComponent` on both participants — does not call `IEntityStateService` (cohesion separation; commands and handlers coordinate both layers). `ExecuteRound` formula: hit check `roll = Random.Shared.Next(1,21) + dex/2 >= 10 + defense`; damage `Random.Shared.Next(1, attackPower+2)` applied via `IAttributeSystem.SetCurrentHp`; outcome `MobDied` if defender has `MobDataComponent` and HP == 0, `PlayerIncapacitated` if defender has `CharacterComponent` and HP == 0. Implemented (Phase 3 slice 9).
 
+### DeathSystem
+**Purpose:** Domain system owning the HP-threshold evaluation, respawn mutation, and respawn-location management for the player death lifecycle. Pure: never touches the event bus or persistence (INV-5, INV-8). Callers (handlers, initiators) read the returned `DeathTransition` and publish the appropriate events.
+**Location:** `Core/Modules/Death/Systems/DeathSystem.cs` (implementation) · `Core/Modules/Death/Systems/IDeathSystem.cs` (interface)
+**Dependencies:** `EntityService`, `IEntityStateService`, `IAttributeSystem`, `IEffectSystem`, `ITemplateRegistry`, `WorldConfiguration`, `IConfiguration`, `ILogger<DeathSystem>`.
+```csharp
+public interface IDeathSystem
+{
+    /// <summary>Evaluates HP-threshold crossings after an HP mutation. Returns BecameIncapacitated,
+    /// Died, or None.</summary>
+    DeathTransition OnHpChanged(uint entityId, int previousHp, int newHp);
+
+    /// <summary>Exits Incapacitated state, relocates to respawn room, strips impermanent effects,
+    /// and restores all pools to Death:RespawnPoolPercent of their maxima.</summary>
+    void Respawn(uint entityId);
+
+    /// <summary>Validates the blueprint exists and sets RespawnComponent.RoomBlueprintId.
+    /// Returns false + failReason when the blueprint is not found.</summary>
+    bool SetRespawn(uint entityId, string roomBlueprintId, out string? failReason);
+}
+```
+`OnHpChanged` only applies to entities with `CharacterComponent` — mobs never enter the death pipeline. Configuration: `Death:HpFloor` (default `-10`), `Death:RespawnPoolPercent` (default `0.25`). Registered via `AddDeathModule()`. Implemented (Phase 3 slice 10).
+
 ### SpawnSystem
 **Purpose:** Tracks spawn slot occupancy for world-content entities (mobs, world-spawn items) and schedules respawns. Self-initializes from the live entity graph on `WorldContentReadyEvent`; reacts to `MobDiedEvent` and `ItemPickedUpEvent` to mark slots vacant; respawns on `HeartbeatTickEvent`. No events published; no persistence (INV-5, INV-8). Implemented (persistence reform Stage C).
 **Location:** `Core/Modules/Spawn/Systems/SpawnSystem.cs`

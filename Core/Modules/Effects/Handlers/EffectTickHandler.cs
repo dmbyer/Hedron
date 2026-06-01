@@ -1,6 +1,10 @@
 using System.Threading.Tasks;
+using Hedron.Core.ECS;
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Attributes.Systems;
+using Hedron.Core.Modules.Death.Events;
+using Hedron.Core.Modules.Death.Systems;
 using Hedron.Core.Modules.Effects.Events;
 using Hedron.Core.Modules.Effects.Systems;
 using Hedron.Core.Modules.Stats;
@@ -10,16 +14,25 @@ namespace Hedron.Core.Modules.Effects.Handlers
 {
     public sealed class EffectTickHandler : IEventHandler<HeartbeatTickEvent>
     {
+        private readonly EntityService _entityService;
         private readonly IEffectSystem _effectSystem;
         private readonly IAttributeSystem _attributeSystem;
+        private readonly IDeathSystem _deathSystem;
         private readonly IEventBus _eventBus;
 
         public int Priority => HandlerPriority.Domain;
 
-        public EffectTickHandler(IEffectSystem effectSystem, IAttributeSystem attributeSystem, IEventBus eventBus)
+        public EffectTickHandler(
+            EntityService entityService,
+            IEffectSystem effectSystem,
+            IAttributeSystem attributeSystem,
+            IDeathSystem deathSystem,
+            IEventBus eventBus)
         {
+            _entityService = entityService;
             _effectSystem = effectSystem;
             _attributeSystem = attributeSystem;
+            _deathSystem = deathSystem;
             _eventBus = eventBus;
         }
 
@@ -29,7 +42,8 @@ namespace Hedron.Core.Modules.Effects.Handlers
 
             foreach (var app in result.DueApplications)
             {
-                ApplyMagnitude(app.EntityId, app.Effect.Params.TargetScore, app.Magnitude);
+                await ApplyMagnitudeAsync(app.EntityId, app.Effect.Params.TargetScore, app.Magnitude)
+                    .ConfigureAwait(false);
             }
 
             foreach (var (entityId, effect) in result.Expired)
@@ -39,14 +53,26 @@ namespace Hedron.Core.Modules.Effects.Handlers
             }
         }
 
-        private void ApplyMagnitude(uint entityId, ScoreId targetScore, int magnitude)
+        private async Task ApplyMagnitudeAsync(uint entityId, ScoreId targetScore, int magnitude)
         {
             switch (targetScore)
             {
                 case ScoreId.HpCurrent:
-                    _attributeSystem.SetCurrentHp(entityId,
-                        _attributeSystem.GetCurrentHp(entityId) + magnitude);
+                    var hpBefore = _attributeSystem.GetCurrentHp(entityId);
+                    _attributeSystem.SetCurrentHp(entityId, hpBefore + magnitude);
+                    var hpAfter = _attributeSystem.GetCurrentHp(entityId);
+
+                    var transition = _deathSystem.OnHpChanged(entityId, hpBefore, hpAfter);
+                    if (transition == DeathTransition.BecameIncapacitated)
+                    {
+                        var roomEntityId = _entityService.TryGet<LocationComponent>(entityId, out var loc)
+                            ? loc.RoomEntityId
+                            : 0u;
+                        await _eventBus.PublishAsync(new PlayerIncapacitatedEvent(entityId, roomEntityId))
+                            .ConfigureAwait(false);
+                    }
                     break;
+
                 case ScoreId.ManaCurrent:
                     _attributeSystem.SetCurrentMana(entityId,
                         _attributeSystem.GetCurrentMana(entityId) + magnitude);

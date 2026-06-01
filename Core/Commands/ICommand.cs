@@ -48,6 +48,13 @@ namespace Hedron.Core.Commands
         CommandMatchingMode MatchingMode { get; }
 
         /// <summary>
+        /// When <c>true</c>, the dispatcher allows this command to run even if the invoker is
+        /// currently incapacitated. Defaults to <c>false</c> (default-deny) — a new command
+        /// is blocked while incapacitated unless explicitly opted in.
+        /// </summary>
+        bool UsableWhileIncapacitated => false;
+
+        /// <summary>
         /// Runs the command. <paramref name="context"/> carries typed parsed arguments
         /// and the output writer — do not call <c>session.SendLineAsync</c> directly.
         /// </summary>

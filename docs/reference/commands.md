@@ -31,7 +31,8 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Description:** Prints a category-grouped one-line index of all commands visible to the caller. Same visibility filtering as `help` (admin commands hidden when their `RequiredPrivileges` are unsatisfied).  
 **Usage:** `commands`  
 **Schema:** no arguments  
-**Events:** none
+**Events:** none  
+**UsableWhileIncapacitated:** `true`
 
 ---
 
@@ -119,7 +120,8 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Description:** With no argument, lists all commands visible to the caller grouped by category. With a verb argument, shows `LongDescription` and `Usage` for that command.  
 **Usage:** `help [<verb>]`  
 **Schema:** optional `Token string "verb"`  
-**Events:** none
+**Events:** none  
+**UsableWhileIncapacitated:** `true`
 
 ---
 
@@ -192,11 +194,12 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Aliases:** none  
 **MatchingMode:** `Partial`  
 **Location:** `Core/Modules/Attributes/Commands/ScoreCommand.cs`  
-**Description:** Displays the invoking player's Level, HP (`CurrentHp/MaxHp`), Mana, Stamina, Astra, and the four attributes (Mind, Body, Spirit, Attunement) in a formatted `ScoreDisplayMessage`. If `AttributesComponent` or `PoolsComponent` are absent (pre-hydration edge case), defaults are shown. No events fired.  
+**Description:** Displays the invoking player's Level, HP (`CurrentHp/MaxHp`), Mana, Stamina, Astra, the four attributes (Mind, Body, Spirit, Attunement), and the current respawn room blueprint id (from `RespawnComponent.RoomBlueprintId`; shows `(starting room)` when null). Also shows a highlighted `** INCAPACITATED — bleeding out **` status line when the player is currently incapacitated (from `IEntityStateService`). If `AttributesComponent` or `PoolsComponent` are absent (pre-hydration edge case), defaults are shown. No events fired.  
 **Usage:** `score`  
 **Schema:** no arguments  
-**Dependencies:** `EntityService`  
-**Events:** none
+**Dependencies:** `EntityService`, `IStatSystem`, `IEntityStateService`  
+**Events:** none  
+**UsableWhileIncapacitated:** `true`
 
 ---
 
@@ -338,6 +341,20 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Usage:** `setplayer <characterName> <property> <value>`  
 **Schema:** `Token string "characterName"` (required), `Token string "property"` (required: `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `mana`, `maxmana`, `stamina`, `maxstamina`, `astra`, `maxastra`), `Token string "value"` (required, positive integer)  
 **Events:** `PlayerAttributeSetByAdminEvent`  
+**RequiredPrivileges:** `AdminRequirement`
+
+---
+
+### `setrespawn`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Death/Commands/SetRespawnCommand.cs`  
+**Description:** Sets the respawn room blueprint id for a currently-connected player. Resolves the target player by character name via `ISessionManager.GetAll()`. Validates the blueprint exists via `IDeathSystem.SetRespawn` (fails with a descriptive error if the blueprint is not in `ITemplateRegistry`). On success: persists the player entity immediately (admin boundary save, INV-22), then publishes `PlayerRespawnSetByAdminEvent` for the audit log.  
+**Usage:** `setrespawn <characterName> <roomBlueprintId>`  
+**Schema:** `Token string "characterName"` (required), `Token string "roomBlueprintId"` (required)  
+**Dependencies:** `IDeathSystem`, `ISessionManager`, `EntityService`, `IEventBus`, `IPersistenceSystem`  
+**Events:** `PlayerRespawnSetByAdminEvent`  
 **RequiredPrivileges:** `AdminRequirement`
 
 ---

@@ -98,6 +98,12 @@ namespace Hedron.Core.Modules.Effects.Systems
                 comp.Effects.RemoveAll(e => e.Category == category);
         }
 
+        public void RemoveImpermanent(uint entityId)
+        {
+            if (_entityService.TryGet<EffectsComponent>(entityId, out var comp))
+                comp.Effects.RemoveAll(e => e.Lifetime != EffectLifetime.UntilRemoved);
+        }
+
         public IReadOnlyList<Effect> GetActive(uint entityId)
         {
             if (_entityService.TryGet<EffectsComponent>(entityId, out var comp))

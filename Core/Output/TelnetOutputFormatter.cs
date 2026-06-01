@@ -160,6 +160,8 @@ namespace Hedron.Core.Output
         {
             var sb = new StringBuilder();
             sb.AppendLine(ApplyColor($"<room-name>[ {m.CharacterName} ]</room-name>", color));
+            if (m.IsIncapacitated)
+                sb.AppendLine(ApplyColor("<error>** INCAPACITATED — bleeding out **</error>", color));
             sb.AppendLine($"  Level     : {m.Level}");
             sb.AppendLine($"  HP        : {m.CurrentHp}/{m.MaxHp}");
             sb.AppendLine($"  Mana      : {m.CurrentMana}/{m.MaxMana}");
@@ -168,7 +170,11 @@ namespace Hedron.Core.Output
             sb.AppendLine($"  Mind      : {m.Mind}");
             sb.AppendLine($"  Body      : {m.Body}");
             sb.AppendLine($"  Spirit    : {m.Spirit}");
-            sb.Append($"  Attunement: {m.Attunement}");
+            sb.AppendLine($"  Attunement: {m.Attunement}");
+            var respawnLabel = string.IsNullOrEmpty(m.RespawnRoomBlueprintId)
+                ? "(starting room)"
+                : m.RespawnRoomBlueprintId;
+            sb.Append($"  Respawn   : {respawnLabel}");
             return ApplyColor(sb.ToString(), color);
         }
 

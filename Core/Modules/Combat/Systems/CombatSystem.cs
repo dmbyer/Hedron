@@ -89,9 +89,9 @@ namespace Hedron.Core.Modules.Combat.Systems
             var hpAfter = _statSystem.GetCurrentHp(defenderEntityId);
             CombatRoundOutcome outcome;
 
-            if (hpAfter == 0 && _entityService.HasComponent<MobDataComponent>(defenderEntityId))
+            if (hpAfter <= 0 && _entityService.HasComponent<MobDataComponent>(defenderEntityId))
                 outcome = CombatRoundOutcome.MobDied;
-            else if (hpAfter == 0 && _entityService.HasComponent<CharacterComponent>(defenderEntityId))
+            else if (hpAfter <= 0 && _entityService.HasComponent<CharacterComponent>(defenderEntityId))
                 outcome = CombatRoundOutcome.PlayerIncapacitated;
             else
                 outcome = CombatRoundOutcome.Hit;

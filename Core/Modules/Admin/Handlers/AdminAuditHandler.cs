@@ -5,6 +5,7 @@ using Hedron.Core.Events;
 using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Attributes.Events;
 using Hedron.Core.Modules.Combat.Events;
+using Hedron.Core.Modules.Death.Events;
 using Hedron.Core.Modules.Effects.Events;
 using Hedron.Core.Modules.Items.Events;
 using Hedron.Core.Modules.Mobs.Events;
@@ -36,7 +37,8 @@ namespace Hedron.Core.Modules.Admin.Handlers
         IEventHandler<MobPropertySetByAdminEvent>,
         IEventHandler<PlayerAttributeSetByAdminEvent>,
         IEventHandler<CombatEndedEvent>,
-        IEventHandler<EffectAppliedByAdminEvent>
+        IEventHandler<EffectAppliedByAdminEvent>,
+        IEventHandler<PlayerRespawnSetByAdminEvent>
     {
         private readonly EntityService _entityService;
         private readonly ILogger<AdminAuditHandler> _logger;
@@ -150,6 +152,14 @@ namespace Hedron.Core.Modules.Admin.Handlers
             _logger.LogInformation(
                 "AdminCommandExecuted: admin={Admin} command=affect target={TargetId} effect={EffectId} power={Power}",
                 ResolveName(e.AdminId), e.TargetId, e.EffectId, e.Power);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(PlayerRespawnSetByAdminEvent e)
+        {
+            _logger.LogInformation(
+                "AdminCommandExecuted: admin={Admin} command=setrespawn player={PlayerEntityId} roomBlueprintId={RoomBlueprintId}",
+                ResolveName(e.AdminEntityId), e.PlayerEntityId, e.RoomBlueprintId);
             return Task.CompletedTask;
         }
 

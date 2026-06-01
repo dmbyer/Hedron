@@ -4,10 +4,12 @@ using System.Threading.Tasks;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
-using Hedron.Core.Modules.Attributes.Systems;
 using Hedron.Core.Modules.Combat.Events;
 using Hedron.Core.Modules.Combat.Systems;
+using Hedron.Core.Modules.Death.Events;
+using Hedron.Core.Modules.Death.Systems;
 using Hedron.Core.Modules.EntityState.Systems;
+using Hedron.Core.Modules.Stats.Systems;
 using Hedron.Core.Modules.Time.Events;
 using Microsoft.Extensions.Logging;
 
@@ -24,7 +26,8 @@ namespace Hedron.Core.Modules.Combat.Handlers
         private readonly EntityService _entityService;
         private readonly ICombatSystem _combatSystem;
         private readonly IEntityStateService _entityStateService;
-        private readonly IAttributeSystem _attributeSystem;
+        private readonly IDeathSystem _deathSystem;
+        private readonly IStatSystem _statSystem;
         private readonly IEventBus _eventBus;
         private readonly ILogger<CombatTickHandler> _logger;
 
@@ -34,14 +37,16 @@ namespace Hedron.Core.Modules.Combat.Handlers
             EntityService entityService,
             ICombatSystem combatSystem,
             IEntityStateService entityStateService,
-            IAttributeSystem attributeSystem,
+            IDeathSystem deathSystem,
+            IStatSystem statSystem,
             IEventBus eventBus,
             ILogger<CombatTickHandler> logger)
         {
             _entityService = entityService;
             _combatSystem = combatSystem;
             _entityStateService = entityStateService;
-            _attributeSystem = attributeSystem;
+            _deathSystem = deathSystem;
+            _statSystem = statSystem;
             _eventBus = eventBus;
             _logger = logger;
         }
@@ -64,6 +69,9 @@ namespace Hedron.Core.Modules.Combat.Handlers
                     continue;
 
                 var roomEntityId = loc.RoomEntityId;
+
+                // Capture HP before the round so IDeathSystem.OnHpChanged has accurate previousHp.
+                var defenderHpBefore = _statSystem.GetCurrentHp(defenderEntityId);
                 var result = _combatSystem.ExecuteRound(attackerEntityId, defenderEntityId);
 
                 await _eventBus.PublishAsync(new CombatRoundEvent(
@@ -86,8 +94,6 @@ namespace Hedron.Core.Modules.Combat.Handlers
                 }
                 else if (result.Outcome == CombatRoundOutcome.PlayerIncapacitated)
                 {
-                    // Clamp the incapacitated player (the defender in this round) to 1 HP — stub for slice 10.
-                    _attributeSystem.SetCurrentHp(defenderEntityId, 1);
                     _combatSystem.EndCombat(attackerEntityId, defenderEntityId);
                     _entityStateService.ExitState(attackerEntityId, EntityStateFlags.InCombat);
                     _entityStateService.ExitState(defenderEntityId, EntityStateFlags.InCombat);
@@ -96,10 +102,20 @@ namespace Hedron.Core.Modules.Combat.Handlers
                         attackerEntityId, defenderEntityId,
                         CombatEndOutcome.PlayerIncapacitated, roomEntityId))
                         .ConfigureAwait(false);
+
+                    var defenderHpAfter = _statSystem.GetCurrentHp(defenderEntityId);
+                    var transition = _deathSystem.OnHpChanged(defenderEntityId, defenderHpBefore, defenderHpAfter);
+                    if (transition == DeathTransition.BecameIncapacitated)
+                    {
+                        await _eventBus.PublishAsync(
+                            new PlayerIncapacitatedEvent(defenderEntityId, roomEntityId))
+                            .ConfigureAwait(false);
+                    }
                 }
                 else
                 {
                     // Counterattack: the entity that was struck this round now strikes back.
+                    var attackerHpBefore = _statSystem.GetCurrentHp(attackerEntityId);
                     var counterResult = _combatSystem.ExecuteRound(defenderEntityId, attackerEntityId);
 
                     await _eventBus.PublishAsync(new CombatRoundEvent(
@@ -108,7 +124,6 @@ namespace Hedron.Core.Modules.Combat.Handlers
 
                     if (counterResult.Outcome == CombatRoundOutcome.PlayerIncapacitated)
                     {
-                        _attributeSystem.SetCurrentHp(attackerEntityId, 1);
                         _combatSystem.EndCombat(defenderEntityId, attackerEntityId);
                         _entityStateService.ExitState(defenderEntityId, EntityStateFlags.InCombat);
                         _entityStateService.ExitState(attackerEntityId, EntityStateFlags.InCombat);
@@ -117,6 +132,15 @@ namespace Hedron.Core.Modules.Combat.Handlers
                             defenderEntityId, attackerEntityId,
                             CombatEndOutcome.PlayerIncapacitated, roomEntityId))
                             .ConfigureAwait(false);
+
+                        var attackerHpAfter = _statSystem.GetCurrentHp(attackerEntityId);
+                        var transition = _deathSystem.OnHpChanged(attackerEntityId, attackerHpBefore, attackerHpAfter);
+                        if (transition == DeathTransition.BecameIncapacitated)
+                        {
+                            await _eventBus.PublishAsync(
+                                new PlayerIncapacitatedEvent(attackerEntityId, roomEntityId))
+                                .ConfigureAwait(false);
+                        }
                     }
                 }
             }
