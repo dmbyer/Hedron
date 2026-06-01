@@ -44,7 +44,10 @@ namespace Hedron.Core.Modules.Combat.Handlers
             var blueprintId = _entityService.TryGet<BlueprintComponent>(@event.DefenderEntityId, out var bp)
                 ? bp.BlueprintId
                 : string.Empty;
-            await _eventBus.PublishAsync(new MobDiedEvent(@event.DefenderEntityId, blueprintId))
+            await _eventBus.PublishAsync(new MobDiedEvent(
+                    @event.DefenderEntityId,
+                    blueprintId,
+                    KillerEntityId: @event.AttackerEntityId))
                 .ConfigureAwait(false);
 
             _entityService.DestroyEntity(@event.DefenderEntityId);

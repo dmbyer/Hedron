@@ -86,8 +86,29 @@ Ask:
 **Location:** `Core/Modules/Effects/Handlers/EffectTickHandler.cs`
 **Uses:** `IEffectSystem`, `IAttributeSystem`, `IEventBus`
 
+### DeathTickHandler
+**Events:** `HeartbeatTickEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** On each tick: queries all entities with `EntityStateFlags.Incapacitated` set. For each, applies `DeathOptions.BleedPerTick` damage via `IAttributeSystem.SetCurrentHp`. Reads the new HP and calls `IDeathSystem.OnHpChanged`. If the result is `Died`, publishes `PlayerDiedEvent(entityId, roomEntityId)`. Otherwise publishes `PlayerBleedingEvent(entityId, roomEntityId, newHp, hpFloor)` to notify observers of ongoing bleed. Fires after `CombatTickHandler` and `EffectTickHandler` so all pool mutations for a tick are settled before bleed is applied.
+**Location:** `Core/Modules/Death/Handlers/DeathTickHandler.cs`
+**Uses:** `EntityService`, `IDeathSystem`, `IAttributeSystem`, `IEntityStateService`, `IEventBus`
+
+### PlayerDeathHandler
+**Events:** `PlayerDiedEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** Orchestrates the full death-to-respawn sequence. Calls `IDeathSystem.Respawn(entityId)` — this exits Incapacitated state, teleports to respawn room, strips impermanent effects, and restores pools. Then calls `IPersistenceSystem.SaveEntityAsync(entityId)` to make the new location and pools durable before the player re-enters the world.
+**Location:** `Core/Modules/Death/Handlers/PlayerDeathHandler.cs`
+**Uses:** `IDeathSystem`, `IPersistenceSystem`
+
+### DeathNarrationHandler
+**Events:** `PlayerIncapacitatedEvent`, `PlayerBleedingEvent`, `PlayerDiedEvent`, `PlayerRespawnedEvent`
+**Priority:** 80 (`HandlerPriority.Notification`)
+**Responsibilities:** Pure output fan-out — no domain logic, no persistence. On `PlayerIncapacitatedEvent`: writes "You collapse, bleeding out..." to the player; broadcasts "X collapses!" to the room. On `PlayerBleedingEvent`: writes HP-level bleed status to the player only (severity-coded: critical when HP ≤ floor+5, warning otherwise). On `PlayerDiedEvent`: writes "You have died." to the player; broadcasts death message to the room. On `PlayerRespawnedEvent`: writes respawn room description to the player via `IBroadcastSystem.SendRoomDescriptionAsync`.
+**Location:** `Core/Modules/Death/Handlers/DeathNarrationHandler.cs`
+**Uses:** `EntityService`, `IBroadcastSystem`
+
 ### AdminAuditHandler
-**Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a); `ItemCreatedByAdminEvent`, `ItemPropertySetByAdminEvent` (Phase 3 slice 6); `MobCreatedByAdminEvent`, `MobPropertySetByAdminEvent` (Phase 3 slice 8); `PlayerAttributeSetByAdminEvent` (Phase 3 slice 8a); `CombatEndedEvent` (Phase 3 slice 9); `EffectAppliedByAdminEvent` (Phase 3 slice 9-e).
+**Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a); `ItemCreatedByAdminEvent`, `ItemPropertySetByAdminEvent` (Phase 3 slice 6); `MobCreatedByAdminEvent`, `MobPropertySetByAdminEvent` (Phase 3 slice 8); `PlayerAttributeSetByAdminEvent` (Phase 3 slice 8a); `CombatEndedEvent` (Phase 3 slice 9); `EffectAppliedByAdminEvent` (Phase 3 slice 9-e); `PlayerRespawnSetByAdminEvent` (Phase 3 slice 10).
 **Priority:** 80 (`HandlerPriority.Notification`)
 **Responsibilities:** writes one structured-log entry per admin action via `ILogger<AdminAuditHandler>`. Uses a stable structured event name (`AdminCommandExecuted`) so log scrapers can filter without parsing free text. No dedicated audit-file sink in this slice.
 **Location:** `Core/Modules/Admin/Handlers/AdminAuditHandler.cs`

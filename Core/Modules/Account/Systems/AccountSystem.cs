@@ -124,6 +124,10 @@ namespace Hedron.Core.Modules.Account.Systems
                 MaxAstra = _characterDefaults.MaxAstra,
                 CurrentAstra = _characterDefaults.MaxAstra,
             });
+            _entityService.AddComponent(entity.Id, new RespawnComponent
+            {
+                RoomBlueprintId = _worldConfig.StartingRoomBlueprintId,
+            });
             _entityService.AddComponent(entity.Id, new PersistentEntity());
 
             if (_entityService.TryGet<AccountComponent>(accountEntityId, out var account))

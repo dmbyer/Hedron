@@ -17,7 +17,9 @@ namespace Hedron.Core.Output
         int CurrentStamina,
         int MaxStamina,
         int CurrentAstra,
-        int MaxAstra) : IOutputMessage
+        int MaxAstra,
+        string? RespawnRoomBlueprintId = null,
+        bool IsIncapacitated = false) : IOutputMessage
     {
         public OutputCategory Category => OutputCategory.Info;
     }

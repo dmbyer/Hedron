@@ -296,6 +296,7 @@ namespace Hedron.Core.Modules.World.Systems
             if (liveBlueprints.TryGetValue(_startingRoomBlueprintId, out var entityId))
             {
                 _worldConfig.StartingRoomEntityId = entityId;
+                _worldConfig.StartingRoomBlueprintId = _startingRoomBlueprintId;
                 return;
             }
 
@@ -305,6 +306,7 @@ namespace Hedron.Core.Modules.World.Systems
                     "WorldContentLoader: configured starting room '{Id}' not found; falling back to void room.",
                     _startingRoomBlueprintId);
                 _worldConfig.StartingRoomEntityId = voidEntityId;
+                _worldConfig.StartingRoomBlueprintId = VoidRoomBlueprintId;
                 return;
             }
 
@@ -315,6 +317,7 @@ namespace Hedron.Core.Modules.World.Systems
                     "WorldContentLoader: configured starting room '{Id}' not found; falling back to '{Fallback}'.",
                     _startingRoomBlueprintId, anyRoom.Key);
                 _worldConfig.StartingRoomEntityId = anyRoom.Value;
+                _worldConfig.StartingRoomBlueprintId = anyRoom.Key;
             }
             else
             {

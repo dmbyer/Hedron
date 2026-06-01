@@ -31,8 +31,10 @@
 | 19 | [`flee` — combat exit](flow-19-flee-combat-exit.md) | Player sends `flee` | Phase 3 slice 9 |
 | 20 | [Mob death and respawn](flow-20-mob-death-respawn.md) | Mob HP reaches zero; `SpawnSystem` schedules and executes respawn | Persistence reform Stage C |
 | 21 | [Effect tick](flow-21-effect-tick.md) | `HeartbeatTickEvent` dispatched to `EffectTickHandler` | Phase 3 slice 9-e |
+| 22 | [Player incapacitation and bleed-out](flow-22-incapacitation-bleedout.md) | Player HP crosses zero; `DeathTickHandler` bleeds out per tick | Phase 3 slice 10 |
+| 23 | [Player death and respawn](flow-23-player-death-respawn.md) | HP reaches `Death:HpFloor`; `PlayerDeathHandler` triggers full respawn | Phase 3 slice 10 |
 
-Flows that don't yet exist (player death, mob wander tick, etc.) get added by the slice that introduces them.
+Flows that don't yet exist (mob wander tick, etc.) get added by the slice that introduces them.
 
 ---
 

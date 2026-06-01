@@ -7,5 +7,10 @@ namespace Hedron.Core.Commands
         ParseFailed,
         Unauthorized,
         Threw,
+        /// <summary>
+        /// The command was refused because the invoker is currently incapacitated and
+        /// the command does not have <c>UsableWhileIncapacitated = true</c>.
+        /// </summary>
+        Refused,
     }
 }

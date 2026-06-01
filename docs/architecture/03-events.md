@@ -261,4 +261,4 @@ public class CombatHandler : IEventHandler<AttackEvent>
 | `NotificationHandler` (priority 80) | Notify witnesses |
 | `AIHandler` (priority 95) | Update NPC threat tables |
 
-> Persistence for `PlayerDeathEvent` is handled by the save-on-change model: the handler that applies the state mutation calls `IPersistenceSystem.SaveEntityAsync` directly after the mutation, rather than routing through a cross-cutting persistence handler subscription.
+> **Persistence note (slice 10 model).** Player state changes from death and respawn are not saved immediately on the event. Persistence uses the periodic-flush model: `PersistenceFlushTimer` flushes all dirty entities on a timed interval via `IPersistenceSystem.FlushDirtyEntitiesAsync`. Handlers do not call `SaveEntityAsync` directly; entity state is marked dirty automatically when components are mutated.

@@ -1,15 +1,25 @@
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Death;
+using Microsoft.Extensions.Options;
 
 namespace Hedron.Core.Modules.Attributes.Systems
 {
     public sealed class AttributeSystem : IAttributeSystem
     {
         private readonly EntityService _entityService;
+        private readonly int _hpFloor;
 
-        public AttributeSystem(EntityService entityService)
+        // NOTE: AttributeSystem reads the HP-floor clamp from DeathOptions because the death floor
+        // is the only value that changes the lower clamp on SetCurrentHp. This is a cross-module
+        // dependency (Attributes → Death) within the same project. The backlog item
+        // "IOptions<T> sweep — typed config options across Core" tracks decoupling this, either by
+        // moving HpFloor to AttributeOptions or by eliminating the clamp from AttributeSystem
+        // entirely (letting callers own the floor).
+        public AttributeSystem(EntityService entityService, IOptions<DeathOptions> deathOptions)
         {
             _entityService = entityService;
+            _hpFloor = deathOptions.Value.HpFloor;
         }
 
         public int GetLevel(uint entityId)
@@ -94,7 +104,7 @@ namespace Hedron.Core.Modules.Attributes.Systems
         {
             if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
                 return;
-            p.CurrentHp = Math.Clamp(value, 0, GetMaxHp(entityId));
+            p.CurrentHp = Math.Clamp(value, _hpFloor, GetMaxHp(entityId));
         }
 
         public void SetMaxMana(uint entityId, int value)

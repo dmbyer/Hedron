@@ -23,6 +23,10 @@ using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Chat.Commands;
 using Hedron.Core.Modules.Chat.Events;
 using Hedron.Core.Modules.Chat.Handlers;
+using Hedron.Core.Modules.Death;
+using Hedron.Core.Modules.Death.Commands;
+using Hedron.Core.Modules.Death.Events;
+using Hedron.Core.Modules.Death.Handlers;
 using Hedron.Core.Modules.Help;
 using Hedron.Core.Modules.Movement.Commands;
 using Hedron.Core.Modules.Movement.Events;
@@ -67,6 +71,8 @@ public static class Program
             {
                 services.Configure<OutputConfiguration>(
                     context.Configuration.GetSection("Output"));
+                services.Configure<DeathOptions>(
+                    context.Configuration.GetSection("Death"));
                 // ECS world
                 var world = new EntityService();
                 EcsManager.SetWorld(world);
@@ -127,6 +133,7 @@ public static class Program
                 services.AddEffectsModule();
                 services.AddCombatModule();
                 services.AddSpawnModule();
+                services.AddDeathModule();
 
                 // Hosted services — order matters.
                 services.AddHostedService<PersistenceBootstrap>();
@@ -159,6 +166,18 @@ public static class Program
         var combatMobDeath = host.Services.GetRequiredService<CombatMobDeathHandler>();
         bus.Subscribe<CombatEndedEvent>(combatMobDeath);
 
+        var deathTick = host.Services.GetRequiredService<DeathTickHandler>();
+        bus.Subscribe<HeartbeatTickEvent>(deathTick);
+
+        var playerDeath = host.Services.GetRequiredService<PlayerDeathHandler>();
+        bus.Subscribe<PlayerDiedEvent>(playerDeath);
+
+        var deathNarration = host.Services.GetRequiredService<DeathNarrationHandler>();
+        bus.Subscribe<PlayerIncapacitatedEvent>(deathNarration);
+        bus.Subscribe<PlayerBleedingEvent>(deathNarration);
+        bus.Subscribe<PlayerDiedEvent>(deathNarration);
+        bus.Subscribe<PlayerRespawnedEvent>(deathNarration);
+
         var audit = host.Services.GetRequiredService<AdminAuditHandler>();
         bus.Subscribe<EntitySpawnedByAdminEvent>(audit);
         bus.Subscribe<PlayerTeleportedByAdminEvent>(audit);
@@ -173,6 +192,7 @@ public static class Program
         bus.Subscribe<PlayerAttributeSetByAdminEvent>(audit);
         bus.Subscribe<CombatEndedEvent>(audit);
         bus.Subscribe<EffectAppliedByAdminEvent>(audit);
+        bus.Subscribe<PlayerRespawnSetByAdminEvent>(audit);
 
         var characterHydration = host.Services.GetRequiredService<CharacterHydrationHandler>();
         bus.Subscribe<WorldContentReadyEvent>(characterHydration);

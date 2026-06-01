@@ -72,6 +72,23 @@ Deferred from slice 7 design notes. Two related capabilities:
 
 Both are meaningful improvements to UX but would bloat slices 6–7. Revisit when the number of "are you sure?" flows justifies the infrastructure cost.
 
+### 🟢 `IOptions<T>` sweep — typed config options across Core
+
+Surfaced during slice 10 architecture review. Every configuration block with multiple consumers in `Core/` should be bound via a typed options class + `services.Configure<T>(configuration.GetSection("X"))` rather than via raw `IConfiguration["X:Key"]` reads scattered across constructors. Raw reads have no IDE navigation, no compile-time safety, and duplicate default values across files.
+
+**Known sites** (as of slice 10):
+
+| Config section | Files using raw reads | Typed class exists? |
+|---|---|---|
+| `Death:` | `DeathSystem`, `DeathTickHandler`, `AttributeSystem` | ✅ `DeathOptions` — **wired in slice 10**; `AttributeSystem` cross-module dependency flagged below |
+| `World:` | `WorldContentLoader` (×2), `RoomContentWriter`, `ItemContentWriter`, `MobContentWriter` | ❌ |
+| `Persistence:` | `PersistenceSystem` | ❌ |
+| `CharacterDefaults:` | `AccountSystem` (slice 9-d) | ❌ |
+
+**Specific follow-up for `AttributeSystem`.** It currently injects `IOptions<DeathOptions>` solely to read the HP-floor clamp — a cross-module dependency (`Attributes` → `Death`). The right long-term shape is either: (a) move `HpFloor` to an `AttributeOptions` class so `AttributeSystem` owns its own floor config, or (b) remove the floor clamp from `AttributeSystem` entirely and let callers (`DeathTickHandler`) enforce the floor before calling `SetCurrentHp`. Option (b) is the cleaner layer: `AttributeSystem` becomes a pure setter with `[0, Max]` clamping, and the death floor is a Death-module concern only.
+
+**Work.** For each section without a typed class: create the options class, wire `services.Configure<T>()` in the owning module's `AddXModule()` method (or in `Server/Program.cs` following the `OutputConfiguration` + `DeathOptions` pattern), and replace raw string reads with `IOptions<T>` injection. Then resolve the `AttributeSystem` cross-module dependency.
+
 ### 🟢 Persistence save-on-change cleanup + manual `save`/`quit` commands
 
 Follow-up from the death-and-respawn slice (slice 10), where INV-22 was reworded to name **three** permitted `SaveEntityAsync` boundary categories — construction, admin boundary, session-end. Two cleanup items and two new commands remain:

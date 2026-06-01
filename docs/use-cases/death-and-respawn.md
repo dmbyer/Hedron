@@ -1,6 +1,6 @@
 # Use Case: Death and Respawn
 
-**Status:** planned
+**Status:** implemented
 **Actors:** Player, Mob, System, Administrator
 **Module:** `Core/Modules/Death/` (new — `IDeathSystem`, incapacitation/bleed/respawn flow, tick handler, death handlers, admin commands), `Core/ECS/Components/` (`RespawnComponent` — cross-cutting persistent), `Core/Modules/EntityState/` (`Incapacitated` flag — reused), `Core/Modules/Combat/` (HP-zero stub becomes a real seam), `Core/Modules/Mobs/` (`MobDiedEvent` extended with killer), `Core/Commands/` (dispatcher-level incapacitation gate), `Core/Modules/Time/` (heartbeat consumer)
 
@@ -135,86 +135,6 @@ Mob death already destroys the entity and publishes `MobDiedEvent` (slice 9 / pe
 
 ---
 
-## Implementation plan — work packages
-
-> **Sub-agent execution.** **WP-1 lands first** (the death system, seam, components, config, and the HP-floor change — everything with no event/handler wiring). **WP-2 and WP-3 depend only on WP-1, not on each other**, so they can run in parallel. The **primary agent runs `architecture-reviewer` (code mode) across the combined diff** after all three land — sub-agents do not self-review.
-
-### WP-1 — Death system, components, config, HP-floor seam *(no event wiring)*
-- **Scope:** the domain decision surface and its data, with no handlers/events yet.
-- **Files:** `RespawnComponent.cs` (`Core/ECS/Components/`, `[Persistent]`); `IDeathSystem.cs`/`DeathSystem.cs` (`Core/Modules/Death/Systems/` — `OnHpChanged`, `Respawn`, `SetRespawn`, `DeathTransition` enum); `DeathOptions.cs` (`Death:` section bind) + `appsettings.json` keys (`Death:HpFloor=-10`, `Death:BleedPerTick=1`, `Death:RespawnPoolPercent=0.25`); `IEffectSystem`/`EffectSystem` add `RemoveImpermanent`; `IAttributeSystem`/`AttributeSystem` change `SetCurrentHp` lower clamp from `0` to `Death:HpFloor`; `AccountSystem.CreateCharacterAsync` attaches `RespawnComponent`; `CombatSystem.ExecuteRound` removes the clamp-to-1 stub; `DeathModule.cs` (registration only).
-- **Depends on:** nothing (lands first).
-- **Out of scope:** all event publishing, handlers, the dispatcher gate, admin command.
-- **Exit (testable):** solution builds; `IDeathSystem.OnHpChanged` returns `BecameIncapacitated`/`Died`/`None` correctly; `SetCurrentHp` floors at `-10`; a freshly-created character has `RespawnComponent`; `RemoveImpermanent` strips timed effects and keeps `UntilRemoved`.
-
-### WP-2 — Pipeline wiring: incapacitation, bleed, death, respawn *(depends on WP-1)*
-- **Scope:** the heartbeat-driven bleed pulse and the death→respawn handlers + their events; combat/effect handlers call `OnHpChanged`.
-- **Files:** events (`PlayerIncapacitatedEvent`, `PlayerBleedingEvent`, `PlayerDiedEvent`, `PlayerRespawnedEvent`); `DeathTickHandler.cs`, `PlayerDeathHandler.cs`, `DeathNarrationHandler.cs`; `CombatTickHandler.cs` + `EffectTickHandler.cs` call `IDeathSystem.OnHpChanged` and publish `PlayerIncapacitatedEvent` on the incap transition (combat's clamp-to-1 path replaced); `MobDiedEvent.cs` extended with `KillerEntityId`; `CombatMobDeathHandler.cs` passes the killer; `Program.cs` subscriptions; `flow-18`/`flow-21` updated for the `OnHpChanged` call; `docs/architecture/03-events.md` "Worked example: Player death" (~L264) corrected — this slice ships the real `PlayerDiedEvent`/`PlayerDeathHandler`, so the stale save-on-change description is replaced with the periodic-flush model (INV-22).
-- **Depends on:** WP-1.
-- **Out of scope:** the dispatcher gate and admin command (WP-3).
-- **Exit (testable):** a player driven to 0 HP by combat *or* poison becomes incapacitated; bleeds 1/tick with a message each tick; dies at -10; respawns at the stored room with pools at 25% and timed effects cleared while permanent effects remain; `MobDiedEvent` carries the killer id.
-
-### WP-3 — Command-block gate + admin respawn tooling *(depends on WP-1)*
-- **Scope:** the dispatcher incapacitation gate and the respawn authoring/inspection surface.
-- **Files:** `ICommand.cs` (+ `UsableWhileIncapacitated`, default `false` via a base/default-interface or each command); `CommandDispatcher.cs` (incapacitation gate + `CommandOutcome.Refused`); flag the allowlist commands (`quit`, `help`, `commands`, `score`) `true`; `SetRespawnCommand.cs` + `PlayerRespawnSetByAdminEvent.cs`; `AdminAuditHandler.cs` (+ new event); `ScoreDisplayMessage`/`ScoreCommand` show the respawn room (inspection surface, INV-18); reference-catalog sweep (`components.md`, `systems.md`, `handlers.md`, `commands.md`, `events` mentions) **owned by WP-3** across all three packages; `.claude/skills/add-command/SKILL.md` §Persistence (INV-20) — the "admin boundary save" subsection (with `setrespawn` as the worked example) was added when INV-22 was reworded alongside this slice; WP-3 only verifies it still matches the shipped `SetRespawnCommand`.
-- **Depends on:** WP-1 (needs `IEntityStateService.IsInState` — already exists — and the `Incapacitated` flag set by WP-2 at runtime, but not WP-2's code to compile).
-- **Out of scope:** the bleed/death pipeline (WP-2).
-- **Exit (testable):** an incapacitated player's `north` is refused with a message while `score`/`quit` still work; `setrespawn <player> room.x` validates the blueprint, persists, and `score` shows the new respawn room; `flow-03` updated for the gate.
-
----
-
-## Content tooling impact
-
-- **Admin authoring:** `setrespawn <player> <roomBlueprintId>` sets a player's respawn location at runtime (validated against `ITemplateRegistry`), routed through `IDeathSystem.SetRespawn` (the *system* owns the logic; the command is a thin caller, so the future content editor reuses it — editor-forward, per the `setplayer`/`setmob` precedent).
-- **Inspection:** `score` is extended to display the current respawn room blueprint id (and the incapacitated/bleeding state when active) so a designer can verify both new pieces of state in the same PR (INV-18). The bleed state is also self-evident from the per-tick `PlayerBleedingEvent` message.
-- **Balance config:** `Death:HpFloor`, `Death:BleedPerTick`, `Death:RespawnPoolPercent` are tunable in `appsettings.json` (see Cross-cutting → Configuration for the category justification).
-- No new YAML template kind or `TemplateRegistry` entry — death/respawn state lives on player (persistent) entities, authored via creation defaults + admin command, not via content files.
-
----
-
-## Cross-cutting surfaces stressed
-
-- **Commands — Gap exposed (framework lands in this slice, WP-3).** The requirement "an incapacitated player can execute *no* commands" cannot be met by the existing per-command `RequiredPrivileges` opt-in: that would force every current and future command to declare an incapacitation requirement, a pattern repeated ≥3× and silently broken by any new command that forgets it (INV-19). The correct shape is a **dispatcher-level state gate** + a single `ICommand.UsableWhileIncapacitated` opt-*out* flag (default-deny). This is a small, structural addition to `CommandDispatcher` and `ICommand`, landed in the same slice. **Disposition: framework slice lands alongside (WP-3), not deferred.** Resolution before merge.
-- **Event bus — Adequate.** Four new past-tense events + one extended event; all published by Initiators/Handlers (tick handlers, death handler, admin command), never by systems (INV-5). Tick-frequency publication of `PlayerBleedingEvent` mirrors the established `CombatRoundEvent`/`EffectExpiredEvent` per-tick pattern — no new infrastructure.
-- **Time / heartbeat — Adequate.** `DeathTickHandler` is a third `HeartbeatTickEvent` subscriber alongside `CombatTickHandler` and `EffectTickHandler`. Ordering note: bleed (this handler) and DoT effects (`EffectTickHandler`) both reduce HP on the same tick; both route their HP mutation through `IDeathSystem.OnHpChanged`, so whichever runs first that drives HP to the floor publishes `PlayerDiedEvent` and the other observes `Incapacitated` already cleared — idempotent. No ordering dependency introduced (both priority 20; death-vs-effect order is not load-bearing because the threshold check is monotonic).
-- **ECS queries — Adequate.** Bleed pulse queries `EntityStateComponent` for the `Incapacitated` flag (same snapshot-before-iterate pattern as `CombatStateComponent` in combat). No new query infrastructure.
-- **Configuration — Adequate.** `Death:HpFloor` / `Death:BleedPerTick` / `Death:RespawnPoolPercent` are surfaced via `IConfiguration` (`DeathOptions`) per [`../architecture/05-configuration.md`](../architecture/05-configuration.md). These are **Category-3 balance constants surfaced as settings** (the same OD-2 "tune without recompile" trigger that `CharacterDefaults:` used in 9-d) — chosen over hardcoded constants specifically because the user requires the pool-restore percent to be appsettings-configurable. End-state promotion to a content definition tracks with the content editor (backlog).
-- **Output / broadcast — Adequate.** Death/respawn/bleed messages use existing `IBroadcastSystem` (room fan-out + single-player writes) and typed `PlainMessage`/existing message shapes; the `score` respawn-room line extends `ScoreDisplayMessage` in place. No new output infrastructure.
-- **Sessions — Adequate.** The dispatcher gate reads `session.PlayerEntityId` (already available); no session-model change.
-- **Persistence — see the dedicated audit below. Gap: none; one classification confirmation required.**
-
-### Persistence opt-in audit (INV-22 / INV-23)
-
-**Level 1 — entity domain classification.**
-- The slice introduces no new entity construction path. It adds a component to the **player (persistent)** domain entity at creation (`AccountSystem.CreateCharacterAsync`, which already adds `PersistentEntity`). No world-content entity is touched. No domain transition occurs (a player never changes persistence domain on death — it respawns as the same persistent entity).
-- Mob death (Flow D-5) destroys a **world-content** entity (no `PersistentEntity`); `DestroyEntity` is the single exit point and already auto-cleans (no SQLite row exists). Unchanged.
-
-**Level 2 — component inclusion.**
-- `RespawnComponent` → **`[Persistent]`.** It holds player state (respawn location) that must survive a restart. Stores `RoomBlueprintId` (stable cross-restart), not the runtime `RoomEntityId`, mirroring `LocationComponent`'s persistence split. Confirmed correct.
-- `EntityStateComponent` (the `Incapacitated` flag holder) → **omit `[Persistent]` (unchanged, slice 9-a).** Transient by design: a crash mid-incapacitation reconnects the player with last-flushed HP and no flag. If last-flushed HP was ≤ 0 the player reconnects "wounded but conscious"; the next damage re-enters the pipeline. Acceptable MUD convention; matches the slice 9-a decision. No change.
-- `PoolsComponent`, `LocationComponent`, `EffectsComponent` → already `[Persistent]` (correct); the slice writes them via existing seams. The respawn pool/location/effect mutations ride the existing persistence of these components. No `[Persistent]` correction needed.
-
-**Level 3 — save-on-change scope.**
-- The death→respawn pipeline (Flow D-4) performs **no `SaveEntityAsync`** — the location/pool/effect mutations are runtime state changes covered by the periodic flush (INV-22). Confirmed compliant.
-- `SetRespawnCommand` (Flow D-6) calls `SaveEntityAsync` — this is the **admin boundary save** category named in INV-22 (admin-gated mutation via a domain system → `SaveEntityAsync` → publish audit event), consistent with the existing `setplayer` precedent. **Disposition: resolved — keep the explicit save.** An admin mutation lands durably without waiting for the periodic flush. (See Resolved decisions #1.)
-
----
-
-## Flows introduced or modified
-
-**New canonical flows (add to `flows/README.md`):**
-- **Flow 22 — Player incapacitation and bleed-out** (`flow-22-incapacitation-bleedout.md`): HP→0 entry from combat/effects, the dispatcher command-block, and the heartbeat bleed pulse.
-- **Flow 23 — Player death and respawn** (`flow-23-player-death-respawn.md`): `PlayerDiedEvent` → `IDeathSystem.Respawn` → relocation, effect expiry, pool restore, narration.
-
-**Modified canonical flows:**
-- **Flow 03 — Player command lifecycle** (`flow-03-player-command-lifecycle.md`): add the incapacitation gate between verb resolution and the privilege gate; add `CommandOutcome.Refused`.
-- **Flow 18 — Combat round pulse**: the `PlayerIncapacitated` branch no longer clamps HP to 1; it applies real damage and calls `IDeathSystem.OnHpChanged`, publishing `PlayerIncapacitatedEvent`.
-- **Flow 21 — Effect tick**: a DoT tick that drives a player to 0 HP now calls `IDeathSystem.OnHpChanged` and publishes `PlayerIncapacitatedEvent` (the effect tick becomes a death-pipeline entry point).
-- **Flow 20 — Mob death and respawn**: `MobDiedEvent` payload gains `KillerEntityId` (note only; spawn-slot logic unchanged).
-
-The implementation PR must update `flows/README.md` (new rows 22–23) and the four modified flow files. Drift is a merge blocker.
-
----
-
 ## Design Notes
 
 - **HP threshold, not a death command.** Per requirement 2, incapacitation and death key off the HP pool crossing a threshold, evaluated by `IDeathSystem.OnHpChanged` and called by whichever Initiator mutated HP. This is why combat *and* effect ticks both reach the same pipeline with no duplicated death logic — the single decision seam is the anti-duplication mechanism (INV-19). `IAttributeSystem` deliberately does **not** call `OnHpChanged` itself: a core/domain compute seam chaining into a domain decision would violate the layer discipline and create a hidden side-effect on every HP write (combat would re-enter death logic mid-round). The caller owns the threshold call.
@@ -225,18 +145,6 @@ The implementation PR must update `flows/README.md` (new rows 22–23) and the f
 - **25% pool restore is a flat fraction.** Every pool is set to `floor(Max * RespawnPoolPercent)`. Per-pool fractions (e.g. respawn with full Stamina but quarter Mana) are deferred — the single config key is the simplest shape that satisfies the requirement and is trivially generalized later.
 - **No corpse, no item loss, no XP loss.** Death penalty beyond pool-restoration is out of scope. The respawn is "soft" (relocate + restore) — the substrate a future harsher-death or corpse-retrieval slice builds on. The `PlayerDiedEvent` payload carries the death room id so a future corpse-spawn handler has the location without re-deriving it.
 - **`SetCurrentHp` floor change is shared.** Lowering the clamp floor to `Death:HpFloor` affects every `SetCurrentHp` caller. This is intentional: overkill (a 50-damage blow at 5 HP) should land the player at a negative value the bleed-out reads, not be silently clamped to 0/1. Mobs reach 0 and die immediately (handled by combat's `MobDied` outcome before any negative value matters), so the negative floor is a player-only concern in practice.
-- **On ship:** author `architecture/subsystems/death.md` (the living design of the incapacitation/death/respawn system) and trim this doc to the durable behavior spec per the docs lifecycle.
-
----
-
-## Resolved decisions
-
-*All four design forks were settled with the owner before spec review; recorded here so they are not re-litigated.*
-
-1. **Admin respawn-set save (INV-22 boundary). → Keep the explicit `SaveEntityAsync`.** `SetRespawnCommand` performs an **admin boundary save** — the named INV-22 category (mirroring `setplayer`): an admin-gated mutation lands durably without waiting for the next periodic flush. INV-22 was reworded alongside this slice to name this category explicitly rather than treat it as a strict-reading exception.
-2. **Bleed notification cadence. → Notify every tick.** `PlayerBleedingEvent` fires on every heartbeat tick the player is incapacitated (no throttling). The urgency is intentional; revisit only if play-testing shows it's noisy.
-3. **Allowlist of usable-while-incapacitated commands. → Minimal.** Ship `help`, `commands`, `score` flagged `UsableWhileIncapacitated = true`; nothing else. (Disconnect is transport-level, not a command verb, so it needs no flag — confirmed in spec review: there is no `quit` command in `Core/`.) The default-deny opt-out flag makes adding a future `pray`/`yell` call-for-help a one-line change when that command is authored.
-4. **`KillerEntityId` lifetime / killer-name snapshot. → Defer to the reward slice.** This slice ships only the bare `KillerEntityId` field on `PlayerDiedEvent`/`MobDiedEvent`. No killer-*name* snapshot is captured now; the future `RewardSystem` owns its own snapshot needs (and the killer-destroyed-before-reward edge case).
 
 ---
 

@@ -5,7 +5,8 @@ namespace Hedron.Core.Modules.Attributes.Systems
     /// <see cref="ECS.Components.PoolsComponent"/>. Getters are the surface combat and stat
     /// consumers call; setters serve the admin and initialization paths.
     /// INV-5: this system never touches the event bus or persistence.
-    /// Pool invariants: SetMaxX clamps CurrentX to new MaxX; SetCurrentX clamps to [0, MaxX].
+    /// Pool invariants: SetMaxX clamps CurrentX to new MaxX; SetCurrentX clamps to [HpFloor, MaxX]
+    /// for HP (where HpFloor is <c>Death:HpFloor</c>, default -10) and [0, MaxX] for all other pools.
     /// </summary>
     public interface IAttributeSystem
     {
@@ -32,7 +33,12 @@ namespace Hedron.Core.Modules.Attributes.Systems
 
         /// <summary>Sets MaxHp; clamps CurrentHp to new MaxHp if it would exceed it.</summary>
         void SetMaxHp(uint entityId, int value);
-        /// <summary>Sets CurrentHp clamped to [0, MaxHp]. No events, no persistence (INV-5).</summary>
+        /// <summary>
+        /// Sets CurrentHp clamped to [<c>Death:HpFloor</c>, MaxHp] (default floor: -10).
+        /// No events, no persistence (INV-5). The caller is responsible for evaluating HP
+        /// threshold crossings via <c>IDeathSystem.OnHpChanged</c> — this method does NOT call it
+        /// (INV-5: core systems must not chain into domain decisions).
+        /// </summary>
         void SetCurrentHp(uint entityId, int value);
 
         void SetMaxMana(uint entityId, int value);

@@ -4,7 +4,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Core.Commands.Authorization;
 using Hedron.Core.Commands.Events;
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
+using Hedron.Core.Modules.EntityState.Systems;
 using Hedron.Core.Output;
 using Hedron.Core.Sessions;
 using Microsoft.Extensions.Logging;
@@ -32,6 +34,7 @@ namespace Hedron.Core.Commands
         private readonly ICommandArgumentParser _argumentParser;
         private readonly IOutputWriterFactory _outputWriterFactory;
         private readonly IEventBus _eventBus;
+        private readonly IEntityStateService _entityStateService;
         private readonly ILogger<CommandDispatcher> _logger;
         private readonly IServiceProvider _services;
 
@@ -41,6 +44,7 @@ namespace Hedron.Core.Commands
             ICommandArgumentParser argumentParser,
             IOutputWriterFactory outputWriterFactory,
             IEventBus eventBus,
+            IEntityStateService entityStateService,
             ILogger<CommandDispatcher> logger,
             IServiceProvider services)
         {
@@ -49,6 +53,7 @@ namespace Hedron.Core.Commands
             _argumentParser = argumentParser ?? throw new ArgumentNullException(nameof(argumentParser));
             _outputWriterFactory = outputWriterFactory ?? throw new ArgumentNullException(nameof(outputWriterFactory));
             _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
+            _entityStateService = entityStateService ?? throw new ArgumentNullException(nameof(entityStateService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _services = services ?? throw new ArgumentNullException(nameof(services));
 
@@ -123,6 +128,20 @@ namespace Hedron.Core.Commands
 
             // Use the canonical name for all downstream operations so log lines are stable.
             var canonicalVerb = command.Name;
+
+            // Incapacitation gate — checked before privilege so a blocked-incapacitated player
+            // does not receive a misleading "not authorized" message for commands they would
+            // normally be allowed to use.
+            if (!command.UsableWhileIncapacitated
+                && _entityStateService.IsInState(session.PlayerEntityId, EntityStateFlags.Incapacitated))
+            {
+                await output.WriteAsync(new PlainMessage(
+                    "You are incapacitated and cannot do that.", OutputSeverity.Error))
+                    .ConfigureAwait(false);
+                await PublishExecutedAsync(session.PlayerEntityId, canonicalVerb, string.Empty, CommandOutcome.Refused)
+                    .ConfigureAwait(false);
+                return;
+            }
 
             // Privilege gate
             foreach (var req in command.RequiredPrivileges)
