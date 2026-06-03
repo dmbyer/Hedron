@@ -91,9 +91,23 @@ namespace Hedron.Core.Modules.Effects.Commands
             if (powerArg != null && int.TryParse(powerArg, out var parsedPower))
                 overridePower = parsedPower;
 
-            var appliedDef = overridePower.HasValue
-                ? definition with { Params = definition.Params with { BaseMagnitude = overridePower.Value }, PowerScalingFormula = "fixed" }
-                : definition;
+            // Preserve the direction (sign) of the definition's BaseMagnitude; treat the override
+            // as a magnitude. This means `affect goblin kick_damage 5` deals 5 damage (not 5 healing)
+            // because kick_damage's BaseMagnitude is negative. For effects with BaseMagnitude == 0,
+            // fall back to the raw override value.
+            EffectDefinition appliedDef;
+            if (overridePower.HasValue)
+            {
+                var baseMagnitude = definition.Params.BaseMagnitude;
+                var signedOverride = baseMagnitude != 0
+                    ? Math.Sign(baseMagnitude) * Math.Abs(overridePower.Value)
+                    : overridePower.Value;
+                appliedDef = definition with { Params = definition.Params with { BaseMagnitude = signedOverride }, PowerScalingFormula = "fixed" };
+            }
+            else
+            {
+                appliedDef = definition;
+            }
 
             var appliedEffect = _effectSystem.Apply(targetEntityId, appliedDef, context.InvokerEntityId);
             if (appliedEffect != null && appliedEffect.Kind == EffectKind.Instant)
