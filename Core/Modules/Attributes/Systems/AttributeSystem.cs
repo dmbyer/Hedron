@@ -1,6 +1,8 @@
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Death;
+using Hedron.Core.Modules.Effects.Systems;
+using Hedron.Core.Modules.Stats;
 using Microsoft.Extensions.Options;
 
 namespace Hedron.Core.Modules.Attributes.Systems
@@ -8,6 +10,7 @@ namespace Hedron.Core.Modules.Attributes.Systems
     public sealed class AttributeSystem : IAttributeSystem
     {
         private readonly EntityService _entityService;
+        private readonly IEffectSystem _effectSystem;
         private readonly int _hpFloor;
 
         // NOTE: AttributeSystem reads the HP-floor clamp from DeathOptions because the death floor
@@ -16,9 +19,15 @@ namespace Hedron.Core.Modules.Attributes.Systems
         // "IOptions<T> sweep — typed config options across Core" tracks decoupling this, either by
         // moving HpFloor to AttributeOptions or by eliminating the clamp from AttributeSystem
         // entirely (letting callers own the floor).
-        public AttributeSystem(EntityService entityService, IOptions<DeathOptions> deathOptions)
+        //
+        // IEffectSystem is injected so that SetCurrentX pool setters clamp to the *effective* max
+        // (base pool max + active stat modifiers) rather than just the stored base max. This ensures
+        // that passive modifiers like toughness (+HpMax) are respected when healing or spending pools.
+        // AttributeSystem (domain) → IEffectSystem (core-tier) is a legal downward dependency.
+        public AttributeSystem(EntityService entityService, IEffectSystem effectSystem, IOptions<DeathOptions> deathOptions)
         {
             _entityService = entityService;
+            _effectSystem = effectSystem;
             _hpFloor = deathOptions.Value.HpFloor;
         }
 
@@ -104,7 +113,8 @@ namespace Hedron.Core.Modules.Attributes.Systems
         {
             if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
                 return;
-            p.CurrentHp = Math.Clamp(value, _hpFloor, GetMaxHp(entityId));
+            var effectiveMax = GetMaxHp(entityId) + _effectSystem.GetModifiers(entityId, ScoreId.HpMax);
+            p.CurrentHp = Math.Clamp(value, _hpFloor, effectiveMax);
         }
 
         public void SetMaxMana(uint entityId, int value)
@@ -120,7 +130,8 @@ namespace Hedron.Core.Modules.Attributes.Systems
         {
             if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
                 return;
-            p.CurrentMana = Math.Clamp(value, 0, GetMaxMana(entityId));
+            var effectiveMax = GetMaxMana(entityId) + _effectSystem.GetModifiers(entityId, ScoreId.ManaMax);
+            p.CurrentMana = Math.Clamp(value, 0, effectiveMax);
         }
 
         public void SetMaxStamina(uint entityId, int value)
@@ -136,7 +147,8 @@ namespace Hedron.Core.Modules.Attributes.Systems
         {
             if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
                 return;
-            p.CurrentStamina = Math.Clamp(value, 0, GetMaxStamina(entityId));
+            var effectiveMax = GetMaxStamina(entityId) + _effectSystem.GetModifiers(entityId, ScoreId.StaminaMax);
+            p.CurrentStamina = Math.Clamp(value, 0, effectiveMax);
         }
 
         public void SetMaxAstra(uint entityId, int value)
@@ -152,7 +164,8 @@ namespace Hedron.Core.Modules.Attributes.Systems
         {
             if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
                 return;
-            p.CurrentAstra = Math.Clamp(value, 0, GetMaxAstra(entityId));
+            var effectiveMax = GetMaxAstra(entityId) + _effectSystem.GetModifiers(entityId, ScoreId.AstraMax);
+            p.CurrentAstra = Math.Clamp(value, 0, effectiveMax);
         }
     }
 }

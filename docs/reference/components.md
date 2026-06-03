@@ -56,6 +56,7 @@ Persistence uses two independent opt-ins. See [../architecture/06-persistence.md
 | Account | `CharacterComponent` | `AccountEntityId`, `CharacterName`, `CreatedAtUtc`, `LastLoginUtc` | yes |
 | Effects | `EffectsComponent` | `List<Effect> Effects` — active timed/permanent effects on an entity. `[Persistent]`, lifetime-filtered `JsonConverter` (`EffectsComponentJsonConverter`) serializes only `UntilRemoved` effects — timed effects are transient by design. Located in `Core/ECS/Components/` (cross-cutting). | yes |
 | Death | `RespawnComponent` | `RoomBlueprintId: string?` — stable blueprint id of the room where this entity respawns after death. `null` means "use the world starting room" (fallback in `IDeathSystem.Respawn`). Stores the blueprint id rather than the runtime entity id because room entity ids are not stable across restarts. Attached to every new character by `AccountSystem.CreateCharacterAsync`. Set by `SetRespawnCommand` (admin boundary save, INV-22). Located in `Core/ECS/Components/` (cross-cutting). | yes |
+| Abilities | `AbilitiesComponent` | `Known: List<string>` — ability ids the entity has learned. `CooldownRemaining: Dictionary<string, float>` — per-ability cooldown in seconds remaining. `[Persistent]` with `AbilitiesComponentJsonConverter`: `Known` is durable and persists across restarts; `CooldownRemaining` is transient (resets to ready on load). Located in `Core/ECS/Components/` (cross-cutting). | yes (`Known` only — `CooldownRemaining` excluded by converter) |
 
 ---
 

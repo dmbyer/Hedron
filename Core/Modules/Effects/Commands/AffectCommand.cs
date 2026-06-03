@@ -1,13 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Core.Commands;
 using Hedron.Core.Commands.Authorization;
 using Hedron.Core.ECS;
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Account.Components;
+using Hedron.Core.Modules.Attributes.Systems;
 using Hedron.Core.Modules.Effects.Events;
 using Hedron.Core.Modules.Effects.Systems;
+using Hedron.Core.Modules.Stats;
 using Hedron.Core.Output;
 using Hedron.Core.Sessions;
 
@@ -17,6 +21,7 @@ namespace Hedron.Core.Modules.Effects.Commands
     {
         private readonly IEffectSystem _effectSystem;
         private readonly IEffectRegistry _effectRegistry;
+        private readonly IAttributeSystem _attributeSystem;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
         private readonly ISessionManager _sessionManager;
@@ -45,12 +50,14 @@ namespace Hedron.Core.Modules.Effects.Commands
         public AffectCommand(
             IEffectSystem effectSystem,
             IEffectRegistry effectRegistry,
+            IAttributeSystem attributeSystem,
             EntityService entityService,
             IEventBus eventBus,
             ISessionManager sessionManager)
         {
             _effectSystem = effectSystem;
             _effectRegistry = effectRegistry;
+            _attributeSystem = attributeSystem;
             _entityService = entityService;
             _eventBus = eventBus;
             _sessionManager = sessionManager;
@@ -84,11 +91,28 @@ namespace Hedron.Core.Modules.Effects.Commands
             if (powerArg != null && int.TryParse(powerArg, out var parsedPower))
                 overridePower = parsedPower;
 
-            var appliedDef = overridePower.HasValue
-                ? definition with { Params = definition.Params with { BaseMagnitude = overridePower.Value }, PowerScalingFormula = "fixed" }
-                : definition;
+            // Preserve the direction (sign) of the definition's BaseMagnitude; treat the override
+            // as a magnitude. This means `affect goblin kick_damage 5` deals 5 damage (not 5 healing)
+            // because kick_damage's BaseMagnitude is negative. For effects with BaseMagnitude == 0,
+            // fall back to the raw override value.
+            EffectDefinition appliedDef;
+            if (overridePower.HasValue)
+            {
+                var baseMagnitude = definition.Params.BaseMagnitude;
+                var signedOverride = baseMagnitude != 0
+                    ? Math.Sign(baseMagnitude) * Math.Abs(overridePower.Value)
+                    : overridePower.Value;
+                appliedDef = definition with { Params = definition.Params with { BaseMagnitude = signedOverride }, PowerScalingFormula = "fixed" };
+            }
+            else
+            {
+                appliedDef = definition;
+            }
 
             var appliedEffect = _effectSystem.Apply(targetEntityId, appliedDef, context.InvokerEntityId);
+            if (appliedEffect != null && appliedEffect.Kind == EffectKind.Instant)
+                ApplyInstantMagnitude(targetEntityId, appliedEffect.Params.TargetScore, appliedEffect.Power);
+
             if (appliedEffect == null)
             {
                 await context.Output.WriteAsync(new PlainMessage(
@@ -110,8 +134,28 @@ namespace Hedron.Core.Modules.Effects.Commands
                 OutputSeverity.Confirmation)).ConfigureAwait(false);
         }
 
+        private void ApplyInstantMagnitude(uint entityId, ScoreId scoreId, int power)
+        {
+            switch (scoreId)
+            {
+                case ScoreId.HpCurrent:
+                    _attributeSystem.SetCurrentHp(entityId, _attributeSystem.GetCurrentHp(entityId) + power);
+                    break;
+                case ScoreId.ManaCurrent:
+                    _attributeSystem.SetCurrentMana(entityId, _attributeSystem.GetCurrentMana(entityId) + power);
+                    break;
+                case ScoreId.StaminaCurrent:
+                    _attributeSystem.SetCurrentStamina(entityId, _attributeSystem.GetCurrentStamina(entityId) + power);
+                    break;
+                case ScoreId.AstraCurrent:
+                    _attributeSystem.SetCurrentAstra(entityId, _attributeSystem.GetCurrentAstra(entityId) + power);
+                    break;
+            }
+        }
+
         private uint ResolveTarget(string target)
         {
+            // Connected players — match by character name
             foreach (var session in _sessionManager.GetAll())
             {
                 if (session.PlayerEntityId == 0)
@@ -121,8 +165,18 @@ namespace Hedron.Core.Modules.Effects.Commands
                     return session.PlayerEntityId;
             }
 
-            if (uint.TryParse(target, out var entityId))
-                return entityId;
+            // Mobs — match by name or any keyword (first match wins)
+            foreach (var (entityId, mob) in _entityService.GetAllComponents<MobDataComponent>())
+            {
+                if (string.Equals(mob.Name, target, StringComparison.OrdinalIgnoreCase))
+                    return entityId;
+                if (mob.Keywords.Any(k => string.Equals(k, target, StringComparison.OrdinalIgnoreCase)))
+                    return entityId;
+            }
+
+            // Numeric entity id fallback
+            if (uint.TryParse(target, out var parsed))
+                return parsed;
 
             return 0;
         }

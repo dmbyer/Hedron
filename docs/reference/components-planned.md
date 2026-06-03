@@ -16,7 +16,7 @@ The intended full component set for living entities, items, and locations once t
 | ~~`AttributesComponent`~~ | **Shipped in slice 8a** — see [`components.md`](components.md). Planned shape (`Might`/`Finesse`/`Will`) was superseded by `Strength`/`Dexterity`/`Constitution`. | — | — |
 | ~~`PoolsComponent`~~ | **Shipped in slice 8a** — see [`components.md`](components.md). Planned shape (`HP/Stamina/Energy`) was narrowed to `MaxHp`/`CurrentHp` for the initial combat slice. | — | — |
 | `CurrencyComponent` | copper, silver, gold, vita, menta, astra | Player, Mob | yes |
-| `SkillsComponent` | learned skills, levels, improvement tracking | Player, Mob | yes |
+| ~~`SkillsComponent`~~ | **Superseded by `AbilitiesComponent` (slice 11-a).** Generalized to cover both skills and spells. See `docs/reference/components.md`. | — | — |
 | `QualitiesComponent` | misc qualities / tags | Player, Mob | yes |
 | `InventoryComponent` | unequipped carried items, capacity | Player, Mob, Room (ground items) | yes |
 | `EquipmentComponent` | items worn in slots (`Head`, `Torso`, `OneHandedWeapon`, …) | Player, Mob | yes |

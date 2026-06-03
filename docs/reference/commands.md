@@ -23,6 +23,19 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 ---
 
+### `abilities` / `skills` / `spells`
+
+**Aliases:** `skills`, `spells`
+**MatchingMode:** `Partial`
+**Location:** `Core/Modules/Abilities/Commands/AbilitiesCommand.cs`
+**Description:** Lists all abilities the invoking player has learned. Each row shows ability id, Kind (Skill/Spell), Activation type (Active/Passive/Triggered), Targeting (Self/Target), resource costs, and current cooldown status (`ready` or remaining seconds to one decimal place). Writes "You know no abilities." when the known list is empty. No events fired.
+**Usage:** `abilities`
+**Schema:** no arguments
+**Dependencies:** `IAbilitySystem`, `IAbilityRegistry`
+**Events:** none
+
+---
+
 ### `commands`
 
 **Aliases:** none  
@@ -355,6 +368,34 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Schema:** `Token string "characterName"` (required), `Token string "roomBlueprintId"` (required)  
 **Dependencies:** `IDeathSystem`, `ISessionManager`, `EntityService`, `IEventBus`, `IPersistenceSystem`  
 **Events:** `PlayerRespawnSetByAdminEvent`  
+**RequiredPrivileges:** `AdminRequirement`
+
+---
+
+### `teach`
+
+**Aliases:** none
+**MatchingMode:** `Full`
+**Location:** `Core/Modules/Abilities/Commands/TeachCommand.cs`
+**Description:** Grants a named ability to a connected player (or entity by raw entity id). Target is resolved by character name (connected players only) then by raw `uint` entity id. Validates the ability id exists in `IAbilityRegistry` and that the target does not already know it. On success: performs an admin boundary save (INV-22) then publishes `AbilityLearnedEvent` and `AbilityTaughtByAdminEvent`.
+**Usage:** `teach <target> <abilityId>`
+**Schema:** `Token string "target"` (required), `Token string "abilityId"` (required)
+**Dependencies:** `IAbilitySystem`, `EntityService`, `IEventBus`, `ISessionManager`, `IPersistenceSystem`
+**Events:** `AbilityLearnedEvent`, `AbilityTaughtByAdminEvent`
+**RequiredPrivileges:** `AdminRequirement`
+
+---
+
+### `useability`
+
+**Aliases:** none
+**MatchingMode:** `Full`
+**Location:** `Core/Modules/Abilities/Commands/UseAbilityCommand.cs`
+**Description:** Invokes the full ability activation pipeline for the invoker (or an optional target entity). Delegates to `IAbilitySystem.Activate`; returns structured failure reasons (unknown ability, not known, not activatable, state blocked, on cooldown, insufficient resources). On `Activated`: publishes `AbilityActivatedEvent` and one `EffectAppliedEvent` per applied non-null effect.
+**Usage:** `useability <abilityId> [target]`
+**Schema:** `Token string "abilityId"` (required), `Token string "target"` (optional — character name or entity id)
+**Dependencies:** `IAbilitySystem`, `EntityService`, `IEventBus`, `ISessionManager`
+**Events:** `AbilityActivatedEvent`, `EffectAppliedEvent` (per applied effect)
 **RequiredPrivileges:** `AdminRequirement`
 
 ---
