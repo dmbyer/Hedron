@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Core.Commands;
 using Hedron.Core.Commands.Authorization;
 using Hedron.Core.ECS;
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Account.Components;
 using Hedron.Core.Modules.Attributes.Systems;
@@ -139,6 +141,7 @@ namespace Hedron.Core.Modules.Effects.Commands
 
         private uint ResolveTarget(string target)
         {
+            // Connected players — match by character name
             foreach (var session in _sessionManager.GetAll())
             {
                 if (session.PlayerEntityId == 0)
@@ -148,8 +151,18 @@ namespace Hedron.Core.Modules.Effects.Commands
                     return session.PlayerEntityId;
             }
 
-            if (uint.TryParse(target, out var entityId))
-                return entityId;
+            // Mobs — match by name or any keyword (first match wins)
+            foreach (var (entityId, mob) in _entityService.GetAllComponents<MobDataComponent>())
+            {
+                if (string.Equals(mob.Name, target, StringComparison.OrdinalIgnoreCase))
+                    return entityId;
+                if (mob.Keywords.Any(k => string.Equals(k, target, StringComparison.OrdinalIgnoreCase)))
+                    return entityId;
+            }
+
+            // Numeric entity id fallback
+            if (uint.TryParse(target, out var parsed))
+                return parsed;
 
             return 0;
         }

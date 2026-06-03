@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Effects;
 using Hedron.Core.Sessions;
 
@@ -42,7 +43,8 @@ namespace Hedron.Core.Output
                 InventoryListMessage m    => FormatInventoryList(m, color),
                 EquipmentDisplayMessage m => FormatEquipmentDisplay(m, color),
                 ScoreDisplayMessage m     => FormatScore(m, color),
-                EffectDisplayMessage m                             => m.Format(),
+                EffectDisplayMessage m      => m.Format(),
+                AbilityDisplayMessage m    => m.Format(),
                 _                         => message.ToString() ?? string.Empty,
             };
         }

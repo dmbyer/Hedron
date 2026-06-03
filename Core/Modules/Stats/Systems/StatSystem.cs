@@ -41,7 +41,7 @@ namespace Hedron.Core.Modules.Stats.Systems
         public int GetEffectiveDefense(uint entityId) => _attributes.GetBody(entityId) / 4;
 
         public int GetCurrentHp(uint entityId) => _attributes.GetCurrentHp(entityId);
-        public int GetMaxHp(uint entityId) => _attributes.GetMaxHp(entityId);
+        public int GetMaxHp(uint entityId) => Get(entityId, ScoreId.HpMax);
 
         public int Get(uint entityId, ScoreId score) => score switch
         {
