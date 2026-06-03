@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
+using Hedron.Core.Modules.Abilities.Events;
 using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Attributes.Events;
 using Hedron.Core.Modules.Combat.Events;
@@ -38,7 +39,8 @@ namespace Hedron.Core.Modules.Admin.Handlers
         IEventHandler<PlayerAttributeSetByAdminEvent>,
         IEventHandler<CombatEndedEvent>,
         IEventHandler<EffectAppliedByAdminEvent>,
-        IEventHandler<PlayerRespawnSetByAdminEvent>
+        IEventHandler<PlayerRespawnSetByAdminEvent>,
+        IEventHandler<AbilityTaughtByAdminEvent>
     {
         private readonly EntityService _entityService;
         private readonly ILogger<AdminAuditHandler> _logger;
@@ -160,6 +162,14 @@ namespace Hedron.Core.Modules.Admin.Handlers
             _logger.LogInformation(
                 "AdminCommandExecuted: admin={Admin} command=setrespawn player={PlayerEntityId} roomBlueprintId={RoomBlueprintId}",
                 ResolveName(e.AdminEntityId), e.PlayerEntityId, e.RoomBlueprintId);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(AbilityTaughtByAdminEvent e)
+        {
+            _logger.LogInformation(
+                "AdminCommandExecuted: admin={Admin} command=teach student={StudentId} ability={AbilityId}",
+                ResolveName(e.AdminEntityId), e.StudentEntityId, e.AbilityId);
             return Task.CompletedTask;
         }
 

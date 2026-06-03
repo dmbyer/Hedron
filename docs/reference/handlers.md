@@ -79,6 +79,13 @@ Ask:
 **Location:** `Core/Modules/Spawn/Handlers/ItemContextHandler.cs`
 **Uses:** `EntityService`
 
+### AbilityCooldownTickHandler
+**Events:** `HeartbeatTickEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** Bridge between the time system and the abilities domain. On each tick: calls `IAbilitySystem.AdvanceCooldowns(@event.Elapsed)` to decrement all non-zero per-ability cooldown timers. No events published; no persistence calls (INV-5, INV-8).
+**Location:** `Core/Modules/Abilities/Handlers/AbilityCooldownTickHandler.cs`
+**Uses:** `IAbilitySystem`
+
 ### EffectTickHandler
 **Events:** `HeartbeatTickEvent`
 **Priority:** 20 (`HandlerPriority.Domain`)
@@ -108,7 +115,7 @@ Ask:
 **Uses:** `EntityService`, `IBroadcastSystem`
 
 ### AdminAuditHandler
-**Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a); `ItemCreatedByAdminEvent`, `ItemPropertySetByAdminEvent` (Phase 3 slice 6); `MobCreatedByAdminEvent`, `MobPropertySetByAdminEvent` (Phase 3 slice 8); `PlayerAttributeSetByAdminEvent` (Phase 3 slice 8a); `CombatEndedEvent` (Phase 3 slice 9); `EffectAppliedByAdminEvent` (Phase 3 slice 9-e); `PlayerRespawnSetByAdminEvent` (Phase 3 slice 10).
+**Events:** `EntitySpawnedByAdminEvent`, `PlayerTeleportedByAdminEvent`, `RoomExitAuthoredByAdminEvent`, `ContentReloadedEvent` (Phase 3 slice 2); `RoomCreatedByAdminEvent`, `RoomPropertySetByAdminEvent` (Phase 3 slice 5a); `ItemCreatedByAdminEvent`, `ItemPropertySetByAdminEvent` (Phase 3 slice 6); `MobCreatedByAdminEvent`, `MobPropertySetByAdminEvent` (Phase 3 slice 8); `PlayerAttributeSetByAdminEvent` (Phase 3 slice 8a); `CombatEndedEvent` (Phase 3 slice 9); `EffectAppliedByAdminEvent` (Phase 3 slice 9-e); `PlayerRespawnSetByAdminEvent` (Phase 3 slice 10); `AbilityTaughtByAdminEvent` (Phase 3 slice 11-a).
 **Priority:** 80 (`HandlerPriority.Notification`)
 **Responsibilities:** writes one structured-log entry per admin action via `ILogger<AdminAuditHandler>`. Uses a stable structured event name (`AdminCommandExecuted`) so log scrapers can filter without parsing free text. No dedicated audit-file sink in this slice.
 **Location:** `Core/Modules/Admin/Handlers/AdminAuditHandler.cs`

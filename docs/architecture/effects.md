@@ -51,7 +51,7 @@ Deferred kinds are defined in the enum; their handlers are additive (no model ch
 | `Timed` | `> 0` seconds | No | Expires via `AdvanceTick`; dropped if game restarts mid-duration |
 | `UntilRemoved` | `-1f` | **Yes** | Written by `EffectsComponentJsonConverter`; survives restarts |
 | `WhileEquipped` | Source-bound | No | Derived from equipment; not stored — re-derives from source on load |
-| `WhileKnown` | Source-bound | No | Derived from known abilities (S4) |
+| `WhileKnown` | Source-bound | No | Derived from known abilities (S4, built in slice 11-a) |
 | `WhilePresent` | Source-bound | No | Derived from area/aura presence |
 
 **Persistence contract.** `EffectsComponent` is `[Persistent]`. The `[JsonConverter(typeof(EffectsComponentJsonConverter))]` attribute on `EffectsComponent` causes `ComponentSerializer` to use the custom converter automatically — only `UntilRemoved` entries are written. Source-bound entries (`WhileEquipped`, etc.) re-derive when their sources load.
@@ -124,7 +124,7 @@ The seam is **dependency inversion**: a core-owned port `IEffectContributor`, DI
 | Contributor | Source | Lands |
 |---|---|---|
 | (stored effects) | `EffectsComponent` | built (9-e) |
-| `AbilityEffectContributor` | known `WhileKnown` passive abilities | slice 11-a |
+| `AbilityEffectContributor` | known `WhileKnown` passive abilities | built (11-a) |
 | equipment / aura / area contributors | worn items, present auras/areas | future slices, same port |
 
 **Why pull, not push.** A rejected alternative materializes derived modifiers into a stored component the aggregator reads. That caches derived state and reintroduces the "did I recompute when the source changed?" bug family compute-on-read exists to kill. Contributors **pull** at read time, so there is one source of truth (the worn item / known ability) and nothing to invalidate.
@@ -147,7 +147,7 @@ The seam is **dependency inversion**: a core-owned port `IEffectContributor`, DI
 ## Deferred / future
 
 - **Aspect resolution (S3).** `EffectParams.Aspect` is carried on every effect but resolved to raw magnitude for now. Aspect math lands in S3.
-- **Source-bound derivation.** Now formalized as [the contributor seam](#the-contributor-seam) (INV-24). Ability-derived passives land it in slice 11-a (`AbilityEffectContributor`); equipment/aura/area-derived effects fold in through the same `IEffectContributor` port in later slices.
+- **Source-bound derivation.** Formalized as [the contributor seam](#the-contributor-seam) (INV-24). `AbilityEffectContributor` was built in slice 11-a and derives passive-ability `WhileKnown` modifiers at read time. Equipment/aura/area-derived effects fold in through the same `IEffectContributor` port in later slices.
 - **Composite effects.** `CompositeEffectDefinition` (one name → several effects sharing a `Group`) deferred to the content slice that needs authored curses/blessings.
 - **`Speed` targeting.** No `Speed` `ScoreId` yet; `haste` → `Speed` buff lands when a combat/initiative slice makes `Speed` a consumed derived score.
 

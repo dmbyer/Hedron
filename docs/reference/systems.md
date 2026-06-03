@@ -416,7 +416,7 @@ public interface IEffectSystem
     EffectTickResult AdvanceTick(TimeSpan elapsed);
 }
 ```
-`Apply` returns `null` when `StackPolicy.HighestWins` blocks application (existing effect has equal or greater power). `AdvanceTick` advances elapsed time on timed effects, removes expired ones, and returns `EffectTickResult { DueApplications, Expired }` sorted by `EffectPhase` (Early → Normal → Late). Registered via `AddEffectsModule()`. Implemented (Phase 3 slice 9-e).
+`Apply` returns `null` when `StackPolicy.HighestWins` blocks application (existing effect has equal or greater power). `AdvanceTick` advances elapsed time on timed effects, removes expired ones, and returns `EffectTickResult { DueApplications, Expired }` sorted by `EffectPhase` (Early → Normal → Late). Injects `IEnumerable<IEffectContributor>`; `GetModifiers`/`GetActive` sum stored effects **plus** all registered contributors (INV-24 seam, slice 11-a). Registered via `AddEffectsModule()`. Implemented (Phase 3 slices 9-e, 11-a).
 
 ### EffectRegistry
 **Purpose:** Hardcoded read-only catalog of starter `EffectDefinition` records. Pure data — no event bus, no persistence. Promotion to a data file is deferred per the use-case spec (Category-3 balance data).
@@ -429,7 +429,7 @@ public interface IEffectRegistry
     IReadOnlyCollection<string> AllIds { get; }
 }
 ```
-Registered entries: `empower` (Body +5, Buff, 30s, HighestWins), `weaken` (Body -5, Debuff, 30s, HighestWins), `regen` (HpCurrent +10/tick, Blessing, 60s, Stack, Early), `poison` (HpCurrent -8/tick, Poison, 30s, Stack, Late), `minor_curse` (Mind -3, Curse, permanent, Stack). Registered via `AddEffectsModule()`. Implemented (Phase 3 slice 9-e).
+Registered entries: `empower` (Body +5, Buff, 30s, HighestWins), `weaken` (Body -5, Debuff, 30s, HighestWins), `regen` (HpCurrent +10/tick, Blessing, 60s, Stack, Early), `poison` (HpCurrent -8/tick, Poison, 30s, Stack, Late), `minor_curse` (Mind -3, Curse, permanent, Stack). Extended in slice 11-a: `kick_damage` (HpCurrent -15, Instant, Replace), `mend_heal` (HpCurrent +20, Instant, Replace), `toughness_passive` (HpMax +20, StatModifier, HighestWins). Registered via `AddEffectsModule()`. Implemented (Phase 3 slice 9-e; extended slice 11-a).
 
 ### CombatSystem
 **Purpose:** Domain system for combat resolution. Handles target lookup, combat state attachment/removal, and round resolution. Pure: no events, no persistence (INV-5, INV-8). Computes attack resolution via `IStatSystem`; mutates HP via `IAttributeSystem.SetCurrentHp`; returns structured `CombatRoundResult` to callers.
@@ -476,6 +476,52 @@ public interface IDeathSystem
 }
 ```
 `OnHpChanged` only applies to entities with `CharacterComponent` — mobs never enter the death pipeline. Configuration: `Death:HpFloor` (default `-10`), `Death:RespawnPoolPercent` (default `0.25`). Registered via `AddDeathModule()`. Implemented (Phase 3 slice 10).
+
+### AbilitySystem
+**Purpose:** Domain system managing the full ability lifecycle for players and mobs. Handles learn/teach, multi-cost atomic activation (resolve ability → entity state/cooldown/cost checks → spend costs → apply effects → set cooldown), per-ability cooldown tracking, and batch cooldown advancement on each heartbeat tick.
+**Location:** `Core/Modules/Abilities/Systems/AbilitySystem.cs` (implementation) · `Core/Modules/Abilities/Systems/IAbilitySystem.cs` (interface)
+**Dependencies:** `EntityService`, `IAbilityRegistry`, `IEffectSystem`, `IAttributeSystem`, `IEntityStateService`.
+```csharp
+public interface IAbilitySystem
+{
+    AbilityActivationResult Activate(uint actorEntityId, string abilityId, uint? targetEntityId = null);
+    bool Learn(uint entityId, string abilityId);
+    bool Teach(uint teacherEntityId, uint studentEntityId, string abilityId);
+    IReadOnlyList<string> GetKnown(uint entityId);
+    bool IsKnown(uint entityId, string abilityId);
+    float GetCooldownRemaining(uint entityId, string abilityId);
+    IReadOnlyList<(string AbilityId, float CooldownRemaining)> GetCooldowns(uint entityId);
+    void AdvanceCooldowns(TimeSpan elapsed);
+}
+```
+`Activate` validates in order: ability exists → actor knows it → `Active` activation → entity state ok (not Incapacitated) → cooldown ready → all costs affordable (atomic check before any spend). On success: spends each cost via `IAttributeSystem`, sets `AbilitiesComponent.CooldownRemaining[abilityId] = CooldownSeconds`, and calls `IEffectSystem.Apply` per effect id. Returns `AbilityActivationResult { Outcome, AbilityId, AppliedEffects, Spent, CooldownSeconds, FailReason? }`. `AdvanceCooldowns` decrements all non-zero cooldown entries by `elapsed.TotalSeconds`, clamping to 0. Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slice 11-a).
+
+### AbilityRegistry
+**Purpose:** Hardcoded read-only catalog of `AbilityDefinition` records. Pure data — no event bus, no persistence. Promotion to a data file is a future content concern.
+**Location:** `Core/Modules/Abilities/AbilityRegistry.cs` (implementation · interface `IAbilityRegistry` in same file)
+**Dependencies:** none.
+```csharp
+public interface IAbilityRegistry
+{
+    bool TryGet(string abilityId, out AbilityDefinition definition);
+    IReadOnlyCollection<string> AllIds { get; }
+}
+```
+Starter set: `toughness` (Skill/Passive/Self — `toughness_passive` effect), `kick` (Skill/Active/Target — 10 stamina, `kick_damage`), `empower` (Spell/Active/Self — 10 mana, `empower`), `mend` (Spell/Active/Self — 15 mana, `mend_heal`), `blood_pact` (Spell/Active/Self — 10 hp + 15 mana, `empower`). Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slice 11-a).
+
+### AbilityEffectContributor
+**Purpose:** Implements the `IEffectContributor` seam (INV-24). Derives `WhileKnown` passive ability effects into `EffectSystem.GetModifiers`/`GetActive` at read time. Each tick of `GetModifiers`, this contributor returns the stat modifiers implied by any `Passive` abilities the entity knows and that have `WhileKnown` effects in `IEffectRegistry`. No domain types are referenced from core; the adapter owns the translation.
+**Location:** `Core/Modules/Abilities/AbilityEffectContributor.cs`
+**Dependencies:** `EntityService`, `IAbilityRegistry`, `IEffectRegistry`.
+```csharp
+// Implements: Core/Modules/Effects/Systems/IEffectContributor.cs
+public interface IEffectContributor
+{
+    int GetModifiers(uint entityId, ScoreId scoreId);
+    IEnumerable<Effect> GetActive(uint entityId);
+}
+```
+Registered via `AddAbilitiesModule()` as `IEffectContributor` (DI-collected by `EffectSystem`). Implemented (Phase 3 slice 11-a).
 
 ### SpawnSystem
 **Purpose:** Tracks spawn slot occupancy for world-content entities (mobs, world-spawn items) and schedules respawns. Self-initializes from the live entity graph on `WorldContentReadyEvent`; reacts to `MobDiedEvent` and `ItemPickedUpEvent` to mark slots vacant; respawns on `HeartbeatTickEvent`. No events published; no persistence (INV-5, INV-8). Implemented (persistence reform Stage C).

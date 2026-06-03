@@ -6,8 +6,10 @@ using Hedron.Core.Commands.Authorization;
 using Hedron.Core.ECS;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Account.Components;
+using Hedron.Core.Modules.Attributes.Systems;
 using Hedron.Core.Modules.Effects.Events;
 using Hedron.Core.Modules.Effects.Systems;
+using Hedron.Core.Modules.Stats;
 using Hedron.Core.Output;
 using Hedron.Core.Sessions;
 
@@ -17,6 +19,7 @@ namespace Hedron.Core.Modules.Effects.Commands
     {
         private readonly IEffectSystem _effectSystem;
         private readonly IEffectRegistry _effectRegistry;
+        private readonly IAttributeSystem _attributeSystem;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
         private readonly ISessionManager _sessionManager;
@@ -45,12 +48,14 @@ namespace Hedron.Core.Modules.Effects.Commands
         public AffectCommand(
             IEffectSystem effectSystem,
             IEffectRegistry effectRegistry,
+            IAttributeSystem attributeSystem,
             EntityService entityService,
             IEventBus eventBus,
             ISessionManager sessionManager)
         {
             _effectSystem = effectSystem;
             _effectRegistry = effectRegistry;
+            _attributeSystem = attributeSystem;
             _entityService = entityService;
             _eventBus = eventBus;
             _sessionManager = sessionManager;
@@ -89,6 +94,9 @@ namespace Hedron.Core.Modules.Effects.Commands
                 : definition;
 
             var appliedEffect = _effectSystem.Apply(targetEntityId, appliedDef, context.InvokerEntityId);
+            if (appliedEffect != null && appliedEffect.Kind == EffectKind.Instant)
+                ApplyInstantMagnitude(targetEntityId, appliedEffect.Params.TargetScore, appliedEffect.Power);
+
             if (appliedEffect == null)
             {
                 await context.Output.WriteAsync(new PlainMessage(
@@ -108,6 +116,25 @@ namespace Hedron.Core.Modules.Effects.Commands
             await context.Output.WriteAsync(new PlainMessage(
                 $"Applied '{effectId}' (power {appliedEffect.Power}) to entity #{targetEntityId}.",
                 OutputSeverity.Confirmation)).ConfigureAwait(false);
+        }
+
+        private void ApplyInstantMagnitude(uint entityId, ScoreId scoreId, int power)
+        {
+            switch (scoreId)
+            {
+                case ScoreId.HpCurrent:
+                    _attributeSystem.SetCurrentHp(entityId, _attributeSystem.GetCurrentHp(entityId) + power);
+                    break;
+                case ScoreId.ManaCurrent:
+                    _attributeSystem.SetCurrentMana(entityId, _attributeSystem.GetCurrentMana(entityId) + power);
+                    break;
+                case ScoreId.StaminaCurrent:
+                    _attributeSystem.SetCurrentStamina(entityId, _attributeSystem.GetCurrentStamina(entityId) + power);
+                    break;
+                case ScoreId.AstraCurrent:
+                    _attributeSystem.SetCurrentAstra(entityId, _attributeSystem.GetCurrentAstra(entityId) + power);
+                    break;
+            }
         }
 
         private uint ResolveTarget(string target)

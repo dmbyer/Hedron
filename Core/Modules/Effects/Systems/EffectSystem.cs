@@ -10,10 +10,12 @@ namespace Hedron.Core.Modules.Effects.Systems
     public sealed class EffectSystem : IEffectSystem
     {
         private readonly EntityService _entityService;
+        private readonly IEnumerable<IEffectContributor> _contributors;
 
-        public EffectSystem(EntityService entityService)
+        public EffectSystem(EntityService entityService, IEnumerable<IEffectContributor> contributors)
         {
             _entityService = entityService;
+            _contributors = contributors;
         }
 
         public Effect? Apply(uint targetEntityId, EffectDefinition definition, uint sourceEntityId)
@@ -106,18 +108,21 @@ namespace Hedron.Core.Modules.Effects.Systems
 
         public IReadOnlyList<Effect> GetActive(uint entityId)
         {
-            if (_entityService.TryGet<EffectsComponent>(entityId, out var comp))
-                return comp.Effects;
-            return Array.Empty<Effect>();
+            IEnumerable<Effect> stored = _entityService.TryGet<EffectsComponent>(entityId, out var comp)
+                ? comp.Effects
+                : Array.Empty<Effect>();
+            var derived = _contributors.SelectMany(c => c.GetActive(entityId));
+            return stored.Concat(derived).ToList();
         }
 
         public int GetModifiers(uint entityId, ScoreId scoreId)
         {
-            if (!_entityService.TryGet<EffectsComponent>(entityId, out var comp))
-                return 0;
-            return comp.Effects
-                .Where(e => e.Kind == EffectKind.StatModifier && e.Params.TargetScore == scoreId)
-                .Sum(e => e.Power);
+            int stored = 0;
+            if (_entityService.TryGet<EffectsComponent>(entityId, out var comp))
+                stored = comp.Effects
+                    .Where(e => e.Kind == EffectKind.StatModifier && e.Params.TargetScore == scoreId)
+                    .Sum(e => e.Power);
+            return stored + _contributors.Sum(c => c.GetModifiers(entityId, scoreId));
         }
 
         public EffectTickResult AdvanceTick(TimeSpan elapsed)

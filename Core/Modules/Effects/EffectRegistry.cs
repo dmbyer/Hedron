@@ -42,6 +42,24 @@ namespace Hedron.Core.Modules.Effects
                 new EffectParams(ScoreId.Mind, -3),
                 EffectCategory.Curse, "fixed", -1f,
                 StackPolicy.Stack, EffectPhase.Normal),
+
+            ["kick_damage"] = new EffectDefinition(
+                "kick_damage", EffectKind.Instant,
+                new EffectParams(ScoreId.HpCurrent, -15),
+                EffectCategory.Debuff, "fixed", 0f,
+                StackPolicy.Replace, EffectPhase.Normal),
+
+            ["mend_heal"] = new EffectDefinition(
+                "mend_heal", EffectKind.Instant,
+                new EffectParams(ScoreId.HpCurrent, 20),
+                EffectCategory.Buff, "fixed", 0f,
+                StackPolicy.Replace, EffectPhase.Normal),
+
+            ["toughness_passive"] = new EffectDefinition(
+                "toughness_passive", EffectKind.StatModifier,
+                new EffectParams(ScoreId.HpMax, 20),
+                EffectCategory.Buff, "fixed", 0f,
+                StackPolicy.HighestWins, EffectPhase.Normal),
         };
 
         public bool TryGet(string effectId, out EffectDefinition definition)

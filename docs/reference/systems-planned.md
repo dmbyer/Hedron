@@ -21,6 +21,8 @@ public interface IDiceSystem
 Consider a deterministic mode for testing.
 
 ### SkillSystem
+> **Superseded by `IAbilitySystem` (slice 11-a).** Skills and spells are unified into one system; `Kind` (Skill|Spell) is a discriminator on `AbilityDefinition`. See `docs/reference/systems.md`.
+
 **Purpose:** Resolve skill checks and opposed checks.
 **Dependencies:** `IDiceSystem`, `IAttributeCalculator`.
 ```csharp
@@ -255,6 +257,8 @@ public interface IShopSystem
 **Rules encoded:** base prices, reputation/charisma modifiers, inventory refresh, buy/sell ratios.
 
 ### SpellSystem
+> **Superseded by `IAbilitySystem` (slice 11-a).** Skills and spells are unified into one system; `Kind` (Skill|Spell) is a discriminator on `AbilityDefinition`. See `docs/reference/systems.md`.
+
 **Purpose:** Spell casting and effects.
 **Dependencies:** `ISkillSystem`, `IEffectTracker`, `IVisibilitySystem`, `IAttributeCalculator`.
 ```csharp

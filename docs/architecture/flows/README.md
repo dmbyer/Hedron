@@ -33,6 +33,7 @@
 | 21 | [Effect tick](flow-21-effect-tick.md) | `HeartbeatTickEvent` dispatched to `EffectTickHandler` | Phase 3 slice 9-e |
 | 22 | [Player incapacitation and bleed-out](flow-22-incapacitation-bleedout.md) | Player HP crosses zero; `DeathTickHandler` bleeds out per tick | Phase 3 slice 10 |
 | 23 | [Player death and respawn](flow-23-player-death-respawn.md) | HP reaches `Death:HpFloor`; `PlayerDeathHandler` triggers full respawn | Phase 3 slice 10 |
+| 24 | [Ability activation](flow-24-ability-activation.md) | Admin sends `useability` (11-a); future: player `cast`/skill verb (11-b) | Phase 3 slice 11-a |
 
 Flows that don't yet exist (mob wander tick, etc.) get added by the slice that introduces them.
 
