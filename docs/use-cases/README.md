@@ -53,9 +53,12 @@ At slice close-out, `sync-roadmap` **trims** it to its durable behavior spec —
 | `implemented` | [`time-system.md`](time-system.md) | Phase 3 slice 9-b |
 | `implemented` | [`stat-system.md`](stat-system.md) | Phase 3 slice 9-c |
 | `implemented` | [`combat.md`](combat.md) | Phase 3 slice 9 |
-| `planned` | [`stat-resource-substrate.md`](stat-resource-substrate.md) | Phase 3 slice 9-d (gameplay-model S1) |
+| `implemented` | [`stat-resource-substrate.md`](stat-resource-substrate.md) | Phase 3 slice 9-d (gameplay-model S1) |
 | `implemented` | [`effect-substrate.md`](effect-substrate.md) | Phase 3 slice 9-e (gameplay-model S2) |
-| `planned` | [`death-and-respawn.md`](death-and-respawn.md) | Phase 3 slice 10 |
+| `implemented` | [`death-and-respawn.md`](death-and-respawn.md) | Phase 3 slice 10 |
+| `planned` | [`ability-substrate.md`](ability-substrate.md) | Phase 3 slice 11-a (gameplay-model S4) |
+| `planned` | [`ability-invocation.md`](ability-invocation.md) | Phase 3 slice 11-b (gameplay-model S4) |
+| `planned` | [`resource-regeneration.md`](resource-regeneration.md) | Phase 3 slice 11-c (supporting pool mechanic) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C): SQLite backend, EntityService lifecycle, world content de-persistence, context-driven item persistence, spawn slot foundation |
 

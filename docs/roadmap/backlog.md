@@ -46,6 +46,18 @@ Acknowledged debt from Phase 3 slice 4 ([`../use-cases/output-framework.md`](../
 
 `CommandDispatcher` carries five injected dependencies and owns authorization, parsing, output, event publication, and exception trapping (spec-mode review smell S1). A middleware/pipeline chain would isolate these concerns. Deferred from slice 3 to avoid ballooning the 12-command refactor. Revisit when a sixth concern would be added to the dispatcher, or if testing the dispatcher becomes painful.
 
+### 🔵 Combat action-economy & command queue (acknowledged debt from slice 11-b)
+
+Slice 11-b ([`../use-cases/ability-invocation.md`](../use-cases/ability-invocation.md)) lets an offensive ability fire immediately (cooldown-gated) — so an actor already in combat gets the ability strike **plus** the heartbeat auto-attack in the same ~2s tick (no one-ability-per-round metering). Intentional and bounded for 11-b's "minimal combat touch." The full action economy — a per-actor combat command **queue** (max ~10, with a `clear` verb), one-combat-ability-per-round, immediate-first-then-metered, cooldown-blocks-queue, plus the Speed-attribute / Action-Points scaling that paves the way to an optional real-time combat mode — is its own follow-up use-case (gameplay-model combat depth). Lands when combat depth is scheduled.
+
+### 🔵 Combat depth — resolution & reactions (follow-up to slice 11-b)
+
+The combat-flavored ability mechanics 11-b deliberately deferred: **hit/miss/partial-success** resolution, distinct **offensive vs defensive ratings**, and **triggered** abilities (dodge/parry/riposte) wired into the round with a stat-scaled trigger chance. 11-b ships only a defense-mitigated landed strike (no to-hit roll) and carries the `Triggered` activation mode as data-not-wired. Lands as one or two combat-depth use-cases after the ability cluster.
+
+### 🔵 Configurable / richer resource regeneration (deferred from slice 11-c)
+
+Slice 11-c ([`../use-cases/resource-regeneration.md`](../use-cases/resource-regeneration.md)) ships flat, **hardcoded** out-of-combat regeneration (idle 1/pool/3-ticks; resting ~3×) so ability resource costs are recoverable. Surfacing the rates as configuration — and the richer model (per-area/terrain rates, stat-derived regen, food/effect interaction, a "fully rested" notification) — is a dedicated regeneration use-case that depends on a more robust configuration model (a separate backlog concern). Until then the constants live isolated in `RegenerationSystem` for a cheap later promotion.
+
 ### 🔵 Locale enhancements
 
 Deferred from slice 5a (bare-bones content spawning). Three related capabilities held together because they share a data-model decision:
