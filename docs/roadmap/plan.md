@@ -27,14 +27,18 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–9 done; **next: slice 9-d — stat & resource substrate**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–10 done; **next: slice 11-a — ability substrate**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 9-d — Stat & resource substrate.** Combat is fully implemented (slice 9). Before death/respawn, two gameplay-model foundation slices land: **9-d (stat & resource substrate)** then **9-e (effect substrate)**, pulled ahead of death/respawn (slice 10) so death penalties and every later spine can rely on the finished stat/pool and effect models. 9-d migrates the interim `Str`/`Dex`/`Con` stats to the four attributes (Mind/Body/Spirit/Attunement), adds the Mana/Stamina/Astra pools, and introduces the `ScoreId`/`IStatRegistry` seam. See [`../use-cases/stat-resource-substrate.md`](../use-cases/stat-resource-substrate.md) for the spec and its sub-agent work packages, and [`../design/gameplay-model.md`](../design/gameplay-model.md) for the design these slices implement.
+**Phase 3 cluster 11 — Abilities (skills + spells) + supporting mechanics.** Slices 9-d (stat/resource substrate), 9-e (effect substrate), and 10 (death/respawn) are complete; the stat/pool, effect, and terminal-outcome models every ability spine relies on are finished. Cluster 11 implements gameplay-model **Spine B (Ability)** as three spec-gate-clean sub-slices, ready for implementation:
+
+- **11-a — ability substrate** ([`../use-cases/ability-substrate.md`](../use-cases/ability-substrate.md)): the unified skill/spell primitive — `AbilityDefinition`/`IAbilitySystem`/`AbilitiesComponent`, multi-pool costs, transient cooldowns, passive `WhileKnown` effects via the new `IEffectContributor` seam (canonized as INV-24). **Lands first** (defines the seams 11-b/c build on).
+- **11-b — ability invocation & combat targeting** ([`../use-cases/ability-invocation.md`](../use-cases/ability-invocation.md)): dynamic skill verbs + `cast <spell>`, state-aware targeting, offensive abilities open combat and resolve vs defense; starting abilities granted at character creation.
+- **11-c — resource regeneration + `rest`** ([`../use-cases/resource-regeneration.md`](../use-cases/resource-regeneration.md)): out-of-combat pool regeneration so ability costs are recoverable. Independent of 11-a/b.
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -75,10 +79,12 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 9-b | Time system (heartbeat) | `IHeartbeatService`, `HeartbeatTickEvent`; prereq for combat, mob AI, effect expiry | ✅ done |
 | 9-c | Stat computation system | `IStatSystem` effective-stat pipeline; base + equipment bonus seam for future effects/buffs | ✅ done |
 | 9 | Combat | Core gameplay loop | ✅ done |
-| 9-d | **Stat & resource substrate** (gameplay-model S1) | Four attributes (Mind/Body/Spirit/Attunement), Mana/Stamina/Astra pools, `ScoreId`/`IStatRegistry` seam — substrate every later spine writes to | 🟢 next |
-| 9-e | **Effect substrate** (gameplay-model S2) | Effect kinds + lifetime/stacking/phase/Power + `EffectSystem`; bedrock for skills, potions, curses, auras | 🟢 ready after 9-d |
-| 10 | Death and respawn | Combat is terminal until this exists | 🟢 after 9-e |
-| 11 | Abilities — skills + spells (gameplay-model S4) | Character progression; one ability pipeline (reframes "Skills") | 🟡 after 9-e (needs effects) |
+| 9-d | **Stat & resource substrate** (gameplay-model S1) | Four attributes (Mind/Body/Spirit/Attunement), Mana/Stamina/Astra pools, `ScoreId`/`IStatRegistry` seam — substrate every later spine writes to | ✅ done |
+| 9-e | **Effect substrate** (gameplay-model S2) | Effect kinds + lifetime/stacking/phase/Power + `EffectSystem`; bedrock for skills, potions, curses, auras | ✅ done |
+| 10 | Death and respawn | Combat is terminal until this exists | ✅ done |
+| 11-a | **Ability substrate** (gameplay-model S4) | Unified skill/spell primitive: `AbilityDefinition`/`IAbilitySystem`/`AbilitiesComponent`, multi-pool costs, cooldowns, passive effects via `IEffectContributor` (INV-24) | 🟢 next (specced, spec-gate clean) |
+| 11-b | **Ability invocation & combat targeting** | Dynamic skill verbs + `cast`, state-aware targeting, offensive-opens-combat, starting abilities at creation | 🟢 ready after 11-a (specced) |
+| 11-c | **Resource regeneration + `rest`** | Out-of-combat pool regen so ability costs recover; independent of 11-a/b | 🟢 ready (specced) |
 | 12 | Shopping | Economy | 🟢 ready after 6 |
 | 13 | Crafting, potions | Content depth | 🟢 ready after 6 |
 | 14 | Web/SignalR client (deferred) | Dual-client transport | 🔵 deferred — see [`backlog.md`](backlog.md) |

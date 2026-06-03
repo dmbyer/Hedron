@@ -178,7 +178,7 @@ AbilityDefinition {
   string Name;
   AbilityKind Kind;            // Skill | Spell — REQUIRED discriminator: drives invocation (skill = run like a command; spell = `cast <name>`) + pool/stat
   Activation Activation;       // Active | Passive | Triggered
-  ResourceCost Cost;           // (ResourceType, amount) — Stamina(Body) skills, Mana(Mind) spells, Astra(Attunement) tier powers; HP is never a cost
+  ResourceCost[] Costs;        // one or more (ResourceType, amount) — Stamina(Body) skills, Mana(Mind) spells, Astra(Attunement) tier powers; HP (blood) is a permitted cost (e.g. a spell costing HP + Mana). Governing stat is independent of the cost pool.
   Targeting Targeting;         // Self | Target | Room | Group | AspectArea
   AspectId? Aspect;            // optional typing (Spine A)
   TriggerCondition? Trigger;   // for Triggered passives (dodge, riposte): a condition + chance/scaling

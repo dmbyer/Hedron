@@ -41,6 +41,19 @@ public class SkillSystem : ISkillSystem
 - **Core systems MUST NOT depend on domain systems.** If a skill calculation needs combat context, the *handler or domain system* gathers that context and passes it in as parameters.
 - **Core systems MUST NOT know about handlers or the event bus.**
 
+## Extending a core system without depending on a domain — the contributor seam
+
+Sometimes a core-tier system must aggregate data **owned by domain modules** — e.g. `EffectSystem.GetModifiers` needs passive-ability modifiers (owned by the Abilities domain) and, later, equipment/aura modifiers. It **must not** reference those modules (INV-2), and a synchronous read can't use events. Invert the dependency:
+
+- The core system defines a **contributor port** (e.g. `IEffectContributor`) and DI-collects `IEnumerable<IContributor>`.
+- Each domain source ships an **adapter** implementing the port, in *its own* module, and registers it.
+- The aggregator sums what is registered and never changes as sources are added (open/closed).
+- Contributions are **pulled on read, never materialized** into a stored component (compute-on-read).
+
+The dependency arrow points domain → core interface — legal. This is **INV-24**; the worked precedent is `IEffectContributor` ([docs/architecture/effects.md](../../../docs/architecture/effects.md#the-contributor-seam), one of the three [composition shapes](../../../docs/architecture/01-layers.md#the-three-composition-shapes)). Use this whenever a core aggregator needs heterogeneous domain contributions; do **not** reach for a direct domain reference or push derived state into a component.
+
+> Note: a core-*tier* system may itself live inside a feature module (`Core/Modules/<Feature>/Systems/`) when it is that feature's primary mechanic (e.g. `EffectSystem`). Tier is a role, not a path (INV-2); the rules below apply wherever it sits.
+
 ## Steps
 
 1. Create `Core/Systems/<X>System.cs` + interface `I<X>System.cs`.

@@ -107,9 +107,29 @@ Power is computed from **source's base stats** (via `EntityService` directly), n
 
 ## Stat integration seam
 
-`IStatSystem.Get(entityId, ScoreId)` sums `IEffectSystem.GetModifiers(entityId, scoreId)` on top of base + equipment contributions. This is transparent to all existing consumers (combat, `score` command, etc.) — no call site changes when effects are added or removed.
+`IStatSystem.Get(entityId, ScoreId)` sums `IEffectSystem.GetModifiers(entityId, scoreId)` on top of base + equipment contributions. This is transparent to all existing consumers (combat, `score` command, etc.) — no call site changes when effects are added or removed. `GetModifiers` itself sums the stored effects **plus** every registered `IEffectContributor` (see [The contributor seam](#the-contributor-seam)), so a new modifier source (a passive ability, later equipment/auras) surfaces here with no consumer change.
 
 `StatSystem` (domain) → `IEffectSystem` (core) is a legal downward dependency.
+
+---
+
+## The contributor seam
+
+> Computed-score aggregation from heterogeneous, domain-owned sources. The rule is [INV-24](checklist.md); this is the worked instance and the third [layer-composition shape](01-layers.md#the-three-composition-shapes).
+
+`EffectSystem` is the **aggregator** for everything that modifies a score: `GetModifiers(entityId, scoreId)` returns the base-independent modifiers `StatSystem.Get` folds on top of base + equipment. Effects stored in `EffectsComponent` are one source — but modifiers also come from **source-bound** origins that are *derived on read, never stored* (passive abilities; later equipment, auras, areas), owned by domain modules `EffectSystem` (core) may not reference (INV-2).
+
+The seam is **dependency inversion**: a core-owned port `IEffectContributor`, DI-collected by `EffectSystem` as `IEnumerable<IEffectContributor>`. `GetModifiers`/`GetActive` sum the stored effects **plus** every contributor's output. Each source ships an adapter in its own module and registers it; `EffectSystem` never changes as sources are added (open/closed).
+
+| Contributor | Source | Lands |
+|---|---|---|
+| (stored effects) | `EffectsComponent` | built (9-e) |
+| `AbilityEffectContributor` | known `WhileKnown` passive abilities | slice 11-a |
+| equipment / aura / area contributors | worn items, present auras/areas | future slices, same port |
+
+**Why pull, not push.** A rejected alternative materializes derived modifiers into a stored component the aggregator reads. That caches derived state and reintroduces the "did I recompute when the source changed?" bug family compute-on-read exists to kill. Contributors **pull** at read time, so there is one source of truth (the worn item / known ability) and nothing to invalidate.
+
+**Cross-source resolution — deferred.** Today contributors return *additive* modifiers, summed across sources. The moment a score needs cross-source resolution — caps, diminishing returns, or `HighestWins` spanning stored **and** contributed instances (resist caps, control-effect DR; feature-horizon §5) — the port must pass *contributions with metadata* (`Power`, `StackPolicy`, `Category`) so the aggregator resolves across sources instead of summing. A bounded, additive change to the port when a consumer needs it; not built now.
 
 ---
 
@@ -127,7 +147,7 @@ Power is computed from **source's base stats** (via `EntityService` directly), n
 ## Deferred / future
 
 - **Aspect resolution (S3).** `EffectParams.Aspect` is carried on every effect but resolved to raw magnitude for now. Aspect math lands in S3.
-- **Source-bound derivation.** `GetModifiers` sums only standalone effects; equipment-derived and ability-derived effects fold in when their sources carry effect data (items later, abilities S4).
+- **Source-bound derivation.** Now formalized as [the contributor seam](#the-contributor-seam) (INV-24). Ability-derived passives land it in slice 11-a (`AbilityEffectContributor`); equipment/aura/area-derived effects fold in through the same `IEffectContributor` port in later slices.
 - **Composite effects.** `CompositeEffectDefinition` (one name → several effects sharing a `Group`) deferred to the content slice that needs authored curses/blessings.
 - **`Speed` targeting.** No `Speed` `ScoreId` yet; `haste` → `Speed` buff lands when a combat/initiative slice makes `Speed` a consumed derived score.
 

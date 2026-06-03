@@ -277,6 +277,16 @@ Initiators  →  (publish events)  →  Handlers  →  Domain Systems  →  Core
 
 ---
 
+## The three composition shapes
+
+Layers compose in exactly three ways. The first two are the everyday patterns; the third is for cross-cutting aggregation and is used deliberately, not improvised.
+
+1. **Downward call** — the processing spine. A higher tier calls a lower one and uses the returned result (handler → domain → core → components). This is the default; reach for it first.
+2. **Lateral coordination via events** — peer domains that must react to each other do so through past-tense events on the bus, not direct mutual calls, keeping them decoupled (INV-5/INV-7).
+3. **Synchronous fan-in via a core-owned port** — when a core-tier aggregator must compute a value from contributions owned by *many* domains (effective score = base + Σ modifiers from effects, equipment, abilities, auras…), it cannot depend on each domain (INV-2) and cannot use events (the read is synchronous). It inverts the dependency: the aggregator defines a **contributor port**, each source implements and registers an adapter, and the aggregator sums what is registered — staying closed for modification as sources grow. Contributions are **pulled on read, never materialized** (compute-on-read). This is the open/closed extension seam for the computed-stats model; the rule is **INV-24**, the worked instance is `IEffectContributor` in [effects.md](effects.md#the-contributor-seam).
+
+---
+
 ## Modules: Feature Cohesion
 
 A **module** and a **feature** are the same thing in Hedron — a module is a feature slice. Each one lives under `Core/Modules/<Feature>/` and groups the systems, handlers, events, and feature-specific components that belong to it. This keeps slices discoverable as the project grows.
@@ -298,7 +308,7 @@ Core/Modules/Combat/
 
 **Where systems live:**
 - **Domain (feature) systems** — inside the module at `Core/Modules/<Feature>/Systems/`.
-- **Core (cross-cutting) systems** — outside any module at `Core/Systems/` (e.g. `DiceSystem`, `TimeSystem`, `SkillSystem`). Usable by multiple features.
+- **Core (cross-cutting) systems** — usually at `Core/Systems/` (e.g. `DiceSystem`, `TimeSystem`), but a core-*tier* system may live inside a feature module at `Core/Modules/<Feature>/Systems/` when it is that feature's primary mechanic and co-locating aids cohesion (e.g. `EffectSystem`). Tier is a **role** — generic mechanic, no game-rule decisions, no domain dependencies (INV-2) — not a path. Usable by multiple features regardless of where it sits.
 
 Cross-cutting components (Identity, Transform, Pools, Attributes) stay under `Core/ECS/Components/`.
 
