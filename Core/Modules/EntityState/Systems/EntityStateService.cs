@@ -21,6 +21,14 @@ namespace Hedron.Core.Modules.EntityState.Systems
             ],
         };
 
+        // Auto-exit table: entering the key state unconditionally clears the value state after
+        // validation passes, before OR-assigning the new flag. Centralises mutual-exclusion
+        // invariants so no call site needs an explicit ExitState guard.
+        private static readonly Dictionary<EntityStateFlags, EntityStateFlags> _autoExits = new()
+        {
+            [EntityStateFlags.InCombat] = EntityStateFlags.Resting,
+        };
+
         public EntityStateService(EntityService entityService)
         {
             _entityService = entityService;
@@ -41,6 +49,9 @@ namespace Hedron.Core.Modules.EntityState.Systems
                     }
                 }
             }
+
+            if (_autoExits.TryGetValue(state, out var toExit))
+                ExitState(entityId, toExit);
 
             if (_entityService.TryGet<EntityStateComponent>(entityId, out var component))
             {

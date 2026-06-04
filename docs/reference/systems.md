@@ -582,6 +582,14 @@ On `HeartbeatTickEvent`: for each slot with `RespawnAt <= UtcNow`, calls `ITempl
 
 ---
 
+### RegenerationSystem
+**Purpose:** Applies baseline out-of-combat resource regeneration to all entities with a `PoolsComponent` on each heartbeat tick. State-based rate: `InCombat` → suppressed entirely; `Resting` → `+RegenAmount` every tick; idle (neither) → `+RegenAmount` every `IdleIntervalTicks`-th tick (global `tickId % IdleIntervalTicks` cadence — no per-entity timer needed). Writes deltas through `IAttributeSystem`'s clamped pool setters (HP/Mana/Stamina/Astra). Never publishes events or touches persistence (INV-5). Implemented (slice 11-c).
+**Location:** `Core/Modules/Regeneration/Systems/RegenerationSystem.cs`
+**Dependencies:** `EntityService`, `IEntityStateService`, `IAttributeSystem`.
+**Constants (Category-3):** `RegenAmount = 1`, `IdleIntervalTicks = 3`. Promotion to configuration deferred to the dedicated regeneration use-case.
+
+---
+
 ## Background Services / Initiators
 
 Initiators drive the tick loop or startup; they are not "systems" in the domain-logic sense but are catalogued here because they publish events that domain handlers subscribe to.

@@ -27,18 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–10 done; **next: slice 11-a — ability substrate**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–11-c done; **next: slice 12 — Shopping**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 cluster 11 — Abilities (skills + spells) + supporting mechanics.** Slices 9-d (stat/resource substrate), 9-e (effect substrate), and 10 (death/respawn) are complete; the stat/pool, effect, and terminal-outcome models every ability spine relies on are finished. Cluster 11 implements gameplay-model **Spine B (Ability)** as three spec-gate-clean sub-slices, ready for implementation:
-
-- **11-a — ability substrate** ([`../use-cases/ability-substrate.md`](../use-cases/ability-substrate.md)): the unified skill/spell primitive — `AbilityDefinition`/`IAbilitySystem`/`AbilitiesComponent`, multi-pool costs, transient cooldowns, passive `WhileKnown` effects via the new `IEffectContributor` seam (canonized as INV-24). **Lands first** (defines the seams 11-b/c build on).
-- **11-b — ability invocation & combat targeting** ([`../use-cases/ability-invocation.md`](../use-cases/ability-invocation.md)): dynamic skill verbs + `cast <spell>`, state-aware targeting, offensive abilities open combat and resolve vs defense; starting abilities granted at character creation.
-- **11-c — resource regeneration + `rest`** ([`../use-cases/resource-regeneration.md`](../use-cases/resource-regeneration.md)): out-of-combat pool regeneration so ability costs are recoverable. Independent of 11-a/b.
+**Phase 3 slice 12 — Shopping.** Cluster 11 (abilities + regeneration) is complete: skills/spells are invocable, ability costs are recoverable, and `rest` accelerates regeneration. The next slice is **Shopping** ([`../use-cases/shopping.md`](../use-cases/shopping.md) — to be authored) — economy mechanics enabling players to buy/sell items from vendor NPCs. This slice builds on the items + inventory substrate (slice 6) and the mob model (slice 8); no ability or combat dependency.
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -82,10 +78,10 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 9-d | **Stat & resource substrate** (gameplay-model S1) | Four attributes (Mind/Body/Spirit/Attunement), Mana/Stamina/Astra pools, `ScoreId`/`IStatRegistry` seam — substrate every later spine writes to | ✅ done |
 | 9-e | **Effect substrate** (gameplay-model S2) | Effect kinds + lifetime/stacking/phase/Power + `EffectSystem`; bedrock for skills, potions, curses, auras | ✅ done |
 | 10 | Death and respawn | Combat is terminal until this exists | ✅ done |
-| 11-a | **Ability substrate** (gameplay-model S4) | Unified skill/spell primitive: `AbilityDefinition`/`IAbilitySystem`/`AbilitiesComponent`, multi-pool costs, cooldowns, passive effects via `IEffectContributor` (INV-24) | 🟢 next (specced, spec-gate clean) |
-| 11-b | **Ability invocation & combat targeting** | Dynamic skill verbs + `cast`, state-aware targeting, offensive-opens-combat, starting abilities at creation | 🟢 ready after 11-a (specced) |
-| 11-c | **Resource regeneration + `rest`** | Out-of-combat pool regen so ability costs recover; independent of 11-a/b | 🟢 ready (specced) |
-| 12 | Shopping | Economy | 🟢 ready after 6 |
+| 11-a | **Ability substrate** (gameplay-model S4) | Unified skill/spell primitive: `AbilityDefinition`/`IAbilitySystem`/`AbilitiesComponent`, multi-pool costs, cooldowns, passive effects via `IEffectContributor` (INV-24) | ✅ done |
+| 11-b | **Ability invocation & combat targeting** | Dynamic skill verbs + `cast`, state-aware targeting, offensive-opens-combat, starting abilities at creation | ✅ done |
+| 11-c | **Resource regeneration + `rest`** | Out-of-combat pool regen so ability costs recover; independent of 11-a/b | ✅ done |
+| 12 | Shopping | Economy | 🟢 next (ready after 6) |
 | 13 | Crafting, potions | Content depth | 🟢 ready after 6 |
 | 14 | Web/SignalR client (deferred) | Dual-client transport | 🔵 deferred — see [`backlog.md`](backlog.md) |
 

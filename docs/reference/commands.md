@@ -119,10 +119,11 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Aliases:** `d`  
 **MatchingMode:** `Partial`  
 **Location:** `Core/Modules/Movement/Commands/MoveCommand.cs`  
-**Description:** Move down if an exit exists.  
+**Description:** Move down if an exit exists. If the invoker is in the `Resting` state, exits it first with "You stop resting and stand up." before attempting the move.  
 **Usage:** `down`  
 **Schema:** no arguments  
-**Events:** `PlayerMovedEvent`
+**Dependencies:** `IMovementSystem`, `IEntityStateService`, `IEventBus`  
+**Events:** `PlayerMovedEvent`; `EntityStateChangedEvent` (conditional — only when breaking rest)
 
 ---
 
@@ -131,10 +132,11 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Aliases:** `e`  
 **MatchingMode:** `Partial`  
 **Location:** `Core/Modules/Movement/Commands/MoveCommand.cs`  
-**Description:** Move east if an exit exists.  
+**Description:** Move east if an exit exists. If the invoker is in the `Resting` state, exits it first with "You stop resting and stand up." before attempting the move.  
 **Usage:** `east`  
 **Schema:** no arguments  
-**Events:** `PlayerMovedEvent`
+**Dependencies:** `IMovementSystem`, `IEntityStateService`, `IEventBus`  
+**Events:** `PlayerMovedEvent`; `EntityStateChangedEvent` (conditional — only when breaking rest)
 
 ---
 
@@ -221,10 +223,11 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Aliases:** `n`  
 **MatchingMode:** `Partial`  
 **Location:** `Core/Modules/Movement/Commands/MoveCommand.cs`  
-**Description:** Move north if an exit exists.  
+**Description:** Move north if an exit exists. If the invoker is in the `Resting` state, exits it first with "You stop resting and stand up." before attempting the move.  
 **Usage:** `north`  
 **Schema:** no arguments  
-**Events:** `PlayerMovedEvent`
+**Dependencies:** `IMovementSystem`, `IEntityStateService`, `IEventBus`  
+**Events:** `PlayerMovedEvent`; `EntityStateChangedEvent` (conditional — only when breaking rest)
 
 ---
 
@@ -238,6 +241,19 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Schema:** `Token string "item"` (required, `ItemInEquipmentResolver`)  
 **Dependencies:** `IEquipmentSystem`, `IEventBus`, `IPersistenceSystem`, `ItemInEquipmentResolver`  
 **Events:** `ItemUnequippedEvent`
+
+---
+
+### `rest`
+
+**Aliases:** none  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Regeneration/Commands/RestCommand.cs`  
+**Description:** Enters the `Resting` state, accelerating regeneration of all resource pools (HP/Mana/Stamina/Astra) to every-tick rate. Blocked while `InCombat` or `Incapacitated` (writes the `failReason` from `IEntityStateService`). Writes "You are already resting." if already in `Resting` state. On success writes "You sit down and begin to rest."  
+**Usage:** `rest`  
+**Schema:** no arguments  
+**Dependencies:** `IEntityStateService`, `IEventBus`  
+**Events:** `EntityStateChangedEvent`
 
 ---
 
@@ -272,10 +288,24 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Aliases:** `s`  
 **MatchingMode:** `Partial`  
 **Location:** `Core/Modules/Movement/Commands/MoveCommand.cs`  
-**Description:** Move south if an exit exists.  
+**Description:** Move south if an exit exists. If the invoker is in the `Resting` state, exits it first with "You stop resting and stand up." before attempting the move.  
 **Usage:** `south`  
 **Schema:** no arguments  
-**Events:** `PlayerMovedEvent`
+**Dependencies:** `IMovementSystem`, `IEntityStateService`, `IEventBus`  
+**Events:** `PlayerMovedEvent`; `EntityStateChangedEvent` (conditional — only when breaking rest)
+
+---
+
+### `stand` / `wake`
+
+**Aliases:** `wake`  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Regeneration/Commands/StandCommand.cs`  
+**Description:** Exits the `Resting` state. Writes "You are already standing." if not currently resting (no `ExitState` call in that path). On success writes "You stand up." and publishes `EntityStateChangedEvent`.  
+**Usage:** `stand`  
+**Schema:** no arguments  
+**Dependencies:** `IEntityStateService`, `IEventBus`  
+**Events:** `EntityStateChangedEvent`
 
 ---
 
@@ -284,10 +314,11 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Aliases:** `u`  
 **MatchingMode:** `Partial`  
 **Location:** `Core/Modules/Movement/Commands/MoveCommand.cs`  
-**Description:** Move up if an exit exists.  
+**Description:** Move up if an exit exists. If the invoker is in the `Resting` state, exits it first with "You stop resting and stand up." before attempting the move.  
 **Usage:** `up`  
 **Schema:** no arguments  
-**Events:** `PlayerMovedEvent`
+**Dependencies:** `IMovementSystem`, `IEntityStateService`, `IEventBus`  
+**Events:** `PlayerMovedEvent`; `EntityStateChangedEvent` (conditional — only when breaking rest)
 
 ---
 
@@ -309,10 +340,11 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Aliases:** `w`  
 **MatchingMode:** `Partial`  
 **Location:** `Core/Modules/Movement/Commands/MoveCommand.cs`  
-**Description:** Move west if an exit exists.  
+**Description:** Move west if an exit exists. If the invoker is in the `Resting` state, exits it first with "You stop resting and stand up." before attempting the move.  
 **Usage:** `west`  
 **Schema:** no arguments  
-**Events:** `PlayerMovedEvent`
+**Dependencies:** `IMovementSystem`, `IEntityStateService`, `IEventBus`  
+**Events:** `PlayerMovedEvent`; `EntityStateChangedEvent` (conditional — only when breaking rest)
 
 ---
 
