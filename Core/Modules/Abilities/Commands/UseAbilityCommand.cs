@@ -5,10 +5,12 @@ using System.Threading.Tasks;
 using Hedron.Core.Commands;
 using Hedron.Core.Commands.Authorization;
 using Hedron.Core.ECS;
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Abilities.Events;
 using Hedron.Core.Modules.Abilities.Systems;
 using Hedron.Core.Modules.Account.Components;
+using Hedron.Core.Modules.Combat.Systems;
 using Hedron.Core.Modules.Effects.Events;
 using Hedron.Core.Output;
 using Hedron.Core.Sessions;
@@ -21,6 +23,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
         private readonly ISessionManager _sessionManager;
+        private readonly ICombatSystem _combatSystem;
 
         public string Name => "useability";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -45,12 +48,14 @@ namespace Hedron.Core.Modules.Abilities.Commands
             IAbilitySystem abilitySystem,
             EntityService entityService,
             IEventBus eventBus,
-            ISessionManager sessionManager)
+            ISessionManager sessionManager,
+            ICombatSystem combatSystem)
         {
             _abilitySystem = abilitySystem;
             _entityService = entityService;
             _eventBus = eventBus;
             _sessionManager = sessionManager;
+            _combatSystem = combatSystem;
         }
 
         public async Task ExecuteAsync(CommandContext context)
@@ -63,7 +68,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
             uint? targetEntityId = null;
             if (targetArg != null)
             {
-                var resolved = ResolveTarget(targetArg);
+                var resolved = ResolveTarget(targetArg, actor);
                 if (resolved == 0)
                 {
                     await context.Output.WriteAsync(new PlainMessage(
@@ -169,8 +174,9 @@ namespace Hedron.Core.Modules.Abilities.Commands
             return sb.ToString();
         }
 
-        private uint ResolveTarget(string target)
+        private uint ResolveTarget(string target, uint invokerEntityId)
         {
+            // 1. Connected player by character name.
             foreach (var session in _sessionManager.GetAll())
             {
                 if (session.PlayerEntityId == 0)
@@ -180,6 +186,12 @@ namespace Hedron.Core.Modules.Abilities.Commands
                     return session.PlayerEntityId;
             }
 
+            // 2. Mob keyword in the invoker's current room (prefix-matched).
+            if (_entityService.TryGet<LocationComponent>(invokerEntityId, out var loc) &&
+                _combatSystem.TryFindTargetInRoom(loc.RoomEntityId, target, out var mobEntityId))
+                return mobEntityId;
+
+            // 3. Numeric entity id fallback.
             if (uint.TryParse(target, out var entityId))
                 return entityId;
 
