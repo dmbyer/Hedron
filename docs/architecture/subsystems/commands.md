@@ -41,7 +41,12 @@ public interface ICommand
 
 **Resolution rules** (in priority order):
 1. **Exact match** — the typed verb matches a primary name or declared alias in the verb map. Always checked first; static aliases like `d` → `down` are resolved here, never in the prefix pool.
-2. **Prefix resolution** — only runs if step 1 misses. Collects all `Partial`-mode commands whose `Name` starts with the typed verb; sorts alphabetically; dispatches if exactly one match. Two or more → disambiguation error listing **all** matching names. Zero → unknown-command error.
+2. **Prefix resolution** — only runs if step 1 misses. Collects all `Partial`-mode commands whose `Name` starts with the typed verb; sorts alphabetically; dispatches if exactly one match. Two or more → disambiguation error listing **all** matching names. Zero → falls through to Phase 3.
+3. **Ability verb resolution** (Phase 3 fallback, slice 11-a/b) — runs only when both Phase 1 and Phase 2 miss. `CommandDispatcher` calls `IAbilityVerbResolver.TryResolve(verb, invokerEntityId, out abilityId)`. The resolver prefix-matches the typed token against the invoker's known Active Skills by id. If exactly one skill matches, the dispatcher routes to `SkillInvocationCommand.InvokeAsync` with the resolved ability id. A registered command always wins — ability resolution is strictly a Phase 3 fallback, never competing with Phase 1 or Phase 2 matches. Multiple ability matches → disambiguation error; zero matches → unknown-command error. `SkillInvocationCommand` is NOT an `ICommand` and is not enumerated by `help` or `commands`.
+
+**Cast command vs. bare skill verb** — `cast <spell>` is a discoverable `ICommand` (registered, appears in `help`/`commands`, resolved by Phase 1/2). Bare skill verbs (e.g. `kick`) are resolved by Phase 3 through `IAbilityVerbResolver` and routed to `SkillInvocationCommand`. Both paths share the same `AbilityInvocationPipeline` for target resolution, combat entry, activation, and event publication.
+
+**`AbilityInvocationPipeline`** is an **initiator-tier shared helper** — it is called exclusively by `CastCommand` and `SkillInvocationCommand` (both command-tier initiators) and inherits their event-publish permission. All events it publishes are unconditional consequences of the pipeline step (e.g. `CombatStartedEvent` is published *only when* combat entry succeeds — that branch is a sequential step of the initiator, not a handler's conditional reaction). It holds no domain logic; all decisions are delegated to systems. If future combat-entry branching grows complex, extract it into a handler subscribing to a new event rather than adding more branches to the pipeline.
 
 `IVerbRegistry` (implemented by `CommandDispatcher`) exposes the read-only command namespace:
 

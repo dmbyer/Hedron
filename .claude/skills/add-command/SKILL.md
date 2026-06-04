@@ -167,6 +167,22 @@ await _itemContentWriter.WriteAsync(result.Template, ct); // write to data/conte
 await _eventBus.PublishAsync(new ItemCreatedByAdminEvent(...));
 ```
 
+## Non-ICommand dispatcher-internal services (Phase 3 pattern)
+
+Some verbs are **not** registered as `ICommand` at all — they are internal services routed by the dispatcher after its two standard command-resolution phases miss. The current example is `SkillInvocationCommand` (slice 11-b).
+
+**When to use this pattern:** A verb is *per-actor* (what a specific player can invoke depends on their state, not a global registry), and registering a global `ICommand` for it would either be impossible (you don't know the verb at startup) or wrong (the verb would show up in `help`/`commands` for all players). Active-Skill bare verbs are the canonical case: `kick` is only a valid verb for a player who has learned it.
+
+**How it works:**
+1. `IAbilityVerbResolver` (a core seam, `Core/Commands/`) maps the typed verb to an ability id for the invoking entity at dispatch time.
+2. `CommandDispatcher` Phase 3 calls `TryResolve`; on a unique hit it calls `SkillInvocationCommand.InvokeAsync(session, actorId, abilityId, rawTail, output)` directly.
+3. `SkillInvocationCommand` is a singleton registered as its concrete type (NOT as `ICommand`): `services.AddSingleton<SkillInvocationCommand>()`.
+4. It is not enumerable by `IVerbRegistry` and does not appear in `help`/`commands`. Discovery is via the player-specific `skills` command.
+
+**Shared invocation pipeline:** When two or more commands share non-trivial orchestration (e.g. `CastCommand` and `SkillInvocationCommand` both need target resolution + combat entry + `Activate` + event publication), extract the shared logic into an **initiator-tier helper** (e.g. `AbilityInvocationPipeline`). Register it as a singleton concrete type. It is called exclusively by command-tier code and inherits their event-publish permission. All events it publishes must be unconditional consequences of a sequential step — branch-on-state conditional publishing belongs in a handler.
+
+See `docs/architecture/subsystems/commands.md` Phase 3 section for the architectural rationale (command-vs-ability precedence, why registered commands always win).
+
 See [INV-21](../../../docs/architecture/checklist.md) for the full invariant.
 
 ## What NOT to do

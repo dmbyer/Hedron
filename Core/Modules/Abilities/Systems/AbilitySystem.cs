@@ -36,7 +36,25 @@ namespace Hedron.Core.Modules.Abilities.Systems
             _entityStateService = entityStateService;
         }
 
-        public AbilityActivationResult Activate(uint actorEntityId, string abilityId, uint? targetEntityId = null)
+        public bool IsOffensive(string abilityId)
+        {
+            if (!_abilityRegistry.TryGet(abilityId, out var definition))
+                return false;
+
+            if (definition.Targeting != Targeting.Target)
+                return false;
+
+            foreach (var effectId in definition.Effects)
+            {
+                if (_effectRegistry.TryGet(effectId, out var effectDef) &&
+                    IsOffensiveDamageEffect(effectDef))
+                    return true;
+            }
+
+            return false;
+        }
+
+        public AbilityActivationResult Activate(uint actorEntityId, string abilityId, uint? targetEntityId = null, bool resolveOffensiveExternally = false)
         {
             // 1. Resolve definition
             if (!_abilityRegistry.TryGet(abilityId, out var definition))
@@ -84,10 +102,21 @@ namespace Hedron.Core.Modules.Abilities.Systems
             var resolvedTarget = targetEntityId ?? actorEntityId;
 
             var appliedEffects = new List<Effect>();
+            int? offensivePower = null;
+
             foreach (var effectId in definition.Effects)
             {
                 if (!_effectRegistry.TryGet(effectId, out var effectDef))
                     continue;
+
+                // When resolveOffensiveExternally is set, skip offensive damage effects and
+                // capture their raw magnitude so the caller (e.g. a combat command) can feed
+                // it into ResolveAbilityStrike for defense-mitigated resolution.
+                if (resolveOffensiveExternally && IsOffensiveDamageEffect(effectDef))
+                {
+                    offensivePower = Math.Abs(effectDef.Params.BaseMagnitude);
+                    continue;
+                }
 
                 var appliedEffect = _effectSystem.Apply(resolvedTarget, effectDef, actorEntityId);
                 if (appliedEffect != null)
@@ -105,8 +134,18 @@ namespace Hedron.Core.Modules.Abilities.Systems
                 abilityId,
                 appliedEffects,
                 spent,
-                definition.CooldownSeconds);
+                definition.CooldownSeconds,
+                OffensivePower: offensivePower);
         }
+
+        /// <summary>
+        /// Returns true if <paramref name="effectDef"/> is an offensive damage effect:
+        /// Instant or Periodic kind, targeting HpCurrent, with a negative BaseMagnitude.
+        /// </summary>
+        private static bool IsOffensiveDamageEffect(EffectDefinition effectDef) =>
+            (effectDef.Kind == EffectKind.Instant || effectDef.Kind == EffectKind.Periodic) &&
+            effectDef.Params.TargetScore == ScoreId.HpCurrent &&
+            effectDef.Params.BaseMagnitude < 0;
 
         public bool Learn(uint entityId, string abilityId)
         {

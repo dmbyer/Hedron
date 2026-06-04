@@ -4,9 +4,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Abilities.Systems;
 using Hedron.Core.Modules.Account.Components;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Hedron.Core.Modules.Account.Systems
 {
@@ -26,6 +28,8 @@ namespace Hedron.Core.Modules.Account.Systems
         private readonly IPasswordHasher _passwordHasher;
         private readonly WorldConfiguration _worldConfig;
         private readonly CharacterDefaultsOptions _characterDefaults;
+        private readonly IAbilitySystem _abilitySystem;
+        private readonly ILogger<AccountSystem> _logger;
 
         private HashSet<string>? _usernameIndex;
         private HashSet<string>? _characterNameIndex;
@@ -34,11 +38,15 @@ namespace Hedron.Core.Modules.Account.Systems
             EntityService entityService,
             IPasswordHasher passwordHasher,
             WorldConfiguration worldConfig,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IAbilitySystem abilitySystem,
+            ILogger<AccountSystem> logger)
         {
             _entityService = entityService;
             _passwordHasher = passwordHasher;
             _worldConfig = worldConfig;
+            _abilitySystem = abilitySystem;
+            _logger = logger;
 
             _characterDefaults = new CharacterDefaultsOptions();
             var section = configuration.GetSection("CharacterDefaults");
@@ -47,6 +55,12 @@ namespace Hedron.Core.Modules.Account.Systems
             if (int.TryParse(section["MaxMana"], out var maxMana)) _characterDefaults.MaxMana = maxMana;
             if (int.TryParse(section["MaxStamina"], out var maxStamina)) _characterDefaults.MaxStamina = maxStamina;
             if (int.TryParse(section["MaxAstra"], out var maxAstra)) _characterDefaults.MaxAstra = maxAstra;
+            var abilitiesChildren = section.GetSection("StartingAbilities").GetChildren()
+                .Select(c => c.Value)
+                .Where(v => v != null)
+                .ToArray();
+            if (abilitiesChildren.Length > 0)
+                _characterDefaults.StartingAbilities = abilitiesChildren!;
         }
 
         public bool UsernameExists(string username)
@@ -132,6 +146,12 @@ namespace Hedron.Core.Modules.Account.Systems
 
             if (_entityService.TryGet<AccountComponent>(accountEntityId, out var account))
                 account.CharacterEntityIds.Add(entity.Id);
+
+            foreach (var abilityId in _characterDefaults.StartingAbilities)
+            {
+                if (!_abilitySystem.Learn(entity.Id, abilityId))
+                    _logger.LogWarning("Unknown starting ability id '{AbilityId}' — skipped.", abilityId);
+            }
 
             GetCharacterNameIndex().Add(characterName.ToLowerInvariant());
             return Task.FromResult(entity.Id);

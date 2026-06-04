@@ -79,6 +79,20 @@ Ask:
 **Location:** `Core/Modules/Spawn/Handlers/ItemContextHandler.cs`
 **Uses:** `EntityService`
 
+### AbilityInvocationHandler
+**Events:** `AbilityActivatedEvent`
+**Priority:** 80 (`HandlerPriority.Notification`)
+**Responsibilities:** Renders narrative for **non-offensive** ability activations only. Offensive abilities are skipped here — `AbilityStrikeHandler` owns their narrative via `AbilityStrikeResolvedEvent`, avoiding duplicate output. On a non-offensive activation: writes `"You {abilityName} [target]."` to the actor; broadcasts `"{ActorName} {abilityName}s [target]."` to all other room occupants. Reads `AbilityDefinition.Name` from `IAbilityRegistry`. Falls back to `"someone"` if player/mob name components are absent. Silently no-ops if the actor has no `LocationComponent`.
+**Location:** `Core/Modules/Abilities/Handlers/AbilityInvocationHandler.cs`
+**Uses:** `IAbilitySystem`, `IAbilityRegistry`, `IBroadcastSystem`, `EntityService`
+
+### AbilityStrikeHandler
+**Events:** `AbilityStrikeResolvedEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** Renders fused combat + ability narrative for offensive ability strikes. Writes `"You {abilityName} {defender} for {damage} damage."` to the attacker; broadcasts third-person form to the room. If `CombatRoundOutcome` is terminal (`MobDied` / `PlayerIncapacitated`), also publishes `CombatEndedEvent` so `CombatHandler` and `CombatMobDeathHandler` can finalize the combat state. Does not call systems or mutate state.
+**Location:** `Core/Modules/Combat/Handlers/AbilityStrikeHandler.cs`
+**Uses:** `EntityService`, `IBroadcastSystem`, `IEventBus`
+
 ### AbilityCooldownTickHandler
 **Events:** `HeartbeatTickEvent`
 **Priority:** 20 (`HandlerPriority.Domain`)

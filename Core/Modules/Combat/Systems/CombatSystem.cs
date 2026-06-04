@@ -83,6 +83,24 @@ namespace Hedron.Core.Modules.Combat.Systems
             var attackPower = _statSystem.GetEffectiveAttackPower(attackerEntityId);
             var damage = Random.Shared.Next(1, attackPower + 2);
 
+            return ApplyDamageAndBuildResult(attackerEntityId, defenderEntityId, damage);
+        }
+
+        public CombatRoundResult ResolveAbilityStrike(uint attackerEntityId, uint defenderEntityId, int basePower)
+        {
+            // Ability strikes always land — no hit/miss roll.
+            var damage = System.Math.Max(1, Random.Shared.Next(1, basePower + 2) - _statSystem.GetEffectiveDefense(defenderEntityId));
+            return ApplyDamageAndBuildResult(attackerEntityId, defenderEntityId, damage);
+        }
+
+        /// <summary>
+        /// Applies <paramref name="damage"/> HP reduction to the defender, determines the
+        /// combat outcome (Hit / MobDied / PlayerIncapacitated), and returns the result.
+        /// Shared by <see cref="ExecuteRound"/> and <see cref="ResolveAbilityStrike"/> so
+        /// both paths use identical post-hit logic.
+        /// </summary>
+        private CombatRoundResult ApplyDamageAndBuildResult(uint attackerEntityId, uint defenderEntityId, int damage)
+        {
             var currentHp = _statSystem.GetCurrentHp(defenderEntityId);
             _attributeSystem.SetCurrentHp(defenderEntityId, currentHp - damage);
 

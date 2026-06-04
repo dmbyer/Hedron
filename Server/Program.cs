@@ -173,6 +173,12 @@ public static class Program
         var combatMobDeath = host.Services.GetRequiredService<CombatMobDeathHandler>();
         bus.Subscribe<CombatEndedEvent>(combatMobDeath);
 
+        var abilityStrike = host.Services.GetRequiredService<AbilityStrikeHandler>();
+        bus.Subscribe<AbilityStrikeResolvedEvent>(abilityStrike);
+
+        var abilityInvocation = host.Services.GetRequiredService<AbilityInvocationHandler>();
+        bus.Subscribe<AbilityActivatedEvent>(abilityInvocation);
+
         var deathTick = host.Services.GetRequiredService<DeathTickHandler>();
         bus.Subscribe<HeartbeatTickEvent>(deathTick);
 

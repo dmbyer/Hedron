@@ -101,6 +101,7 @@ Starting defaults for new characters are surfaced as Category-3 balance settings
 | `CharacterDefaults:MaxMana` | 50 |
 | `CharacterDefaults:MaxStamina` | 50 |
 | `CharacterDefaults:MaxAstra` | 10 |
+| `CharacterDefaults:StartingAbilities` | `["kick","empower"]` |
 
 The end-state promotes these to an authored content definition (Category 2) once the content editor exists; `CharacterDefaultsOptions` is shaped for cheap migration.
 
