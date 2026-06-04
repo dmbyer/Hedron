@@ -17,6 +17,7 @@ using Hedron.Core.Modules.Items.Handlers;
 using Hedron.Core.Modules.Attributes;
 using Hedron.Core.Modules.Attributes.Events;
 using Hedron.Core.Modules.EntityState;
+using Hedron.Core.Modules.EntityState.Systems;
 using Hedron.Core.Modules.Mobs;
 using Hedron.Core.Modules.Mobs.Events;
 using Hedron.Core.ECS.Components;
@@ -44,6 +45,8 @@ using Hedron.Core.Modules.Spawn.Systems;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Abilities.Events;
 using Hedron.Core.Modules.Abilities.Handlers;
+using Hedron.Core.Modules.Regeneration;
+using Hedron.Core.Modules.Regeneration.Handlers;
 using Hedron.Core.Modules.Effects;
 using Hedron.Core.Modules.Effects.Events;
 using Hedron.Core.Modules.Effects.Handlers;
@@ -118,6 +121,7 @@ public static class Program
                     services.AddSingleton<ICommand>(sp => new MoveCommand(
                         captured,
                         sp.GetRequiredService<IMovementSystem>(),
+                        sp.GetRequiredService<IEntityStateService>(),
                         sp.GetRequiredService<IEventBus>()));
                 }
 
@@ -138,6 +142,7 @@ public static class Program
                 services.AddCombatModule();
                 services.AddSpawnModule();
                 services.AddDeathModule();
+                services.AddRegenerationModule();
 
                 // Hosted services — order matters.
                 services.AddHostedService<PersistenceBootstrap>();
@@ -164,6 +169,9 @@ public static class Program
 
         var combatTick = host.Services.GetRequiredService<CombatTickHandler>();
         bus.Subscribe<HeartbeatTickEvent>(combatTick);
+
+        var regenTick = host.Services.GetRequiredService<RegenerationTickHandler>();
+        bus.Subscribe<HeartbeatTickEvent>(regenTick);
 
         var combatOutput = host.Services.GetRequiredService<CombatHandler>();
         bus.Subscribe<CombatStartedEvent>(combatOutput);

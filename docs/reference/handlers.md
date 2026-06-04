@@ -107,6 +107,13 @@ Ask:
 **Location:** `Core/Modules/Effects/Handlers/EffectTickHandler.cs`
 **Uses:** `IEffectSystem`, `IAttributeSystem`, `IEventBus`
 
+### RegenerationTickHandler
+**Events:** `HeartbeatTickEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** Bridge between the time system and the regeneration domain. On each tick: calls `IRegenerationSystem.ApplyTickRegen(@event.TickId)`. No events published; no persistence calls — regeneration is a closed mechanical sweep (INV-5, INV-10).
+**Location:** `Core/Modules/Regeneration/Handlers/RegenerationTickHandler.cs`
+**Uses:** `IRegenerationSystem`
+
 ### DeathTickHandler
 **Events:** `HeartbeatTickEvent`
 **Priority:** 20 (`HandlerPriority.Domain`)

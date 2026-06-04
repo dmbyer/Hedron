@@ -27,7 +27,7 @@ Introduces a unified, flag-based entity state layer that complements (does not r
 - `EntityStateFlags` `[Flags]` enum exists in `Core/ECS/Components/` with values `None = 0`, `InCombat = 1 << 0`, `Resting = 1 << 1`, `Incapacitated = 1 << 2`.
 - `EntityStateComponent { EntityStateFlags ActiveStates }` exists in `Core/ECS/Components/`. Not `[Persistent]`. Attached by `IEntityStateService.TryEnterState`; removed (when empty) by `IEntityStateService.ExitState`.
 - `IEntityStateService` (domain system, `Core/Modules/EntityState/Systems/`) is registered as a singleton and satisfies:
-  - `TryEnterState(uint entityId, EntityStateFlags state, out string? failReason)` — validates transition rules, attaches or updates `EntityStateComponent`, returns `true` on success.
+  - `TryEnterState(uint entityId, EntityStateFlags state, out string? failReason)` — validates transition rules; if the state has auto-exit entries (see rule table), applies them via `ExitState` before setting the new flag; attaches or updates `EntityStateComponent`; returns `true` on success.
   - `ExitState(uint entityId, EntityStateFlags state)` — removes the flag; removes the component when no flags remain.
   - `IsInState(uint entityId, EntityStateFlags state)` — flag check; returns `false` if the entity has no `EntityStateComponent`.
   - `GetStates(uint entityId)` — returns the full `ActiveStates` flags value, or `EntityStateFlags.None` if the component is absent.
@@ -35,13 +35,13 @@ Introduces a unified, flag-based entity state layer that complements (does not r
 - `EntityStateModule` (`Core/Modules/EntityState/EntityStateModule.cs`) exposes `AddEntityStateModule(IServiceCollection)` and is called from `Server/Program.cs`.
 - Transition rule table is enforced by `TryEnterState`:
 
-  | State to enter | Blocked while any of these are active | `failReason` (example) |
-  |---|---|---|
-  | `Resting` | `InCombat`, `Incapacitated` | `"You cannot rest while in combat."` / `"You cannot rest while incapacitated."` |
-  | `InCombat` | `Incapacitated` | `"You cannot enter combat while incapacitated."` |
-  | `Incapacitated` | *(no block)* | n/a |
+  | State to enter | Blocked while any of these are active | Auto-exits | `failReason` (example) |
+  |---|---|---|---|
+  | `Resting` | `InCombat`, `Incapacitated` | — | `"You cannot rest while in combat."` / `"You cannot rest while incapacitated."` |
+  | `InCombat` | `Incapacitated` | `Resting` | `"You cannot enter combat while incapacitated."` |
+  | `Incapacitated` | *(no block)* | — | n/a |
 
-  All other `state` values not listed above have no entry-block rules in MVP. `ExitState` never fails.
+  All other `state` values not listed above have no entry-block rules in MVP. **Auto-exits:** after validation passes, any states listed in the "Auto-exits" column for the entered state are cleared (via `ExitState`) before the new flag is OR-assigned. This is applied regardless of which call site enters the state, making it a centrally enforced invariant. `ExitState` never fails.
 
 ---
 
@@ -96,6 +96,8 @@ No handler subscribes to `EntityStateChangedEvent` in this slice. The event is p
 - **`EntityStateFlags` as `[Flags]` enum, not a `HashSet<EntityStateFlags>`.** Flags enum enables O(1) bitwise checks and direct comparison without allocation. The limit of ~30 named values for a single `int`-backed `[Flags]` enum is not a concern at the projected flag count for this engine.
 
 - **Combat slice (9) interaction.** The combat use case (`combat.md`) currently specifies `CombatStateComponent { OpponentEntityId: uint }` as the metadata component tracking who the combatant is fighting. This slice does not replace that component. The relationship is: `EntityStateComponent.InCombat` is the observable flag (guarding `rest`, `flee`, re-`kill`); `CombatStateComponent.OpponentEntityId` is the metadata (telling the pulse who to fight). Both coexist. `KillCommand` attaches both; the combat pulse checks `CombatStateComponent`; state-gated commands check `EntityStateComponent` via `IEntityStateService.IsInState`. This dual-component design preserves separation between "is in a state" (observable, cross-cutting) and "what is the state's parameters" (domain-specific metadata).
+
+- **Mutual-exclusion between flags is centralized via auto-exits.** The `_autoExits` table (alongside `_rules`) encodes "entering X clears Y" once in `EntityStateService` rather than at every combat-initiation call site. The caller's event-publication contract is unchanged: capturing `oldStates` before and `newStates` after a single `TryEnterState` call yields a correctly-shaped `EntityStateChangedEvent` regardless of any auto-exits that fired internally. Future mutual-exclusion pairs add one row to the table.
 
 - **Why `IEntityStateService` instead of direct `HasComponent` calls in command bodies.** The transition rule table must be enforced centrally. Without a service, every command that enters or exits a state must re-implement the rule check — a pattern that fails when a new rule is added and some commands miss the update. The service is the single enforcement point. Commands that only *read* state (`IsInState`) could safely call `HasComponent<EntityStateComponent>` directly, but routing all state access through `IEntityStateService` keeps the call pattern uniform and makes the service the authoritative query surface for any future rule changes.
 
