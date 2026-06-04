@@ -23,13 +23,52 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 ---
 
-### `abilities` / `skills` / `spells`
+### `abilities`
 
-**Aliases:** `skills`, `spells`
+**Aliases:** none
 **MatchingMode:** `Partial`
 **Location:** `Core/Modules/Abilities/Commands/AbilitiesCommand.cs`
-**Description:** Lists all abilities the invoking player has learned. Each row shows ability id, Kind (Skill/Spell), Activation type (Active/Passive/Triggered), Targeting (Self/Target), resource costs, and current cooldown status (`ready` or remaining seconds to one decimal place). Writes "You know no abilities." when the known list is empty. No events fired.
+**Description:** Lists known abilities that are not classified as Skill-kind or Spell-kind (future kinds such as stances, racials, feats). When the known set contains only skills/spells, writes "You have no other abilities. Use 'skills' to see your skills and 'spells' to see your spells." When nothing is known at all, writes "You have no abilities. Use 'skills' or 'spells' to see what can be learned." No events fired.
 **Usage:** `abilities`
+**Schema:** no arguments
+**Dependencies:** `IAbilitySystem`, `IAbilityRegistry`
+**Events:** none
+
+---
+
+### `cast` / `c`
+
+**Aliases:** `c`
+**MatchingMode:** `Partial`
+**Location:** `Core/Modules/Abilities/Commands/CastCommand.cs`
+**Description:** Invokes a known Active Spell. Spell argument is resolved via `KnownSpellResolver` (prefix-matched against known Active Spells by id and display name). Delegates the full invocation pipeline to `AbilityInvocationPipeline`: target resolution (Self → actor, explicit token → `TryFindTargetInRoom`, in-combat → current opponent, offensive + no token → "{spell} whom?" prompt), combat entry for offensive spells not already fighting, `IAbilitySystem.Activate` with `resolveOffensiveExternally: true` for offensive spells, event publication, and `ICombatSystem.ResolveAbilityStrike` for offensive spells. On no spell match: "You don't know that spell."
+**Usage:** `cast <spell> [target]`
+**Schema:** `Token string "spell"` (required, `KnownSpellResolver`), `RestOfLine string "target"` (optional)
+**Dependencies:** `IAbilityRegistry`, `KnownSpellResolver`, `AbilityInvocationPipeline`
+**Events:** `CombatStartedEvent` (offensive, opens combat), `AbilityActivatedEvent`, `EffectAppliedEvent` (per applied effect), `AbilityStrikeResolvedEvent` (offensive only)
+
+---
+
+### `skills`
+
+**Aliases:** none
+**MatchingMode:** `Partial`
+**Location:** `Core/Modules/Abilities/Commands/AbilitiesCommand.cs`
+**Description:** Lists all known Skill-kind abilities. For each Active Skill shows the invocation verb (`[invoke: <id>]`) alongside the standard ability display line (id, Kind, Activation, Targeting, costs, cooldown). Writes "You know no skills." when empty. Footer cross-reference to `spells` and `help <skill-name>`. No events fired.
+**Usage:** `skills`
+**Schema:** no arguments
+**Dependencies:** `IAbilitySystem`, `IAbilityRegistry`
+**Events:** none
+
+---
+
+### `spells`
+
+**Aliases:** none
+**MatchingMode:** `Partial`
+**Location:** `Core/Modules/Abilities/Commands/AbilitiesCommand.cs`
+**Description:** Lists all known Spell-kind abilities. For each Active Spell shows the invocation form (`[invoke: cast <id>]`) alongside the standard ability display line. Writes "You know no spells." when empty. Footer cross-reference to `skills` and `help <spell-name>`. No events fired.
+**Usage:** `spells`
 **Schema:** no arguments
 **Dependencies:** `IAbilitySystem`, `IAbilityRegistry`
 **Events:** none
@@ -391,12 +430,14 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none
 **MatchingMode:** `Full`
 **Location:** `Core/Modules/Abilities/Commands/UseAbilityCommand.cs`
-**Description:** Invokes the full ability activation pipeline for the invoker (or an optional target entity). Delegates to `IAbilitySystem.Activate`; returns structured failure reasons (unknown ability, not known, not activatable, state blocked, on cooldown, insufficient resources). On `Activated`: publishes `AbilityActivatedEvent` and one `EffectAppliedEvent` per applied non-null effect.
+**Description:** Admin testing affordance. Invokes the full ability activation pipeline for the invoker (or an optional target entity). Delegates to `IAbilitySystem.Activate`; returns structured failure reasons (unknown ability, not known, not activatable, state blocked, on cooldown, insufficient resources). On `Activated`: publishes `AbilityActivatedEvent` and one `EffectAppliedEvent` per applied non-null effect.
 **Usage:** `useability <abilityId> [target]`
 **Schema:** `Token string "abilityId"` (required), `Token string "target"` (optional — character name or entity id)
 **Dependencies:** `IAbilitySystem`, `EntityService`, `IEventBus`, `ISessionManager`
 **Events:** `AbilityActivatedEvent`, `EffectAppliedEvent` (per applied effect)
 **RequiredPrivileges:** `AdminRequirement`
+
+> **Internal: `SkillInvocationCommand`** (NOT a discoverable `ICommand`). Called by `CommandDispatcher` Phase 3 after `IAbilityVerbResolver` confirms a unique Active Skill match. Delegates to `AbilityInvocationPipeline` for the full target-resolution → combat-entry → Activate → event-publish → strike chain. Location: `Core/Modules/Abilities/Commands/SkillInvocationCommand.cs`.
 
 ---
 

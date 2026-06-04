@@ -2,9 +2,9 @@
 
 > [Back to flows index](README.md)
 
-**Summary.** An admin (or future player verb) invokes an ability. `UseAbilityCommand` resolves the actor, calls `IAbilitySystem.Activate`, which runs the full activation pipeline — entity state / cooldown / cost checks → spend costs → apply effects → set cooldown — then returns a structured result. The command publishes `AbilityActivatedEvent` and one `EffectAppliedEvent` per applied effect.
+**Summary.** An initiator (admin `useability`, player `cast`, or a bare skill verb) invokes an ability. `IAbilitySystem.Activate` runs the full activation pipeline — entity state / cooldown / cost checks → spend costs → apply effects → set cooldown — then returns a structured result. The initiator publishes `AbilityActivatedEvent` and one `EffectAppliedEvent` per applied effect.
 
-**Trigger.** Admin sends `useability <abilityId> [target]` (slice 11-a). Future: player sends `cast <ability>` or a skill verb (slice 11-b and beyond).
+**Trigger.** Admin sends `useability <abilityId> [target]` (slice 11-a). Player sends `cast <spell> [target]` via `CastCommand` or a bare skill verb routed to `SkillInvocationCommand` (slice 11-b). Both player paths delegate to `AbilityInvocationPipeline`, which calls `Activate` with `resolveOffensiveExternally: true` and then calls `ICombatSystem.ResolveAbilityStrike` for offensive abilities (see [Flow 25](flow-25-skill-verb-invocation.md) and [Flow 26](flow-26-offensive-ability-opens-combat.md)).
 
 ```mermaid
 sequenceDiagram
@@ -43,9 +43,15 @@ sequenceDiagram
 
 **Why no `UseAbilityCommand` domain logic.** All validation, resource spending, cooldown mutation, and effect application happen inside `AbilitySystem`. The command is strictly an initiator — it resolves entities, calls the system, and publishes the past-tense events (INV-5, INV-8, INV-9).
 
+**The `resolveOffensiveExternally` branch.** When `CastCommand` or `SkillInvocationCommand` invokes `Activate`, it passes `resolveOffensiveExternally: true` for offensive abilities. `AbilitySystem` skips raw HP deduction for the offensive damage effect and instead returns its raw magnitude as `AbilityActivationResult.OffensivePower`. The caller (`AbilityInvocationPipeline`) applies it via `ICombatSystem.ResolveAbilityStrike` so defense mitigation is applied — this is the same hit resolution as melee rounds. `UseAbilityCommand` (admin path) does not pass this flag and receives the unmitigated damage.
+
 **Cross-references.**
 - [`Core/Modules/Abilities/Systems/AbilitySystem.cs`](../../../Core/Modules/Abilities/Systems/AbilitySystem.cs)
 - [`Core/Modules/Abilities/Commands/UseAbilityCommand.cs`](../../../Core/Modules/Abilities/Commands/UseAbilityCommand.cs)
+- [`Core/Modules/Abilities/Commands/AbilityInvocationPipeline.cs`](../../../Core/Modules/Abilities/Commands/AbilityInvocationPipeline.cs)
+- [`Core/Modules/Abilities/Commands/CastCommand.cs`](../../../Core/Modules/Abilities/Commands/CastCommand.cs)
 - [`docs/use-cases/ability-substrate.md`](../../use-cases/ability-substrate.md)
 - [Flow 16](flow-16-heartbeat-tick.md) — heartbeat trigger (for `AbilityCooldownTickHandler`)
 - [Flow 21](flow-21-effect-tick.md) — effect tick (downstream consumer of applied effects)
+- [Flow 25](flow-25-skill-verb-invocation.md) — player skill bare-verb invocation (in combat)
+- [Flow 26](flow-26-offensive-ability-opens-combat.md) — offensive ability opens combat

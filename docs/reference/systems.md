@@ -432,7 +432,7 @@ public interface IEffectRegistry
 Registered entries: `empower` (Body +5, Buff, 30s, HighestWins), `weaken` (Body -5, Debuff, 30s, HighestWins), `regen` (HpCurrent +10/tick, Blessing, 60s, Stack, Early), `poison` (HpCurrent -8/tick, Poison, 30s, Stack, Late), `minor_curse` (Mind -3, Curse, permanent, Stack). Extended in slice 11-a: `kick_damage` (HpCurrent -15, Instant, Replace), `mend_heal` (HpCurrent +20, Instant, Replace), `toughness_passive` (HpMax +20, StatModifier, HighestWins). Registered via `AddEffectsModule()`. Implemented (Phase 3 slice 9-e; extended slice 11-a).
 
 ### CombatSystem
-**Purpose:** Domain system for combat resolution. Handles target lookup, combat state attachment/removal, and round resolution. Pure: no events, no persistence (INV-5, INV-8). Computes attack resolution via `IStatSystem`; mutates HP via `IAttributeSystem.SetCurrentHp`; returns structured `CombatRoundResult` to callers.
+**Purpose:** Domain system for combat resolution. Handles target lookup, combat state attachment/removal, round resolution, and ability-powered strikes. Pure: no events, no persistence (INV-5, INV-8). Computes attack resolution via `IStatSystem`; mutates HP via `IAttributeSystem.SetCurrentHp`; returns structured `CombatRoundResult` to callers.
 **Location:** `Core/Modules/Combat/Systems/CombatSystem.cs`
 **Dependencies:** `EntityService`, `IStatSystem`, `IAttributeSystem`.
 ```csharp
@@ -442,6 +442,7 @@ public interface ICombatSystem
     void StartCombat(uint attackerEntityId, uint defenderEntityId);
     void EndCombat(uint attackerEntityId, uint defenderEntityId);
     CombatRoundResult ExecuteRound(uint attackerEntityId, uint defenderEntityId);
+    CombatRoundResult ResolveAbilityStrike(uint attackerEntityId, uint defenderEntityId, int basePower);
 }
 
 public readonly record struct CombatRoundResult(
@@ -453,7 +454,7 @@ public readonly record struct CombatRoundResult(
 
 public enum CombatRoundOutcome { Hit, Miss, MobDied, PlayerIncapacitated }
 ```
-`TryFindTargetInRoom` prefix-matches `token` against `MobDataComponent.Name` and `Keywords` for entities with `MobDataComponent` in the given room. `StartCombat`/`EndCombat` add/remove `CombatStateComponent` on both participants — does not call `IEntityStateService` (cohesion separation; commands and handlers coordinate both layers). `ExecuteRound` formula: hit check `roll = Random.Shared.Next(1,21) + dex/2 >= 10 + defense`; damage `Random.Shared.Next(1, attackPower+2)` applied via `IAttributeSystem.SetCurrentHp`; outcome `MobDied` if defender has `MobDataComponent` and HP == 0, `PlayerIncapacitated` if defender has `CharacterComponent` and HP == 0. Implemented (Phase 3 slice 9).
+`TryFindTargetInRoom` prefix-matches `token` against `MobDataComponent.Name` and `Keywords` for entities with `MobDataComponent` in the given room. `StartCombat`/`EndCombat` add/remove `CombatStateComponent` on both participants — does not call `IEntityStateService` (cohesion separation; commands and handlers coordinate both layers). `ExecuteRound` formula: hit check `roll = Random.Shared.Next(1,21) + dex/2 >= 10 + defense`; damage `Random.Shared.Next(1, attackPower+2)` applied via `IAttributeSystem.SetCurrentHp`; outcome `MobDied` if defender has `MobDataComponent` and HP == 0, `PlayerIncapacitated` if defender has `CharacterComponent` and HP == 0. `ResolveAbilityStrike` skips the hit/miss roll (always hits); applies defense mitigation to `basePower`, mutates defender HP via `IAttributeSystem.SetCurrentHp`, and returns `CombatRoundResult { AttackerHit = true }`. Used by `AbilityInvocationPipeline` after `IAbilitySystem.Activate` returns `OffensivePower`. Implemented (Phase 3 slices 9, 11-a).
 
 ### DeathSystem
 **Purpose:** Domain system owning the HP-threshold evaluation, respawn mutation, and respawn-location management for the player death lifecycle. Pure: never touches the event bus or persistence (INV-5, INV-8). Callers (handlers, initiators) read the returned `DeathTransition` and publish the appropriate events.
@@ -484,7 +485,9 @@ public interface IDeathSystem
 ```csharp
 public interface IAbilitySystem
 {
-    AbilityActivationResult Activate(uint actorEntityId, string abilityId, uint? targetEntityId = null);
+    AbilityActivationResult Activate(uint actorEntityId, string abilityId,
+        uint? targetEntityId = null, bool resolveOffensiveExternally = false);
+    bool IsOffensive(string abilityId);
     bool Learn(uint entityId, string abilityId);
     bool Teach(uint teacherEntityId, uint studentEntityId, string abilityId);
     IReadOnlyList<string> GetKnown(uint entityId);
@@ -494,7 +497,7 @@ public interface IAbilitySystem
     void AdvanceCooldowns(TimeSpan elapsed);
 }
 ```
-`Activate` validates in order: ability exists → actor knows it → `Active` activation → entity state ok (not Incapacitated) → cooldown ready → all costs affordable (atomic check before any spend). On success: spends each cost via `IAttributeSystem`, sets `AbilitiesComponent.CooldownRemaining[abilityId] = CooldownSeconds`, and calls `IEffectSystem.Apply` per effect id. Returns `AbilityActivationResult { Outcome, AbilityId, AppliedEffects, Spent, CooldownSeconds, FailReason? }`. `AdvanceCooldowns` decrements all non-zero cooldown entries by `elapsed.TotalSeconds`, clamping to 0. Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slice 11-a).
+`Activate` validates in order: ability exists → actor knows it → `Active` activation → entity state ok (not Incapacitated) → cooldown ready → all costs affordable (atomic check before any spend). On success: spends each cost via `IAttributeSystem`, sets `AbilitiesComponent.CooldownRemaining[abilityId] = CooldownSeconds`, and calls `IEffectSystem.Apply` per effect id. When `resolveOffensiveExternally = true`, any offensive damage effect (Instant/Periodic, `TargetScore == HpCurrent`, `BaseMagnitude < 0`) is skipped by `IEffectSystem` and its raw magnitude is returned as `AbilityActivationResult.OffensivePower` instead — the caller (`AbilityInvocationPipeline`) applies it via `ICombatSystem.ResolveAbilityStrike` with defense mitigation. `IsOffensive` returns `true` if the ability has `Targeting.Target` and at least one offensive damage effect. Returns `AbilityActivationResult { Outcome, AbilityId, AppliedEffects, Spent, CooldownSeconds, FailReason?, OffensivePower? }`. `AdvanceCooldowns` decrements all non-zero cooldown entries by `elapsed.TotalSeconds`, clamping to 0. Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slices 11-a, 11-b).
 
 ### AbilityRegistry
 **Purpose:** Hardcoded read-only catalog of `AbilityDefinition` records. Pure data — no event bus, no persistence. Promotion to a data file is a future content concern.
@@ -522,6 +525,44 @@ public interface IEffectContributor
 }
 ```
 Registered via `AddAbilitiesModule()` as `IEffectContributor` (DI-collected by `EffectSystem`). Implemented (Phase 3 slice 11-a).
+
+---
+
+## Argument Resolvers
+
+Resolvers implement `IArgumentResolver` and are injected into `CommandArgument` schema entries. They return a candidate list for prefix matching at parse time — read-only, no events, no mutations (INV-5).
+
+### AbilityVerbResolver
+
+**Purpose:** Resolves a typed input verb against all known Active Skills of the invoking player. Used by `CommandDispatcher` Phase 3 to detect bare skill invocations (e.g. `kick`, `ki`) that don't match any registered command.
+**Location:** `Core/Modules/Abilities/AbilityVerbResolver.cs`
+**Interface:** `IAbilityVerbResolver` (same file)
+**Dependencies:** `IAbilitySystem`, `IAbilityRegistry`.
+```csharp
+public interface IAbilityVerbResolver
+{
+    bool TryResolve(uint actorEntityId, string verbToken, out string abilityId);
+    IReadOnlyList<string> GetInvocableVerbs(uint actorEntityId);
+}
+```
+Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slice 11-b / WP-2).
+
+### KnownSpellResolver
+
+**Purpose:** Resolves a spell name/id token against the invoker's known Active Spells for use in the `cast` command. Implements `IArgumentResolver`.
+**Location:** `Core/Modules/Abilities/Resolvers/KnownSpellResolver.cs`
+**Dependencies:** `IAbilitySystem`, `IAbilityRegistry`.
+
+Returns two `ResolvedCandidate` entries per known Active Spell — one for the ability id and one for the display name — both sharing the same canonical value (the ability id). The parser prefix-matches the player's input against these candidates and substitutes the ability id into the `"spell"` argument slot. Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slice 11-b / WP-3).
+
+### MobInRoomResolver
+
+**Purpose:** Resolves a mob name/keyword against entities with `MobDataComponent` in the invoker's current room. Returns the mob entity id (as `string`) as the canonical value so commands receive the entity id directly without a second lookup.
+**Location:** `Core/Modules/Combat/Resolvers/MobInRoomResolver.cs`
+**Dependencies:** `EntityService`.
+Registered as a singleton in `CombatModule`. **Not yet wired to any command argument schema** — `AbilityInvocationPipeline` and `KillCommand` currently call `ICombatSystem.TryFindTargetInRoom` inline. Migrate both call sites to this resolver when a third mob-targeting command argument is added (INV-19 ≥3-consumer threshold). Implemented (Phase 3 slice 11-b / WP-1).
+
+---
 
 ### SpawnSystem
 **Purpose:** Tracks spawn slot occupancy for world-content entities (mobs, world-spawn items) and schedules respawns. Self-initializes from the live entity graph on `WorldContentReadyEvent`; reacts to `MobDiedEvent` and `ItemPickedUpEvent` to mark slots vacant; respawns on `HeartbeatTickEvent`. No events published; no persistence (INV-5, INV-8). Implemented (persistence reform Stage C).

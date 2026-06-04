@@ -7,5 +7,6 @@ namespace Hedron.Core.Modules.Account
         public int MaxMana { get; set; } = 50;
         public int MaxStamina { get; set; } = 50;
         public int MaxAstra { get; set; } = 10;
+        public string[] StartingAbilities { get; set; } = ["kick", "empower"];
     }
 }

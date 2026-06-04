@@ -6,6 +6,7 @@ using Hedron.Core.Commands.Authorization;
 using Hedron.Core.Commands.Events;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
+using Hedron.Core.Modules.Abilities.Commands;
 using Hedron.Core.Modules.EntityState.Systems;
 using Hedron.Core.Output;
 using Hedron.Core.Sessions;
@@ -37,6 +38,8 @@ namespace Hedron.Core.Commands
         private readonly IEntityStateService _entityStateService;
         private readonly ILogger<CommandDispatcher> _logger;
         private readonly IServiceProvider _services;
+        private readonly IAbilityVerbResolver _abilityVerbResolver;
+        private readonly SkillInvocationCommand _skillInvocationCommand;
 
         public CommandDispatcher(
             IEnumerable<ICommand> commands,
@@ -46,7 +49,9 @@ namespace Hedron.Core.Commands
             IEventBus eventBus,
             IEntityStateService entityStateService,
             ILogger<CommandDispatcher> logger,
-            IServiceProvider services)
+            IServiceProvider services,
+            IAbilityVerbResolver abilityVerbResolver,
+            SkillInvocationCommand skillInvocationCommand)
         {
             if (commands is null) throw new ArgumentNullException(nameof(commands));
             _authorizationChecker = authorizationChecker ?? throw new ArgumentNullException(nameof(authorizationChecker));
@@ -56,6 +61,8 @@ namespace Hedron.Core.Commands
             _entityStateService = entityStateService ?? throw new ArgumentNullException(nameof(entityStateService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _services = services ?? throw new ArgumentNullException(nameof(services));
+            _abilityVerbResolver = abilityVerbResolver ?? throw new ArgumentNullException(nameof(abilityVerbResolver));
+            _skillInvocationCommand = skillInvocationCommand ?? throw new ArgumentNullException(nameof(skillInvocationCommand));
 
             foreach (var command in commands)
             {
@@ -104,6 +111,36 @@ namespace Hedron.Core.Commands
                 switch (candidates.Count)
                 {
                     case 0:
+                        // Phase 3: ability-verb fallback — runs only after both command phases miss.
+                        // TryResolve returns false for ambiguous (>1) or zero match.
+                        if (_abilityVerbResolver.TryResolve(session.PlayerEntityId, verb, out var resolvedAbilityId))
+                        {
+                            // Unique skill verb matched — route to the internal skill invocation pipeline.
+                            await _skillInvocationCommand.InvokeAsync(
+                                session, session.PlayerEntityId, resolvedAbilityId, rawTail, output)
+                                .ConfigureAwait(false);
+                            // Publish CommandExecutedEvent so audit/logging fires.
+                            await PublishExecutedAsync(
+                                session.PlayerEntityId, resolvedAbilityId, rawTail, CommandOutcome.Success)
+                                .ConfigureAwait(false);
+                            return;
+                        }
+
+                        // Check for ambiguous ability prefix — TryResolve returns false but we still want a disambiguation line.
+                        var abilityCandidates = _abilityVerbResolver.GetInvocableVerbs(session.PlayerEntityId)
+                            .Where(id => id.StartsWith(verb, StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+                        if (abilityCandidates.Count > 1)
+                        {
+                            await output.WriteAsync(new PlainMessage(
+                                $"Ambiguous skill '{verb}'. Did you mean: {string.Join(", ", abilityCandidates)}?",
+                                OutputSeverity.Error)).ConfigureAwait(false);
+                            await PublishExecutedAsync(session.PlayerEntityId, verb, string.Empty, CommandOutcome.ParseFailed)
+                                .ConfigureAwait(false);
+                            return;
+                        }
+
+                        // Zero match — fall through to unknown command.
                         await output.WriteAsync(new PlainMessage(
                             $"Unknown command: {verb}. Type 'help' for a list.", OutputSeverity.Error))
                             .ConfigureAwait(false);

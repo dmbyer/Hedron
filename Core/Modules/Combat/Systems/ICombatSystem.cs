@@ -13,5 +13,14 @@ namespace Hedron.Core.Modules.Combat.Systems
         void StartCombat(uint attackerEntityId, uint defenderEntityId);
         void EndCombat(uint attackerEntityId, uint defenderEntityId);
         CombatRoundResult ExecuteRound(uint attackerEntityId, uint defenderEntityId);
+
+        /// <summary>
+        /// Resolves an ability-powered strike that always hits (no hit/miss roll).
+        /// Damage is defense-mitigated from <paramref name="basePower"/> and applied to the
+        /// defender. Returns a <see cref="CombatRoundResult"/> with
+        /// <see cref="CombatRoundResult.AttackerHit"/> always <c>true</c>.
+        /// PURE: no events, no side effects (INV-5, INV-8). Callers publish events.
+        /// </summary>
+        CombatRoundResult ResolveAbilityStrike(uint attackerEntityId, uint defenderEntityId, int basePower);
     }
 }
