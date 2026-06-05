@@ -61,6 +61,7 @@ At slice close-out, `sync-roadmap` **trims** it to its durable behavior spec —
 | `planned` | [`resource-regeneration.md`](resource-regeneration.md) | Phase 3 slice 11-c (supporting pool mechanic) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C): SQLite backend, EntityService lifecycle, world content de-persistence, context-driven item persistence, spawn slot foundation |
+| `planned` | [`prompt-and-output-batching.md`](prompt-and-output-batching.md) | Phase 3 — player prompt + session-scoped output batching framework (unscheduled) |
 
 > See [`../roadmap/plan.md`](../roadmap/plan.md#slice-queue) for the full slice queue and current focus.
 
@@ -74,6 +75,8 @@ Suggested categories as new slices are authored:
 - **System** (game-state persistence, content loading)
 
 ## Adding a new use case
+
+For a net-new feature or a non-trivial change, **frame it first with the [`architecture-advisor`](../../.claude/skills/architecture-advisor/SKILL.md) skill (`/advise`)** — the interactive principal-architect intake **seeds this doc** with the Description, Module, Design-note seam rationale, and an in-flight `## Architecture brief` (trimmed on ship). The `use-case-planner` then extends that seed into the full template below. For a small, well-understood slice, skip straight to planning.
 
 Use the `implement-use-case` skill (`.claude/skills/implement-use-case/SKILL.md`) or the `/new-use-case` slash command. The skill will:
 
