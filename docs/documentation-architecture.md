@@ -30,8 +30,8 @@ A growing codebase accretes overlapping docs: the same rule restated in three fi
 | [`use-cases/`](use-cases/) | Desired behavior — the *what* | One scenario per file; the per-slice work artifact while in-flight (see lifecycle) | A permanent home for impl plans, flow diagrams, or catalog diffs | Designers; planner; spec-review gate |
 | [`roadmap/`](roadmap/) | Direction, status, ledger, deferred work | `plan.md` (strategy/focus), `done.md` (ledger), `completed/` (detail), `backlog.md` (deferred) | Rule definitions; behavior specs (→ `use-cases/`) | Anyone asking "what's next/done/deferred" |
 | [`archive/`](archive/) | Retired approaches & point-in-time audits | Superseded designs, kept for history with a banner | Anything currently authoritative | Rarely; historical reference only |
-| [`.claude/skills/`](../.claude/skills/) | Recurring **patterns** (how to add a component/command/…) | A short, opinionated restatement of an architecture rule as a how-to | A *fork* of the rule (it links to and tracks the rule) | Agents performing the pattern |
-| [`.claude/agents/`](../.claude/agents/) | Recurring **exercises** (review, plan) | Role, workflow, output format for a multi-step exercise | Inline rule copies (agents read `checklist.md` live) | Spawned via the `Agent` tool |
+| [`.claude/skills/`](../.claude/skills/) | Recurring **patterns** (how to add a component/command/…) **and interactive exercises** (run in-thread, can probe the user) | A short how-to restatement of a rule, or the method + interactive workflow for an in-thread exercise | A *fork* of the rule (it links to and tracks the rule) | The main-thread agent (and the user it converses with) |
+| [`.claude/agents/`](../.claude/agents/) | Recurring **autonomous exercises** (review, plan) | Role, workflow, output format for a spawned exercise that returns one result | Inline rule copies (agents read `checklist.md` live); interactive back-and-forth (a spawned agent can't pause for user input) | Spawned via the `Agent` tool |
 | [`.claude/commands/`](../.claude/commands/) | Recurring **tasks** (one-shot invocations) | A thin wrapper that invokes an agent/skill | A private copy of the wrapped agent's workflow or output format | The user, via `/command` |
 
 ## Where each kind of fact lives (single source of truth)
@@ -86,10 +86,10 @@ A shipped use-case later superseded by a redesign gets a one-line banner pointin
 
 **Create** when something recurs:
 - a recurring **pattern** → a **skill** (the ≥3× bar from `INV-19` is the trigger);
-- a recurring **exercise** → an **agent**;
+- a recurring **exercise** → an **agent** when it runs **autonomously** to a single result, or a **skill** when it must **converse with the user**. The discriminator is interactivity, not complexity: a skill runs in the main conversation and can probe the user mid-flight (`AskUserQuestion`, iterative dialogue); a spawned agent cannot pause for input — it assumes-and-proceeds and returns one message. Precedent: `use-case-planner` and `architecture-reviewer` are autonomous → agents; `architecture-advisor` is an interactive principal-architect intake → a skill;
 - a recurring **task** → a **command** (usually a thin wrapper over an agent/skill).
 
-**Maintain:** a skill is a short restatement of an architecture rule *as a how-to*, not a fork — when the rule changes, the skill changes in the same PR (`INV-20`). Agents carry **no** inline rule copy; they read `checklist.md` live. Slash commands **wrap** an agent; they must not carry a private copy of the agent's workflow or output format — they say "invoke the agent; follow your definition."
+**Maintain:** a pattern-skill is a short restatement of an architecture rule *as a how-to*, not a fork; an exercise-skill carries the method + interactive workflow. Either way it carries **no inline copy** of the invariant list — it reads `checklist.md` (and the design docs) live and cites by ID, exactly as agents do — and when a rule it relies on changes, the skill changes in the same PR (`INV-20`). Agents likewise carry **no** inline rule copy; they read `checklist.md` live. Slash commands **wrap** an agent or skill; they must not carry a private copy of the wrapped workflow or output format — they say "invoke it; follow its definition."
 
 **Retire:** when a pattern is removed or a skill's guidance is superseded, delete or update it in the same change. Stale tooling produces the next slice's violations. The optional `debt-sweep` agent (see [`roadmap/backlog.md`](roadmap/backlog.md)) is the periodic backstop that also scans `.claude/` for stale guidance; the per-slice `INV-20` check is the integral defense.
 

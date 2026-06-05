@@ -24,6 +24,8 @@ Becomes meaningful once `LocationSystem` and `CombatSystem` exist and profiling 
 
 Evaluate after `TimeSystem` exists and concurrency shape is known. May not be needed if the heartbeat stays single-threaded with an event queue.
 
+**Concrete site — per-session output buffer.** The prompt/output-batching slice ([`../use-cases/prompt-and-output-batching.md`](../use-cases/prompt-and-output-batching.md)) introduces a session-scoped output buffer that three threads can touch concurrently: the player's own command read-loop, *other* players' read-loops (a `say` broadcasting into this session), and the heartbeat background thread (combat/effect/tick output). The buffer must guard its pending list and perform drain-then-append-prompt atomically. This is a known concurrency site to fold into the review (it ships with its own buffer-level lock; the review confirms it composes correctly with the session write lock and the event bus under background-service access).
+
 ## Phase 3+ ideas (not yet a slice)
 
 ### ~~🔵 Heartbeat / TimeSystem~~ — promoted to slice 9-b

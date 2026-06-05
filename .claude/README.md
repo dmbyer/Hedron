@@ -6,10 +6,11 @@ For how the docs themselves are organized — what each surface owns and the dis
 
 ## Skills (`skills/`)
 
-Invoke via model-selected skill triggers or directly in prompts. Each one documents a specific architectural pattern.
+Invoke via model-selected skill triggers or directly in prompts. Each one documents a specific architectural pattern or planning exercise.
 
 | Skill | Use when |
 |---|---|
+| [`architecture-advisor`](skills/architecture-advisor/SKILL.md) | Framing a feature's architecture *before* planning — where the seams belong, what future work pulls on them; the interactive principal-architect intake |
 | [`add-component`](skills/add-component/SKILL.md) | Adding a new ECS component |
 | [`add-archetype`](skills/add-archetype/SKILL.md) | Introducing a new entity archetype |
 | [`add-event`](skills/add-event/SKILL.md) | Adding a new event type |
@@ -33,6 +34,7 @@ Launched via the `Agent` tool with `subagent_type` set to the agent's name.
 
 | Command | Effect |
 |---|---|
+| `/advise <description>` | Principal-architect intake: frame a feature's seams + future-proofing, seed its use-case doc |
 | `/new-use-case <description>` | Spawn the use-case-planner on your idea |
 | `/check-layers [scope]` | Run architecture review on the current branch |
 
@@ -40,9 +42,10 @@ Launched via the `Agent` tool with `subagent_type` set to the agent's name.
 
 For a new feature end-to-end:
 
-1. `/new-use-case <describe the feature>` → writes `docs/use-cases/<x>.md` + plan
-2. Use `implement-use-case` skill → builds each layer using the other skills as sub-patterns
-3. `/check-layers` → architecture-reviewer flags any violations before merge
+1. `/advise <describe the feature>` → interactive principal-architect intake; frames the seams, weighs existing + planned work, and seeds `docs/use-cases/<x>.md` with an architectural brief (skip for a small, obvious slice)
+2. `/new-use-case` → use-case-planner extends the seed into the full plan; then the spec-review gate (`architecture-reviewer` in spec mode)
+3. Use `implement-use-case` skill → builds each layer using the other skills as sub-patterns
+4. `/check-layers` → architecture-reviewer flags any violations before merge
 
 For a bug fix or small change:
 
