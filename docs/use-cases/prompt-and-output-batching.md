@@ -127,11 +127,12 @@ None new. This slice introduces no new event types — the prompt observes by re
 
 ### WP-A — Session-scoped buffer + core shapes
 
-**Scope.** All new types in `Core/Output/`; `OutputCategory.Combat`; `HandlerPriority.OutputFlush`; `IOutputWriter.FlushAsync()`; updated `OutputWriterFactory`; DI wiring in `Server/Program.cs` for `ISessionBufferRegistry`; stub `IPromptSource` (returns null → no prompt yet); `subsystems/output.md` update.
+**Scope.** All new types in `Core/Output/`; `OutputCategory.Combat`; `HandlerPriority.OutputFlush`; `IOutputWriter.FlushAsync()`; updated `OutputWriterFactory`; DI wiring in `Server/Program.cs` for `ISessionBufferRegistry`; stub `IPromptSource` (returns null → no prompt yet); `PlainMessage` constructor change (required `OutputCategory` parameter); `subsystems/output.md` update.
 
 **Files.**
 
 - `Core/Output/OutputCategory.cs` — add `Combat`
+- `Core/Output/PlainMessage.cs` — make `OutputCategory` a **required** constructor parameter (no default). Every call site must explicitly pass the correct category — e.g., `say`/social paths pass `OutputCategory.Chat` so the `Immediate` flush policy fires and idle recipients see the message without waiting for a tick or command boundary. This is a breaking change: all existing `new PlainMessage(text, severity)` call sites must be updated to `new PlainMessage(text, severity, OutputCategory.X)`.
 - `Core/Output/FlushPolicy.cs` — `enum FlushPolicy { Immediate, Batched }`
 - `Core/Output/CategoryFlushPolicy.cs` — `static FlushPolicy GetPolicy(OutputCategory)`: `Chat → Immediate`; everything else → `Batched`
 - `Core/Output/PromptMessage.cs` — `IOutputMessage` shape: `string? StateLabel`, `IReadOnlyList<PoolDisplay> Pools`; `Category = OutputCategory.System`
@@ -153,7 +154,7 @@ None new. This slice introduces no new event types — the prompt observes by re
 
 **Out of scope.** Prompt composer (WP-B); dispatcher and tick handler flush triggers (WP-C); formatter changes for `PromptMessage` rendering (WP-B); flow doc updates (WP-C).
 
-**Exit criterion.** `dotnet build` green. `IOutputWriter.WriteAsync` routes messages to the session buffer. `IOutputWriter.FlushAsync` drains the buffer and sends each message; no prompt is appended yet (stub returns null). Existing command behavior (messages appear as before) is unchanged because the dispatcher still calls `FlushAsync` at the end of every path.
+**Exit criterion.** `dotnet build` green. `IOutputWriter.WriteAsync` routes messages to the session buffer. `IOutputWriter.FlushAsync` drains the buffer and sends each message; no prompt is appended yet (stub returns null). All `PlainMessage` call sites compile with an explicit `OutputCategory` argument. Existing command behavior (messages appear as before) is unchanged because the dispatcher still calls `FlushAsync` at the end of every path.
 
 ---
 
