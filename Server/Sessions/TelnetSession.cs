@@ -119,9 +119,9 @@ namespace Hedron.Server.Sessions
         {
             if (PlayerEntityId != 0)
             {
-                _sessionManager.Unregister(PlayerEntityId);
                 await _eventBus.PublishAsync(new PlayerDisconnectedEvent(PlayerEntityId, _characterName))
                     .ConfigureAwait(false);
+                _sessionManager.Unregister(PlayerEntityId);
             }
         }
 
