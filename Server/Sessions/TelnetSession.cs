@@ -97,6 +97,7 @@ namespace Hedron.Server.Sessions
                 await _eventBus.PublishAsync(new PlayerConnectedEvent(
                     PlayerEntityId, loginResult.CharacterName, loginResult.AccountEntityId))
                     .ConfigureAwait(false);
+                await _outputWriterFactory.Create(this).FlushAsync().ConfigureAwait(false);
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
