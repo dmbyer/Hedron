@@ -11,5 +11,11 @@ namespace Hedron.Core.Output
     {
         Task WriteAsync(IOutputMessage message);
         Task FlushAsync();
+        /// <summary>
+        /// Signals that the next <see cref="FlushAsync"/> call (command-end) should be
+        /// skipped so output accumulates in the session buffer until the tick-end flush.
+        /// Used by in-combat ability invocations to batch their output with the round.
+        /// </summary>
+        void DeferFlush();
     }
 }

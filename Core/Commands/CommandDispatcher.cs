@@ -92,12 +92,12 @@ namespace Hedron.Core.Commands
         public async Task DispatchAsync(ISession session, string input)
         {
             if (session is null) throw new ArgumentNullException(nameof(session));
-            if (string.IsNullOrWhiteSpace(input)) return;
             if (session.PlayerEntityId == 0) return;
 
             var output = _outputWriterFactory.Create(session);
             try
             {
+            if (string.IsNullOrWhiteSpace(input)) return; // finally flushes → prompt shown
             var trimmed = input.Trim();
             var splitAt = trimmed.IndexOf(' ');
             var verb = splitAt < 0 ? trimmed : trimmed[..splitAt];

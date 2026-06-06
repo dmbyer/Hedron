@@ -68,6 +68,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
             string loggerContext)
         {
             bool isOffensive = _abilitySystem.IsOffensive(abilityId);
+            bool wasInCombat = _entityStateService.IsInState(actorId, EntityStateFlags.InCombat);
 
             // 1. State-aware target resolution.
             uint? resolvedTarget = await ResolveTargetAsync(actorId, def, rawTargetToken, isOffensive, output)
@@ -128,6 +129,13 @@ namespace Hedron.Core.Modules.Abilities.Commands
                     actorId, resolvedTarget.Value, loc2.RoomEntityId, strikeResult, abilityId, defenderName))
                     .ConfigureAwait(false);
             }
+
+            // If the player was already in combat when this ability fired, defer the
+            // command-end flush so this output batches into the next tick-end flush
+            // together with the regular combat round. First-use (opening combat) never
+            // sets wasInCombat, so it always flushes immediately for the entry narrative.
+            if (wasInCombat)
+                output.DeferFlush();
         }
 
         // -----------------------------------------------------------------------

@@ -52,6 +52,8 @@ namespace Hedron.Core.Output
             var prompt = _promptSource.GetPrompt(_session.PlayerEntityId);
             if (prompt != null)
             {
+                if (snapshot.Count > 0)
+                    await _session.SendLineAsync(string.Empty).ConfigureAwait(false);
                 var rendered = formatter.Format(prompt, _session);
                 await _session.SendLineAsync(rendered).ConfigureAwait(false);
             }

@@ -129,7 +129,7 @@ public static class CategoryFlushPolicy
 }
 ```
 
-Maps `OutputCategory.Chat` → `FlushPolicy.Immediate`; all other categories → `FlushPolicy.Batched`. `SessionBufferedOutputWriter` uses this to decide whether to call `FlushAsync()` immediately after enqueue.
+Maps `OutputCategory.Chat` and `OutputCategory.Notification` → `FlushPolicy.Immediate`; all other categories → `FlushPolicy.Batched`. `SessionBufferedOutputWriter` uses this to decide whether to call `FlushAsync()` immediately after enqueue. `Notification` is used for login-flow prompts and bystander movement messages — any push message that should reach the recipient without waiting for a tick boundary.
 
 ### IPromptSource
 

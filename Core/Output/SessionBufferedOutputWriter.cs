@@ -5,6 +5,7 @@ namespace Hedron.Core.Output
     internal sealed class SessionBufferedOutputWriter : IOutputWriter
     {
         private readonly ISessionOutputBuffer _buffer;
+        private bool _deferNextFlush;
 
         public SessionBufferedOutputWriter(ISessionOutputBuffer buffer)
         {
@@ -18,6 +19,12 @@ namespace Hedron.Core.Output
                 await _buffer.FlushAsync().ConfigureAwait(false);
         }
 
-        public Task FlushAsync() => _buffer.FlushAsync();
+        public void DeferFlush() => _deferNextFlush = true;
+
+        public Task FlushAsync()
+        {
+            if (_deferNextFlush) { _deferNextFlush = false; return Task.CompletedTask; }
+            return _buffer.FlushAsync();
+        }
     }
 }

@@ -8,5 +8,6 @@ namespace Hedron.Core.Output
         Chat,
         Info,
         Combat,
+        Notification,
     }
 }
