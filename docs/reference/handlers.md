@@ -20,9 +20,9 @@ Ask:
 ### PlayerSessionHandler
 **Events:** `PlayerConnectedEvent`, `PlayerDisconnectedEvent`
 **Priority:** 20 (`HandlerPriority.Domain`)
-**Responsibilities:** On connect: attaches transient `PlayerComponent` (DisplayName, Session) and broadcasts arrival to the room; sends `SendRoomDescriptionAsync` to the connecting player. On disconnect: calls `IAccountSystem.RecordLogout`, then immediately calls `IPersistenceSystem.SaveEntityAsync(characterEntityId)` so the logout timestamp is durable, removes `PlayerComponent` via `EntityService.RemoveComponent<T>`, broadcasts departure. The character entity is **not** destroyed on disconnect.
+**Responsibilities:** On connect: attaches transient `PlayerComponent` (DisplayName, Session) and broadcasts arrival to the room; sends `SendRoomDescriptionAsync` to the connecting player. On disconnect: calls `IAccountSystem.RecordLogout`, then immediately calls `IPersistenceSystem.SaveEntityAsync(characterEntityId)` so the logout timestamp is durable, removes `PlayerComponent` via `EntityService.RemoveComponent<T>`, broadcasts departure, then calls `ISessionBufferRegistry.Release(session.SessionId)` to drop the session's output buffer entry and prevent a memory leak. The character entity is **not** destroyed on disconnect.
 **Location:** `Core/Modules/Session/Handlers/PlayerSessionHandler.cs`
-**Uses:** `EntityService`, `ISessionManager`, `IBroadcastSystem`, `IAccountSystem`, `IPersistenceSystem`
+**Uses:** `EntityService`, `ISessionManager`, `IBroadcastSystem`, `IAccountSystem`, `IPersistenceSystem`, `ISessionBufferRegistry`
 
 ### PlayerMovedHandler
 **Events:** `PlayerMovedEvent`, `PlayerTeleportedByAdminEvent` (Phase 3 slice 2)
@@ -141,6 +141,13 @@ Ask:
 **Responsibilities:** writes one structured-log entry per admin action via `ILogger<AdminAuditHandler>`. Uses a stable structured event name (`AdminCommandExecuted`) so log scrapers can filter without parsing free text. No dedicated audit-file sink in this slice.
 **Location:** `Core/Modules/Admin/Handlers/AdminAuditHandler.cs`
 **Uses:** `EntityService` (display-name resolution), `ILogger<AdminAuditHandler>`
+
+### OutputFlushTickHandler
+**Events:** `HeartbeatTickEvent`
+**Priority:** 85 (`HandlerPriority.OutputFlush`)
+**Responsibilities:** Flushes all session output buffers at the end of each heartbeat tick. Runs after all output-producing handlers (priority ≤ 80) so that combat messages, effect messages, and any other tick-batched output are already enqueued before the flush fires. Calls `ISessionBufferRegistry.FlushAllPendingAsync()` — for each session with pending output, atomically drains the buffer, formats and sends each message via the session's transport formatter, then calls `IPromptSource.GetPrompt(playerEntityId)` and appends one `PromptMessage`. Sessions with no pending output are skipped. The result: players see all of a tick's combat/effect lines as a batch followed by a single trailing prompt, not a prompt after every individual message line.
+**Location:** `Core/Handlers/OutputFlushTickHandler.cs`
+**Uses:** `ISessionBufferRegistry`
 
 ### CommandLoggingHandler
 **Events:** `CommandExecutedEvent` (Phase 3 slice 3)

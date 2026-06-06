@@ -96,6 +96,8 @@ namespace Hedron.Core.Commands
             if (session.PlayerEntityId == 0) return;
 
             var output = _outputWriterFactory.Create(session);
+            try
+            {
             var trimmed = input.Trim();
             var splitAt = trimmed.IndexOf(' ');
             var verb = splitAt < 0 ? trimmed : trimmed[..splitAt];
@@ -134,7 +136,7 @@ namespace Hedron.Core.Commands
                         {
                             await output.WriteAsync(new PlainMessage(
                                 $"Ambiguous skill '{verb}'. Did you mean: {string.Join(", ", abilityCandidates)}?",
-                                OutputSeverity.Error)).ConfigureAwait(false);
+                                OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                             await PublishExecutedAsync(session.PlayerEntityId, verb, string.Empty, CommandOutcome.ParseFailed)
                                 .ConfigureAwait(false);
                             return;
@@ -142,7 +144,7 @@ namespace Hedron.Core.Commands
 
                         // Zero match — fall through to unknown command.
                         await output.WriteAsync(new PlainMessage(
-                            $"Unknown command: {verb}. Type 'help' for a list.", OutputSeverity.Error))
+                            $"Unknown command: {verb}. Type 'help' for a list.", OutputSeverity.Error, OutputCategory.System))
                             .ConfigureAwait(false);
                         await PublishExecutedAsync(session.PlayerEntityId, verb, string.Empty, CommandOutcome.ParseFailed)
                             .ConfigureAwait(false);
@@ -155,7 +157,7 @@ namespace Hedron.Core.Commands
                     default:
                         var names = string.Join(", ", candidates.Select(c => c.Name));
                         await output.WriteAsync(new PlainMessage(
-                            $"Ambiguous command '{verb}'. Did you mean: {names}?", OutputSeverity.Error))
+                            $"Ambiguous command '{verb}'. Did you mean: {names}?", OutputSeverity.Error, OutputCategory.System))
                             .ConfigureAwait(false);
                         await PublishExecutedAsync(session.PlayerEntityId, verb, string.Empty, CommandOutcome.ParseFailed)
                             .ConfigureAwait(false);
@@ -173,7 +175,7 @@ namespace Hedron.Core.Commands
                 && _entityStateService.IsInState(session.PlayerEntityId, EntityStateFlags.Incapacitated))
             {
                 await output.WriteAsync(new PlainMessage(
-                    "You are incapacitated and cannot do that.", OutputSeverity.Error))
+                    "You are incapacitated and cannot do that.", OutputSeverity.Error, OutputCategory.System))
                     .ConfigureAwait(false);
                 await PublishExecutedAsync(session.PlayerEntityId, canonicalVerb, string.Empty, CommandOutcome.Refused)
                     .ConfigureAwait(false);
@@ -186,7 +188,7 @@ namespace Hedron.Core.Commands
                 if (!_authorizationChecker.IsSatisfied(req, session))
                 {
                     await output.WriteAsync(new PlainMessage(
-                        "You are not authorized to use that command.", OutputSeverity.Error))
+                        "You are not authorized to use that command.", OutputSeverity.Error, OutputCategory.System))
                         .ConfigureAwait(false);
                     await PublishExecutedAsync(session.PlayerEntityId, canonicalVerb, string.Empty, CommandOutcome.Unauthorized)
                         .ConfigureAwait(false);
@@ -200,7 +202,7 @@ namespace Hedron.Core.Commands
             if (parseResult is ParseResult.Failure failure)
             {
                 await output.WriteAsync(new PlainMessage(
-                    $"{failure.Reason} Type 'help {canonicalVerb}' for usage.", OutputSeverity.Error))
+                    $"{failure.Reason} Type 'help {canonicalVerb}' for usage.", OutputSeverity.Error, OutputCategory.System))
                     .ConfigureAwait(false);
                 await PublishExecutedAsync(session.PlayerEntityId, canonicalVerb, string.Empty, CommandOutcome.ParseFailed)
                     .ConfigureAwait(false);
@@ -221,10 +223,15 @@ namespace Hedron.Core.Commands
             {
                 _logger.LogError(ex, "Command {Verb} threw for entity {EntityId}", canonicalVerb, session.PlayerEntityId);
                 await output.WriteAsync(new PlainMessage(
-                    "Something went wrong. The error has been logged.", OutputSeverity.Error))
+                    "Something went wrong. The error has been logged.", OutputSeverity.Error, OutputCategory.System))
                     .ConfigureAwait(false);
                 await PublishExecutedAsync(session.PlayerEntityId, canonicalVerb, argsSummary, CommandOutcome.Threw)
                     .ConfigureAwait(false);
+            }
+            }
+            finally
+            {
+                await output.FlushAsync().ConfigureAwait(false);
             }
         }
 

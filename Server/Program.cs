@@ -115,6 +115,7 @@ public static class Program
                 services.AddSingleton<PlayerMovedHandler>();
                 services.AddSingleton<PlayerSaidHandler>();
                 services.AddSingleton<CommandLoggingHandler>();
+                services.AddSingleton<OutputFlushTickHandler>();
 
                 // Player-facing commands
                 services.AddSingleton<ICommand, SayCommand>();
@@ -175,6 +176,9 @@ public static class Program
 
         var regenTick = host.Services.GetRequiredService<RegenerationTickHandler>();
         bus.Subscribe<HeartbeatTickEvent>(regenTick);
+
+        var outputFlushTick = host.Services.GetRequiredService<OutputFlushTickHandler>();
+        bus.Subscribe<HeartbeatTickEvent>(outputFlushTick);
 
         var combatOutput = host.Services.GetRequiredService<CombatHandler>();
         bus.Subscribe<CombatStartedEvent>(combatOutput);
