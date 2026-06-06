@@ -3,7 +3,6 @@ using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Combat.Events;
-using Hedron.Core.Modules.Stats.Systems;
 using Hedron.Core.Output;
 using Hedron.Core.Systems;
 
@@ -21,15 +20,13 @@ namespace Hedron.Core.Modules.Combat.Handlers
     {
         private readonly EntityService _entityService;
         private readonly IBroadcastSystem _broadcast;
-        private readonly IStatSystem _statSystem;
 
         public int Priority => HandlerPriority.Domain;
 
-        public CombatHandler(EntityService entityService, IBroadcastSystem broadcast, IStatSystem statSystem)
+        public CombatHandler(EntityService entityService, IBroadcastSystem broadcast)
         {
             _entityService = entityService;
             _broadcast = broadcast;
-            _statSystem = statSystem;
         }
 
         public async Task HandleAsync(CombatStartedEvent @event)
@@ -54,8 +51,6 @@ namespace Hedron.Core.Modules.Combat.Handlers
         {
             var result = @event.Result;
             var isAttackerPlayer = _entityService.HasComponent<PlayerComponent>(@event.AttackerEntityId);
-            var playerEntityId = isAttackerPlayer ? @event.AttackerEntityId : @event.DefenderEntityId;
-            var mobEntityId = isAttackerPlayer ? @event.DefenderEntityId : @event.AttackerEntityId;
 
             if (!result.AttackerHit)
             {
@@ -95,8 +90,6 @@ namespace Hedron.Core.Modules.Combat.Handlers
                     .ConfigureAwait(false);
             }
 
-            await SendHpStatusAsync(@event.RoomEntityId, playerEntityId, mobEntityId)
-                .ConfigureAwait(false);
         }
 
         public async Task HandleAsync(CombatEndedEvent @event)
@@ -159,21 +152,6 @@ namespace Hedron.Core.Modules.Combat.Handlers
             if (_entityService.TryGet<MobDataComponent>(entityId, out var m))
                 return m.Name;
             return "something";
-        }
-
-        private async Task SendHpStatusAsync(uint roomEntityId, uint playerEntityId, uint mobEntityId)
-        {
-            var playerCurrent = _statSystem.GetCurrentHp(playerEntityId);
-            var playerMax = _statSystem.GetMaxHp(playerEntityId);
-            var mobCurrent = _statSystem.GetCurrentHp(mobEntityId);
-            var mobMax = _statSystem.GetMaxHp(mobEntityId);
-            var mobName = GetMobName(mobEntityId);
-
-            await _broadcast.SendToRoomAsync(
-                roomEntityId,
-                new PlainMessage($"[You: {playerCurrent}/{playerMax} HP | {mobName}: {mobCurrent}/{mobMax} HP]", OutputSeverity.System, OutputCategory.System),
-                entityId => entityId == playerEntityId)
-                .ConfigureAwait(false);
         }
     }
 }
