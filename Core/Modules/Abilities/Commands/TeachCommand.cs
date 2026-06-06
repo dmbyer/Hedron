@@ -65,7 +65,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     $"No connected player or entity found for target '{targetArg}'.",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
@@ -74,7 +74,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     $"Could not teach '{abilityId}' (unknown ability or already known).",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
@@ -89,7 +89,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
 
             await context.Output.WriteAsync(new PlainMessage(
                 $"Taught '{abilityId}' to entity #{studentEntityId}.",
-                OutputSeverity.Confirmation)).ConfigureAwait(false);
+                OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
         }
 
         private uint ResolveTarget(string target)

@@ -86,7 +86,7 @@ namespace Hedron.Core.Modules.Death.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     $"No connected player named '{characterName}'.",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
@@ -95,7 +95,7 @@ namespace Hedron.Core.Modules.Death.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     failReason ?? "Failed to set respawn room.",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
@@ -110,7 +110,7 @@ namespace Hedron.Core.Modules.Death.Commands
 
             await context.Output.WriteAsync(new PlainMessage(
                 $"Respawn room for {characterName} set to '{roomBlueprintId}'.",
-                OutputSeverity.Confirmation)).ConfigureAwait(false);
+                OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
         }
     }
 }

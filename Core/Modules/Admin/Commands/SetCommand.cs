@@ -68,13 +68,13 @@ namespace Hedron.Core.Modules.Admin.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     $"Unknown property '{property}'. Valid properties: name, description.",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
             if (!_entityService.TryGet<LocationComponent>(context.InvokerEntityId, out var location))
             {
-                await context.Output.WriteAsync(new PlainMessage("You have no location.", OutputSeverity.Error))
+                await context.Output.WriteAsync(new PlainMessage("You have no location.", OutputSeverity.Error, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -82,7 +82,7 @@ namespace Hedron.Core.Modules.Admin.Commands
             var roomId = location.RoomEntityId;
             if (!_entityService.HasComponent<RoomComponent>(roomId))
             {
-                await context.Output.WriteAsync(new PlainMessage("Your current location is not a room.", OutputSeverity.Error))
+                await context.Output.WriteAsync(new PlainMessage("Your current location is not a room.", OutputSeverity.Error, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -109,7 +109,7 @@ namespace Hedron.Core.Modules.Admin.Commands
 
             await context.Output.WriteAsync(new PlainMessage(
                 $"Room {normalizedProperty} set to '{value}'.",
-                OutputSeverity.Confirmation)).ConfigureAwait(false);
+                OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
         }
     }
 }

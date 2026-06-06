@@ -53,7 +53,7 @@ namespace Hedron.Core.Modules.Admin.Commands
             if (!_entityService.TryGet<LocationComponent>(context.InvokerEntityId, out var location))
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("You have no location.", OutputSeverity.Error))
+                    new PlainMessage("You have no location.", OutputSeverity.Error, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -63,7 +63,7 @@ namespace Hedron.Core.Modules.Admin.Commands
             if (resolvedRoomId is null)
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage($"Cannot resolve teleport target: {target}", OutputSeverity.Error))
+                    new PlainMessage($"Cannot resolve teleport target: {target}", OutputSeverity.Error, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -74,7 +74,7 @@ namespace Hedron.Core.Modules.Admin.Commands
                 : null;
 
             await context.Output.WriteAsync(
-                new PlainMessage($"Teleported to entity #{resolvedRoomId.Value}.", OutputSeverity.Confirmation))
+                new PlainMessage($"Teleported to entity #{resolvedRoomId.Value}.", OutputSeverity.Confirmation, OutputCategory.System))
                 .ConfigureAwait(false);
 
             await _eventBus.PublishAsync(new PlayerTeleportedByAdminEvent(

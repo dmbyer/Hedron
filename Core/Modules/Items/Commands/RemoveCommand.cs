@@ -56,7 +56,7 @@ namespace Hedron.Core.Modules.Items.Commands
             if (!context.Args.TryGet<string>("item", out var canonicalName) || canonicalName.Length == 0)
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("Remove what?", OutputSeverity.System))
+                    new PlainMessage("Remove what?", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -64,7 +64,7 @@ namespace Hedron.Core.Modules.Items.Commands
             if (!_equipmentSystem.TryFindEquippedItem(context.InvokerEntityId, canonicalName, out var itemEntityId))
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("You aren't wearing that.", OutputSeverity.System))
+                    new PlainMessage("You aren't wearing that.", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }

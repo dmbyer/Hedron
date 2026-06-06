@@ -70,7 +70,7 @@ namespace Hedron.Core.Modules.Admin.Commands
 
             if (!_entityService.TryGet<LocationComponent>(context.InvokerEntityId, out var location))
             {
-                await context.Output.WriteAsync(new PlainMessage("You have no location.", OutputSeverity.Error))
+                await context.Output.WriteAsync(new PlainMessage("You have no location.", OutputSeverity.Error, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -78,14 +78,14 @@ namespace Hedron.Core.Modules.Admin.Commands
             var sourceRoomId = location.RoomEntityId;
             if (!_entityService.TryGet<RoomComponent>(sourceRoomId, out var sourceRoom))
             {
-                await context.Output.WriteAsync(new PlainMessage("Your current location is not a room.", OutputSeverity.Error))
+                await context.Output.WriteAsync(new PlainMessage("Your current location is not a room.", OutputSeverity.Error, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
 
             if (sourceRoom.Exits.ContainsKey(direction))
             {
-                await context.Output.WriteAsync(new PlainMessage($"An exit already exists in that direction.", OutputSeverity.Error))
+                await context.Output.WriteAsync(new PlainMessage($"An exit already exists in that direction.", OutputSeverity.Error, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -124,7 +124,7 @@ namespace Hedron.Core.Modules.Admin.Commands
 
             await context.Output.WriteAsync(new PlainMessage(
                 $"Room '{name}' ({result.BlueprintId}) created to the {direction.ToString().ToLower()}.",
-                OutputSeverity.Confirmation)).ConfigureAwait(false);
+                OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
         }
     }
 }

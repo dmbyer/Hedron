@@ -32,7 +32,7 @@ namespace Hedron.Core.Modules.Chat.Handlers
 
             await _broadcast.SendToRoomAsync(
                 location.RoomEntityId,
-                new PlainMessage($"{playerName} says: {@event.Message}", OutputSeverity.Chat))
+                new PlainMessage($"{playerName} says: {@event.Message}", OutputSeverity.Chat, OutputCategory.Chat))
                 .ConfigureAwait(false);
         }
     }

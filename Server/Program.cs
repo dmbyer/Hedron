@@ -1,4 +1,4 @@
-using Hedron.Core;
+﻿using Hedron.Core;
 using Hedron.Core.Commands;
 using Microsoft.Extensions.Configuration;
 using Hedron.Core.Commands.Authorization;
@@ -56,6 +56,7 @@ using Hedron.Core.Modules.Time.Events;
 using Hedron.Core.Modules.World;
 using Hedron.Core.Modules.World.Events;
 using Hedron.Core.Output;
+using Hedron.Core.Modules.Prompt.Systems;
 using Hedron.Core.Sessions;
 using Hedron.Core.Systems;
 using Hedron.Server.Sessions;
@@ -98,6 +99,8 @@ public static class Program
                 services.AddSingleton<IOutputFormatter, TelnetOutputFormatter>();
                 services.AddSingleton<IOutputFormatterRegistry, OutputFormatterRegistry>();
                 services.AddSingleton<IOutputWriterFactory, OutputWriterFactory>();
+                services.AddSingleton<ISessionBufferRegistry, SessionBufferRegistry>();
+                services.AddSingleton<IPromptSource, PromptComposerSystem>();
 
                 // Systems
                 services.AddSingleton<IBroadcastSystem, BroadcastSystem>();
@@ -112,6 +115,7 @@ public static class Program
                 services.AddSingleton<PlayerMovedHandler>();
                 services.AddSingleton<PlayerSaidHandler>();
                 services.AddSingleton<CommandLoggingHandler>();
+                services.AddSingleton<OutputFlushTickHandler>();
 
                 // Player-facing commands
                 services.AddSingleton<ICommand, SayCommand>();
@@ -172,6 +176,9 @@ public static class Program
 
         var regenTick = host.Services.GetRequiredService<RegenerationTickHandler>();
         bus.Subscribe<HeartbeatTickEvent>(regenTick);
+
+        var outputFlushTick = host.Services.GetRequiredService<OutputFlushTickHandler>();
+        bus.Subscribe<HeartbeatTickEvent>(outputFlushTick);
 
         var combatOutput = host.Services.GetRequiredService<CombatHandler>();
         bus.Subscribe<CombatStartedEvent>(combatOutput);
@@ -243,3 +250,4 @@ public static class Program
         await host.RunAsync();
     }
 }
+

@@ -59,7 +59,7 @@ namespace Hedron.Core.Modules.Items.Commands
             if (!context.Args.TryGet<string>("item", out var canonicalName) || canonicalName.Length == 0)
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("Wear what?", OutputSeverity.System))
+                    new PlainMessage("Wear what?", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -67,7 +67,7 @@ namespace Hedron.Core.Modules.Items.Commands
             if (!_itemSystem.TryFindItemInInventory(context.InvokerEntityId, canonicalName, out var itemEntityId))
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("You aren't carrying that.", OutputSeverity.System))
+                    new PlainMessage("You aren't carrying that.", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -76,7 +76,7 @@ namespace Hedron.Core.Modules.Items.Commands
             if (slots.Count == 0)
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("You can't wear that.", OutputSeverity.System))
+                    new PlainMessage("You can't wear that.", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }

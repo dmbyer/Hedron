@@ -57,7 +57,7 @@ namespace Hedron.Core.Modules.Items.Commands
             if (!_entityService.TryGet<LocationComponent>(context.InvokerEntityId, out var location))
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("You have no location.", OutputSeverity.Error))
+                    new PlainMessage("You have no location.", OutputSeverity.Error, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -65,7 +65,7 @@ namespace Hedron.Core.Modules.Items.Commands
             if (!context.Args.TryGet<string>("item", out var canonicalName) || canonicalName.Length == 0)
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("Get what?", OutputSeverity.System))
+                    new PlainMessage("Get what?", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -73,7 +73,7 @@ namespace Hedron.Core.Modules.Items.Commands
             if (!_itemSystem.TryFindItemInRoom(location.RoomEntityId, canonicalName, out var itemEntityId))
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("You don't see that here.", OutputSeverity.System))
+                    new PlainMessage("You don't see that here.", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }

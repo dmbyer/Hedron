@@ -54,7 +54,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
             if (!_entityService.TryGet<LocationComponent>(context.InvokerEntityId, out var location))
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("You have no location.", OutputSeverity.Error))
+                    new PlainMessage("You have no location.", OutputSeverity.Error, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -71,7 +71,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
 
             await context.Output.WriteAsync(new PlainMessage(
                 $"Mob '{name}' created. Blueprint id: {result.BlueprintId}",
-                OutputSeverity.Confirmation)).ConfigureAwait(false);
+                OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
         }
     }
 }

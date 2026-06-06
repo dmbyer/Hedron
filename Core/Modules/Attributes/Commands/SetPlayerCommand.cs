@@ -67,7 +67,7 @@ namespace Hedron.Core.Modules.Attributes.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     "Value must be a positive integer.",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
@@ -88,7 +88,7 @@ namespace Hedron.Core.Modules.Attributes.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     $"No connected player named '{characterName}'.",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
@@ -145,7 +145,7 @@ namespace Hedron.Core.Modules.Attributes.Commands
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
                         $"Unknown property '{property}'. Valid properties: level, hp, mind, body, spirit, attunement, mana, maxmana, stamina, maxstamina, astra, maxastra.",
-                        OutputSeverity.Error)).ConfigureAwait(false);
+                        OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
             }
 
@@ -159,7 +159,7 @@ namespace Hedron.Core.Modules.Attributes.Commands
 
             await context.Output.WriteAsync(new PlainMessage(
                 $"Player {characterName} {property} set to {value}.",
-                OutputSeverity.Confirmation)).ConfigureAwait(false);
+                OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
         }
     }
 }

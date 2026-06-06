@@ -60,13 +60,13 @@ namespace Hedron.Core.Modules.Movement.Handlers
             if (fromRoomId != 0)
                 await _broadcast.SendToRoomAsync(
                     fromRoomId,
-                    new PlainMessage($"{name} {departureSuffix}", OutputSeverity.System),
+                    new PlainMessage($"{name} {departureSuffix}", OutputSeverity.System, OutputCategory.Notification),
                     entityId => entityId != movedEntityId).ConfigureAwait(false);
 
             if (toRoomId != 0)
                 await _broadcast.SendToRoomAsync(
                     toRoomId,
-                    new PlainMessage($"{name} {arrivalSuffix}", OutputSeverity.System),
+                    new PlainMessage($"{name} {arrivalSuffix}", OutputSeverity.System, OutputCategory.Notification),
                     entityId => entityId != movedEntityId).ConfigureAwait(false);
 
             if (toRoomId != 0)

@@ -73,7 +73,7 @@ namespace Hedron.Core.Modules.Items.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     $"No item template found with blueprint id '{blueprintId}'.",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
@@ -92,7 +92,7 @@ namespace Hedron.Core.Modules.Items.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     $"Item '{blueprintId}' has no live entity in the world.",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
@@ -116,7 +116,7 @@ namespace Hedron.Core.Modules.Items.Commands
                     {
                         await context.Output.WriteAsync(new PlainMessage(
                             $"Unknown item type '{value}'. Valid types: none, weapon, armor, consumable, container, misc.",
-                            OutputSeverity.Error)).ConfigureAwait(false);
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
                     _itemBuilder.SetItemType(itemEntityId, itemType);
@@ -132,7 +132,7 @@ namespace Hedron.Core.Modules.Items.Commands
                         {
                             await context.Output.WriteAsync(new PlainMessage(
                                 $"Unknown slot '{slotName}'. Valid slots: mainhand, offhand, head, chest, feet.",
-                                OutputSeverity.Error)).ConfigureAwait(false);
+                                OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                             return;
                         }
                         parsedSlots.Add(wornSlot);
@@ -147,14 +147,14 @@ namespace Hedron.Core.Modules.Items.Commands
                     {
                         await context.Output.WriteAsync(new PlainMessage(
                             $"Invalid damage bonus '{value}'. Expected a non-negative integer.",
-                            OutputSeverity.Error)).ConfigureAwait(false);
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
                     if (dmgValue < 0)
                     {
                         await context.Output.WriteAsync(new PlainMessage(
                             "Damage bonus must be non-negative.",
-                            OutputSeverity.Error)).ConfigureAwait(false);
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
                     _itemBuilder.SetItemDamageBonus(itemEntityId, dmgValue);
@@ -164,7 +164,7 @@ namespace Hedron.Core.Modules.Items.Commands
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
                         $"Unknown property '{property}'. Valid properties: name, description, keywords, type, slot, dmg.",
-                        OutputSeverity.Error)).ConfigureAwait(false);
+                        OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
             }
 
@@ -180,7 +180,7 @@ namespace Hedron.Core.Modules.Items.Commands
 
             await context.Output.WriteAsync(new PlainMessage(
                 $"Item {property} set to '{value}'.",
-                OutputSeverity.Confirmation)).ConfigureAwait(false);
+                OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
         }
     }
 }

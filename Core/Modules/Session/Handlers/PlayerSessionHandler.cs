@@ -28,6 +28,7 @@ namespace Hedron.Core.Modules.Session.Handlers
         private readonly IBroadcastSystem _broadcast;
         private readonly IAccountSystem _accountSystem;
         private readonly IPersistenceSystem _persistence;
+        private readonly ISessionBufferRegistry _bufferRegistry;
 
         public int Priority => HandlerPriority.Domain;
 
@@ -36,13 +37,15 @@ namespace Hedron.Core.Modules.Session.Handlers
             ISessionManager sessionManager,
             IBroadcastSystem broadcast,
             IAccountSystem accountSystem,
-            IPersistenceSystem persistence)
+            IPersistenceSystem persistence,
+            ISessionBufferRegistry bufferRegistry)
         {
             _entityService = entityService;
             _sessionManager = sessionManager;
             _broadcast = broadcast;
             _accountSystem = accountSystem;
             _persistence = persistence;
+            _bufferRegistry = bufferRegistry;
         }
 
         Task IEventHandler<PlayerConnectedEvent>.HandleAsync(PlayerConnectedEvent @event) =>
@@ -66,12 +69,12 @@ namespace Hedron.Core.Modules.Session.Handlers
 
             await _broadcast.SendToRoomAsync(
                 location.RoomEntityId,
-                new PlainMessage($"Welcome, {@event.Name}!", OutputSeverity.System),
+                new PlainMessage($"Welcome, {@event.Name}!", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId == @event.PlayerEntityId).ConfigureAwait(false);
 
             await _broadcast.SendToRoomAsync(
                 location.RoomEntityId,
-                new PlainMessage($"{@event.Name} has entered the world.", OutputSeverity.System),
+                new PlainMessage($"{@event.Name} has entered the world.", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId != @event.PlayerEntityId).ConfigureAwait(false);
 
             await _broadcast.SendRoomDescriptionAsync(
@@ -96,9 +99,13 @@ namespace Hedron.Core.Modules.Session.Handlers
             {
                 await _broadcast.SendToRoomAsync(
                     roomId.Value,
-                    new PlainMessage($"{name} has left the world.", OutputSeverity.System))
+                    new PlainMessage($"{name} has left the world.", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
             }
+
+            var session = _sessionManager.GetSession(@event.PlayerEntityId);
+            if (session is not null)
+                _bufferRegistry.Release(session.SessionId);
         }
     }
 }

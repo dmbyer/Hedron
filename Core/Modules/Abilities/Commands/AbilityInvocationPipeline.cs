@@ -68,6 +68,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
             string loggerContext)
         {
             bool isOffensive = _abilitySystem.IsOffensive(abilityId);
+            bool wasInCombat = _entityStateService.IsInState(actorId, EntityStateFlags.InCombat);
 
             // 1. State-aware target resolution.
             uint? resolvedTarget = await ResolveTargetAsync(actorId, def, rawTargetToken, isOffensive, output)
@@ -82,7 +83,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
             {
                 if (!_entityStateService.TryEnterState(actorId, EntityStateFlags.InCombat, out var failReason))
                 {
-                    await output.WriteAsync(new PlainMessage(failReason!, OutputSeverity.System))
+                    await output.WriteAsync(new PlainMessage(failReason!, OutputSeverity.System, OutputCategory.System))
                         .ConfigureAwait(false);
                     return;
                 }
@@ -128,6 +129,13 @@ namespace Hedron.Core.Modules.Abilities.Commands
                     actorId, resolvedTarget.Value, loc2.RoomEntityId, strikeResult, abilityId, defenderName))
                     .ConfigureAwait(false);
             }
+
+            // If the player was already in combat when this ability fired, defer the
+            // command-end flush so this output batches into the next tick-end flush
+            // together with the regular combat round. First-use (opening combat) never
+            // sets wasInCombat, so it always flushes immediately for the entry narrative.
+            if (wasInCombat)
+                output.DeferFlush();
         }
 
         // -----------------------------------------------------------------------
@@ -151,7 +159,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
                 if (!_entityService.TryGet<LocationComponent>(actorId, out var loc)) return null;
                 if (!_combatSystem.TryFindTargetInRoom(loc.RoomEntityId, token, out var mobId))
                 {
-                    await output.WriteAsync(new PlainMessage("You don't see that here.", OutputSeverity.System))
+                    await output.WriteAsync(new PlainMessage("You don't see that here.", OutputSeverity.System, OutputCategory.System))
                         .ConfigureAwait(false);
                     return null;
                 }
@@ -168,7 +176,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
             if (isOffensive)
             {
                 // Not in combat, no token, offensive → friendly prompt.
-                await output.WriteAsync(new PlainMessage($"{def.Name} whom?", OutputSeverity.System))
+                await output.WriteAsync(new PlainMessage($"{def.Name} whom?", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return null;
             }
@@ -196,7 +204,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
                     $"Cannot use {abilityName} right now.",
             };
 
-            await output.WriteAsync(new PlainMessage(message, OutputSeverity.Error)).ConfigureAwait(false);
+            await output.WriteAsync(new PlainMessage(message, OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
         }
 
         private string GetEntityName(uint entityId)

@@ -35,13 +35,13 @@ namespace Hedron.Core.Modules.Effects.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     "You have no active effects.",
-                    OutputSeverity.System)).ConfigureAwait(false);
+                    OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
             await context.Output.WriteAsync(new PlainMessage(
                 "Active effects:",
-                OutputSeverity.System)).ConfigureAwait(false);
+                OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
 
             foreach (var effect in effects)
             {

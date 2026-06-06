@@ -58,14 +58,14 @@ namespace Hedron.Core.Modules.Combat.Commands
         {
             if (!context.Args.TryGet<string>("target", out var target) || string.IsNullOrWhiteSpace(target))
             {
-                await context.Output.WriteAsync(new PlainMessage("Kill what?", OutputSeverity.System))
+                await context.Output.WriteAsync(new PlainMessage("Kill what?", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
 
             if (_entityStateService.IsInState(context.InvokerEntityId, EntityStateFlags.InCombat))
             {
-                await context.Output.WriteAsync(new PlainMessage("You are already fighting!", OutputSeverity.System))
+                await context.Output.WriteAsync(new PlainMessage("You are already fighting!", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -75,14 +75,14 @@ namespace Hedron.Core.Modules.Combat.Commands
 
             if (!_combatSystem.TryFindTargetInRoom(location.RoomEntityId, target, out var mobEntityId))
             {
-                await context.Output.WriteAsync(new PlainMessage("You don't see that here.", OutputSeverity.System))
+                await context.Output.WriteAsync(new PlainMessage("You don't see that here.", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
 
             if (!_entityStateService.TryEnterState(context.InvokerEntityId, EntityStateFlags.InCombat, out var failReason))
             {
-                await context.Output.WriteAsync(new PlainMessage(failReason!, OutputSeverity.System))
+                await context.Output.WriteAsync(new PlainMessage(failReason!, OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }

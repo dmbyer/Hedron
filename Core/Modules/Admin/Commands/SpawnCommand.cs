@@ -53,7 +53,7 @@ namespace Hedron.Core.Modules.Admin.Commands
             if (!_templateRegistry.TryGet(blueprintId, out _))
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage($"Unknown blueprint: {blueprintId}", OutputSeverity.Error))
+                    new PlainMessage($"Unknown blueprint: {blueprintId}", OutputSeverity.Error, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -61,7 +61,7 @@ namespace Hedron.Core.Modules.Admin.Commands
             if (!_entityService.TryGet<LocationComponent>(context.InvokerEntityId, out var location))
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("You have no location — cannot spawn here.", OutputSeverity.Error))
+                    new PlainMessage("You have no location — cannot spawn here.", OutputSeverity.Error, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -83,7 +83,7 @@ namespace Hedron.Core.Modules.Admin.Commands
             }
 
             await context.Output.WriteAsync(
-                new PlainMessage($"Spawned {blueprintId} (entity #{spawned.Id}).", OutputSeverity.Confirmation))
+                new PlainMessage($"Spawned {blueprintId} (entity #{spawned.Id}).", OutputSeverity.Confirmation, OutputCategory.System))
                 .ConfigureAwait(false);
 
             await _eventBus.PublishAsync(new EntitySpawnedByAdminEvent(

@@ -60,7 +60,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
             if (!context.Args.TryGet<string>("spell", out var spellId) || string.IsNullOrWhiteSpace(spellId))
             {
                 await context.Output.WriteAsync(new PlainMessage(
-                    "You don't know that spell.", OutputSeverity.System))
+                    "You don't know that spell.", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }

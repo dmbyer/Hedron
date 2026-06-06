@@ -38,7 +38,7 @@ namespace Hedron.Core.Modules.Regeneration.Commands
             if (_entityStateService.IsInState(context.InvokerEntityId, EntityStateFlags.Resting))
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("You are already resting.", OutputSeverity.System))
+                    new PlainMessage("You are already resting.", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -49,7 +49,7 @@ namespace Hedron.Core.Modules.Regeneration.Commands
                     context.InvokerEntityId, EntityStateFlags.Resting, out var failReason))
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage(failReason!, OutputSeverity.System))
+                    new PlainMessage(failReason!, OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -57,7 +57,7 @@ namespace Hedron.Core.Modules.Regeneration.Commands
             var newStates = _entityStateService.GetStates(context.InvokerEntityId);
 
             await context.Output.WriteAsync(
-                new PlainMessage("You sit down and begin to rest.", OutputSeverity.System))
+                new PlainMessage("You sit down and begin to rest.", OutputSeverity.System, OutputCategory.System))
                 .ConfigureAwait(false);
 
             await _eventBus.PublishAsync(

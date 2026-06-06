@@ -74,7 +74,7 @@ namespace Hedron.Core.Modules.Effects.Commands
                 var available = string.Join(", ", _effectRegistry.AllIds);
                 await context.Output.WriteAsync(new PlainMessage(
                     $"Unknown effect '{effectId}'. Available: {available}.",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
@@ -83,7 +83,7 @@ namespace Hedron.Core.Modules.Effects.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     $"No connected player or entity found for target '{targetArg}'.",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
@@ -117,7 +117,7 @@ namespace Hedron.Core.Modules.Effects.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     $"Effect '{effectId}' was not applied (HighestWins policy: existing effect has equal or greater power).",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
@@ -131,7 +131,7 @@ namespace Hedron.Core.Modules.Effects.Commands
 
             await context.Output.WriteAsync(new PlainMessage(
                 $"Applied '{effectId}' (power {appliedEffect.Power}) to entity #{targetEntityId}.",
-                OutputSeverity.Confirmation)).ConfigureAwait(false);
+                OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
         }
 
         private void ApplyInstantMagnitude(uint entityId, ScoreId scoreId, int power)

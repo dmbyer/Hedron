@@ -39,7 +39,7 @@ namespace Hedron.Core.Modules.Items.Commands
                 eq.Slots.Count == 0)
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("You are not wearing anything.", OutputSeverity.System))
+                    new PlainMessage("You are not wearing anything.", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }

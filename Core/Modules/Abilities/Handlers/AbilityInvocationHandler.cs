@@ -63,14 +63,14 @@ namespace Hedron.Core.Modules.Abilities.Handlers
             // Actor sees their own line.
             await _broadcast.SendToRoomAsync(
                 loc.RoomEntityId,
-                new PlainMessage(actorLine, OutputSeverity.System),
+                new PlainMessage(actorLine, OutputSeverity.System, OutputCategory.System),
                 entityId => entityId == @event.ActorEntityId)
                 .ConfigureAwait(false);
 
             // Everyone else in the room sees the observer line.
             await _broadcast.SendToRoomAsync(
                 loc.RoomEntityId,
-                new PlainMessage(observerLine, OutputSeverity.System),
+                new PlainMessage(observerLine, OutputSeverity.System, OutputCategory.System),
                 entityId => entityId != @event.ActorEntityId)
                 .ConfigureAwait(false);
         }
