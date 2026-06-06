@@ -131,7 +131,7 @@ public static class CategoryFlushPolicy
 
 Maps `OutputCategory.Chat` → `FlushPolicy.Immediate`; all other categories → `FlushPolicy.Batched`. `SessionBufferedOutputWriter` uses this to decide whether to call `FlushAsync()` immediately after enqueue.
 
-### IPromptSource / NullPromptSource
+### IPromptSource
 
 ```csharp
 public interface IPromptSource
@@ -140,7 +140,7 @@ public interface IPromptSource
 }
 ```
 
-Called by `SessionOutputBuffer.FlushAsync()` after all queued messages have been sent. Returns `null` to suppress the prompt (WP-A: `NullPromptSource`). WP-B replaces this with a real implementation that queries resource pools.
+Called by `SessionOutputBuffer.FlushAsync()` after all queued messages have been sent. Returns `null` for unbound sessions (`playerEntityId == 0`) to suppress the prompt. The concrete implementation is `PromptComposerSystem` (`Core/Modules/Prompt/Systems/`), which reads `IEntityStateService` and `IStatSystem` — domain-aware, wired via DI.
 
 `PromptMessage` shape:
 

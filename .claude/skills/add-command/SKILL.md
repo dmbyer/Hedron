@@ -46,13 +46,13 @@ public sealed class DrinkCommand : ICommand
         if (!result.Success)
         {
             await context.Output.WriteAsync(
-                new PlainMessage(result.ErrorMessage ?? "You don't have that.", OutputSeverity.Error))
+                new PlainMessage(result.ErrorMessage ?? "You don't have that.", OutputSeverity.Error, OutputCategory.System))
                 .ConfigureAwait(false);
             return;
         }
 
         await context.Output.WriteAsync(
-            new PlainMessage($"You drink the {itemName}.", OutputSeverity.Confirmation))
+            new PlainMessage($"You drink the {itemName}.", OutputSeverity.Confirmation, OutputCategory.System))
             .ConfigureAwait(false);
 
         await _eventBus.PublishAsync(new PotionConsumedEvent(context.InvokerEntityId, result.ItemId))
@@ -79,7 +79,7 @@ public sealed class DrinkCommand : ICommand
    - Public command: `RequiredPrivileges = Array.Empty<IAuthorizationRequirement>()`
    - Admin command: `RequiredPrivileges = new IAuthorizationRequirement[] { new AdminRequirement() }`
    - **Never** call `IAdminAuthorizer.IsPrivileged` inside the command body — the dispatcher handles it.
-6. **Output:** always write via `context.Output.WriteAsync(IOutputMessage)`. Use `PlainMessage` for text. Use `OutputSeverity.Error` for failures, `Confirmation` for success, `System` for neutral messages.
+6. **Output:** always write via `context.Output.WriteAsync(IOutputMessage)`. Use `PlainMessage(text, severity, category)` for text — three arguments are required. Severity: `Error` for failures, `Confirmation` for success, `System` for neutral messages. Category: `System` for command responses; `Chat` for social messages (triggers immediate flush); `Help` for help content.
 7. **Register** in the feature module: `services.AddSingleton<ICommand, DrinkCommand>();`
 8. **Subscribe** the handler that consumes the event the command publishes (if any) in `Server/Program.cs`.
 9. **Docs:** add a row to `docs/reference/commands.md`.
@@ -187,7 +187,7 @@ See [INV-21](../../../docs/architecture/checklist.md) for the full invariant.
 
 ## What NOT to do
 
-- **No `session.SendLineAsync` calls.** Use `context.Output.WriteAsync(new PlainMessage(...))`.
+- **No `session.SendLineAsync` calls.** Use `context.Output.WriteAsync(new PlainMessage(text, severity, category))`.
 - **No gameplay rules in the command.** Rules live in the domain system.
 - **No game-rule orchestration inside a command.** If the sequence involves conditional branching based on game state — "if skill check succeeds, publish X, else publish Y" — that logic belongs in a handler/system, not the command. *Exception (INV-8):* a command may publish multiple events when every event is an unconditional, direct consequence of the command's action with no game-rule branch between them. Test: "Would extracting this into a handler reveal game logic, or would the handler just mechanically re-publish?" If the latter, keep it in the command.
 - **No `IAdminAuthorizer.IsPrivileged` calls.** Declare `RequiredPrivileges`; the dispatcher checks it.
