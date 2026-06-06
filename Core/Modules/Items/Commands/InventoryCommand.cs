@@ -44,7 +44,7 @@ namespace Hedron.Core.Modules.Items.Commands
             if (itemIds.Count == 0)
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("You are carrying nothing.", OutputSeverity.System))
+                    new PlainMessage("You are carrying nothing.", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }

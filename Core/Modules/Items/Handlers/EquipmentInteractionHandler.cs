@@ -37,13 +37,13 @@ namespace Hedron.Core.Modules.Items.Handlers
 
             await _broadcast.SendToRoomAsync(
                 location.RoomEntityId,
-                new PlainMessage($"{playerName} wears {itemName}.", OutputSeverity.System),
+                new PlainMessage($"{playerName} wears {itemName}.", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId != @event.PlayerEntityId)
                 .ConfigureAwait(false);
 
             await _broadcast.SendToRoomAsync(
                 location.RoomEntityId,
-                new PlainMessage($"You wear {itemName}.", OutputSeverity.System),
+                new PlainMessage($"You wear {itemName}.", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId == @event.PlayerEntityId)
                 .ConfigureAwait(false);
         }
@@ -58,13 +58,13 @@ namespace Hedron.Core.Modules.Items.Handlers
 
             await _broadcast.SendToRoomAsync(
                 location.RoomEntityId,
-                new PlainMessage($"{playerName} removes {itemName}.", OutputSeverity.System),
+                new PlainMessage($"{playerName} removes {itemName}.", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId != @event.PlayerEntityId)
                 .ConfigureAwait(false);
 
             await _broadcast.SendToRoomAsync(
                 location.RoomEntityId,
-                new PlainMessage($"You remove {itemName}.", OutputSeverity.System),
+                new PlainMessage($"You remove {itemName}.", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId == @event.PlayerEntityId)
                 .ConfigureAwait(false);
         }

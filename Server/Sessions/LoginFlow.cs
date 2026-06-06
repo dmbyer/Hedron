@@ -62,7 +62,7 @@ namespace Hedron.Server.Sessions
 
             await output.WriteAsync(new PlainMessage(
                 "Welcome to Hedron.\nDo you have an existing account? (yes/no)",
-                OutputSeverity.System)).ConfigureAwait(false);
+                OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
 
             var choice = await ReadLineAsync(ct).ConfigureAwait(false);
             if (choice is null) return null;
@@ -89,7 +89,7 @@ namespace Hedron.Server.Sessions
 
             await output.WriteAsync(new PlainMessage(
                 "Account created. Let's create your first character.",
-                OutputSeverity.System)).ConfigureAwait(false);
+                OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
 
             // Character creation + saves + event publishing are handled together so that
             // character is written before account (crash-safety) and both events publish
@@ -108,7 +108,7 @@ namespace Hedron.Server.Sessions
                     .ConfigureAwait(false);
                 if (username is null) return null;
 
-                await output.WriteAsync(new PlainMessage("Password:", OutputSeverity.System))
+                await output.WriteAsync(new PlainMessage("Password:", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 var password = await ReadLineAsync(ct).ConfigureAwait(false);
                 if (password is null) return null;
@@ -124,11 +124,11 @@ namespace Hedron.Server.Sessions
                 if (remaining > 0)
                     await output.WriteAsync(new PlainMessage(
                         $"Invalid username or password. {remaining} attempt(s) remaining.",
-                        OutputSeverity.Error)).ConfigureAwait(false);
+                        OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
             }
 
             await output.WriteAsync(new PlainMessage(
-                "Too many failed attempts. Disconnecting.", OutputSeverity.Error))
+                "Too many failed attempts. Disconnecting.", OutputSeverity.Error, OutputCategory.System))
                 .ConfigureAwait(false);
             return null;
         }
@@ -143,7 +143,7 @@ namespace Hedron.Server.Sessions
             if (characters.Count == 0)
             {
                 await output.WriteAsync(new PlainMessage(
-                    "No characters found. Let's create one.", OutputSeverity.System))
+                    "No characters found. Let's create one.", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return await RunCharacterCreationFlowAsync(output, accountId, ct).ConfigureAwait(false);
             }
@@ -151,7 +151,7 @@ namespace Hedron.Server.Sessions
             while (true)
             {
                 await output.WriteAsync(new PlainMessage(
-                    BuildRoster(characters), OutputSeverity.System)).ConfigureAwait(false);
+                    BuildRoster(characters), OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
 
                 var choice = await ReadLineAsync(ct).ConfigureAwait(false);
                 if (choice is null) return null;
@@ -163,7 +163,7 @@ namespace Hedron.Server.Sessions
                     {
                         await output.WriteAsync(new PlainMessage(
                             $"You have reached the maximum of {_maxCharacters} characters.",
-                            OutputSeverity.Error)).ConfigureAwait(false);
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         continue;
                     }
                     return await RunCharacterCreationFlowAsync(output, accountId, ct).ConfigureAwait(false);
@@ -177,7 +177,7 @@ namespace Hedron.Server.Sessions
 
                 await output.WriteAsync(new PlainMessage(
                     "Please enter a number from the list, or 'new' to create a character.",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
             }
         }
 
@@ -196,7 +196,7 @@ namespace Hedron.Server.Sessions
             {
                 await output.WriteAsync(new PlainMessage(
                     "Enter a name for your character (2–16 letters):",
-                    OutputSeverity.System)).ConfigureAwait(false);
+                    OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
 
                 var name = await ReadLineAsync(ct).ConfigureAwait(false);
                 if (name is null) return null;
@@ -205,7 +205,7 @@ namespace Hedron.Server.Sessions
                 var error = ValidateCharacterName(name);
                 if (error is not null)
                 {
-                    await output.WriteAsync(new PlainMessage(error, OutputSeverity.Error))
+                    await output.WriteAsync(new PlainMessage(error, OutputSeverity.Error, OutputCategory.System))
                         .ConfigureAwait(false);
                     continue;
                 }
@@ -237,7 +237,7 @@ namespace Hedron.Server.Sessions
         {
             while (true)
             {
-                await output.WriteAsync(new PlainMessage("Username:", OutputSeverity.System))
+                await output.WriteAsync(new PlainMessage("Username:", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
 
                 var username = await ReadLineAsync(ct).ConfigureAwait(false);
@@ -247,7 +247,7 @@ namespace Hedron.Server.Sessions
                 var error = ValidateUsername(username);
                 if (error is not null)
                 {
-                    await output.WriteAsync(new PlainMessage(error, OutputSeverity.Error))
+                    await output.WriteAsync(new PlainMessage(error, OutputSeverity.Error, OutputCategory.System))
                         .ConfigureAwait(false);
                     continue;
                 }
@@ -255,7 +255,7 @@ namespace Hedron.Server.Sessions
                 if (mustBeNew && _accountSystem.UsernameExists(username))
                 {
                     await output.WriteAsync(new PlainMessage(
-                        "That username is already taken.", OutputSeverity.Error))
+                        "That username is already taken.", OutputSeverity.Error, OutputCategory.System))
                         .ConfigureAwait(false);
                     continue;
                 }
@@ -269,7 +269,7 @@ namespace Hedron.Server.Sessions
         {
             while (true)
             {
-                await output.WriteAsync(new PlainMessage("Choose a password:", OutputSeverity.System))
+                await output.WriteAsync(new PlainMessage("Choose a password:", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 var password = await ReadLineAsync(ct).ConfigureAwait(false);
                 if (password is null) return null;
@@ -277,12 +277,12 @@ namespace Hedron.Server.Sessions
                 if (password.Length < 6)
                 {
                     await output.WriteAsync(new PlainMessage(
-                        "Password must be at least 6 characters.", OutputSeverity.Error))
+                        "Password must be at least 6 characters.", OutputSeverity.Error, OutputCategory.System))
                         .ConfigureAwait(false);
                     continue;
                 }
 
-                await output.WriteAsync(new PlainMessage("Confirm password:", OutputSeverity.System))
+                await output.WriteAsync(new PlainMessage("Confirm password:", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 var confirm = await ReadLineAsync(ct).ConfigureAwait(false);
                 if (confirm is null) return null;
@@ -290,7 +290,7 @@ namespace Hedron.Server.Sessions
                 if (password != confirm)
                 {
                     await output.WriteAsync(new PlainMessage(
-                        "Passwords do not match. Please try again.", OutputSeverity.Error))
+                        "Passwords do not match. Please try again.", OutputSeverity.Error, OutputCategory.System))
                         .ConfigureAwait(false);
                     continue;
                 }

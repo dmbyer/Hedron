@@ -114,7 +114,7 @@ namespace Hedron.Core.Modules.Help.Commands
                         var names = string.Join(", ", visible.Select(c => c.Name));
                         await context.Output.WriteAsync(
                             new PlainMessage($"Ambiguous command '{verb}'. Did you mean: {names}?",
-                                OutputSeverity.System))
+                                OutputSeverity.System, OutputCategory.Help))
                             .ConfigureAwait(false);
                         return;
                 }
@@ -149,7 +149,7 @@ namespace Hedron.Core.Modules.Help.Commands
             if (_abilityRegistry.TryGet(lowerTopic, out var abilityDef))
             {
                 await context.Output.WriteAsync(new PlainMessage(
-                    FormatAbilityHelp(abilityDef), OutputSeverity.System))
+                    FormatAbilityHelp(abilityDef), OutputSeverity.System, OutputCategory.Help))
                     .ConfigureAwait(false);
                 return;
             }
@@ -175,13 +175,13 @@ namespace Hedron.Core.Modules.Help.Commands
             if (matched != null)
             {
                 await context.Output.WriteAsync(new PlainMessage(
-                    FormatAbilityHelp(matched), OutputSeverity.System))
+                    FormatAbilityHelp(matched), OutputSeverity.System, OutputCategory.Help))
                     .ConfigureAwait(false);
                 return;
             }
 
             await context.Output.WriteAsync(
-                new PlainMessage($"No help found for '{topic}'.", OutputSeverity.System))
+                new PlainMessage($"No help found for '{topic}'.", OutputSeverity.System, OutputCategory.Help))
                 .ConfigureAwait(false);
         }
 
@@ -191,7 +191,7 @@ namespace Hedron.Core.Modules.Help.Commands
                 kind.HasValue
                     ? $"\nAll registered {kind.Value.ToString().ToLower()}s:"
                     : "\nAll registered abilities:",
-                OutputSeverity.System)).ConfigureAwait(false);
+                OutputSeverity.System, OutputCategory.Help)).ConfigureAwait(false);
 
             foreach (var id in _abilityRegistry.AllIds.OrderBy(x => x))
             {
@@ -203,7 +203,7 @@ namespace Hedron.Core.Modules.Help.Commands
                     : string.Join(", ", def.Costs.Select(c => $"{c.Amount} {c.Resource.ToString().ToLower()}"));
                 var cdStr = def.CooldownSeconds > 0f ? $"{def.CooldownSeconds:F0}s" : "none";
                 var line = $"  {def.Id,-20} — {def.Name}. ({def.Kind}, {def.Activation}, {def.Targeting}, cost: {costStr}, cd: {cdStr})";
-                await output.WriteAsync(new PlainMessage(line, OutputSeverity.System)).ConfigureAwait(false);
+                await output.WriteAsync(new PlainMessage(line, OutputSeverity.System, OutputCategory.Help)).ConfigureAwait(false);
             }
         }
 

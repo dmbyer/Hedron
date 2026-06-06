@@ -62,7 +62,7 @@ namespace Hedron.Core.Modules.Movement.Commands
                 var newStates = _entityStateService.GetStates(context.InvokerEntityId);
 
                 await context.Output.WriteAsync(
-                    new PlainMessage("You stop resting and stand up.", OutputSeverity.System))
+                    new PlainMessage("You stop resting and stand up.", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
 
                 await _eventBus.PublishAsync(

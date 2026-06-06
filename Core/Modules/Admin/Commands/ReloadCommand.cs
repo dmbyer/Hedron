@@ -49,7 +49,7 @@ namespace Hedron.Core.Modules.Admin.Commands
             await context.Output.WriteAsync(new PlainMessage(
                 $"Reloaded: {result.TemplatesLoaded} new, {result.TemplatesUnchanged} unchanged, " +
                 $"{result.TemplatesRemoved} removed. Existing live entities were not modified.",
-                OutputSeverity.Confirmation)).ConfigureAwait(false);
+                OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
 
             await _eventBus.PublishAsync(new ContentReloadedEvent(
                 result.TemplatesLoaded,

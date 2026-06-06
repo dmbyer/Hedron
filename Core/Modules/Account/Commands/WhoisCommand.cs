@@ -56,12 +56,12 @@ namespace Hedron.Core.Modules.Account.Commands
                     $"Character: {character.CharacterName} (entity #{charId})\n" +
                     $"Account:   {username} (entity #{character.AccountEntityId})\n" +
                     $"Last login: {character.LastLoginUtc:u}",
-                    OutputSeverity.System)).ConfigureAwait(false);
+                    OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
             await context.Output.WriteAsync(new PlainMessage(
-                $"No character named '{name}' found.", OutputSeverity.Error))
+                $"No character named '{name}' found.", OutputSeverity.Error, OutputCategory.System))
                 .ConfigureAwait(false);
         }
     }

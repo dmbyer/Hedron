@@ -34,13 +34,13 @@ namespace Hedron.Core.Modules.Items.Handlers
 
             await _broadcast.SendToRoomAsync(
                 @event.RoomEntityId,
-                new PlainMessage($"{playerName} picks up {itemName}.", OutputSeverity.System),
+                new PlainMessage($"{playerName} picks up {itemName}.", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId != @event.PlayerEntityId)
                 .ConfigureAwait(false);
 
             await _broadcast.SendToRoomAsync(
                 @event.RoomEntityId,
-                new PlainMessage($"You pick up {itemName}.", OutputSeverity.System),
+                new PlainMessage($"You pick up {itemName}.", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId == @event.PlayerEntityId)
                 .ConfigureAwait(false);
         }
@@ -52,13 +52,13 @@ namespace Hedron.Core.Modules.Items.Handlers
 
             await _broadcast.SendToRoomAsync(
                 @event.RoomEntityId,
-                new PlainMessage($"{playerName} drops {itemName}.", OutputSeverity.System),
+                new PlainMessage($"{playerName} drops {itemName}.", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId != @event.PlayerEntityId)
                 .ConfigureAwait(false);
 
             await _broadcast.SendToRoomAsync(
                 @event.RoomEntityId,
-                new PlainMessage($"You drop {itemName}.", OutputSeverity.System),
+                new PlainMessage($"You drop {itemName}.", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId == @event.PlayerEntityId)
                 .ConfigureAwait(false);
         }

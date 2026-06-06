@@ -37,14 +37,14 @@ namespace Hedron.Core.Modules.Death.Handlers
             // Write to the downed player personally.
             await _broadcast.SendToRoomAsync(
                 @event.RoomEntityId,
-                new PlainMessage("You collapse, bleeding out. You cannot act — find healing fast.", OutputSeverity.System),
+                new PlainMessage("You collapse, bleeding out. You cannot act — find healing fast.", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId == @event.PlayerEntityId)
                 .ConfigureAwait(false);
 
             // Broadcast to everyone else in the room.
             await _broadcast.SendToRoomAsync(
                 @event.RoomEntityId,
-                new PlainMessage($"{name} collapses, mortally wounded!", OutputSeverity.System),
+                new PlainMessage($"{name} collapses, mortally wounded!", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId != @event.PlayerEntityId)
                 .ConfigureAwait(false);
         }
@@ -64,7 +64,7 @@ namespace Hedron.Core.Modules.Death.Handlers
                 roomEntityId,
                 new PlainMessage(
                     $"You are bleeding out ({@event.CurrentHp}/{@event.HpFloor}). Without healing you will die.",
-                    OutputSeverity.System),
+                    OutputSeverity.System, OutputCategory.System),
                 entityId => entityId == @event.PlayerEntityId)
                 .ConfigureAwait(false);
 
@@ -72,7 +72,7 @@ namespace Hedron.Core.Modules.Death.Handlers
             var name = GetPlayerName(@event.PlayerEntityId);
             await _broadcast.SendToRoomAsync(
                 roomEntityId,
-                new PlainMessage($"{name} is bleeding out and near death.", OutputSeverity.System),
+                new PlainMessage($"{name} is bleeding out and near death.", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId != @event.PlayerEntityId)
                 .ConfigureAwait(false);
         }
@@ -84,7 +84,7 @@ namespace Hedron.Core.Modules.Death.Handlers
             // Broadcast death to the room where the player fell.
             await _broadcast.SendToRoomAsync(
                 @event.DeathRoomEntityId,
-                new PlainMessage($"{name} has died.", OutputSeverity.System))
+                new PlainMessage($"{name} has died.", OutputSeverity.System, OutputCategory.System))
                 .ConfigureAwait(false);
         }
 
@@ -95,7 +95,7 @@ namespace Hedron.Core.Modules.Death.Handlers
             // Tell the respawning player personally.
             await _broadcast.SendToRoomAsync(
                 @event.RespawnRoomEntityId,
-                new PlainMessage($"You awaken, weak but alive, at {roomName}.", OutputSeverity.System),
+                new PlainMessage($"You awaken, weak but alive, at {roomName}.", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId == @event.PlayerEntityId)
                 .ConfigureAwait(false);
 
@@ -103,7 +103,7 @@ namespace Hedron.Core.Modules.Death.Handlers
             var name = GetPlayerName(@event.PlayerEntityId);
             await _broadcast.SendToRoomAsync(
                 @event.RespawnRoomEntityId,
-                new PlainMessage($"{name} awakens at {roomName}.", OutputSeverity.System),
+                new PlainMessage($"{name} awakens at {roomName}.", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId != @event.PlayerEntityId)
                 .ConfigureAwait(false);
         }

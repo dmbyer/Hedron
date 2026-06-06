@@ -73,7 +73,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
                 {
                     await context.Output.WriteAsync(new PlainMessage(
                         $"No connected player or entity found for target '{targetArg}'.",
-                        OutputSeverity.Error)).ConfigureAwait(false);
+                        OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
                 }
                 targetEntityId = resolved;
@@ -86,37 +86,37 @@ namespace Hedron.Core.Modules.Abilities.Commands
                 case AbilityActivationOutcome.UnknownAbility:
                     await context.Output.WriteAsync(new PlainMessage(
                         $"Unknown ability '{abilityId}'.",
-                        OutputSeverity.Error)).ConfigureAwait(false);
+                        OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
 
                 case AbilityActivationOutcome.NotKnown:
                     await context.Output.WriteAsync(new PlainMessage(
                         $"You do not know '{abilityId}'.",
-                        OutputSeverity.Error)).ConfigureAwait(false);
+                        OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
 
                 case AbilityActivationOutcome.NotActivatable:
                     await context.Output.WriteAsync(new PlainMessage(
                         $"'{abilityId}' cannot be activated directly.",
-                        OutputSeverity.Error)).ConfigureAwait(false);
+                        OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
 
                 case AbilityActivationOutcome.StateBlocked:
                     await context.Output.WriteAsync(new PlainMessage(
                         $"Cannot activate — {result.FailReason}.",
-                        OutputSeverity.Error)).ConfigureAwait(false);
+                        OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
 
                 case AbilityActivationOutcome.OnCooldown:
                     await context.Output.WriteAsync(new PlainMessage(
                         $"'{abilityId}' is on cooldown ({result.FailReason} remaining).",
-                        OutputSeverity.Error)).ConfigureAwait(false);
+                        OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
 
                 case AbilityActivationOutcome.InsufficientResources:
                     await context.Output.WriteAsync(new PlainMessage(
                         $"Not enough {result.FailReason} to activate '{abilityId}'.",
-                        OutputSeverity.Error)).ConfigureAwait(false);
+                        OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
 
                 case AbilityActivationOutcome.Activated:
@@ -157,7 +157,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
 
             await context.Output.WriteAsync(new PlainMessage(
                 $"You invoke {abilityId} (cost: {costSummary}).{effectSummary}",
-                OutputSeverity.Confirmation)).ConfigureAwait(false);
+                OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
         }
 
         private static string BuildCostSummary(IReadOnlyList<ResourceCost> spent)

@@ -2,14 +2,18 @@ using Hedron.Core.Sessions;
 
 namespace Hedron.Core.Output
 {
-    /// <summary>Creates <see cref="OutputWriter"/> instances bound to a session.</summary>
+    /// <summary>Creates <see cref="SessionBufferedOutputWriter"/> instances bound to a session.</summary>
     public sealed class OutputWriterFactory : IOutputWriterFactory
     {
-        private readonly IOutputFormatterRegistry _registry;
+        private readonly ISessionBufferRegistry _bufferRegistry;
 
-        public OutputWriterFactory(IOutputFormatterRegistry registry)
-            => _registry = registry;
+        public OutputWriterFactory(ISessionBufferRegistry bufferRegistry)
+            => _bufferRegistry = bufferRegistry;
 
-        public IOutputWriter Create(ISession session) => new OutputWriter(session, _registry);
+        public IOutputWriter Create(ISession session)
+        {
+            var buffer = _bufferRegistry.GetOrCreate(session);
+            return new SessionBufferedOutputWriter(buffer);
+        }
     }
 }

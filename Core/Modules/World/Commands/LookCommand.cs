@@ -44,7 +44,7 @@ namespace Hedron.Core.Modules.World.Commands
             if (!_entityService.TryGet<LocationComponent>(context.InvokerEntityId, out var location))
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage("You are floating in the void.", OutputSeverity.System))
+                    new PlainMessage("You are floating in the void.", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
@@ -66,13 +66,13 @@ namespace Hedron.Core.Modules.World.Commands
             if (found && _entityService.TryGet<ItemDataComponent>(itemEntityId, out var itemData))
             {
                 await context.Output.WriteAsync(
-                    new PlainMessage($"{itemData.Name}\n{itemData.Description}", OutputSeverity.System))
+                    new PlainMessage($"{itemData.Name}\n{itemData.Description}", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
 
             await context.Output.WriteAsync(
-                new PlainMessage("You don't see that here.", OutputSeverity.System))
+                new PlainMessage("You don't see that here.", OutputSeverity.System, OutputCategory.System))
                 .ConfigureAwait(false);
         }
     }

@@ -1,7 +1,8 @@
 # Output Framework
 
 > **Introduced:** Phase 3 slice 4.  
-> **Summary:** A formatter-backed rendering pipeline that converts typed `IOutputMessage` values into transport-correct, capability-aware strings before writing them to sessions.
+> **Updated:** Phase 3 slice 12-a (WP-A) — per-session output buffering and prompt source port added.  
+> **Summary:** A formatter-backed rendering pipeline that converts typed `IOutputMessage` values into transport-correct, capability-aware strings before writing them to sessions. Messages are coalesced in a per-session `SessionOutputBuffer`; flush is triggered by command completion or heartbeat.
 
 ---
 
@@ -12,13 +13,17 @@ The output framework sits **between the command/handler tier and the session tra
 ```
 ICommand / IBroadcastSystem
     ↓  IOutputMessage
-IOutputWriter
-    ↓  IOutputFormatterRegistry.Resolve(session)
+SessionBufferedOutputWriter (IOutputWriter)
+    ↓  enqueue; auto-flush if Chat category
+ISessionOutputBuffer.FlushAsync()
+    ↓  snapshot-and-drain under lock; I/O outside lock
+IOutputFormatterRegistry.Resolve(session)
 IOutputFormatter.Format(message, session)
     ↓  transport-encoded string (ANSI for telnet; future HTML/CSS-class for SignalR)
 ISession.SendLineAsync(text)
     ↓  bytes
 TCP stream
+    [then, if IPromptSource returns non-null, prompt is sent last]
 ```
 
 ---
@@ -42,6 +47,7 @@ Every typed output shape implements this. Commands and systems produce shapes; t
 public interface IOutputWriter
 {
     Task WriteAsync(IOutputMessage message);
+    Task FlushAsync();
 }
 
 public interface IOutputWriterFactory
@@ -52,7 +58,7 @@ public interface IOutputWriterFactory
 
 `IOutputWriter` is the single-session output seam. `IOutputWriterFactory` is bound once per request by the `CommandDispatcher` and internally by `BroadcastSystem` per recipient.
 
-`OutputWriter` (the implementation) resolves the correct formatter via `IOutputFormatterRegistry`, calls `Format(message, session)`, and awaits `session.SendLineAsync(rendered)`. The `IOutputWriter` and `IOutputWriterFactory` interfaces are stable — the formatter swap in slice 4 changed only the implementation.
+`SessionBufferedOutputWriter` (the implementation) enqueues messages into a `SessionOutputBuffer` and auto-flushes synchronously only for `OutputCategory.Chat` messages. All other messages batch until `FlushAsync()` is called explicitly (by WP-C flush triggers). `FlushAsync()` delegates to `ISessionOutputBuffer.FlushAsync()`. The `IOutputWriter` and `IOutputWriterFactory` interfaces are stable.
 
 ### IOutputFormatter / IOutputFormatterRegistry
 
@@ -86,18 +92,77 @@ public interface ISession
 
 ---
 
+## Per-session buffering
+
+### ISessionOutputBuffer / SessionOutputBuffer
+
+```csharp
+public interface ISessionOutputBuffer
+{
+    bool HasPending { get; }
+    void Enqueue(IOutputMessage message);
+    Task FlushAsync();
+}
+```
+
+`SessionOutputBuffer` is bound to one `ISession`. `FlushAsync` atomically snapshots and clears the queue under a lock, then sends each message and (optionally) a prompt outside the lock. Lock granularity is minimal — no I/O under lock.
+
+### ISessionBufferRegistry / SessionBufferRegistry
+
+```csharp
+public interface ISessionBufferRegistry
+{
+    ISessionOutputBuffer GetOrCreate(ISession session);
+    void Release(Guid sessionId);
+    Task FlushAllPendingAsync();
+}
+```
+
+Singleton `ConcurrentDictionary<Guid, SessionOutputBuffer>`. `GetOrCreate` uses `GetOrAdd`. `FlushAllPendingAsync` iterates entries where `HasPending` is true. `Release` removes the buffer when a session disconnects.
+
+### CategoryFlushPolicy
+
+```csharp
+public static class CategoryFlushPolicy
+{
+    public static FlushPolicy GetPolicy(OutputCategory category);
+}
+```
+
+Maps `OutputCategory.Chat` → `FlushPolicy.Immediate`; all other categories → `FlushPolicy.Batched`. `SessionBufferedOutputWriter` uses this to decide whether to call `FlushAsync()` immediately after enqueue.
+
+### IPromptSource / NullPromptSource
+
+```csharp
+public interface IPromptSource
+{
+    PromptMessage? GetPrompt(uint playerEntityId);
+}
+```
+
+Called by `SessionOutputBuffer.FlushAsync()` after all queued messages have been sent. Returns `null` to suppress the prompt (WP-A: `NullPromptSource`). WP-B replaces this with a real implementation that queries resource pools.
+
+`PromptMessage` shape:
+
+```csharp
+public sealed record PromptMessage(string? StateLabel, IReadOnlyList<PoolDisplay> Pools) : IOutputMessage;
+public sealed record PoolDisplay(string Name, int Current, int Max);
+```
+
+---
+
 ## Message shape catalog
 
 | Shape | Category | Used by |
 |---|---|---|
-| `PlainMessage(Text, Severity)` | System | Commands (error/info), broadcast arrival/departure |
+| `PlainMessage(Text, Severity, Category)` | configurable | Commands (error/info), broadcast arrival/departure |
 | `HelpIndexMessage(Entries)` | Help | `help`, `commands` |
 | `HelpEntryMessage(Verb, LongDesc, Usage, Aliases)` | Help | `help <verb>` |
 | `RoomDescriptionMessage(RoomEntityId, Name, Description, Exits, OccupantNames)` | Info | `look`, movement arrival, on-connect |
 | `MovementMessage(Kind, Direction, ActorName)` | Info | `MoveCommand` failure path |
+| `PromptMessage(StateLabel, Pools)` | System | Appended by `SessionOutputBuffer.FlushAsync()` when `IPromptSource` returns non-null |
 
 **Planned — not yet built (ship with their gameplay slices):**
-- `CombatMessage` — combat round output
 - `PlayerInformationMessage` — character stats display
 
 ---

@@ -50,7 +50,7 @@ namespace Hedron.Core.Modules.Combat.Commands
         {
             if (!_entityStateService.IsInState(context.InvokerEntityId, EntityStateFlags.InCombat))
             {
-                await context.Output.WriteAsync(new PlainMessage("You are not in combat.", OutputSeverity.System))
+                await context.Output.WriteAsync(new PlainMessage("You are not in combat.", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }

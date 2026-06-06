@@ -82,7 +82,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
             {
                 if (!_entityStateService.TryEnterState(actorId, EntityStateFlags.InCombat, out var failReason))
                 {
-                    await output.WriteAsync(new PlainMessage(failReason!, OutputSeverity.System))
+                    await output.WriteAsync(new PlainMessage(failReason!, OutputSeverity.System, OutputCategory.System))
                         .ConfigureAwait(false);
                     return;
                 }
@@ -151,7 +151,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
                 if (!_entityService.TryGet<LocationComponent>(actorId, out var loc)) return null;
                 if (!_combatSystem.TryFindTargetInRoom(loc.RoomEntityId, token, out var mobId))
                 {
-                    await output.WriteAsync(new PlainMessage("You don't see that here.", OutputSeverity.System))
+                    await output.WriteAsync(new PlainMessage("You don't see that here.", OutputSeverity.System, OutputCategory.System))
                         .ConfigureAwait(false);
                     return null;
                 }
@@ -168,7 +168,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
             if (isOffensive)
             {
                 // Not in combat, no token, offensive → friendly prompt.
-                await output.WriteAsync(new PlainMessage($"{def.Name} whom?", OutputSeverity.System))
+                await output.WriteAsync(new PlainMessage($"{def.Name} whom?", OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return null;
             }
@@ -196,7 +196,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
                     $"Cannot use {abilityName} right now.",
             };
 
-            await output.WriteAsync(new PlainMessage(message, OutputSeverity.Error)).ConfigureAwait(false);
+            await output.WriteAsync(new PlainMessage(message, OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
         }
 
         private string GetEntityName(uint entityId)

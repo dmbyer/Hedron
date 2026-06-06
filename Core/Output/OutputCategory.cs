@@ -7,5 +7,6 @@ namespace Hedron.Core.Output
         Help,
         Chat,
         Info,
+        Combat,
     }
 }

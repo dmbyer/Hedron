@@ -28,6 +28,11 @@ namespace Hedron.Core.Events
         public const int Notification = 80;
 
         /// <summary>
+        /// Flush session output buffers after all output-producing handlers on any event.
+        /// </summary>
+        public const int OutputFlush = 85;
+
+        /// <summary>
         /// Write state changes after handlers have settled.
         /// </summary>
         public const int Persistence = 90;

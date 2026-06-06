@@ -39,13 +39,13 @@ namespace Hedron.Core.Modules.Combat.Handlers
 
             await _broadcast.SendToRoomAsync(
                 @event.RoomEntityId,
-                new PlainMessage($"You attack {defenderName}!", OutputSeverity.System),
+                new PlainMessage($"You attack {defenderName}!", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId == @event.AttackerEntityId)
                 .ConfigureAwait(false);
 
             await _broadcast.SendToRoomAsync(
                 @event.RoomEntityId,
-                new PlainMessage($"{attackerName} attacks {defenderName}!", OutputSeverity.System),
+                new PlainMessage($"{attackerName} attacks {defenderName}!", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId != @event.AttackerEntityId)
                 .ConfigureAwait(false);
         }
@@ -65,7 +65,7 @@ namespace Hedron.Core.Modules.Combat.Handlers
 
                 await _broadcast.SendToRoomAsync(
                     @event.RoomEntityId,
-                    new PlainMessage(missText, OutputSeverity.System))
+                    new PlainMessage(missText, OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
             }
             else
@@ -78,7 +78,7 @@ namespace Hedron.Core.Modules.Combat.Handlers
                 {
                     await _broadcast.SendToRoomAsync(
                         @event.RoomEntityId,
-                        new PlainMessage($"You hit {defenderName} for {result.DamageDealt} damage.", OutputSeverity.System),
+                        new PlainMessage($"You hit {defenderName} for {result.DamageDealt} damage.", OutputSeverity.System, OutputCategory.System),
                         entityId => entityId == @event.AttackerEntityId)
                         .ConfigureAwait(false);
                 }
@@ -90,7 +90,7 @@ namespace Hedron.Core.Modules.Combat.Handlers
 
                 await _broadcast.SendToRoomAsync(
                     @event.RoomEntityId,
-                    new PlainMessage(observerText, OutputSeverity.System),
+                    new PlainMessage(observerText, OutputSeverity.System, OutputCategory.System),
                     entityId => entityId != @event.AttackerEntityId)
                     .ConfigureAwait(false);
             }
@@ -107,12 +107,12 @@ namespace Hedron.Core.Modules.Combat.Handlers
                     var slainName = @event.DefenderName ?? "the creature";
                     await _broadcast.SendToRoomAsync(
                         @event.RoomEntityId,
-                        new PlainMessage($"You have slain {slainName}!", OutputSeverity.System),
+                        new PlainMessage($"You have slain {slainName}!", OutputSeverity.System, OutputCategory.System),
                         entityId => entityId == @event.AttackerEntityId)
                         .ConfigureAwait(false);
                     await _broadcast.SendToRoomAsync(
                         @event.RoomEntityId,
-                        new PlainMessage($"{GetPlayerName(@event.AttackerEntityId)} has slain {slainName}!", OutputSeverity.System),
+                        new PlainMessage($"{GetPlayerName(@event.AttackerEntityId)} has slain {slainName}!", OutputSeverity.System, OutputCategory.System),
                         entityId => entityId != @event.AttackerEntityId)
                         .ConfigureAwait(false);
                     break;
@@ -121,12 +121,12 @@ namespace Hedron.Core.Modules.Combat.Handlers
                     var playerName = GetPlayerName(@event.AttackerEntityId);
                     await _broadcast.SendToRoomAsync(
                         @event.RoomEntityId,
-                        new PlainMessage("You flee from combat!", OutputSeverity.System),
+                        new PlainMessage("You flee from combat!", OutputSeverity.System, OutputCategory.System),
                         entityId => entityId == @event.AttackerEntityId)
                         .ConfigureAwait(false);
                     await _broadcast.SendToRoomAsync(
                         @event.RoomEntityId,
-                        new PlainMessage($"{playerName} flees from combat!", OutputSeverity.System),
+                        new PlainMessage($"{playerName} flees from combat!", OutputSeverity.System, OutputCategory.System),
                         entityId => entityId != @event.AttackerEntityId)
                         .ConfigureAwait(false);
                     break;
@@ -134,12 +134,12 @@ namespace Hedron.Core.Modules.Combat.Handlers
                 case CombatEndOutcome.PlayerIncapacitated:
                     await _broadcast.SendToRoomAsync(
                         @event.RoomEntityId,
-                        new PlainMessage("You have been beaten unconscious!", OutputSeverity.System),
+                        new PlainMessage("You have been beaten unconscious!", OutputSeverity.System, OutputCategory.System),
                         entityId => entityId == @event.DefenderEntityId)
                         .ConfigureAwait(false);
                     await _broadcast.SendToRoomAsync(
                         @event.RoomEntityId,
-                        new PlainMessage($"{GetPlayerName(@event.DefenderEntityId)} has been beaten unconscious!", OutputSeverity.System),
+                        new PlainMessage($"{GetPlayerName(@event.DefenderEntityId)} has been beaten unconscious!", OutputSeverity.System, OutputCategory.System),
                         entityId => entityId != @event.DefenderEntityId)
                         .ConfigureAwait(false);
                     break;
@@ -171,7 +171,7 @@ namespace Hedron.Core.Modules.Combat.Handlers
 
             await _broadcast.SendToRoomAsync(
                 roomEntityId,
-                new PlainMessage($"[You: {playerCurrent}/{playerMax} HP | {mobName}: {mobCurrent}/{mobMax} HP]", OutputSeverity.System),
+                new PlainMessage($"[You: {playerCurrent}/{playerMax} HP | {mobName}: {mobCurrent}/{mobMax} HP]", OutputSeverity.System, OutputCategory.System),
                 entityId => entityId == playerEntityId)
                 .ConfigureAwait(false);
         }

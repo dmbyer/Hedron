@@ -63,12 +63,12 @@ namespace Hedron.Core.Modules.Abilities.Commands
                 string msg = hasSkillsOrSpells
                     ? "You have no other abilities. Use 'skills' to see your skills and 'spells' to see your spells."
                     : "You have no abilities. Use 'skills' or 'spells' to see what can be learned.";
-                await context.Output.WriteAsync(new PlainMessage(msg, OutputSeverity.System))
+                await context.Output.WriteAsync(new PlainMessage(msg, OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
                 return;
             }
 
-            await context.Output.WriteAsync(new PlainMessage("Known abilities:", OutputSeverity.System))
+            await context.Output.WriteAsync(new PlainMessage("Known abilities:", OutputSeverity.System, OutputCategory.System))
                 .ConfigureAwait(false);
 
             foreach (var id in other)
@@ -81,7 +81,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
 
             await context.Output.WriteAsync(new PlainMessage(
                 "Use 'skills' to see your skills and 'spells' to see your spells.",
-                OutputSeverity.System)).ConfigureAwait(false);
+                OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
         }
     }
 
@@ -133,11 +133,11 @@ namespace Hedron.Core.Modules.Abilities.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     "You know no skills. Use 'spells' to see your spells.",
-                    OutputSeverity.System)).ConfigureAwait(false);
+                    OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
-            await context.Output.WriteAsync(new PlainMessage("Known skills:", OutputSeverity.System))
+            await context.Output.WriteAsync(new PlainMessage("Known skills:", OutputSeverity.System, OutputCategory.System))
                 .ConfigureAwait(false);
 
             foreach (var id in skills)
@@ -151,13 +151,13 @@ namespace Hedron.Core.Modules.Abilities.Commands
                     : string.Empty;
 
                 var baseLine = new AbilityDisplayMessage(def, cooldown).Format();
-                await context.Output.WriteAsync(new PlainMessage(invocationHint + baseLine, OutputSeverity.System))
+                await context.Output.WriteAsync(new PlainMessage(invocationHint + baseLine, OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
             }
 
             await context.Output.WriteAsync(new PlainMessage(
                 "Use 'spells' to see your spells. Type 'help <skill-name>' to learn about any skill.",
-                OutputSeverity.System)).ConfigureAwait(false);
+                OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
         }
     }
 
@@ -208,11 +208,11 @@ namespace Hedron.Core.Modules.Abilities.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     "You know no spells. Use 'skills' to see your skills.",
-                    OutputSeverity.System)).ConfigureAwait(false);
+                    OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
-            await context.Output.WriteAsync(new PlainMessage("Known spells:", OutputSeverity.System))
+            await context.Output.WriteAsync(new PlainMessage("Known spells:", OutputSeverity.System, OutputCategory.System))
                 .ConfigureAwait(false);
 
             foreach (var id in spells)
@@ -226,13 +226,13 @@ namespace Hedron.Core.Modules.Abilities.Commands
                     : string.Empty;
 
                 var baseLine = new AbilityDisplayMessage(def, cooldown).Format();
-                await context.Output.WriteAsync(new PlainMessage(invocationHint + baseLine, OutputSeverity.System))
+                await context.Output.WriteAsync(new PlainMessage(invocationHint + baseLine, OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
             }
 
             await context.Output.WriteAsync(new PlainMessage(
                 "Use 'skills' to see your skills. Type 'help <spell-name>' to learn about any spell.",
-                OutputSeverity.System)).ConfigureAwait(false);
+                OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
         }
     }
 }

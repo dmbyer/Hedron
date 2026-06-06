@@ -68,7 +68,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     $"No mob template found with blueprint id '{blueprintId}'.",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
@@ -87,7 +87,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     $"Mob '{blueprintId}' has no live entity in the world.",
-                    OutputSeverity.Error)).ConfigureAwait(false);
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
 
@@ -111,7 +111,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
                     {
                         await context.Output.WriteAsync(new PlainMessage(
                             $"Unknown mob type '{value}'. Valid types: none, vendor, guard, creature.",
-                            OutputSeverity.Error)).ConfigureAwait(false);
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
                     _mobBuilder.SetMobType(mobEntityId, mobType);
@@ -130,7 +130,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
                     {
                         await context.Output.WriteAsync(new PlainMessage(
                             "Value must be a positive integer.",
-                            OutputSeverity.Error)).ConfigureAwait(false);
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
                     _mobBuilder.SetAttribute(mobEntityId, template, property, numericValue);
@@ -139,7 +139,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
                         $"Unknown property '{property}'. Valid properties: name, description, keywords, type, level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra.",
-                        OutputSeverity.Error)).ConfigureAwait(false);
+                        OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
             }
 
@@ -153,7 +153,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
 
             await context.Output.WriteAsync(new PlainMessage(
                 $"Mob {property} set to '{value}'.",
-                OutputSeverity.Confirmation)).ConfigureAwait(false);
+                OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
         }
     }
 }

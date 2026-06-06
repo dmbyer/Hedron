@@ -85,7 +85,7 @@ namespace Hedron.Core.Modules.Combat.Handlers
 
             await _broadcast.SendToRoomAsync(
                 @event.RoomEntityId,
-                new PlainMessage(attackerMessage, OutputSeverity.System),
+                new PlainMessage(attackerMessage, OutputSeverity.System, OutputCategory.System),
                 entityId => entityId == @event.AttackerEntityId)
                 .ConfigureAwait(false);
 
@@ -94,7 +94,7 @@ namespace Hedron.Core.Modules.Combat.Handlers
 
             await _broadcast.SendToRoomAsync(
                 @event.RoomEntityId,
-                new PlainMessage(observerMessage, OutputSeverity.System),
+                new PlainMessage(observerMessage, OutputSeverity.System, OutputCategory.System),
                 entityId => entityId != @event.AttackerEntityId)
                 .ConfigureAwait(false);
 

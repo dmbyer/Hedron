@@ -10,5 +10,6 @@ namespace Hedron.Core.Output
     public interface IOutputWriter
     {
         Task WriteAsync(IOutputMessage message);
+        Task FlushAsync();
     }
 }
