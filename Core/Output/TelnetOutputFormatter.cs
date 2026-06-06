@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -45,6 +45,7 @@ namespace Hedron.Core.Output
                 ScoreDisplayMessage m     => FormatScore(m, color),
                 EffectDisplayMessage m      => m.Format(),
                 AbilityDisplayMessage m    => m.Format(),
+                PromptMessage m           => FormatPrompt(m, color),
                 _                         => message.ToString() ?? string.Empty,
             };
         }
@@ -178,6 +179,19 @@ namespace Hedron.Core.Output
                 : m.RespawnRoomBlueprintId;
             sb.Append($"  Respawn   : {respawnLabel}");
             return ApplyColor(sb.ToString(), color);
+        }
+
+        private string FormatPrompt(PromptMessage m, bool color)
+        {
+            var sb = new StringBuilder();
+            if (m.StateLabel != null)
+            {
+                sb.Append(ApplyColor($"<system>{m.StateLabel}</system>", color));
+                sb.Append(' ');
+            }
+            var pools = string.Join("  ", m.Pools.Select(p => $"{p.Name}: {p.Current}/{p.Max}"));
+            sb.Append(pools);
+            return sb.ToString();
         }
 
         // ── Color helpers ────────────────────────────────────────────────────

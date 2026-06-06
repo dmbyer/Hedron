@@ -1,4 +1,4 @@
-# Systems Reference
+﻿# Systems Reference
 
 Living catalog of the systems **implemented** in Hedron (core and domain). Update this file whenever a system is added, removed, or renamed.
 
@@ -587,6 +587,19 @@ On `HeartbeatTickEvent`: for each slot with `RespawnAt <= UtcNow`, calls `ITempl
 **Location:** `Core/Modules/Regeneration/Systems/RegenerationSystem.cs`
 **Dependencies:** `EntityService`, `IEntityStateService`, `IAttributeSystem`.
 **Constants (Category-3):** `RegenAmount = 1`, `IdleIntervalTicks = 3`. Promotion to configuration deferred to the dedicated regeneration use-case.
+### PromptComposerSystem
+**Purpose:** Domain-aware implementation of `IPromptSource`. Reads entity state and resource pools on each buffer flush to build a fresh `PromptMessage` (compute-on-read — no cache, no dirty flag, no `PromptChangedEvent`). Lives in `Core/Modules/Prompt/` rather than `Core/Output/` because it depends on domain types; it is joined to the core buffer through the core-owned `IPromptSource` port (INV-2, INV-24).
+**Interface:** `IPromptSource` (located at `Core/Output/IPromptSource.cs`)
+**Location:** `Core/Modules/Prompt/Systems/PromptComposerSystem.cs`
+**Dependencies:** `IEntityStateService`, `IStatSystem`.
+
+Logic on each `GetPrompt(playerEntityId)` call:
+1. Returns `null` when `playerEntityId == 0` (unbound session).
+2. Calls `IEntityStateService.GetStates(entityId)` — maps flags to a state label with Incapacitated taking priority over InCombat over Resting; no label when no flags are set.
+3. For each pool pair `{HpCurrent/HpMax, ManaCurrent/ManaMax, StaminaCurrent/StaminaMax, AstraCurrent/AstraMax}`: calls `IStatSystem.Get(entityId, scoreId)` for current and max; skips the pool if `max == 0`.
+4. Returns `new PromptMessage(stateLabel, pools)`.
+
+Registered as `services.AddSingleton<IPromptSource, PromptComposerSystem>()` in `Server/Program.cs` (replaces the WP-A `NullPromptSource` stub). Implemented (Phase 3, prompt-and-output-batching WP-B).
 
 ---
 
