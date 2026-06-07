@@ -139,6 +139,20 @@ As the gameplay-model spines land (effect Power-scaling, ability costs, rarity/s
 
 Not a runtime "module" — balance math stays co-located with its owning system (Category 3); this item is the *documentation + promotion discipline* around it. Becomes worthwhile once 2–3 spines (effects, abilities, scaling) have introduced enough knobs to justify the catalog — likely around slices 11–13.
 
+### 🔵 YAML-authored definition pipeline for the big registry families (deferred from aspect-foundation)
+
+Deferred from the aspect-foundation slice ([`../use-cases/aspect-foundation.md`](../use-cases/aspect-foundation.md)), which lands the Spine F registry layer (`IRegistry<TKey, TDef>` + `DefinitionRegistry<TKey, TDef>` base) with **hardcoded** definitions only — correct and expected for the spine families per [`../design/gameplay-model.md`](../design/gameplay-model.md) Spine F ("hardcoded is fine and expected").
+
+The deferred work is a **YAML authoring path** for the genuinely content-shaped, string-keyed families (Ability, Effect, and later Objective), analogous to the existing per-module `ITemplateDeserializer` pattern (which today produces `IEntityTemplate` spawn-templates, not trait definitions — so this is an *analogous* seam, not a literal reuse). It carries one real design decision the aspect-foundation slice deliberately did **not** make: **hardcoded-and-YAML coexistence + override/reload order** — when a definition exists in both a code registration and a YAML file, which wins, and how `@reload` re-derives the registry (cf. `ITemplateRegistry.Clear`).
+
+The aspect-foundation generic is built to keep this additive: rows are **instance-held** (not baked into a `static readonly` field), so a future `Reload(rows)` slots in without reshaping the base. Enum-keyed families (Aspect/Score/Resource) are out of scope here — they are fixed code vocabularies and never YAML-authored. Lands when designer-authored content **without recompile** is an actual need (likely alongside a crafting/content-volume slice or the future content editor).
+
+### 🔵 `ResourceType` data-authored expandability (deferred from aspect-foundation)
+
+The gameplay-model intends resource pools to be "expandable — a new pool is a row, not code" ([`../design/gameplay-model.md`](../design/gameplay-model.md) Spine F / R3). Today `ResourceType` is a closed enum (`Hp`, `Mana`, `Stamina`, `Astra`), and the aspect-foundation slice keeps it that way — folded onto the registry generic as `IRegistry<ResourceType, …>`, enum-keyed, which is the right call while pools are a fixed developer vocabulary (compile-time safety, small/stable persistence surface).
+
+The deferred work is migrating `ResourceType` from an enum to a **string-keyed** registry row **if and when** a new pool needs to be added as data rather than code — at which point it inherits the same string-key trade-offs as the Ability/Effect families (data-authorable, persisted-by-reference, validated at startup rather than compile time) and the YAML pipeline entry above. Premature until a concrete need for a non-developer-defined pool appears; revisit alongside that need.
+
 ### 🔵 Full-featured content editor (transition from command-driven authoring)
 
 Content authoring today is command-driven (`mkmob`/`setmob`/`mkitem`/`setitem`/`dig`/`set`, …); a full-featured editor is a known future (Ticket B resolution in [`plan.md`](plan.md): in-game commands first, web/desktop editor deferred alongside the SignalR/dual-client transport). To keep that transition cheap, the established convention — reinforced by slice 9-d — is that **all authoring logic lives in builder/writer *systems*** (`IRoomBuilderSystem`, `IItemBuilderSystem`, `IMobBuilderSystem`, `*ContentWriter`), with the command as a thin caller. The editor becomes a second thin caller of the same systems; no authoring logic is trapped in command classes. New content-mutating features must add their logic to a system, not a command body. Revisit building the editor itself once the dual-client transport lands (it shares that deferral).
