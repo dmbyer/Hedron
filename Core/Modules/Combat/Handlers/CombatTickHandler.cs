@@ -75,7 +75,8 @@ namespace Hedron.Core.Modules.Combat.Handlers
                 var result = _combatSystem.ExecuteRound(attackerEntityId, defenderEntityId);
 
                 await _eventBus.PublishAsync(new CombatRoundEvent(
-                    attackerEntityId, defenderEntityId, roomEntityId, result))
+                    attackerEntityId, defenderEntityId, roomEntityId, result,
+                    AspectComposition: result.AspectComposition))
                     .ConfigureAwait(false);
 
                 if (result.Outcome == CombatRoundOutcome.MobDied)
@@ -119,7 +120,8 @@ namespace Hedron.Core.Modules.Combat.Handlers
                     var counterResult = _combatSystem.ExecuteRound(defenderEntityId, attackerEntityId);
 
                     await _eventBus.PublishAsync(new CombatRoundEvent(
-                        defenderEntityId, attackerEntityId, roomEntityId, counterResult))
+                        defenderEntityId, attackerEntityId, roomEntityId, counterResult,
+                        AspectComposition: counterResult.AspectComposition))
                         .ConfigureAwait(false);
 
                     if (counterResult.Outcome == CombatRoundOutcome.PlayerIncapacitated)

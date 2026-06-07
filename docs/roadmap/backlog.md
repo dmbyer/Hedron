@@ -147,6 +147,10 @@ The deferred work is a **YAML authoring path** for the genuinely content-shaped,
 
 The aspect-foundation generic is built to keep this additive: rows are **instance-held** (not baked into a `static readonly` field), so a future `Reload(rows)` slots in without reshaping the base. Enum-keyed families (Aspect/Score/Resource) are out of scope here — they are fixed code vocabularies and never YAML-authored. Lands when designer-authored content **without recompile** is an actual need (likely alongside a crafting/content-volume slice or the future content editor).
 
+### 🔵 `EffectParams.Aspect` migration to `AspectComposition?` (deferred from aspect-foundation)
+
+`EffectParams.Aspect` (in `Core/Modules/Effects/Effect.cs`) remains a `string? Aspect = null` stub. The aspect-foundation slice migrated `AbilityDefinition.Aspect` to `AspectComposition?` but deferred `EffectParams.Aspect` to avoid diff expansion; a `// TODO migrate` comment marks the site. Migrate when an effect-based aspect consumer is introduced — the field is currently unused for damage typing.
+
 ### 🔵 `ResourceType` data-authored expandability (deferred from aspect-foundation)
 
 The gameplay-model intends resource pools to be "expandable — a new pool is a row, not code" ([`../design/gameplay-model.md`](../design/gameplay-model.md) Spine F / R3). Today `ResourceType` is a closed enum (`Hp`, `Mana`, `Stamina`, `Astra`), and the aspect-foundation slice keeps it that way — folded onto the registry generic as `IRegistry<ResourceType, …>`, enum-keyed, which is the right call while pools are a fixed developer vocabulary (compile-time safety, small/stable persistence surface).

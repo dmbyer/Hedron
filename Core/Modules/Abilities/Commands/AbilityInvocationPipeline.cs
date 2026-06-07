@@ -6,6 +6,7 @@ using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Abilities.Events;
 using Hedron.Core.Modules.Abilities.Systems;
+using Hedron.Core.Modules.Aspects;
 using Hedron.Core.Modules.Combat.Events;
 using Hedron.Core.Modules.Combat.Systems;
 using Hedron.Core.Modules.Effects.Events;
@@ -119,14 +120,18 @@ namespace Hedron.Core.Modules.Abilities.Commands
                     .ConfigureAwait(false);
             }
 
-            // 5. Offensive strike — always-hits, defense-mitigated.
+            // 5. Offensive strike — always-hits, defense-mitigated, aspect-resolved.
             if (isOffensive && resolvedTarget.HasValue && result.OffensivePower.HasValue)
             {
                 if (!_entityService.TryGet<LocationComponent>(actorId, out var loc2)) return;
                 var defenderName = GetEntityName(resolvedTarget.Value);
-                var strikeResult = _combatSystem.ResolveAbilityStrike(actorId, resolvedTarget.Value, result.OffensivePower.Value);
+                // Composition source: the ability's migrated Aspect field (INV-6 point-in-time capture).
+                var composition = def.Aspect;
+                var strikeResult = _combatSystem.ResolveAbilityStrike(
+                    actorId, resolvedTarget.Value, result.OffensivePower.Value, composition);
                 await _eventBus.PublishAsync(new AbilityStrikeResolvedEvent(
-                    actorId, resolvedTarget.Value, loc2.RoomEntityId, strikeResult, abilityId, defenderName))
+                    actorId, resolvedTarget.Value, loc2.RoomEntityId, strikeResult, abilityId, defenderName,
+                    AspectComposition: strikeResult.AspectComposition))
                     .ConfigureAwait(false);
             }
 

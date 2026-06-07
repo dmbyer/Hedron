@@ -1,6 +1,8 @@
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Account.Components;
+using Hedron.Core.Modules.Aspects;
+using Hedron.Core.Modules.Aspects.Systems;
 using Hedron.Core.Modules.Attributes.Systems;
 using Hedron.Core.Modules.Stats.Systems;
 
@@ -11,15 +13,18 @@ namespace Hedron.Core.Modules.Combat.Systems
         private readonly EntityService _entityService;
         private readonly IStatSystem _statSystem;
         private readonly IAttributeSystem _attributeSystem;
+        private readonly IAspectSystem _aspectSystem;
 
         public CombatSystem(
             EntityService entityService,
             IStatSystem statSystem,
-            IAttributeSystem attributeSystem)
+            IAttributeSystem attributeSystem,
+            IAspectSystem aspectSystem)
         {
             _entityService = entityService;
             _statSystem = statSystem;
             _attributeSystem = attributeSystem;
+            _aspectSystem = aspectSystem;
         }
 
         public bool TryFindTargetInRoom(uint roomEntityId, string token, out uint mobEntityId)
@@ -77,29 +82,40 @@ namespace Hedron.Core.Modules.Combat.Systems
                     defenderEntityId,
                     DamageDealt: 0,
                     AttackerHit: false,
-                    Outcome: CombatRoundOutcome.Miss);
+                    Outcome: CombatRoundOutcome.Miss,
+                    AspectComposition: null);
             }
 
             var attackPower = _statSystem.GetEffectiveAttackPower(attackerEntityId);
-            var damage = Random.Shared.Next(1, attackPower + 2);
+            var rawDamage = Random.Shared.Next(1, attackPower + 2);
 
-            return ApplyDamageAndBuildResult(attackerEntityId, defenderEntityId, damage);
+            // Composition source for melee: the attacker's entity affinity (empty = untyped).
+            var composition = _aspectSystem.Affinity(attackerEntityId);
+            var damage = _aspectSystem.Resolve(rawDamage, composition, attackerEntityId, defenderEntityId);
+
+            return ApplyDamageAndBuildResult(attackerEntityId, defenderEntityId, damage, composition);
         }
 
-        public CombatRoundResult ResolveAbilityStrike(uint attackerEntityId, uint defenderEntityId, int basePower)
+        public CombatRoundResult ResolveAbilityStrike(
+            uint attackerEntityId,
+            uint defenderEntityId,
+            int basePower,
+            AspectComposition? composition = null)
         {
             // Ability strikes always land — no hit/miss roll.
-            var damage = System.Math.Max(1, Random.Shared.Next(1, basePower + 2) - _statSystem.GetEffectiveDefense(defenderEntityId));
-            return ApplyDamageAndBuildResult(attackerEntityId, defenderEntityId, damage);
+            var rawDamage = System.Math.Max(1, Random.Shared.Next(1, basePower + 2) - _statSystem.GetEffectiveDefense(defenderEntityId));
+
+            var comp = composition ?? AspectComposition.Empty;
+            var damage = _aspectSystem.Resolve(rawDamage, comp, attackerEntityId, defenderEntityId);
+
+            return ApplyDamageAndBuildResult(attackerEntityId, defenderEntityId, damage, comp);
         }
 
-        /// <summary>
-        /// Applies <paramref name="damage"/> HP reduction to the defender, determines the
-        /// combat outcome (Hit / MobDied / PlayerIncapacitated), and returns the result.
-        /// Shared by <see cref="ExecuteRound"/> and <see cref="ResolveAbilityStrike"/> so
-        /// both paths use identical post-hit logic.
-        /// </summary>
-        private CombatRoundResult ApplyDamageAndBuildResult(uint attackerEntityId, uint defenderEntityId, int damage)
+        private CombatRoundResult ApplyDamageAndBuildResult(
+            uint attackerEntityId,
+            uint defenderEntityId,
+            int damage,
+            AspectComposition composition)
         {
             var currentHp = _statSystem.GetCurrentHp(defenderEntityId);
             _attributeSystem.SetCurrentHp(defenderEntityId, currentHp - damage);
@@ -119,7 +135,8 @@ namespace Hedron.Core.Modules.Combat.Systems
                 defenderEntityId,
                 DamageDealt: damage,
                 AttackerHit: true,
-                Outcome: outcome);
+                Outcome: outcome,
+                AspectComposition: composition.IsEmpty ? null : composition);
         }
     }
 }

@@ -10,6 +10,7 @@
 sequenceDiagram
     participant CTH as CombatTickHandler (p=20)
     participant CS as ICombatSystem
+    participant ASYS as IAspectSystem
     participant DS as IDeathSystem
     participant Bus as IEventBus
     participant CH as CombatHandler (p=20)
@@ -21,8 +22,11 @@ sequenceDiagram
     CTH->>CTH: snapshot all CombatStateComponent entities
     loop per deduplicated pair (entityId < opponentId)
         CTH->>CTH: hpBefore = IStatSystem.GetCurrentHp(defenderId)
-        CTH->>CS: ExecuteRound(attackerId, defenderId) → CombatRoundResult
-        CTH->>Bus: PublishAsync(CombatRoundEvent)
+        CTH->>CS: ExecuteRound(attackerId, defenderId)
+        CS->>ASYS: Affinity(attackerId) → composition
+        CS->>ASYS: Resolve(rawDamage, composition, attackerId, defenderId) → finalDamage
+        CS-->>CTH: CombatRoundResult{DamageDealt, AspectComposition}
+        CTH->>Bus: PublishAsync(CombatRoundEvent{..., AspectComposition})
         Bus->>CH: HandleAsync → hit/miss CombatMessage [enqueue in each session's buffer]
         alt result.Outcome == MobDied
             CTH->>CS: EndCombat(attackerId, defenderId)
@@ -50,8 +54,8 @@ sequenceDiagram
 1. `HeartbeatBackgroundService` publishes `HeartbeatTickEvent`; `CombatTickHandler` (priority 20) handles it.
 2. **Snapshot.** Calls `EntityService.GetAllComponents<CombatStateComponent>().ToList()` — snapshot before iteration to avoid mutation during enumeration.
 3. **Deduplication.** For each `(entityId, state)` in the snapshot: skip if `entityId >= state.OpponentEntityId`. This ensures each pair is processed exactly once; the lower entity id is designated the "attacker" for this round.
-4. **Round execution.** Reads `hpBefore = IStatSystem.GetCurrentHp(defenderEntityId)`. Calls `ICombatSystem.ExecuteRound(attackerEntityId, defenderEntityId)` → `CombatRoundResult`. The formula: hit check `roll = Random.Shared.Next(1,21) + body/2 >= 10 + defense`; if hit, damage `= Random.Shared.Next(1, attackPower+2)` applied via `IAttributeSystem.SetCurrentHp`. *(Stat source changed from `Dexterity` to `Body` in slice 9-d; `AttackPower` and `Defense` are both Body-governed — see [`docs/use-cases/stat-resource-substrate.md`](../../use-cases/stat-resource-substrate.md).)*
-5. Publishes `CombatRoundEvent`. `CombatHandler` (priority 20) broadcasts hit/miss/damage narrative.
+4. **Round execution.** Reads `hpBefore = IStatSystem.GetCurrentHp(defenderEntityId)`. Calls `ICombatSystem.ExecuteRound(attackerEntityId, defenderEntityId)` → `CombatRoundResult`. The formula: hit check `roll = Random.Shared.Next(1,21) + body/2 >= 10 + defense`; if hit, raw damage `= Random.Shared.Next(1, attackPower+2)`. Inside `ExecuteRound`, `CombatSystem` calls `IAspectSystem.Affinity(attackerEntityId)` to get the attacker's outgoing composition (returns `AspectComposition.Empty` if no `AspectAffinitiesComponent`), then calls `IAspectSystem.Resolve(rawDamage, composition, attackerEntityId, defenderEntityId)` which applies the attacker's per-aspect affinity boost and the defender's independent per-aspect resistance, returning the final applied magnitude that is passed to `IAttributeSystem.SetCurrentHp`. `CombatRoundResult.AspectComposition` carries the composition used (null when empty — point-in-time capture, INV-6). *(Stat source changed from `Dexterity` to `Body` in slice 9-d; `AttackPower` and `Defense` are both Body-governed — see [`docs/use-cases/stat-resource-substrate.md`](../../use-cases/stat-resource-substrate.md).)*
+5. Publishes `CombatRoundEvent` carrying `AspectComposition` from `CombatRoundResult` (null if untyped — point-in-time capture, INV-6). `CombatHandler` (priority 20) broadcasts hit/miss/damage narrative.
 6. **`MobDied` path.** Captures `MobDataComponent.Name` from the mob entity (point-in-time capture, before destruction). Calls `ICombatSystem.EndCombat`. Publishes `CombatEndedEvent(MobDied, DefenderName=mobName)`. `CombatHandler` (priority 20) broadcasts `"You have slain <mob>!"` using `DefenderName` from the payload. `CombatMobDeathHandler` (priority 80) then calls `IEntityStateService.ExitState(attackerEntityId, InCombat)`, publishes `MobDiedEvent` (with `KillerEntityId`), and calls `EntityService.DestroyEntity(mobEntityId)`.
 7. **`PlayerIncapacitated` path.** Calls `ICombatSystem.EndCombat` + `IEntityStateService.ExitState(InCombat)` on both entities. Publishes `CombatEndedEvent(PlayerIncapacitated)` — `CombatHandler` broadcasts incapacitation narrative. Then reads `hpAfter` and calls `IDeathSystem.OnHpChanged(defenderEntityId, hpBefore, hpAfter)`. If the result is `BecameIncapacitated`, publishes `PlayerIncapacitatedEvent(defenderEntityId, roomEntityId)` to begin the bleed-out lifecycle (see [Flow 22 — death and respawn](flow-22-death-and-respawn.md)).
 

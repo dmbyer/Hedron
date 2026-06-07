@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Aspects;
 
 namespace Hedron.Core.Modules.Abilities
 {
@@ -23,7 +24,7 @@ namespace Hedron.Core.Modules.Abilities
         IReadOnlyList<ResourceCost> Costs,
         IReadOnlyList<string> Effects,
         float CooldownSeconds,
-        string? Aspect = null,
+        AspectComposition? Aspect = null,
         TriggerCondition? Trigger = null,
         ImprovementCurve? Curve = null,
         IReadOnlyList<Requirement>? LearnReqs = null

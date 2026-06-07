@@ -1,5 +1,6 @@
 using System;
 using Hedron.Core.Events;
+using Hedron.Core.Modules.Aspects;
 
 namespace Hedron.Core.Modules.Combat.Events
 {
@@ -8,6 +9,10 @@ namespace Hedron.Core.Modules.Combat.Events
     /// <see cref="Systems.ICombatSystem.ResolveAbilityStrike"/>.
     /// <see cref="Handlers.AbilityStrikeHandler"/> reads this to render a fused narrative line
     /// and conditionally publish <see cref="CombatEndedEvent"/> for terminal outcomes.
+    /// <para>
+    /// <see cref="AspectComposition"/> is a point-in-time capture of the damage typing from the
+    /// ability's <c>Aspect</c> field at strike time — null when the ability was untyped (INV-6).
+    /// </para>
     /// </summary>
     public sealed record AbilityStrikeResolvedEvent(
         uint AttackerEntityId,
@@ -15,7 +20,8 @@ namespace Hedron.Core.Modules.Combat.Events
         uint RoomEntityId,
         CombatRoundResult Result,
         string AbilityId,
-        string? DefenderName) : IEvent
+        string? DefenderName,
+        AspectComposition? AspectComposition = null) : IEvent
     {
         public DateTime OccurredAt { get; } = DateTime.UtcNow;
         public Guid EventId { get; } = Guid.NewGuid();

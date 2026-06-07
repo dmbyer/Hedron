@@ -1,10 +1,13 @@
 using System.Collections.Generic;
+using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Stats
 {
-    public sealed class StatRegistry : IStatRegistry
+    public sealed class StatRegistry : DefinitionRegistry<ScoreId, ScoreRegistration>, IStatRegistry
     {
-        public IReadOnlyList<ScoreRegistration> All { get; } = new ScoreRegistration[]
+        public StatRegistry() : base(CreateRows(), r => r.ScoreId) { }
+
+        private static IEnumerable<ScoreRegistration> CreateRows() => new ScoreRegistration[]
         {
             new(ScoreId.Mind,            ScoreRole.Primary),
             new(ScoreId.Body,            ScoreRole.Primary),

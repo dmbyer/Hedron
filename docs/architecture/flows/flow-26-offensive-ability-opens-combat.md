@@ -25,9 +25,9 @@ sequenceDiagram
     P->>AS: Activate(actorId, abilityId, goblinId, resolveOffensiveExternally: true)
     AS-->>P: Activated, OffensivePower=N
     P->>Bus: AbilityActivatedEvent(actor, abilityId, goblin)
-    P->>CS: ResolveAbilityStrike(actor, goblin, N)
-    CS-->>P: CombatRoundResult
-    P->>Bus: AbilityStrikeResolvedEvent(actor, goblin, room, result, abilityId, "goblin")
+    P->>CS: ResolveAbilityStrike(actor, goblin, N, def.Aspect)
+    CS-->>P: CombatRoundResult{AspectComposition}
+    P->>Bus: AbilityStrikeResolvedEvent(actor, goblin, room, result, abilityId, "goblin", AspectComposition)
 ```
 
 **Steps.**
@@ -41,8 +41,8 @@ sequenceDiagram
    d. Publish `CombatStartedEvent(actorId, goblinId, roomId)` → `CombatHandler` renders `"You attack goblin!"` to attacker; broadcasts to room.
 4. `IAbilitySystem.Activate(actorId, abilityId, goblinId, resolveOffensiveExternally: true)` — full activation pipeline: validates, spends costs, sets cooldown, skips raw damage effect, returns `OffensivePower`.
 5. Publish `AbilityActivatedEvent` — `AbilityInvocationHandler` skips because ability is offensive.
-6. `ICombatSystem.ResolveAbilityStrike(actorId, goblinId, OffensivePower)` — defense-mitigated damage applied to goblin.
-7. Publish `AbilityStrikeResolvedEvent` — `AbilityStrikeHandler` renders fused narrative (ability + damage), and if outcome is terminal (`MobDied` / `PlayerIncapacitated`) also publishes `CombatEndedEvent`.
+6. `ICombatSystem.ResolveAbilityStrike(actorId, goblinId, OffensivePower, def.Aspect)` — aspect-resolved, defense-mitigated damage applied to goblin. `def.Aspect` is the ability's `AspectComposition?`; `CombatSystem` passes it through `IAspectSystem.Resolve`, applying the attacker's affinity boost and the defender's per-aspect resistance. `CombatRoundResult.AspectComposition` is set to the resolved composition (null if the ability carries none — point-in-time capture, INV-6).
+7. Publish `AbilityStrikeResolvedEvent` carrying `AspectComposition` from the result (point-in-time capture, INV-6). `AbilityStrikeHandler` renders fused narrative (ability + damage), and if outcome is terminal (`MobDied` / `PlayerIncapacitated`) also publishes `CombatEndedEvent`.
 8. On subsequent heartbeat ticks, `CombatTickHandler` drives standard melee rounds (Flow 18).
 
 **Invariants.**

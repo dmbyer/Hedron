@@ -25,6 +25,7 @@ namespace Hedron.Core.Modules.Admin
             services.AddSingleton<ICommand, DigCommand>();
             services.AddSingleton<ICommand, ReloadCommand>();
             services.AddSingleton<ICommand, SetCommand>();
+            services.AddSingleton<ICommand, DefsCommand>();
 
             services.AddSingleton<AdminAuditHandler>();
             return services;
