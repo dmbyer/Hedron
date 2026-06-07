@@ -45,6 +45,7 @@ using Hedron.Core.Modules.Spawn.Systems;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Abilities.Events;
 using Hedron.Core.Modules.Abilities.Handlers;
+using Hedron.Core.Modules.Aspects;
 using Hedron.Core.Modules.Regeneration;
 using Hedron.Core.Modules.Regeneration.Handlers;
 using Hedron.Core.Modules.Effects;
@@ -141,6 +142,7 @@ public static class Program
                 services.AddEntityStateModule();
                 services.AddTimeModule();
                 services.AddStatsModule();
+                services.AddAspectsModule();
                 services.AddEffectsModule();
                 services.AddAbilitiesModule();
                 services.AddCombatModule();
@@ -151,6 +153,7 @@ public static class Program
                 // Hosted services — order matters.
                 services.AddHostedService<PersistenceBootstrap>();
                 services.AddHostedService<WorldContentBootstrap>();
+                services.AddHostedService<RegistryValidationBootstrap>();
                 services.AddHostedService<PersistenceFlushTimer>();
                 services.AddHostedService<TelnetServer>();
                 services.AddHostedService<HeartbeatBackgroundService>();

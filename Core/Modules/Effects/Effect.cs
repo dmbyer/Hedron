@@ -54,6 +54,7 @@ namespace Hedron.Core.Modules.Effects
 
     public sealed record EffectSource(uint EntityId, string? SourceLabel = null);
 
+    // TODO: migrate Aspect from string? to AspectComposition? (deferred from slice 11-d — aspect-foundation)
     public sealed record EffectParams(ScoreId TargetScore, int BaseMagnitude, string? Aspect = null);
 
     public sealed record Effect(

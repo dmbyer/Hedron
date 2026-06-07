@@ -354,6 +354,20 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 
 ---
 
+### `defs`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Admin/Commands/DefsCommand.cs`  
+**Description:** Generic inspector over every definition registry. Without an id, lists all defined ids in the family. With an id, dumps the full definition. Families: `aspect`, `ability`, `effect`, `score`. Aspect ids are parsed as `AspectId` enum values (case-insensitive); ability and effect ids are string-keyed; score ids are parsed as `ScoreId` enum values. Returns an error message for unknown families or ids. Admin-gated (`AdminRequirement`).  
+**Usage:** `defs <family> [id]`  
+**Schema:** `Token string "family"` (required), `RestOfLine string "id"` (optional)  
+**Dependencies:** `IAspectRegistry`, `IAbilityRegistry`, `IEffectRegistry`, `IStatRegistry`  
+**Events:** none  
+**RequiredPrivileges:** `AdminRequirement`
+
+---
+
 ### `affect`
 
 **Aliases:** none  

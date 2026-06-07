@@ -20,6 +20,24 @@ Living catalog of the systems **implemented** in Hedron (core and domain). Updat
 
 ## Core Systems
 
+### DefinitionRegistry / IRegistry (generic registry infrastructure)
+**Purpose:** Uniform lookup contract and instance-based store for all definition families. Two type parameters let each family choose the key type that fits its nature: enum for fixed code-owned vocabularies (Aspect, Score), string for open/persisted/content-authored families (Ability, Effect). Instance-held rows are reload-shaped (a future `Reload(rows)` is additive without touching this contract).
+**Location:** `Core/Systems/DefinitionRegistry.cs`
+**Dependencies:** none.
+```csharp
+public interface IRegistry<TKey, TDef> where TKey : notnull
+{
+    bool TryGet(TKey key, out TDef definition);
+    TDef Get(TKey key);
+    IReadOnlyCollection<TKey> AllIds { get; }
+    IReadOnlyCollection<TDef> All { get; }
+}
+
+// Abstract base — subclass supplies rows + key selector at construction.
+public abstract class DefinitionRegistry<TKey, TDef> : IRegistry<TKey, TDef> { ... }
+```
+`AbilityRegistry`, `EffectRegistry`, and `StatRegistry` are all `DefinitionRegistry<TKey,TDef>` subclasses. `AspectRegistry` is the fourth consumer that anchored the extraction. Implemented (Phase 3 slice 11-d).
+
 ### BroadcastSystem
 **Purpose:** Deliver typed `IOutputMessage` output to rooms, every session, or a single player. Each recipient's message is rendered by their transport's `IOutputFormatter` via `IOutputWriterFactory`, so callers never construct raw strings.
 **Location:** `Core/Systems/BroadcastSystem.cs`
@@ -419,22 +437,18 @@ public interface IEffectSystem
 `Apply` returns `null` when `StackPolicy.HighestWins` blocks application (existing effect has equal or greater power). `AdvanceTick` advances elapsed time on timed effects, removes expired ones, and returns `EffectTickResult { DueApplications, Expired }` sorted by `EffectPhase` (Early → Normal → Late). Injects `IEnumerable<IEffectContributor>`; `GetModifiers`/`GetActive` sum stored effects **plus** all registered contributors (INV-24 seam, slice 11-a). Registered via `AddEffectsModule()`. Implemented (Phase 3 slices 9-e, 11-a).
 
 ### EffectRegistry
-**Purpose:** Hardcoded read-only catalog of starter `EffectDefinition` records. Pure data — no event bus, no persistence. Promotion to a data file is deferred per the use-case spec (Category-3 balance data).
-**Location:** `Core/Modules/Effects/EffectRegistry.cs` (implementation) · interface `IEffectRegistry` in the same file.
+**Purpose:** Hardcoded read-only catalog of starter `EffectDefinition` records. Pure data — no event bus, no persistence. Now a `DefinitionRegistry<string, EffectDefinition>` subclass (WP-1 retrofit). Promotion to a data file is deferred per the use-case spec (Category-3 balance data).
+**Location:** `Core/Modules/Effects/EffectRegistry.cs` (implementation) · interface `IEffectRegistry : IRegistry<string, EffectDefinition>` in the same file.
 **Dependencies:** none.
 ```csharp
-public interface IEffectRegistry
-{
-    bool TryGet(string effectId, out EffectDefinition definition);
-    IReadOnlyCollection<string> AllIds { get; }
-}
+public interface IEffectRegistry : IRegistry<string, EffectDefinition> { }
 ```
-Registered entries: `empower` (Body +5, Buff, 30s, HighestWins), `weaken` (Body -5, Debuff, 30s, HighestWins), `regen` (HpCurrent +10/tick, Blessing, 60s, Stack, Early), `poison` (HpCurrent -8/tick, Poison, 30s, Stack, Late), `minor_curse` (Mind -3, Curse, permanent, Stack). Extended in slice 11-a: `kick_damage` (HpCurrent -15, Instant, Replace), `mend_heal` (HpCurrent +20, Instant, Replace), `toughness_passive` (HpMax +20, StatModifier, HighestWins). Registered via `AddEffectsModule()`. Implemented (Phase 3 slice 9-e; extended slice 11-a).
+Registered entries: `empower` (Body +5, Buff, 30s, HighestWins), `weaken` (Body -5, Debuff, 30s, HighestWins), `regen` (HpCurrent +10/tick, Blessing, 60s, Stack, Early), `poison` (HpCurrent -8/tick, Poison, 30s, Stack, Late), `minor_curse` (Mind -3, Curse, permanent, Stack). Extended in slice 11-a: `kick_damage` (HpCurrent -15, Instant, Replace), `mend_heal` (HpCurrent +20, Instant, Replace), `toughness_passive` (HpMax +20, StatModifier, HighestWins). Registered via `AddEffectsModule()`. Implemented (Phase 3 slice 9-e; extended 11-a; retrofitted 11-d).
 
 ### CombatSystem
-**Purpose:** Domain system for combat resolution. Handles target lookup, combat state attachment/removal, round resolution, and ability-powered strikes. Pure: no events, no persistence (INV-5, INV-8). Computes attack resolution via `IStatSystem`; mutates HP via `IAttributeSystem.SetCurrentHp`; returns structured `CombatRoundResult` to callers.
+**Purpose:** Domain system for combat resolution. Handles target lookup, combat state attachment/removal, round resolution, and ability-powered strikes. Pure: no events, no persistence (INV-5, INV-8). Computes attack resolution via `IStatSystem`; applies aspect resolution via `IAspectSystem.Resolve`; mutates HP via `IAttributeSystem.SetCurrentHp`; returns structured `CombatRoundResult` to callers.
 **Location:** `Core/Modules/Combat/Systems/CombatSystem.cs`
-**Dependencies:** `EntityService`, `IStatSystem`, `IAttributeSystem`.
+**Dependencies:** `EntityService`, `IStatSystem`, `IAttributeSystem`, `IAspectSystem`.
 ```csharp
 public interface ICombatSystem
 {
@@ -442,7 +456,9 @@ public interface ICombatSystem
     void StartCombat(uint attackerEntityId, uint defenderEntityId);
     void EndCombat(uint attackerEntityId, uint defenderEntityId);
     CombatRoundResult ExecuteRound(uint attackerEntityId, uint defenderEntityId);
-    CombatRoundResult ResolveAbilityStrike(uint attackerEntityId, uint defenderEntityId, int basePower);
+    CombatRoundResult ResolveAbilityStrike(
+        uint attackerEntityId, uint defenderEntityId, int basePower,
+        AspectComposition? composition = null);
 }
 
 public readonly record struct CombatRoundResult(
@@ -450,11 +466,12 @@ public readonly record struct CombatRoundResult(
     uint DefenderEntityId,
     int DamageDealt,
     bool AttackerHit,
-    CombatRoundOutcome Outcome);
+    CombatRoundOutcome Outcome,
+    AspectComposition? AspectComposition = null);  // point-in-time capture (INV-6)
 
 public enum CombatRoundOutcome { Hit, Miss, MobDied, PlayerIncapacitated }
 ```
-`TryFindTargetInRoom` prefix-matches `token` against `MobDataComponent.Name` and `Keywords` for entities with `MobDataComponent` in the given room. `StartCombat`/`EndCombat` add/remove `CombatStateComponent` on both participants — does not call `IEntityStateService` (cohesion separation; commands and handlers coordinate both layers). `ExecuteRound` formula: hit check `roll = Random.Shared.Next(1,21) + dex/2 >= 10 + defense`; damage `Random.Shared.Next(1, attackPower+2)` applied via `IAttributeSystem.SetCurrentHp`; outcome `MobDied` if defender has `MobDataComponent` and HP == 0, `PlayerIncapacitated` if defender has `CharacterComponent` and HP == 0. `ResolveAbilityStrike` skips the hit/miss roll (always hits); applies defense mitigation to `basePower`, mutates defender HP via `IAttributeSystem.SetCurrentHp`, and returns `CombatRoundResult { AttackerHit = true }`. Used by `AbilityInvocationPipeline` after `IAbilitySystem.Activate` returns `OffensivePower`. Implemented (Phase 3 slices 9, 11-a).
+`TryFindTargetInRoom` prefix-matches `token` against `MobDataComponent.Name` and `Keywords`. `StartCombat`/`EndCombat` add/remove `CombatStateComponent`. `ExecuteRound`: hit check; raw damage; composition source = `IAspectSystem.Affinity(attacker)` (entity identity, empty = untyped); `IAspectSystem.Resolve` applies affinity boost + resist; `SetCurrentHp`. `ResolveAbilityStrike` skips hit/miss; composition source = the ability's `Aspect` field passed by caller (`AbilityInvocationPipeline`). `CombatRoundResult.AspectComposition` is null when the composition was empty (null = untyped, matching `CombatEndedEvent.DefenderName` INV-6 pattern). Implemented (Phase 3 slices 9, 11-a; aspect-resolved 11-d).
 
 ### DeathSystem
 **Purpose:** Domain system owning the HP-threshold evaluation, respawn mutation, and respawn-location management for the player death lifecycle. Pure: never touches the event bus or persistence (INV-5, INV-8). Callers (handlers, initiators) read the returned `DeathTransition` and publish the appropriate events.
@@ -499,18 +516,40 @@ public interface IAbilitySystem
 ```
 `Activate` validates in order: ability exists → actor knows it → `Active` activation → entity state ok (not Incapacitated) → cooldown ready → all costs affordable (atomic check before any spend). On success: spends each cost via `IAttributeSystem`, sets `AbilitiesComponent.CooldownRemaining[abilityId] = CooldownSeconds`, and calls `IEffectSystem.Apply` per effect id. When `resolveOffensiveExternally = true`, any offensive damage effect (Instant/Periodic, `TargetScore == HpCurrent`, `BaseMagnitude < 0`) is skipped by `IEffectSystem` and its raw magnitude is returned as `AbilityActivationResult.OffensivePower` instead — the caller (`AbilityInvocationPipeline`) applies it via `ICombatSystem.ResolveAbilityStrike` with defense mitigation. `IsOffensive` returns `true` if the ability has `Targeting.Target` and at least one offensive damage effect. Returns `AbilityActivationResult { Outcome, AbilityId, AppliedEffects, Spent, CooldownSeconds, FailReason?, OffensivePower? }`. `AdvanceCooldowns` decrements all non-zero cooldown entries by `elapsed.TotalSeconds`, clamping to 0. Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slices 11-a, 11-b).
 
-### AbilityRegistry
-**Purpose:** Hardcoded read-only catalog of `AbilityDefinition` records. Pure data — no event bus, no persistence. Promotion to a data file is a future content concern.
-**Location:** `Core/Modules/Abilities/AbilityRegistry.cs` (implementation · interface `IAbilityRegistry` in same file)
+### AspectRegistry
+**Purpose:** Hardcoded read-only catalog of `AspectDefinition` records. Born on `DefinitionRegistry<AspectId, AspectDefinition>` (the fourth consumer that anchored the generic extraction). Pure data — no event bus, no persistence. Aspected abilities reference `AspectId` keys validated at startup by `RegistryValidationBootstrap`.
+**Location:** `Core/Modules/Aspects/AspectRegistry.cs` (implementation · interface `IAspectRegistry` in same file)
 **Dependencies:** none.
 ```csharp
-public interface IAbilityRegistry
+public interface IAspectRegistry : IRegistry<AspectId, AspectDefinition> { }
+```
+Starter vocabulary: `Fire`, `Ice`, `Lightning` (Elemental); `Nature` (Primal); `Void`, `Light` (Arcane). Registered via `AddAspectsModule()`. Implemented (Phase 3 slice 11-d).
+
+### AspectSystem / IAspectSystem
+**Purpose:** Core system: generic aspect math with no game-semantic branching (no FireSystem, no per-aspect switch). Three responsibilities: `Resolve` (apply affinity boost + independent resist); `Affinity` (entity's outgoing composition); `Resist` (entity's effective resistance to one aspect, compute-on-read INV-24). Pure: no events, no persistence, no game rules (INV-2, INV-5).
+**Location:** `Core/Modules/Aspects/Systems/AspectSystem.cs` · `Core/Modules/Aspects/Systems/IAspectSystem.cs`
+**Dependencies:** `EntityService`.
+```csharp
+public interface IAspectSystem
 {
-    bool TryGet(string abilityId, out AbilityDefinition definition);
-    IReadOnlyCollection<string> AllIds { get; }
+    // Formula per aspect A: portion = magnitude * weight/100;
+    // boosted = portion * (1 + attackerAffinityWeight_A / 100);
+    // resisted = boosted * (1 - resist_A / 100). Sum across all aspects, clamp to [0, int.Max].
+    int Resolve(int magnitude, AspectComposition composition, uint attackerEntityId, uint defenderEntityId);
+    AspectComposition Affinity(uint entityId);
+    int Resist(uint entityId, AspectId aspect);   // [0, 100]; 100 = full immunity
 }
 ```
-Starter set: `toughness` (Skill/Passive/Self — `toughness_passive` effect), `kick` (Skill/Active/Target — 10 stamina, `kick_damage`), `empower` (Spell/Active/Self — 10 mana, `empower`), `mend` (Spell/Active/Self — 15 mana, `mend_heal`), `blood_pact` (Spell/Active/Self — 10 hp + 15 mana, `empower`). Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slice 11-a).
+Registered via `AddAspectsModule()`. Composed by `CombatSystem` (WP-3): called in both `ExecuteRound` (melee affinity) and `ResolveAbilityStrike` (ability `Aspect` field). Implemented (Phase 3 slice 11-d).
+
+### AbilityRegistry
+**Purpose:** Hardcoded read-only catalog of `AbilityDefinition` records. Pure data — no event bus, no persistence. Now a `DefinitionRegistry<string, AbilityDefinition>` subclass (WP-1 retrofit). Promotion to a data file is a future content concern.
+**Location:** `Core/Modules/Abilities/AbilityRegistry.cs` (implementation · interface `IAbilityRegistry : IRegistry<string, AbilityDefinition>` in same file)
+**Dependencies:** none.
+```csharp
+public interface IAbilityRegistry : IRegistry<string, AbilityDefinition> { }
+```
+Starter set: `toughness` (Skill/Passive/Self — `toughness_passive` effect), `kick` (Skill/Active/Target — 10 stamina, `kick_damage`), `empower` (Spell/Active/Self — 10 mana, `empower`), `mend` (Spell/Active/Self — 15 mana, `mend_heal`), `blood_pact` (Spell/Active/Self — 10 hp + 15 mana, `empower`). `AbilityDefinition.Aspect` is now `AspectComposition?` (migrated from `string?` stub). Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slice 11-a; retrofitted 11-d).
 
 ### AbilityEffectContributor
 **Purpose:** Implements the `IEffectContributor` seam (INV-24). Derives `WhileKnown` passive ability effects into `EffectSystem.GetModifiers`/`GetActive` at read time. Each tick of `GetModifiers`, this contributor returns the stat modifiers implied by any `Passive` abilities the entity knows and that have `WhileKnown` effects in `IEffectRegistry`. No domain types are referenced from core; the adapter owns the translation.
@@ -606,6 +645,12 @@ Registered as `services.AddSingleton<IPromptSource, PromptComposerSystem>()` in 
 ## Background Services / Initiators
 
 Initiators drive the tick loop or startup; they are not "systems" in the domain-logic sense but are catalogued here because they publish events that domain handlers subscribe to.
+
+### RegistryValidationBootstrap
+**Purpose:** Startup Initiator (hosted service) that runs a fail-fast referential-integrity sweep after registries are populated and world content is ready. Validates: ability→effect cross-refs; ability→aspect cross-refs; `AspectComposition` normalization (empty or sums to 100); `CharacterDefaults:StartingAbilities` config → ability cross-refs. On failure: logs a full report and throws, aborting boot (INV-10, fail-fast). Publishes nothing — closed mechanical sweep (INV-10).
+**Location:** `Server/RegistryValidationBootstrap.cs`
+**Dependencies:** `IAbilityRegistry`, `IEffectRegistry`, `IAspectRegistry`, `IConfiguration`, `ILogger`.
+**Startup ordering:** Registered after `WorldContentBootstrap` (registries are populated at DI-construction time, but the ordering guarantees world content spawning is complete before the sweep). Implemented (Phase 3 slice 11-d).
 
 ### HeartbeatBackgroundService (TimeModule)
 **Purpose:** Shared game clock. Fires a `PeriodicTimer` at `Heartbeat:IntervalMs` (default 2000 ms) and publishes `HeartbeatTickEvent { TickId, Timestamp, Elapsed }` on each tick. No game logic — downstream handlers (combat, mob AI, effect expiry) subscribe independently. The `TimeModule` (`Core/Modules/Time/TimeModule.cs`) is the Core-side anchor; the hosted-service registration lives in `Server/Program.cs`.

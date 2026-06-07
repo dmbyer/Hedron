@@ -142,6 +142,7 @@ namespace Hedron.Core.Modules.Account.Systems
             {
                 RoomBlueprintId = _worldConfig.StartingRoomBlueprintId,
             });
+            _entityService.AddComponent(entity.Id, new AspectAffinitiesComponent());
             _entityService.AddComponent(entity.Id, new PersistentEntity());
 
             if (_entityService.TryGet<AccountComponent>(accountEntityId, out var account))

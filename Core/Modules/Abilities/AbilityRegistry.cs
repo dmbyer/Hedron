@@ -1,47 +1,46 @@
 using System.Collections.Generic;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Abilities
 {
-    public interface IAbilityRegistry
-    {
-        bool TryGet(string abilityId, out AbilityDefinition definition);
-        IReadOnlyCollection<string> AllIds { get; }
-    }
+    public interface IAbilityRegistry : IRegistry<string, AbilityDefinition> { }
 
-    public sealed class AbilityRegistry : IAbilityRegistry
+    public sealed class AbilityRegistry : DefinitionRegistry<string, AbilityDefinition>, IAbilityRegistry
     {
-        private static readonly Dictionary<string, AbilityDefinition> _definitions = new()
+        public AbilityRegistry() : base(CreateRows(), d => d.Id) { }
+
+        private static IEnumerable<AbilityDefinition> CreateRows() => new AbilityDefinition[]
         {
-            ["toughness"] = new AbilityDefinition(
+            new AbilityDefinition(
                 "toughness", "Toughness",
                 AbilityKind.Skill, Activation.Passive, Targeting.Self,
                 Costs: new List<ResourceCost>(),
                 Effects: new List<string> { "toughness_passive" },
                 CooldownSeconds: 0f),
 
-            ["kick"] = new AbilityDefinition(
+            new AbilityDefinition(
                 "kick", "Kick",
                 AbilityKind.Skill, Activation.Active, Targeting.Target,
                 Costs: new List<ResourceCost> { new ResourceCost(ResourceType.Stamina, 10) },
                 Effects: new List<string> { "kick_damage" },
                 CooldownSeconds: 6f),
 
-            ["empower"] = new AbilityDefinition(
+            new AbilityDefinition(
                 "empower", "Empower",
                 AbilityKind.Spell, Activation.Active, Targeting.Self,
                 Costs: new List<ResourceCost> { new ResourceCost(ResourceType.Mana, 10) },
                 Effects: new List<string> { "empower" },
                 CooldownSeconds: 30f),
 
-            ["mend"] = new AbilityDefinition(
+            new AbilityDefinition(
                 "mend", "Mend",
                 AbilityKind.Spell, Activation.Active, Targeting.Self,
                 Costs: new List<ResourceCost> { new ResourceCost(ResourceType.Mana, 15) },
                 Effects: new List<string> { "mend_heal" },
                 CooldownSeconds: 20f),
 
-            ["blood_pact"] = new AbilityDefinition(
+            new AbilityDefinition(
                 "blood_pact", "Blood Pact",
                 AbilityKind.Spell, Activation.Active, Targeting.Self,
                 Costs: new List<ResourceCost>
@@ -52,10 +51,5 @@ namespace Hedron.Core.Modules.Abilities
                 Effects: new List<string> { "empower" },
                 CooldownSeconds: 30f),
         };
-
-        public bool TryGet(string abilityId, out AbilityDefinition definition)
-            => _definitions.TryGetValue(abilityId, out definition!);
-
-        public IReadOnlyCollection<string> AllIds => _definitions.Keys;
     }
 }

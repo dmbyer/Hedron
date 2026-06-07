@@ -27,16 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–11-c + output-batching done; **next: slice 12 — Shopping**, with slice 11-d Aspect/Registry specced in parallel) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–11-d + output-batching done; **next: slice 12 — Shopping**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 12 — Shopping.** The output-batching slice is complete: players now see a trailing status prompt after every command and combat tick, combat messages batch correctly, and Chat-category messages flush immediately. The next slice is **Shopping** ([`../use-cases/shopping.md`](../use-cases/shopping.md) — to be authored) — economy mechanics enabling players to buy/sell items from vendor NPCs. This slice builds on the items + inventory substrate (slice 6) and the mob model (slice 8); no ability or combat dependency.
-
-In parallel, **slice 11-d — Aspect & Registry Foundation** ([`../use-cases/aspect-foundation.md`](../use-cases/aspect-foundation.md)) is specced and has passed the spec-review gate (gameplay-model spines A + F): the elemental Aspect vocabulary + aspect-typed combat, and the uniform `IRegistry<TKey,TDef>` registry layer (with Ability/Effect/Stat retrofit, fail-fast validation, and a generic `defs` inspector). It shares no dependency with Shopping and can run as a parallel implementation branch.
+**Phase 3 slice 12 — Shopping.** Slice 11-d (Aspect & Registry Foundation) is complete: combat damage is aspect-typed via `IAspectSystem`, the uniform `IRegistry<TKey,TDef>` registry layer is in place with Ability/Effect/Stat retrofits, and the startup `RegistryValidationBootstrap` enforces referential integrity. The next slice is **Shopping** ([`../use-cases/shopping.md`](../use-cases/shopping.md) — to be authored) — economy mechanics enabling players to buy/sell items from vendor NPCs. This slice builds on the items + inventory substrate (slice 6) and the mob model (slice 8); no ability or combat dependency.
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -85,7 +83,7 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | 11-b | **Ability invocation & combat targeting** | Dynamic skill verbs + `cast`, state-aware targeting, offensive-opens-combat, starting abilities at creation | ✅ done |
 | 11-c | **Resource regeneration + `rest`** | Out-of-combat pool regen so ability costs recover; independent of 11-a/b | ✅ done |
 | output-batching | **Player prompt + output batching** | Status prompt trailing every command + tick; session-scoped buffer; `IPromptSource` port; immediate flush for Chat | ✅ done |
-| 11-d | **Aspect & Registry Foundation** (gameplay-model A + F) | `AspectComposition` + `IAspectSystem` (aspect-typed combat damage; affinity + independent per-aspect resistance); generic `IRegistry<TKey,TDef>` registry layer + Ability/Effect/Stat retrofit; fail-fast registry validation; `defs` inspector | 🟢 planned (spec-gated; parallel branch to 12) |
+| 11-d | **Aspect & Registry Foundation** (gameplay-model A + F) | `AspectComposition` + `IAspectSystem` (aspect-typed combat damage; affinity + independent per-aspect resistance); generic `IRegistry<TKey,TDef>` registry layer + Ability/Effect/Stat retrofit; fail-fast registry validation; `defs` inspector | ✅ done |
 | 12 | Shopping | Economy | 🟢 next (ready after 6) |
 | 13 | Crafting, potions | Content depth | 🟢 ready after 6 |
 | 14 | Web/SignalR client (deferred) | Dual-client transport | 🔵 deferred — see [`backlog.md`](backlog.md) |

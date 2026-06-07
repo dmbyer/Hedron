@@ -54,6 +54,35 @@ The dependency arrow points domain → core interface — legal. This is **INV-2
 
 > Note: a core-*tier* system may itself live inside a feature module (`Core/Modules/<Feature>/Systems/`) when it is that feature's primary mechanic (e.g. `EffectSystem`). Tier is a role, not a path (INV-2); the rules below apply wherever it sits.
 
+## Definition registries
+
+A **definition registry** is a distinct pattern from a general core system: it is a read-only, keyed lookup table of authored definitions (ability descriptions, aspect vocabularies, score registrations). Use `DefinitionRegistry<TKey, TDef>` (in `Core/Systems/DefinitionRegistry.cs`) rather than a hand-rolled dictionary when:
+
+- A module owns a family of authored definitions looked up by a stable key.
+- ≥2 call sites need `TryGet`, `Get`, `AllIds`, or `All` on the same data.
+
+**Key-type rule — pick by family nature, not preference:**
+
+| Family character | Key type | Examples | Why |
+|---|---|---|---|
+| Fixed, code-owned, closed vocabulary | `enum` | `AspectId`, `ScoreId` | Compile-time safety; enum ordinals are never persisted (INV-23) |
+| Open, content-authored, persisted by reference | `string` | `AbilityId`, `EffectId` | Data-file extensible; used in player saves (`AbilitiesComponent.Known`) |
+
+**Shape:** pass a `Func<TDef, TKey> keySelector` to the base constructor — this avoids requiring a shared `IHasId<TKey>` interface when families' key property names differ.
+
+```csharp
+public interface IAspectRegistry : IRegistry<AspectId, AspectDefinition> { }
+public sealed class AspectRegistry : DefinitionRegistry<AspectId, AspectDefinition>, IAspectRegistry
+{
+    public AspectRegistry() : base(CreateRows(), d => d.Id) { }
+    private static IEnumerable<AspectDefinition> CreateRows() { … }
+}
+```
+
+Precedents: `AspectRegistry` (enum key) · `AbilityRegistry` · `EffectRegistry` (string key) · `StatRegistry` (`ScoreId` enum).
+
+**Companion: startup validation.** Every slice that adds a new definition family should also extend `Server/RegistryValidationBootstrap.cs` to assert referential integrity at boot (dangling cross-refs fail startup with a full report — INV-10). The generic `defs <family> [id]` admin inspector covers any `IRegistry`-implementing registry automatically (INV-18).
+
 ## Steps
 
 1. Create `Core/Systems/<X>System.cs` + interface `I<X>System.cs`.
