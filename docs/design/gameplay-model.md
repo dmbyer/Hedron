@@ -136,32 +136,44 @@ Void, Astral, Psychic, Dream), **Mundane** (Fire, Water, Air, …). Mundane elem
 named Aspects share one machinery — they are different rows in one registry, not different code
 paths.
 
-Aspect is a **value used as a tag/key**. The reuse is that everything elementally typed points
-at the same id, and one resolution function turns "aspect-typed magnitude from a source" into
-"effective magnitude against a target."
+Aspect is a **value used as a tag/key**. Elemental *identity* is an optional **aspect
+composition** — a normalized set of `AspectId → weight` (empty = no affinity, a single = 100,
+a blend = fractions summing to 100). Entities, damage packets, and areas each carry one. One
+resolution function turns "aspect-composed magnitude from a source" into "effective magnitude
+against a target." **Resistance is a separate, independent per-aspect dimension** — *not* derived
+from the composition — because aspects are semantic tags that matter beyond damage typing
+(decided R8).
 
 ```
 IAspectSystem (core)
-  int  Resolve(int magnitude, AspectId aspect, uint sourceId, uint targetId);
-       // magnitude * (1 + source.Affinity[aspect]) * (1 - target.Resist[aspect]), clamped
-  int  Affinity(uint entityId, AspectId aspect);   // outgoing boost (attunement)
-  int  Resist(uint entityId, AspectId aspect);     // incoming reduction
+  int  Resolve(int magnitude, AspectComposition damage, uint sourceId, uint targetId);
+       // for each aspect a present in `damage`: apply that fraction of magnitude through the
+       // source's affinity in a and the target's (independent) resist to a; sum and clamp.
+  AspectComposition Affinity(uint entityId);        // the entity's normalized aspect makeup (identity + outgoing attunement)
+  int  Resist(uint entityId, AspectId aspect);      // INDEPENDENT per-aspect incoming reduction (base + effects)
+
+AspectComposition                                   // optional, normalized
+  // empty (no affinity) — OR — (AspectId -> weight) whose non-zero weights sum to 100.
+  // The Spine F startup validation pass asserts every authored composition is empty or sums to 100.
 ```
 
 **Where Aspect shows up** (all through the one resolution function):
 
 | Surface | How Aspect is used |
 |---|---|
-| Damage packet | Damage is `(magnitude, AspectId)`, not a bare int. |
-| Resistance / affinity score | A defensive map `Aspect → modifier`, computed on read from base + effects. |
-| Player/mob attunement | A growable score per Aspect; feeds `Affinity`/`Resist`. |
+| Damage packet | Damage is `(magnitude, AspectComposition)`, not a bare int — typed by a normalized makeup (empty / single / blend). |
+| Resistance | An **independent** per-aspect reduction score, computed on read from base + effects (not derived from the composition). |
+| Player/mob attunement | The entity's normalized aspect **composition** (identity + outgoing attunement); resistance is tracked separately. |
 | Ability typing | An ability carries an Aspect → its damage/effects are aspect-typed and benefit from caster attunement. |
 | Area attunement | An area carries an Aspect → ambient effect + scaling bias + theming. |
 | Ascension theming | A tier may be themed by an Aspect (see Spine F open question on vertical vs horizontal). |
 
 **What Aspect is NOT.** Not a per-element system. Not damage *types* hardcoded in combat. Not
 an inheritance hierarchy. New element = new registry row. The resolution function never grows
-an arm per aspect.
+an arm per aspect. But an aspect is **more than a damage type**: `AspectDefinition` is shaped to
+carry future aspect-unique ability/effect riders (Spine B × C) — an aspect-typed ability may be
+enhanced in aspect-specific ways beyond a damage scalar (shape-for-later; v1 lands typing +
+affinity + independent resistance only).
 
 **Layer fit.** `IAspectSystem` is a **core system** (generic resolution, no game semantics
 beyond the math). Attunement *scores* live in a component and are summed by the stat pipeline.
@@ -570,6 +582,7 @@ The §6 forks were resolved with the owner (2026-05-30); the slices inherit them
 | **R5 — Stacking + Power** | Timed buffs (potion / spell / skill) **and** auras → `HighestWins` keyed on **`Power`**, refreshing on equal-or-stronger re-apply. DoTs / HoTs `Stack` `UniquePerSource`; equipment `Stack`; curses `UniquePerSource`. Per-source defaults, overridable per effect. |
 | **R6 — Permanent growth** | **No `Permanent` effect.** Persistent-but-removable = `UntilRemoved` (`duration = -1`). True base growth (rare-material consumption) is a **direct state-modification action** that rewrites base once and leaves no effect (Spine E). |
 | **R7 — Docs** | Keep `docs/design/` (taxonomy row added). Scoped-system design → `architecture/subsystems/`; complex systems (Effects) get a higher-level design doc; on ship, a use-case **graduates its design into subsystem / architecture docs** and is trimmed to requirements + implementation plan. Retroactive conversion is a backlogged audit. |
+| **R8 — Aspect representation** (2026-06-06) | Elemental identity/affinity is an optional **normalized aspect composition** (`AspectId → weight`; empty, single = 100, or a blend summing to 100), carried by entities, damage packets, and areas. **Resistance is an independent per-aspect score** (base + effects), decoupled from the composition — aspects are semantic tags beyond damage types. `AspectDefinition` is shaped to carry aspect-unique ability/effect riders later (not built in the foundation slice). Lands in the Aspect & Registry Foundation slice ([`../use-cases/aspect-foundation.md`](../use-cases/aspect-foundation.md)). |
 
 ### Power — the one new concept R5 introduced (provisional sub-decisions)
 

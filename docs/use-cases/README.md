@@ -59,6 +59,7 @@ At slice close-out, `sync-roadmap` **trims** it to its durable behavior spec —
 | `planned` | [`ability-substrate.md`](ability-substrate.md) | Phase 3 slice 11-a (gameplay-model S4) |
 | `planned` | [`ability-invocation.md`](ability-invocation.md) | Phase 3 slice 11-b (gameplay-model S4) |
 | `planned` | [`resource-regeneration.md`](resource-regeneration.md) | Phase 3 slice 11-c (supporting pool mechanic) |
+| `planned` | [`aspect-foundation.md`](aspect-foundation.md) | Phase 3 slice 11-d (gameplay-model A + F) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C): SQLite backend, EntityService lifecycle, world content de-persistence, context-driven item persistence, spawn slot foundation |
 | `planned` | [`prompt-and-output-batching.md`](prompt-and-output-batching.md) | Phase 3 — player prompt + session-scoped output batching framework |
