@@ -7,7 +7,7 @@ description: Use when writing or updating automated tests for a Hedron slice —
 
 Hedron tests verify the things a player can't see — the internal state transitions and computed results that use-case **Postconditions** assert. The strategy, the tier taxonomy, and the full test-vs-skip rubric live in [docs/architecture/07-testing.md](../../../docs/architecture/07-testing.md); the rules are **INV-25** (verification discipline) and **INV-26** (determinism seam) in [docs/architecture/checklist.md](../../../docs/architecture/checklist.md). This skill is the *how-to* — it carries no copy of those rules; read them live and cite by ID.
 
-> The shared `Hedron.Tests` project + harness is stood up as the Phase-2 testing follow-up (see [docs/roadmap/backlog.md](../../../docs/roadmap/backlog.md)). The shapes below are its spec; once it exists, this is the operative guide for every slice.
+> The `Hedron.Tests` project and harness are live in the repository. This is the operative guide for every slice.
 
 ## Pick the tier
 
@@ -29,8 +29,9 @@ Most slice coverage is Tier 1 + one Tier 3 flow. Reach for Tier 2 only where a h
 - `EntityBuilder` — fluent fixtures: `new EntityBuilder(ecs).AsPlayer().WithPools(hp:100).InRoom(roomId).Build()` returns the `uint` id.
 - `RecordingEventBus : IEventBus` — captures published events in order; for Tier 2/3 it can also dispatch to subscribed handlers.
 - `FakeRandom : IRandom` — scripted rolls for deterministic chance assertions.
+- `FakeClock : IClock` — settable `UtcNow` + `Advance(TimeSpan)` for deterministic time assertions.
 - output capture — a fake `IOutputWriter`/transport recording messages by type + audience.
-- in-memory SQLite helper + synthetic `HeartbeatTickEvent` factory.
+- in-memory SQLite helper (`PersistenceTestHarness`) + synthetic `HeartbeatTickEvent` factory (`Ticks.At(id)`).
 
 ## Worked examples
 
@@ -57,7 +58,7 @@ Assert.Contains(bus.Published, e => e is CombatEndedEvent { Outcome: MobDied });
 // ordering: CombatHandler (output) ran before CombatMobDeathHandler (destroy)
 ```
 
-**Tier 3 — flow.** Wire real systems+handlers to a `RecordingEventBus`, seed `IRandom`, pump ticks, assert the Postconditions (e.g. combat C-2: mob dies on the expected tick, `BlueprintComponent` cleared, entity destroyed, survivor left `InCombat`).
+**Tier 3 — flow.** Wire real systems+handlers to a `RecordingEventBus`, seed `IRandom`, pump ticks, assert the Postconditions (e.g. combat C-2: mob dies on the expected tick, entity destroyed via `DestroyEntity`, survivor left `InCombat`, `CombatEndedEvent` published). Assert that `BlueprintComponent` was **not** explicitly cleared before destruction — INV-21 says it is preserved as an origin record until the entity is destroyed.
 
 **Tier 4 — persistence round-trip.** Save, load into a fresh `EntityService`, assert `[Persistent]` components equal and transient ones absent; assert world content has no row (INV-23).
 

@@ -28,7 +28,7 @@ The target is defined by:
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
 | **3 — Vertical slices** | 🟡 in progress (slices 1–11-d + output-batching done; **next: slice 12 — Shopping**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
-| **4 — Hardening** | 🟡 testing pulled forward (strategy + per-slice gate live; `Hedron.Tests` harness + backfill underway) | CI, perf, thread-safety review — see [`backlog.md`](backlog.md); testing strategy in [`../architecture/07-testing.md`](../architecture/07-testing.md) |
+| **4 — Hardening** | 🟡 testing complete (`Hedron.Tests` + 566 tests + CI live; Wave 2 backfill done); remaining: perf, thread-safety | CI green; see [`backlog.md`](backlog.md); testing strategy in [`../architecture/07-testing.md`](../architecture/07-testing.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
@@ -54,7 +54,7 @@ Each slice runs this loop. There are **two** `architecture-reviewer` gates — o
 
 Both gates run against [`../architecture/checklist.md`](../architecture/checklist.md) — the single authoritative invariant list. A rule change lands there once; both gates and the planner pick it up.
 
-The testing discipline (INV-25/26, the **Test plan** section, the `dotnet test` gate) is defined in [`../architecture/07-testing.md`](../architecture/07-testing.md). The planner's Test-plan output and the spec-gate honesty check are live **immediately**; the `dotnet test` portion of the code gate activates once the `Hedron.Tests` harness lands (the testing follow-up — see [`backlog.md`](backlog.md)). Until then, author the Test plan and treat the harness as the gating prerequisite.
+The testing discipline (INV-25/26, the **Test plan** section, the `dotnet test` gate) is defined in [`../architecture/07-testing.md`](../architecture/07-testing.md). The `Hedron.Tests` harness is live; `dotnet test` is enforced on every PR via CI.
 
 ## Slice queue
 
@@ -96,12 +96,12 @@ Slices 9-d, 9-e, and 11 onward implement the gameplay-model spines; see [`../des
 
 ## Phase 4 — Hardening
 
-Best addressed once a handful of Phase 3 slices have stressed the architecture — **except testing, which has been pulled forward** now that 20+ slices have produced real systems and handlers to test (the original "defer until shapes settle" rationale has expired):
+Best addressed once a handful of Phase 3 slices have stressed the architecture:
 
-- **Testing — active.** Strategy defined ([`../architecture/07-testing.md`](../architecture/07-testing.md)); the per-slice test gate (INV-25/26) and the **Test plan** section are live in the loop above. The remaining work — stand up the `Hedron.Tests` project + shared harness + architecture-guard suite, then backfill existing systems by wave — is the active testing follow-up tracked in [`backlog.md`](backlog.md).
-- CI wiring (build + tests on PR) — rides alongside the harness.
+- **Testing — complete.** `Hedron.Tests` harness is live (WP-1 shared helpers, WP-2 architecture-guard suite, WP-3 `IClock` seam). Wave 1 + Wave 2 backfill shipped (566 tests green). The per-slice gate (INV-25/26) and `dotnet test` are enforced on every PR. Strategy: [`../architecture/07-testing.md`](../architecture/07-testing.md). Wave 3 drains via the on-touch ratchet.
+- **CI — complete.** `.github/workflows/ci.yml` runs `dotnet build` + `dotnet test` on every PR and push to `master`.
 - Performance passes where profiling shows real cost
-- Thread-safety review once `TimeSystem` and concurrency shape are real
+- Thread-safety review once concurrency shape is known (see [`backlog.md`](backlog.md))
 
 Tracked in [`backlog.md`](backlog.md) until promoted into a dated slice.
 

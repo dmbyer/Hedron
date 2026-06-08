@@ -28,6 +28,7 @@ namespace Hedron.Core.Modules.Spawn.Systems
     {
         private readonly EntityService _entityService;
         private readonly ITemplateRegistry _templateRegistry;
+        private readonly IClock _clock;
         private readonly ILogger<SpawnSystem> _logger;
 
         // (roomEntityId, blueprintId) → slot state
@@ -43,10 +44,12 @@ namespace Hedron.Core.Modules.Spawn.Systems
         public SpawnSystem(
             EntityService entityService,
             ITemplateRegistry templateRegistry,
+            IClock clock,
             ILogger<SpawnSystem> logger)
         {
             _entityService = entityService;
             _templateRegistry = templateRegistry;
+            _clock = clock;
             _logger = logger;
         }
 
@@ -95,7 +98,7 @@ namespace Hedron.Core.Modules.Spawn.Systems
                     else
                     {
                         // Slot was vacant at startup (e.g. mob killed before last restart).
-                        slot.RespawnAt = DateTime.UtcNow + TimeSpan.FromSeconds(rule.RespawnDelaySeconds);
+                        slot.RespawnAt = _clock.UtcNow + TimeSpan.FromSeconds(rule.RespawnDelaySeconds);
                     }
                 }
             }
@@ -131,7 +134,7 @@ namespace Hedron.Core.Modules.Spawn.Systems
         /// </summary>
         public Task HandleAsync(HeartbeatTickEvent @event)
         {
-            var now = DateTime.UtcNow;
+            var now = _clock.UtcNow;
             foreach (var slot in _slots.Values)
             {
                 if (slot.LiveEntityId.HasValue || slot.RespawnAt is null || slot.RespawnAt > now)
@@ -153,7 +156,7 @@ namespace Hedron.Core.Modules.Spawn.Systems
                 return;
 
             slot.LiveEntityId = null;
-            slot.RespawnAt = DateTime.UtcNow + TimeSpan.FromSeconds(slot.RespawnDelaySeconds);
+            slot.RespawnAt = _clock.UtcNow + TimeSpan.FromSeconds(slot.RespawnDelaySeconds);
         }
 
         private void TryRespawn(SlotState slot)
