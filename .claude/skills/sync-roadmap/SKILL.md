@@ -41,6 +41,7 @@ Create a new file following the established format. Use an existing file (e.g. [
 | Header + preamble | PR number, link to the use-case doc |
 | **Outcome** | 2–3 sentence plain-English summary of what changed |
 | **Shipped pieces** | Table of every new/changed surface with its location |
+| **Tests shipped** | The tests added for this slice (tier + target) per the use-case Test plan; note any on-touch backfill of previously-untested systems. Confirm `dotnet test` is green (INV-25). |
 | **Spec-review provenance** | Architecture-reviewer findings and how they were resolved |
 | **Notable design points** | Non-obvious decisions; deferred items explicitly named |
 | **Deviations from the use-case doc** | Any delta between spec and as-built; `None` if clean |
@@ -53,7 +54,7 @@ Pull the shipped pieces from:
 
 ### 4. Trim the use-case doc to its durable spec (trim-on-ship)
 
-Confirm `**Status:** implemented` at the top, then **trim** the doc to its durable behavior spec — keep **Status, Actors, Module, Description, Preconditions, Postconditions, Main flow, Events fired, Design notes, Related**; delete the in-flight-only sections (Architecture brief, Systems/handlers involved, Content tooling impact, Cross-cutting surfaces stressed, Flows introduced or modified, Reference catalog updates, Open questions). Design notes stay — they hold non-obvious rationale not captured in code (including the seam rationale the `architecture-advisor` recorded there). That detail is now authoritative in code, `docs/architecture/flows/README.md`, and the `docs/reference/` catalogs — keeping a second copy in the use-case doc is exactly the drift this prevents. See [`../../../docs/documentation-architecture.md`](../../../docs/documentation-architecture.md) (`INV-D2`).
+Confirm `**Status:** implemented` at the top, then **trim** the doc to its durable behavior spec — keep **Status, Actors, Module, Description, Preconditions, Postconditions, Main flow, Events fired, Design notes, Related**; delete the in-flight-only sections (Architecture brief, Systems/handlers involved, Content tooling impact, Test plan / Verification, Cross-cutting surfaces stressed, Flows introduced or modified, Reference catalog updates, Open questions). The Postconditions remain the durable coverage contract; the shipped tests are now authoritative in `Hedron.Tests`. Design notes stay — they hold non-obvious rationale not captured in code (including the seam rationale the `architecture-advisor` recorded there). That detail is now authoritative in code, `docs/architecture/flows/README.md`, and the `docs/reference/` catalogs — keeping a second copy in the use-case doc is exactly the drift this prevents. See [`../../../docs/documentation-architecture.md`](../../../docs/documentation-architecture.md) (`INV-D2`).
 
 ## Checklist
 
@@ -61,7 +62,8 @@ Confirm `**Status:** implemented` at the top, then **trim** the doc to its durab
 - [ ] `plan.md` slice queue status changed to ✅ done; next slice advanced to 🟢 next
 - [ ] `plan.md` current focus section updated
 - [ ] `done.md` row added
-- [ ] `completed/<slug>.md` created
+- [ ] `completed/<slug>.md` created (including **Tests shipped**)
+- [ ] `dotnet test` green and the use-case's Test-plan tests are present (INV-25) — "ship green" = build green **and** tests green
 - [ ] Use-case doc status is `implemented` **and** trimmed to its durable spec (trim-on-ship, `INV-D2`)
 
 ## When in doubt

@@ -5,6 +5,7 @@ using Hedron.Core.Modules.Aspects;
 using Hedron.Core.Modules.Aspects.Systems;
 using Hedron.Core.Modules.Attributes.Systems;
 using Hedron.Core.Modules.Stats.Systems;
+using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Combat.Systems
 {
@@ -14,17 +15,20 @@ namespace Hedron.Core.Modules.Combat.Systems
         private readonly IStatSystem _statSystem;
         private readonly IAttributeSystem _attributeSystem;
         private readonly IAspectSystem _aspectSystem;
+        private readonly IRandom _random;
 
         public CombatSystem(
             EntityService entityService,
             IStatSystem statSystem,
             IAttributeSystem attributeSystem,
-            IAspectSystem aspectSystem)
+            IAspectSystem aspectSystem,
+            IRandom random)
         {
             _entityService = entityService;
             _statSystem = statSystem;
             _attributeSystem = attributeSystem;
             _aspectSystem = aspectSystem;
+            _random = random;
         }
 
         public bool TryFindTargetInRoom(uint roomEntityId, string token, out uint mobEntityId)
@@ -71,7 +75,7 @@ namespace Hedron.Core.Modules.Combat.Systems
 
         public CombatRoundResult ExecuteRound(uint attackerEntityId, uint defenderEntityId)
         {
-            var roll = Random.Shared.Next(1, 21) + _statSystem.GetEffectiveBody(attackerEntityId) / 2;
+            var roll = _random.Next(1, 21) + _statSystem.GetEffectiveBody(attackerEntityId) / 2;
             var defenseThreshold = 10 + _statSystem.GetEffectiveDefense(defenderEntityId);
             var hit = roll >= defenseThreshold;
 
@@ -87,7 +91,7 @@ namespace Hedron.Core.Modules.Combat.Systems
             }
 
             var attackPower = _statSystem.GetEffectiveAttackPower(attackerEntityId);
-            var rawDamage = Random.Shared.Next(1, attackPower + 2);
+            var rawDamage = _random.Next(1, attackPower + 2);
 
             // Composition source for melee: the attacker's entity affinity (empty = untyped).
             var composition = _aspectSystem.Affinity(attackerEntityId);
@@ -103,7 +107,7 @@ namespace Hedron.Core.Modules.Combat.Systems
             AspectComposition? composition = null)
         {
             // Ability strikes always land — no hit/miss roll.
-            var rawDamage = System.Math.Max(1, Random.Shared.Next(1, basePower + 2) - _statSystem.GetEffectiveDefense(defenderEntityId));
+            var rawDamage = System.Math.Max(1, _random.Next(1, basePower + 2) - _statSystem.GetEffectiveDefense(defenderEntityId));
 
             var comp = composition ?? AspectComposition.Empty;
             var damage = _aspectSystem.Resolve(rawDamage, comp, attackerEntityId, defenderEntityId);

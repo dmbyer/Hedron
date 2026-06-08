@@ -23,10 +23,11 @@ Your job is to turn those sections into real code without slipping gameplay logi
 5. **Events.** Define payloads for every event the use case fires. See **add-event**.
 6. **Handlers.** One handler per step that orchestrates; subscribe with priorities. See **add-handler**.
 7. **Command (if player-initiated).** Thin; delegates to the first handler. See **add-command**.
-8. **Update the use-case doc** — set Status to `implemented` if fully done, keep `partial` if only some paths are live.
-9. **Update the use-cases index** — open [docs/use-cases/README.md](../../../docs/use-cases/README.md) and set the status cell in the index table to match the use-case doc's new Status value.
-10. **Sync roadmap docs.** Run the **sync-roadmap** skill. Updates `plan.md` (phase summary, slice queue status, current focus), adds a row to `done.md`, and creates `completed/<slug>.md`. This is Phase 3 ground rule 7.
-11. **Code-review gate (mandatory).** Run the `architecture-reviewer` agent in **code mode** against the diff before this branch merges. This is Phase 3 ground rule 6. Do not skip it even for "infrastructure-only" slices — the code gate catches drift between the as-built code and the spec that the spec gate cannot see.
+8. **Write the tests named in the use-case's Test plan (INV-25).** Use the **add-tests** skill. Cover each new/changed system method (system-unit tier), each Main-Flow postcondition that asserts player-invisible state (the matching tier), each `[Persistent]` shape (round-trip), and each fail-fast validation (throws-test). **On-touch ratchet:** if you modified a previously-untested system, add its tests now too. Then run `dotnet test` — it must be green before the code-review gate. If a system needs an un-injected seam to be testable (randomness, wall-clock, I/O), add the seam (INV-26) — don't skip the test. *(Until the `Hedron.Tests` harness lands — see [backlog](../../../docs/roadmap/backlog.md) — author the Test plan and flag this as the gating prerequisite.)*
+9. **Update the use-case doc** — set Status to `implemented` if fully done, keep `partial` if only some paths are live.
+10. **Update the use-cases index** — open [docs/use-cases/README.md](../../../docs/use-cases/README.md) and set the status cell in the index table to match the use-case doc's new Status value.
+11. **Sync roadmap docs.** Run the **sync-roadmap** skill. Updates `plan.md` (phase summary, slice queue status, current focus), adds a row to `done.md`, and creates `completed/<slug>.md`. This is Phase 3 ground rule 7.
+12. **Code-review gate (mandatory).** Run the `architecture-reviewer` agent in **code mode** against the diff before this branch merges. This is Phase 3 ground rule 6; the gate also confirms the Test-plan tests are present and `dotnet test` is green (INV-25). Do not skip it even for "infrastructure-only" slices — the code gate catches drift between the as-built code and the spec that the spec gate cannot see.
 
 ## Guard the layer discipline
 
@@ -36,7 +37,7 @@ Your job is to turn those sections into real code without slipping gameplay logi
 
 ## Testability
 
-For each domain system method you add, ask: can I unit-test this with mock entities? If not, the method is doing too much. Split until yes.
+For each domain system method you add, ask: can I unit-test this with constructed entities (no mocks beyond the injected seams)? If not, the method is doing too much — split until yes. This is no longer just a heuristic: step 8 **ships** the tests (INV-25), and the **add-tests** skill is the how-to. A method that needs an un-injected seam (randomness, wall-clock, external I/O) to be testable gets the seam first (INV-26) — never reach for `Random.Shared` or `DateTime.UtcNow` inside a system. See [docs/architecture/07-testing.md](../../../docs/architecture/07-testing.md) for the full strategy and the test-vs-skip rubric.
 
 ## Cross-reference checks
 
