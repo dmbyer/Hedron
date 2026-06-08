@@ -10,6 +10,8 @@ These are tracked for Phase 4. Most become useful only after a handful of Phase 
 
 ### 🟢 Testing — `Hedron.Tests` harness + backfill (active)
 
+> **Detailed, sub-agent-sized work-package plan:** [`../use-cases/testing-harness-and-backfill.md`](../use-cases/testing-harness-and-backfill.md). This entry is the *what/why/status*; that doc is the *how* (WP-1 harness → WP-2 guard suite → WP-3 `IClock` → WP-4 Wave 1 backfill → WP-5 CI → WP-6/7 Waves 2–3), each step with files + a testable exit criterion.
+
 The testing **strategy** is defined in [`../architecture/07-testing.md`](../architecture/07-testing.md); the per-slice gate (INV-25/26), the use-case **Test plan** section, and the `IRandom` determinism seam are already in place. The original "defer until shapes settle" rationale has expired — 20+ slices have produced real systems to test. What remains is the executable work:
 
 **1. Stand up the project + shared harness (gating prerequisite).** A `Hedron.Tests` xUnit project referencing `Core` (and `Server` for the DI-smoke guard), plus the shared helpers specced in [`07-testing.md`](../architecture/07-testing.md#the-test-harness): `RecordingEventBus`, `EntityBuilder`, `FakeRandom`, output capture, in-memory SQLite, synthetic-tick factory. Wire `dotnet test` into the solution. The `dotnet test` portion of the code-review gate activates when this lands.

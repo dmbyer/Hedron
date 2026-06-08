@@ -64,6 +64,7 @@ At slice close-out, `sync-roadmap` **trims** it to its durable behavior spec —
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C): SQLite backend, EntityService lifecycle, world content de-persistence, context-driven item persistence, spawn slot foundation |
 | `planned` | [`prompt-and-output-batching.md`](prompt-and-output-batching.md) | Phase 3 — player prompt + session-scoped output batching framework |
+| `planned` | [`testing-harness-and-backfill.md`](testing-harness-and-backfill.md) | Phase 4 — `Hedron.Tests` harness + architecture-guard suite + system backfill (sub-agent work packages) |
 
 > See [`../roadmap/plan.md`](../roadmap/plan.md#slice-queue) for the full slice queue and current focus.
 
