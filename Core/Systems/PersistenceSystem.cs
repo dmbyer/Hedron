@@ -241,9 +241,14 @@ namespace Hedron.Core.Systems
         {
             if (_connection != null) return;
 
-            var dir = Path.GetDirectoryName(Path.GetFullPath(_databasePath));
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
+            // Skip directory scaffolding for in-memory / URI paths (used in tests).
+            if (!_databasePath.StartsWith("file:", StringComparison.OrdinalIgnoreCase) &&
+                _databasePath != ":memory:")
+            {
+                var dir = Path.GetDirectoryName(Path.GetFullPath(_databasePath));
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+            }
 
             _connection = new SqliteConnection($"Data Source={_databasePath}");
             _connection.Open();

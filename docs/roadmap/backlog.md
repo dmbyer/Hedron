@@ -8,34 +8,6 @@ Status markers: 🟢 ready · 🟡 blocked · 🔵 deferred
 
 These are tracked for Phase 4. Most become useful only after a handful of Phase 3 slices have stressed the architecture; **testing is the exception — it is active now** (first item below).
 
-### 🟢 Testing — `Hedron.Tests` harness + backfill (active)
-
-> **Detailed, sub-agent-sized work-package plan:** [`../use-cases/testing-harness-and-backfill.md`](../use-cases/testing-harness-and-backfill.md). This entry is the *what/why/status*; that doc is the *how* (WP-1 harness → WP-2 guard suite → WP-3 `IClock` → WP-4 Wave 1 backfill → WP-5 CI → WP-6/7 Waves 2–3), each step with files + a testable exit criterion.
-
-The testing **strategy** is defined in [`../architecture/07-testing.md`](../architecture/07-testing.md); the per-slice gate (INV-25/26), the use-case **Test plan** section, and the `IRandom` determinism seam are already in place. The original "defer until shapes settle" rationale has expired — 20+ slices have produced real systems to test. What remains is the executable work:
-
-**1. Stand up the project + shared harness (gating prerequisite).** A `Hedron.Tests` xUnit project referencing `Core` (and `Server` for the DI-smoke guard), plus the shared helpers specced in [`07-testing.md`](../architecture/07-testing.md#the-test-harness): `RecordingEventBus`, `EntityBuilder`, `FakeRandom`, output capture, in-memory SQLite, synthetic-tick factory. Wire `dotnet test` into the solution. The `dotnet test` portion of the code-review gate activates when this lands.
-
-**2. Architecture-guard suite (Tier 5).** Reflection-based tests enforcing the mechanical invariants continuously (INV-3/5/13/23) + a DI-smoke test. The INV-26 randomness clause is clean now; its wall-clock clause grandfathers the two debt sites in the `IClock` item below until that seam lands.
-
-**3. Backfill existing systems — by wave; no big-bang (the on-touch ratchet also pulls systems in as slices touch them).**
-- **Wave 1 (highest invisible-state + regression risk):** Combat, Effects, Stats, Abilities, Death/respawn, Persistence round-trips, Registry validation. Dedicated test-backfill PRs, not gameplay slices.
-- **Wave 2:** Items/Equipment/Inventory, Movement, Regeneration, Attributes, Aspects, Spawn, Account, authoring systems (RoomBuilder/ItemBuilder/MobBuilder), Broadcast, PromptComposer.
-- **Wave 3 / opportunistic:** remainder, largely drained by the ratchet.
-
-Each backfill asserts against the system's current use-case **Postconditions** (the coverage contract). ~19 systems total — a finite, tractable surface, not a quarter-long slog.
-
-### 🟢 CI wiring
-
-Build-and-test on PR. Rides alongside the harness above: once `dotnet test` exists, a CI workflow runs `dotnet build` + `dotnet test` on every PR, making "ship green" (INV-25) machine-enforced rather than only reviewer-enforced.
-
-### 🟢 Injected clock seam (`IClock`) — INV-26 time determinism
-
-The `IRandom` seam closed the randomness half of INV-26; the time half has two acknowledged-debt sites still reading `DateTime.UtcNow` directly inside a system:
-- **`SpawnSystem`** (`Core/Modules/Spawn/Systems/SpawnSystem.cs`, ~lines 98/134/156) — respawn timing (`RespawnAt` scheduling + the `RespawnAt <= UtcNow` comparison). Genuine timing *logic*; an injected `IClock` (or feeding the heartbeat `Timestamp`) makes "respawns after N seconds" deterministically testable. Refactor this one first — it has real test value.
-- **`AccountSystem`** (`Core/Modules/Account/Systems/AccountSystem.cs`, ~lines 80/103/178) — `CreatedAtUtc`/`LastLoginUtc` stamping. Low test-value (assert "is set," not exact time); migrate for purity when the seam exists.
-
-Introduce a small `IClock` core system (`UtcNow`) with the harness. Resolved by the on-touch ratchet when these systems are next modified, or via their Wave backfill. Event `OccurredAt = DateTime.UtcNow` stamps are out of scope (events aren't systems).
 
 ### 🟡 Performance: LINQ in hot paths
 
@@ -136,14 +108,14 @@ Follow-up from the death-and-respawn slice (slice 10), where INV-22 was reworded
 
 **New `quit` command (player).** A player command that force-saves the player (session-end boundary save) and then disconnects gracefully. Today a raw disconnect is already force-saved by `PlayerSessionHandler`; `quit` makes the player-initiated graceful exit explicit. **Cross-ref:** when this lands it should be flagged `UsableWhileIncapacitated = true` so an incapacitated/dying player can still quit — the death-and-respawn slice ([`../use-cases/death-and-respawn.md`](../use-cases/death-and-respawn.md)) deliberately omitted `quit` from its allowlist because no `quit` command existed yet.
 
-### 🔵 Mob death / respawn and `BlueprintComponent` clearing (INV-21)
+### 🔵 Mob death / respawn approach (INV-21)
 
 When mob combat death lands (slice 9+), the death/respawn slice must decide:
 
-- **Reset in place:** HP restored on the same entity; `BlueprintComponent` is never cleared. Simple, but the entity ID is reused, which means save-file references to the dead entity slot survive.
-- **Destroy and re-seed:** The dead entity is destroyed (or archived); a new entity is spawned from the `MobTemplate`; `BlueprintComponent` is cleared from the corpse before the corpse entity is left or destroyed. Required by INV-21 ("when a player interaction makes an instance independent, clear `BlueprintComponent`").
+- **Reset in place:** HP restored on the same entity; `BlueprintComponent` is never touched. Simple; entity ID is reused, so save-file references to the dead entity slot survive.
+- **Destroy and re-seed:** The dead entity is destroyed; a new entity is spawned from the `MobTemplate`. `BlueprintComponent` is **not** explicitly cleared before `DestroyEntity` — INV-21 says `BlueprintComponent` is preserved as an origin record and must **not** be cleared on mob death or item pickup; it disappears naturally when the entity is destroyed. Spawn-slot vacancy is tracked by `SpawnSystem` via domain events (`MobDiedEvent`), not by checking `BlueprintComponent` on live entities.
 
-The chosen approach must be called out explicitly in the death/respawn use-case doc's Design Notes. If destroy-and-re-seed is chosen, `BlueprintComponent` must be cleared on the corpse entity before the new entity is spawned so the blueprint slot is free for the next spawn cycle (INV-21).
+The chosen approach must be called out explicitly in the death/respawn use-case doc's Design Notes.
 
 ### 🟢 EffectsComponent persistence — RESOLVED (single list, lifetime-filtered) → slice 9-e
 
@@ -219,3 +191,6 @@ The following items were on the backlog and have shipped or been superseded. Kep
 - **Post-Phase-1 docs drift sweep** — completed alongside Phase 1.5 (Ticket A) and folded into [`completed/phase-1-strip.md`](completed/phase-1-strip.md).
 - **`.claude/README.md` index** — now exists at [`../../.claude/README.md`](../../.claude/README.md).
 - **Admin UI scope (Ticket B)** — resolved. In-game admin commands (telnet) ship as part of slice 2; a web/desktop editor remains optional and is folded into the deferred SignalR/dual-client slice. See [`plan.md`](plan.md) "Resolved tickets".
+- **`Hedron.Tests` harness + backfill** — shipped as Phase 4 testing slice. `Hedron.Tests` project + full shared harness, architecture-guard suite, `IClock` seam, Wave 1 + Wave 2 backfill (566 tests), CI workflow. See [`completed/testing-harness-and-backfill.md`](completed/testing-harness-and-backfill.md).
+- **CI wiring** — shipped alongside the testing harness. `.github/workflows/ci.yml` runs build + test on every PR. See above.
+- **Injected clock seam (`IClock`)** — shipped as WP-3 of the testing harness slice. `IClock`/`SystemClock` in `Core/Systems/`; `SpawnSystem` and `AccountSystem` refactored off `DateTime.UtcNow`. INV-26 time clause fully satisfied; wall-clock guard enabled in the architecture-guard suite.

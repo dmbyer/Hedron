@@ -29,6 +29,7 @@ namespace Hedron.Core.Modules.Account.Systems
         private readonly WorldConfiguration _worldConfig;
         private readonly CharacterDefaultsOptions _characterDefaults;
         private readonly IAbilitySystem _abilitySystem;
+        private readonly IClock _clock;
         private readonly ILogger<AccountSystem> _logger;
 
         private HashSet<string>? _usernameIndex;
@@ -40,12 +41,14 @@ namespace Hedron.Core.Modules.Account.Systems
             WorldConfiguration worldConfig,
             IConfiguration configuration,
             IAbilitySystem abilitySystem,
+            IClock clock,
             ILogger<AccountSystem> logger)
         {
             _entityService = entityService;
             _passwordHasher = passwordHasher;
             _worldConfig = worldConfig;
             _abilitySystem = abilitySystem;
+            _clock = clock;
             _logger = logger;
 
             _characterDefaults = new CharacterDefaultsOptions();
@@ -77,7 +80,7 @@ namespace Hedron.Core.Modules.Account.Systems
             {
                 Username = normalizedUsername,
                 PasswordHash = _passwordHasher.Hash(password),
-                CreatedAtUtc = DateTime.UtcNow,
+                CreatedAtUtc = _clock.UtcNow,
             });
             _entityService.AddComponent(entity.Id, new PersistentEntity());
 
@@ -100,7 +103,7 @@ namespace Hedron.Core.Modules.Account.Systems
         public Task<uint> CreateCharacterAsync(uint accountEntityId, string characterName, CancellationToken ct = default)
         {
             var entity = _entityService.CreateEntity();
-            var now = DateTime.UtcNow;
+            var now = _clock.UtcNow;
 
             _entityService.AddComponent(entity.Id, new CharacterComponent
             {
@@ -175,7 +178,7 @@ namespace Hedron.Core.Modules.Account.Systems
         public void RecordLogout(uint characterEntityId)
         {
             if (_entityService.TryGet<CharacterComponent>(characterEntityId, out var character))
-                character.LastLoginUtc = DateTime.UtcNow;
+                character.LastLoginUtc = _clock.UtcNow;
         }
 
         private HashSet<string> GetUsernameIndex()

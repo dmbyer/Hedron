@@ -200,7 +200,19 @@ public interface IRandom
     double NextDouble();                              // [0.0, 1.0)
 }
 ```
-`SystemRandom` wraps the thread-safe `Random.Shared`; registered as a DI singleton in `Server/Program.cs`. `CombatSystem` is the first consumer (hit roll + damage rolls). Richer helpers (dice notation, weighted choice) layer on additively as consumers need them. Note: cryptographic randomness (`PasswordHasher`) stays on `RandomNumberGenerator` and is **not** routed through this seam — security RNG must never be made seedable. Implemented (testing-strategy effort).
+`SystemRandom` wraps the thread-safe `Random.Shared`; registered as a DI singleton in `Server/CompositionRoot.cs`. `CombatSystem` is the first consumer (hit roll + damage rolls). Richer helpers (dice notation, weighted choice) layer on additively as consumers need them. Note: cryptographic randomness (`PasswordHasher`) stays on `RandomNumberGenerator` and is **not** routed through this seam — security RNG must never be made seedable. Implemented (testing-strategy effort).
+
+### IClock / SystemClock
+**Purpose:** Injectable time seam — the single source of wall-clock time for game logic, so time-dependent outcomes can be made deterministic in tests by substituting a fake (INV-26). Systems take `IClock` by constructor injection instead of reaching for `DateTime.UtcNow`. Production wiring binds `SystemClock`.
+**Location:** `Core/Systems/IClock.cs` (interface) · `Core/Systems/SystemClock.cs` (production impl)
+**Dependencies:** none.
+```csharp
+public interface IClock
+{
+    DateTime UtcNow { get; }
+}
+```
+`SystemClock` wraps `DateTime.UtcNow`; registered as a DI singleton in `Server/CompositionRoot.cs`. `SpawnSystem` and `AccountSystem` are the primary consumers (respawn scheduling, account/character timestamps). Implemented (testing-harness-and-backfill WP-3).
 
 ---
 
