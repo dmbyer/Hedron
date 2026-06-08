@@ -27,7 +27,7 @@ The point of this mode is to catch architecture violations **before code exists*
    - SR-3 spec contradicts an established skill/convention
    - SR-4 a referenced flow / catalog entry doesn't exist or won't be updated
    - SR-5 a load-bearing open question is being deferred
-5. Cross-check the doc's **Cross-cutting surfaces stressed** and **Flows introduced or modified** sections: are they honest and complete given what the spec actually describes? A surface the spec clearly exercises but doesn't list is itself a finding.
+5. Cross-check the doc's **Cross-cutting surfaces stressed**, **Test plan / Verification**, and **Flows introduced or modified** sections: are they honest and complete given what the spec actually describes? A surface the spec clearly exercises but doesn't list is a finding. So is a **Postcondition that asserts player-invisible internal state with no matching test in the Test plan** (INV-25), or a Main-Flow step that rolls randomness / reads wall-clock time without an injected seam (INV-26).
 6. **Agent/skill audit (INV-20).** Glob `.claude/skills/*.md` and `.claude/agents/*.md`. For each file, check whether the spec introduces, extends, or contradicts a pattern that skill/agent advises. Flag any file that would give incorrect guidance if the spec ships without updating it. This is a blocking finding — stale tooling produces violations on the next slice.
 
 A spec-mode review blocks `implement-use-case` until blocking findings are resolved in the doc.
@@ -41,11 +41,13 @@ A spec-mode review blocks `implement-use-case` until blocking findings are resol
    - `IEventBus`/`PublishAsync` inside a file under `Systems/` → INV-5
    - `is SomeType` / `as SomeType` on entities where `HasComponent<T>`/`TryGet<T>` is meant → INV-4
    - direct `session.SendLineAsync` in a command body or dispatcher branch after slice 3 → INV-11
+   - `Random.Shared` / `new Random(` / `DateTime[Offset].Now`/`.UtcNow`/`.Today` inside a file under a `Systems/` path → INV-26 (randomness must be `IRandom`; pre-existing wall-clock debt: `AccountSystem`, `SpawnSystem` — flag only if the diff adds a *new* such read or touches those systems)
 5. **Cross-cutting-surface audit (INV-19).** For each surface in the use-case doc: "Adequate" → spot-check no new file hand-rolled what the surface should absorb; "Gap exposed" → confirm the framework landed here or in a merged prerequisite; "Acknowledged debt" → confirm the backlog entry exists.
 6. **Pattern-repetition sweep (INV-19).** Any hand-rolled pattern in ≥3 new/modified files (arg parsing, privilege checks, output formatting, `PersistentEntity` queries, `[Persistent]` component loops) → framework-promotion finding.
 7. **Flows-doc audit (INV-17).** For each flow in the doc's "Flows introduced or modified," open `flows/README.md` and verify body **and** mermaid match the as-built code.
 8. **Catalog audit (INV-16).** New/changed component, system, handler, event → matching `docs/reference/*.md` updated; use-case status/deviations updated.
 9. **Agent/skill audit (INV-20).** Glob `.claude/skills/*.md` and `.claude/agents/*.md`. For each changed architectural pattern in the diff, check whether any skill or agent file advises that pattern and would become stale or misleading. Flag as a blocking finding with a suggested resolution.
+10. **Test audit (INV-25).** For each system/handler/flow/`[Persistent]` shape/fail-fast validation the diff adds or changes, confirm the use-case's **Test plan** names a test and the test exists in `Hedron.Tests`. Run `dotnet test` (Bash) — the suite must be green; a red or absent-where-required suite is a blocking finding. **On-touch ratchet:** if the diff modifies a system that had no prior tests, confirm it gained coverage. A Postcondition asserting player-invisible state with no test is a finding. You verify test *presence* and that the suite *passes* — not test *logic quality*. *(Until the `Hedron.Tests` harness lands, treat a missing suite as "prerequisite not yet met" and flag the Test-plan section as the gating item rather than a green-suite failure.)*
 
 ## Output format
 
@@ -80,7 +82,8 @@ Lead with one of the three verdict words verbatim so the caller can branch on it
 
 - Not an editor — never modify files, never apply fixes. Suggest only.
 - Not a style/naming reviewer (beyond INV-6 event naming).
-- Not a correctness/test-logic reviewer.
+- Not a test-*logic*/quality reviewer — but you **do** verify test *presence* and that `dotnet test` is green (INV-25). You don't judge whether a test is well-written, only that the required coverage exists and passes.
+- Not a correctness reviewer (you don't hunt for logic bugs in the implementation).
 - Not a performance reviewer (unless a hot path bypasses or abuses the bus).
 
 When in doubt, cite the `INV-n` and the explanation doc section it links to. If you believe an invariant itself is wrong, say so explicitly as a separate "checklist gap" note — do not silently review against your own opinion.

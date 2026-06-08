@@ -1,6 +1,6 @@
 # Architecture Invariant Checklist
 
-> **This is the single authoritative list of every architectural invariant in Hedron.** It is the *enforcement list* — terse, numbered, checkable. The *explanations* live in [00-overview.md](00-overview.md) through [06-persistence.md](06-persistence.md), plus the [subsystems/](subsystems/) and [flows/](flows/README.md) docs; the *workflow obligations* live in [`CLAUDE.md`](../../CLAUDE.md) ground rules and [`../roadmap/plan.md`](../roadmap/plan.md). Those documents must not restate invariants in their own words — they link here.
+> **This is the single authoritative list of every architectural invariant in Hedron.** It is the *enforcement list* — terse, numbered, checkable. The *explanations* live in [00-overview.md](00-overview.md) through [07-testing.md](07-testing.md), plus the [subsystems/](subsystems/) and [flows/](flows/README.md) docs; the *workflow obligations* live in [`CLAUDE.md`](../../CLAUDE.md) ground rules and [`../roadmap/plan.md`](../roadmap/plan.md). Those documents must not restate invariants in their own words — they link here.
 >
 > **Consumers of this list:** the `architecture-reviewer` agent (both spec-review and code-review modes), the `use-case-planner` agent's ground-rule-9 audit, and the future on-demand debt-sweep agent. A rule change lands *here once*; every consumer picks it up. No agent prompt carries a private copy.
 >
@@ -96,13 +96,25 @@ The docs-as-code rules. Full explanation: [`../documentation-architecture.md`](.
 **INV-D1 — One fact, one home.** An architectural rule is stated authoritatively only in this checklist; a runtime flow's diagram lives only in [flows/README.md](flows/README.md); the navigation doc-map lives only in [00-overview.md](00-overview.md). Elsewhere, a one-line summary + link is allowed — a restated or duplicated copy is not. Explanation: [`../documentation-architecture.md`](../documentation-architecture.md).
 - *Code:* a diff that restates an invariant in its own words outside this file, reproduces a flow mermaid outside `flows/`, or forks the doc-map.
 
-**INV-D2 — Use-case trim-on-ship.** A use-case doc at `implemented` carries only its durable behavior spec (Status, Actors, Module, Description, Pre/Postconditions, Main flow, Events fired, Design notes, Related). Implementation-plan, cross-cutting-audit, flows, reference-catalog-diff, and open-questions sections are removed at close-out — that detail is authoritative in code, `flows/`, and `reference/`. Explanation: [`../use-cases/README.md`](../use-cases/README.md) lifecycle; enforced by the `sync-roadmap` skill.
+**INV-D2 — Use-case trim-on-ship.** A use-case doc at `implemented` carries only its durable behavior spec (Status, Actors, Module, Description, Pre/Postconditions, Main flow, Events fired, Design notes, Related). Implementation-plan, test-plan, cross-cutting-audit, flows, reference-catalog-diff, and open-questions sections are removed at close-out — that detail is authoritative in code, the test suite, `flows/`, and `reference/`. Explanation: [`../use-cases/README.md`](../use-cases/README.md) lifecycle; enforced by the `sync-roadmap` skill.
 - *Code:* an `implemented` use-case doc still carrying in-flight-only sections.
 
 **INV-D3 — Reference catalogs list only what exists.** `reference/*.md` describes implemented components/systems/handlers/commands; idealized/planned designs live in the matching `*-planned.md` companion, clearly labeled. A planned entry must not read as if it ships. Complements INV-16.
 - *Code:* a not-yet-built design sitting in the implemented catalog (move it to `*-planned.md`); a shipped system/handler/component missing from `reference/*.md`.
 
-**INV-D4 — Content lives in its bucket.** Each doc has one responsibility per the taxonomy in [`../documentation-architecture.md`](../documentation-architecture.md): foundational rules in `00`–`06`, per-feature framework designs in `subsystems/`, runtime traces in `flows/`, catalogs in `reference/`, direction/status in `roadmap/`, retired material in `archive/`. Content in the wrong bucket moves to the bucket that owns it.
+**INV-D4 — Content lives in its bucket.** Each doc has one responsibility per the taxonomy in [`../documentation-architecture.md`](../documentation-architecture.md): foundational rules in `00`–`07`, per-feature framework designs in `subsystems/`, runtime traces in `flows/`, catalogs in `reference/`, direction/status in `roadmap/`, retired material in `archive/`. Content in the wrong bucket moves to the bucket that owns it.
+
+## H. Testing & verification
+
+The testing discipline. Full explanation: [`07-testing.md`](07-testing.md). Checked like any other INV — a missing or dishonest Test plan, or a missing/red test, blocks the review.
+
+**INV-25 — Verification discipline.** A slice that adds or changes a domain or core system, a persistence shape, a registry/validation rule, or a use-case Main Flow ships automated tests covering it, per the rubric in [07-testing.md](07-testing.md). The use-case doc's **Test plan** section is the spec-mode check (parallel to INV-18 content tooling). "Ship green" includes `dotnet test` green. **On-touch ratchet:** a slice that modifies a previously-untested system adds that system's tests before merge — coverage ratchets up as code is touched. Explanation: [07-testing.md](07-testing.md).
+- *Spec:* does the **Test plan** section name a test for each new system public method, each Main-Flow postcondition that asserts internal state, each `[Persistent]` shape, and each fail-fast validation — skipping only what the rubric permits (presentation, plumbing, pure-data components)? Is it honest given the Postconditions? A postcondition asserting invisible internal state with no matching test is a finding.
+- *Code:* are the tests named in the Test plan present and green? Does a system this slice modifies — but that had no prior tests — gain coverage (ratchet)?
+
+**INV-26 — Determinism seam.** Chance- and time-dependent decisions inside a System (wherever it resides — `Core/Systems/` or `Core/Modules/<Feature>/Systems/`) resolve through an injected seam: `IRandom` for chance; the heartbeat-supplied `Elapsed`/`Timestamp` (or an injected clock) for time. Never `Random.Shared`/`new Random()`, nor a direct wall-clock read (`DateTime`/`DateTimeOffset` `.Now`/`.UtcNow`/`.Today`), inside a system. This preserves the pure-system property (INV-3, INV-5) and makes outcomes deterministically testable. Event records stamping `OccurredAt = DateTime.UtcNow` are payloads, not systems — out of scope. Explanation: [07-testing.md](07-testing.md#determinism-inv-26).
+- *Spec:* does any Main-Flow step direct a system to roll randomness or branch on wall-clock time without an injected seam?
+- *Code:* `Random.Shared`/`new Random()`, or a `DateTime`/`DateTimeOffset` `.Now`/`.UtcNow`/`.Today` read, inside a file under a `Systems/` path. (Randomness is fully sealed by the `IRandom` seam; pre-existing wall-clock reads in `AccountSystem` and `SpawnSystem` are acknowledged debt for a future injected clock — see [`../roadmap/backlog.md`](../roadmap/backlog.md).)
 
 ---
 

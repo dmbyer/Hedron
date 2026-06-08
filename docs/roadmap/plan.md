@@ -28,7 +28,7 @@ The target is defined by:
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
 | **3 — Vertical slices** | 🟡 in progress (slices 1–11-d + output-batching done; **next: slice 12 — Shopping**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
-| **4 — Hardening** | 🔵 not started | testing, CI, perf, thread-safety review — see [`backlog.md`](backlog.md) |
+| **4 — Hardening** | 🟡 testing pulled forward (strategy + per-slice gate live; `Hedron.Tests` harness + backfill underway) | CI, perf, thread-safety review — see [`backlog.md`](backlog.md); testing strategy in [`../architecture/07-testing.md`](../architecture/07-testing.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
@@ -44,15 +44,17 @@ Each slice runs this loop. There are **two** `architecture-reviewer` gates — o
 
 1. Pick the next use-case file from [`../use-cases/`](../use-cases/), or author a new one.
    - For a net-new feature or a non-trivial change, **frame it first with the `architecture-advisor` skill (`/advise`)** — an interactive principal-architect intake that locates the architectural seams, weighs the feature against existing and planned work ([gameplay-model spines](../design/gameplay-model.md), [feature-horizon](../design/feature-horizon.md), [backlog](backlog.md)), and seeds the use-case doc with a forward-looking architectural brief *before* the planner goes deep. This is the cheapest point to catch a seam-in-the-wrong-place or a missed generalization — the failure class the HP-threshold example surfaced. Skip only for a small, well-understood slice.
-2. Plan via the `use-case-planner` agent — extends the advisor's seed (if present) into the component / system / handler / event list and file plan, folds the architectural brief's seam decisions into **Design notes**, and fills the use-case doc's **Cross-cutting surfaces stressed** and **Flows introduced or modified** sections.
+2. Plan via the `use-case-planner` agent — extends the advisor's seed (if present) into the component / system / handler / event list and file plan, folds the architectural brief's seam decisions into **Design notes**, and fills the use-case doc's **Cross-cutting surfaces stressed**, **Test plan / Verification** (INV-25), and **Flows introduced or modified** sections.
 3. Resolve open questions with the user.
-4. **Spec-review gate** — `architecture-reviewer` in **spec mode** against the use-case doc. Blocking findings are fixed *in the doc* before any code is written. Re-run until the verdict is clean.
-5. Implement (`implement-use-case`) against the corrected spec.
-6. **Code-review gate** — `architecture-reviewer` in **code mode** against the diff, before merge.
+4. **Spec-review gate** — `architecture-reviewer` in **spec mode** against the use-case doc. Blocking findings are fixed *in the doc* before any code is written. The gate also checks the **Test plan** is honest given the Postconditions (a postcondition asserting player-invisible state with no test is a finding — INV-25). Re-run until the verdict is clean.
+5. Implement (`implement-use-case`) against the corrected spec — **including the tests named in the Test plan**; `dotnet test` must be green (INV-25). A previously-untested system this slice touches gains tests too (on-touch ratchet).
+6. **Code-review gate** — `architecture-reviewer` in **code mode** against the diff, before merge. It also confirms the Test-plan tests are present and `dotnet test` is green (INV-25), and greps systems for ambient nondeterminism (INV-26).
 7. **Sync roadmap** (`sync-roadmap` skill) — update [`done.md`](done.md), add `completed/<slice>.md`, and advance the slice queue in this file. Run before the PR merges.
-8. Ship green.
+8. Ship green — build **and** `dotnet test` green.
 
 Both gates run against [`../architecture/checklist.md`](../architecture/checklist.md) — the single authoritative invariant list. A rule change lands there once; both gates and the planner pick it up.
+
+The testing discipline (INV-25/26, the **Test plan** section, the `dotnet test` gate) is defined in [`../architecture/07-testing.md`](../architecture/07-testing.md). The planner's Test-plan output and the spec-gate honesty check are live **immediately**; the `dotnet test` portion of the code gate activates once the `Hedron.Tests` harness lands (the testing follow-up — see [`backlog.md`](backlog.md)). Until then, author the Test plan and treat the harness as the gating prerequisite.
 
 ## Slice queue
 
@@ -94,10 +96,10 @@ Slices 9-d, 9-e, and 11 onward implement the gameplay-model spines; see [`../des
 
 ## Phase 4 — Hardening
 
-Best addressed once a handful of Phase 3 slices have stressed the architecture:
+Best addressed once a handful of Phase 3 slices have stressed the architecture — **except testing, which has been pulled forward** now that 20+ slices have produced real systems and handlers to test (the original "defer until shapes settle" rationale has expired):
 
-- Test framework (xUnit) and initial system-level test coverage
-- CI wiring (build + tests on PR)
+- **Testing — active.** Strategy defined ([`../architecture/07-testing.md`](../architecture/07-testing.md)); the per-slice test gate (INV-25/26) and the **Test plan** section are live in the loop above. The remaining work — stand up the `Hedron.Tests` project + shared harness + architecture-guard suite, then backfill existing systems by wave — is the active testing follow-up tracked in [`backlog.md`](backlog.md).
+- CI wiring (build + tests on PR) — rides alongside the harness.
 - Performance passes where profiling shows real cost
 - Thread-safety review once `TimeSystem` and concurrency shape are real
 

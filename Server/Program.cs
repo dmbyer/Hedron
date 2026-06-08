@@ -104,6 +104,7 @@ public static class Program
                 services.AddSingleton<IPromptSource, PromptComposerSystem>();
 
                 // Systems
+                services.AddSingleton<IRandom, SystemRandom>();
                 services.AddSingleton<IBroadcastSystem, BroadcastSystem>();
                 services.AddSingleton<IMovementSystem, MovementSystem>();
 

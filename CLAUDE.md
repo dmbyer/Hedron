@@ -12,15 +12,17 @@ Project layout (as projects are rebuilt, see [`docs/roadmap/plan.md`](docs/roadm
 - **Server** (`Server/`) — generic-host console app that runs the telnet listener and owns DI composition
 - **Data** (`Data/`) — persistence layer; the substrate landed in Phase 3 slice 1 (see [`docs/roadmap/done.md`](docs/roadmap/done.md))
 - **Bot** (`Bot/`) — telnet test bot (deferred; rebuildable when manual multi-client testing gets painful)
+- **Tests** (`Hedron.Tests/`) — xUnit suite (system / handler / flow / persistence / architecture-guard tiers); **planned** in the testing follow-up — strategy in [`docs/architecture/07-testing.md`](docs/architecture/07-testing.md)
 
 ## Commands
 
 ```bash
 dotnet build Hedron.sln
 dotnet run --project Server
+dotnet test Hedron.sln          # verification gate (INV-25) — suite stands up in the testing follow-up
 ```
 
-The project is mid-rebuild; the build may be red between phase-exit points. See [`docs/roadmap/plan.md`](docs/roadmap/plan.md). No test framework yet — tracked in [`docs/roadmap/backlog.md`](docs/roadmap/backlog.md).
+The project is mid-rebuild; the build may be red between phase-exit points. See [`docs/roadmap/plan.md`](docs/roadmap/plan.md). The testing strategy is defined ([`docs/architecture/07-testing.md`](docs/architecture/07-testing.md)); the `Hedron.Tests` suite is being stood up and the backfill of existing systems is tracked in [`docs/roadmap/backlog.md`](docs/roadmap/backlog.md).
 
 ## Where to read next
 
@@ -32,6 +34,7 @@ Read these in order the first time:
 4. [`docs/architecture/02-ecs.md`](docs/architecture/02-ecs.md) — canonical ECS reference
 5. [`docs/architecture/03-events.md`](docs/architecture/03-events.md) — event bus and handler ordering
 6. [`docs/architecture/04-pitfalls.md`](docs/architecture/04-pitfalls.md) — what to avoid and why
+7. [`docs/architecture/07-testing.md`](docs/architecture/07-testing.md) — testing strategy: the tiers, what to test vs. skip, the harness
 
 **Reference catalogs** (look up specific pieces):
 - [`docs/reference/systems.md`](docs/reference/systems.md) · [`docs/reference/handlers.md`](docs/reference/handlers.md) · [`docs/reference/components.md`](docs/reference/components.md) · [`docs/reference/archetypes.md`](docs/reference/archetypes.md)
@@ -56,6 +59,7 @@ Read these in order the first time:
 8. **Content-tooling discipline** — a slice adding gameplay state ships the tooling to author and inspect it, declared in its use-case **Content tooling impact** section (INV-18).
 9. **Infrastructure-discipline parity** — a new player-facing surface, or a pattern repeated ≥3×, lands its supporting framework in the same or an adjacent slice; any runtime flow it changes updates the canonical flows doc (INV-19, INV-17).
 10. **Blueprint/instance separation** — a blueprint template is the durable spawn definition; a blueprint instance is the live entity it seeds. When a player interaction makes an instance independent (e.g. item pickup), clear `BlueprintComponent` on the entity so the blueprint slot is free to re-spawn. Admin mutations update both template and entity (INV-21).
+11. **Verification discipline** — a slice that adds/changes a system, persistence shape, validation, or Main Flow ships tests for it (the use-case **Test plan** section), per the rubric in [`docs/architecture/07-testing.md`](docs/architecture/07-testing.md); chance/time-dependent system logic resolves through an injected seam (`IRandom`, heartbeat timestamp), never `Random.Shared`/`DateTime.Now` (INV-25, INV-26). "Ship green" = build **and** `dotnet test` green.
 
 When adding a new feature:
 - New component → `Core/ECS/Components/<Feature>Component.cs` or `Core/Modules/<Feature>/Components/`
@@ -64,6 +68,7 @@ When adding a new feature:
 - New event → `Core/Modules/<Feature>/Events/<X>Event.cs` (past tense, thin payload)
 - Cross-cutting core system → `Core/Systems/<X>System.cs`
 - New module entry-point → `Core/Modules/<Feature>/<Feature>Module.cs` — exposes `AddXModule(IServiceCollection)` and is called from `Server/Program.cs`. No `IModule` interface; modules are features, composed via DI extensions.
+- New test → `Hedron.Tests/<MirroredNamespace>/` — pick the tier with the **add-tests** skill ([`docs/architecture/07-testing.md`](docs/architecture/07-testing.md))
 
 **Naming: resolve namespace/type collisions by renaming the type.** If a module namespace (`Core/Modules/<Feature>/`) and a type in `Core/ECS/Components/` share the same simple name, C# resolves the name as the namespace component and the type becomes unreachable via normal `using` imports. Fix by renaming the type — do not use `::` qualifier workarounds. Convention: add a `Flags` suffix to `[Flags]` enums (e.g. `EntityStateFlags` rather than `EntityState`); choose a more specific name for other types. Precedent: `EntityStateFlags` (disambiguated from the `Modules/EntityState/` namespace).
 

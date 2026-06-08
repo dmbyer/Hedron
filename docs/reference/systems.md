@@ -188,6 +188,20 @@ public interface IPasswordHasher
 ```
 100,000 PBKDF2 iterations, 16-byte random salt, 32-byte key. Stores `Base64(salt + hash)` as a single opaque string. `Verify` uses `CryptographicOperations.FixedTimeEquals` to prevent timing attacks. Implemented (Phase 3 slice 5).
 
+### IRandom / SystemRandom
+**Purpose:** Injectable randomness seam — the single source of non-determinism for game logic, so chance-based outcomes can be made deterministic in tests by substituting a fake (INV-26). Systems take `IRandom` by constructor injection instead of reaching for `Random.Shared`. Pure: no events, no persistence.
+**Location:** `Core/Systems/IRandom.cs` (interface) · `Core/Systems/SystemRandom.cs` (production impl)
+**Dependencies:** none.
+```csharp
+public interface IRandom
+{
+    int Next(int maxExclusive);
+    int Next(int minInclusive, int maxExclusive);   // mirrors System.Random.Next(int,int)
+    double NextDouble();                              // [0.0, 1.0)
+}
+```
+`SystemRandom` wraps the thread-safe `Random.Shared`; registered as a DI singleton in `Server/Program.cs`. `CombatSystem` is the first consumer (hit roll + damage rolls). Richer helpers (dice notation, weighted choice) layer on additively as consumers need them. Note: cryptographic randomness (`PasswordHasher`) stays on `RandomNumberGenerator` and is **not** routed through this seam — security RNG must never be made seedable. Implemented (testing-strategy effort).
+
 ---
 
 ## Domain / feature Systems

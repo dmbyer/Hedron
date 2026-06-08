@@ -17,7 +17,7 @@ You do not write the C# code — that's for the user or the implement-use-case s
 2. **Check existing use cases — and for an architecture-advisor seed.** Glob `docs/use-cases/*.md`. If the idea overlaps an existing file, propose extending it rather than making a new one. If a file for this feature already exists carrying a **`## Architecture brief`** block, it is a **seed from the [`architecture-advisor`](../skills/architecture-advisor/SKILL.md) skill** — read it in full *before* planning. Its seam placements, family/generalization disposition, observer/contributor and event-granularity calls, ordering constraints, and **resolved decisions** are **authoritative inputs**: build the plan on them, fold the rationale into **Design notes** and the brief's dispositions into your ground-rule-9 cross-cutting audit (a *Build now* maps to *Gap exposed*, a *Defer* to *Acknowledged debt*). Do not relitigate a resolved decision. If you believe a brief decision is wrong, **surface the disagreement to the user** — do not silently override it. **If no seed exists** and the feature is non-trivial (it introduces a new seam, a new piece of state, a new event, or a new cross-system interaction), **recommend the user run `/advise` first** — the advisor's interactive intake catches seam-placement and generalization mistakes that are cheap to fix now and expensive once a plan is built on them. Proceed straight to planning only for a small, well-understood slice, or if the user declines.
 3. **Read the reference catalogs** before inventing names — [docs/reference/systems.md](../../docs/reference/systems.md), [docs/reference/handlers.md](../../docs/reference/handlers.md), [docs/reference/components.md](../../docs/reference/components.md), [docs/reference/archetypes.md](../../docs/reference/archetypes.md). Reuse existing systems/components where possible; don't invent `FooSystem` if `BarSystem` already covers the territory.
 4. **Read the canonical flows** ([docs/architecture/flows/README.md](../../docs/architecture/flows/README.md)) so you understand the runtime call traces this slice will plug into. New player-facing surfaces almost always plug into the player-command-lifecycle flow; new persistent state plugs into the persistence flush cycle; new content plugs into the server-startup and content-reload flows.
-5. **Draft the use-case file** using the template (every section in [docs/use-cases/README.md](../../docs/use-cases/README.md) is required): Status (start with `planned`) / Actors / Module / Description / Preconditions / Postconditions / Main flow / Events fired / Systems / handlers involved / Content tooling impact / **Cross-cutting surfaces stressed** / **Flows introduced or modified** / Design notes / Related. **If an advisor seed exists, extend it — do not overwrite:** preserve its Description, Design notes, and the `## Architecture brief` block (the brief stays as an in-flight section, trimmed on ship like the rest of the plan).
+5. **Draft the use-case file** using the template (every section in [docs/use-cases/README.md](../../docs/use-cases/README.md) is required): Status (start with `planned`) / Actors / Module / Description / Preconditions / Postconditions / Main flow / Events fired / Systems / handlers involved / Content tooling impact / **Test plan / Verification** / **Cross-cutting surfaces stressed** / **Flows introduced or modified** / Design notes / Related. **If an advisor seed exists, extend it — do not overwrite:** preserve its Description, Design notes, and the `## Architecture brief` block (the brief stays as an in-flight section, trimmed on ship like the rest of the plan).
 6. **Trace the main flow** to identify every moving part. For each step, name:
    - The handler orchestrating it
    - The system method called
@@ -44,16 +44,24 @@ You do not write the C# code — that's for the user or the implement-use-case s
 
    - **Level 3 — save-on-change scope:** caller-initiated `SaveEntityAsync` is permitted in only three cases — (a) at entity construction time, immediately after `AddComponent<PersistentEntity>`, to make the entity ID durable; (b) an **admin boundary save**: an admin-gated command that mutates an already-persistent entity through a domain system, calling `SaveEntityAsync` once after the mutation and pairing it with an audit event (e.g. `setplayer`, `setrespawn`); and (c) a **session-end force-save**: a player logout/disconnect/`quit` saving the player as the session ends (the only legitimate handler save site, `PlayerSessionHandler`). If the spec describes any other handler, or any non-admin command, calling `SaveEntityAsync` for a runtime state change, flag as a violation of INV-22.
 8. **Flows audit (required).** List every canonical flow in `flows/README.md` this slice introduces, replaces, or extends. The implementation slice's PR must update `flows/README.md` to match — the architecture-reviewer agent will block on drift. If the slice introduces a recurring flow that doesn't yet have a canonical entry, add a `flows/README.md` flow specification to the slice scope.
-9. **Produce the implementation plan** as a checklist grouped by layer:
+9. **Test plan (ground rule for INV-25 — required).** Derive the doc's **Test plan / Verification** section from the Postconditions and Main flow, applying the rubric in [docs/architecture/07-testing.md](../../docs/architecture/07-testing.md):
+   - each new/changed **system** method → a system-unit test of its decision;
+   - each **Main-Flow postcondition that asserts player-invisible internal state** (HP clamped, `BlueprintComponent` cleared, pair dedup, state flag set, event published) → name the tier (system-unit / handler / flow / persistence round-trip / architecture-guard) and the assertion;
+   - each `[Persistent]` shape → a save→load round-trip; each fail-fast validation → a throws-test;
+   - state what is **skipped** and why (presentation/exact-prose, thin command plumbing, pure-data components).
+
+   **Testability gap (surface as an open question, like a cross-cutting gap).** If a system can't be unit-tested without an un-injected seam (randomness, wall-clock, external I/O), the fix — an injected seam per INV-26 — lands **before or with** the slice; do not silently absorb it. The Postconditions are the coverage contract: every postcondition asserting invisible state must map to a named test.
+10. **Produce the implementation plan** as a checklist grouped by layer:
    - **New components** (with shape) — mark reused ones
    - **New domain systems** (with interface signatures) — mark reused ones
    - **New events** (name + payload)
    - **New handlers** (subscription, priority)
    - **New commands** (verb, aliases)
+   - **New tests** (tier + target — the Test-plan items from step 9)
    - **Archetype changes** (if any)
    - **Flows changed** in `flows/README.md` (cite each by title + what changes)
-10. **Identify dependencies** — which items depend on others. This drives the build order.
-11. **Call out open questions** — anything the user should decide before implementation starts (e.g. "is `X` visible to witnesses or private?"). Cross-cutting gaps from step 7 are open questions by default.
+11. **Identify dependencies** — which items depend on others. This drives the build order.
+12. **Call out open questions** — anything the user should decide before implementation starts (e.g. "is `X` visible to witnesses or private?"). Cross-cutting and testability gaps (steps 7, 9) are open questions by default.
 
 ## Doc template adherence
 
@@ -82,6 +90,10 @@ Doc: docs/use-cases/<slug>.md
 ### Reuse vs. new
 - Reuses: <list>
 - New: <list>
+
+### Test plan (INV-25)
+- <tier> — <target> — <what it asserts>
+- Skipped: <what + why>
 
 ### Open questions
 - <question>

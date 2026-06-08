@@ -6,15 +6,36 @@ Status markers: 🟢 ready · 🟡 blocked · 🔵 deferred
 
 ## Phase 4 — Hardening
 
-These are tracked for Phase 4. They become useful only after a handful of Phase 3 slices have stressed the architecture.
+These are tracked for Phase 4. Most become useful only after a handful of Phase 3 slices have stressed the architecture; **testing is the exception — it is active now** (first item below).
 
-### 🟡 Test framework (xUnit)
+### 🟢 Testing — `Hedron.Tests` harness + backfill (active)
 
-Low value until Phase 3 slices produce real systems and handlers to test. Adding earlier risks locking in shapes we haven't lived with yet.
+> **Detailed, sub-agent-sized work-package plan:** [`../use-cases/testing-harness-and-backfill.md`](../use-cases/testing-harness-and-backfill.md). This entry is the *what/why/status*; that doc is the *how* (WP-1 harness → WP-2 guard suite → WP-3 `IClock` → WP-4 Wave 1 backfill → WP-5 CI → WP-6/7 Waves 2–3), each step with files + a testable exit criterion.
 
-### 🟡 CI wiring
+The testing **strategy** is defined in [`../architecture/07-testing.md`](../architecture/07-testing.md); the per-slice gate (INV-25/26), the use-case **Test plan** section, and the `IRandom` determinism seam are already in place. The original "defer until shapes settle" rationale has expired — 20+ slices have produced real systems to test. What remains is the executable work:
 
-Build-and-test on PR once the test framework lands.
+**1. Stand up the project + shared harness (gating prerequisite).** A `Hedron.Tests` xUnit project referencing `Core` (and `Server` for the DI-smoke guard), plus the shared helpers specced in [`07-testing.md`](../architecture/07-testing.md#the-test-harness): `RecordingEventBus`, `EntityBuilder`, `FakeRandom`, output capture, in-memory SQLite, synthetic-tick factory. Wire `dotnet test` into the solution. The `dotnet test` portion of the code-review gate activates when this lands.
+
+**2. Architecture-guard suite (Tier 5).** Reflection-based tests enforcing the mechanical invariants continuously (INV-3/5/13/23) + a DI-smoke test. The INV-26 randomness clause is clean now; its wall-clock clause grandfathers the two debt sites in the `IClock` item below until that seam lands.
+
+**3. Backfill existing systems — by wave; no big-bang (the on-touch ratchet also pulls systems in as slices touch them).**
+- **Wave 1 (highest invisible-state + regression risk):** Combat, Effects, Stats, Abilities, Death/respawn, Persistence round-trips, Registry validation. Dedicated test-backfill PRs, not gameplay slices.
+- **Wave 2:** Items/Equipment/Inventory, Movement, Regeneration, Attributes, Aspects, Spawn, Account, authoring systems (RoomBuilder/ItemBuilder/MobBuilder), Broadcast, PromptComposer.
+- **Wave 3 / opportunistic:** remainder, largely drained by the ratchet.
+
+Each backfill asserts against the system's current use-case **Postconditions** (the coverage contract). ~19 systems total — a finite, tractable surface, not a quarter-long slog.
+
+### 🟢 CI wiring
+
+Build-and-test on PR. Rides alongside the harness above: once `dotnet test` exists, a CI workflow runs `dotnet build` + `dotnet test` on every PR, making "ship green" (INV-25) machine-enforced rather than only reviewer-enforced.
+
+### 🟢 Injected clock seam (`IClock`) — INV-26 time determinism
+
+The `IRandom` seam closed the randomness half of INV-26; the time half has two acknowledged-debt sites still reading `DateTime.UtcNow` directly inside a system:
+- **`SpawnSystem`** (`Core/Modules/Spawn/Systems/SpawnSystem.cs`, ~lines 98/134/156) — respawn timing (`RespawnAt` scheduling + the `RespawnAt <= UtcNow` comparison). Genuine timing *logic*; an injected `IClock` (or feeding the heartbeat `Timestamp`) makes "respawns after N seconds" deterministically testable. Refactor this one first — it has real test value.
+- **`AccountSystem`** (`Core/Modules/Account/Systems/AccountSystem.cs`, ~lines 80/103/178) — `CreatedAtUtc`/`LastLoginUtc` stamping. Low test-value (assert "is set," not exact time); migrate for purity when the seam exists.
+
+Introduce a small `IClock` core system (`UtcNow`) with the harness. Resolved by the on-touch ratchet when these systems are next modified, or via their Wave backfill. Event `OccurredAt = DateTime.UtcNow` stamps are out of scope (events aren't systems).
 
 ### 🟡 Performance: LINQ in hot paths
 

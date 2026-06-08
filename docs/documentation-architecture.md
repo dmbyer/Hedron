@@ -21,9 +21,9 @@ A growing codebase accretes overlapping docs: the same rule restated in three fi
 | Surface | Owns (single responsibility) | Belongs here | Does **not** belong here | Primary consumer |
 |---|---|---|---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Entry point + AI directives + a *day-to-day summary* of the rules | Pointers, ground-rule summaries (each linking to its INV), where-to-read order | An authoritative rule copy; per-feature detail; history | Every agent session (always loaded) |
-| [`architecture/`](architecture/) `00`–`06` | Foundational, cross-cutting, slice-independent design (layers, ECS, events, pitfalls, config, persistence) | The *explanation* of how the engine is shaped | Per-feature framework designs; runtime traces; invariant restatements | Anyone writing a system/handler/event |
-| [`architecture/checklist.md`](architecture/checklist.md) | **The only** authoritative invariant list | Every `INV-n` / `SR-n` / `INV-D*`, terse and checkable | Long explanations (those link out to `00`–`06`) | `architecture-reviewer`, planner gates |
-| `architecture/subsystems/` | Per-feature framework / **scoped-system** *design records* (commands, output, stats, future combat/effects) | "How feature X works," scoped to one feature/system — including the living design of a scoped system (e.g. stats) | Cross-cutting rules (→ `00`–`06`); the catalog of what exists (→ `reference/`) | Implementers of/around that feature |
+| [`architecture/`](architecture/) `00`–`07` | Foundational, cross-cutting, slice-independent design (layers, ECS, events, pitfalls, config, persistence, testing) | The *explanation* of how the engine is shaped | Per-feature framework designs; runtime traces; invariant restatements | Anyone writing a system/handler/event |
+| [`architecture/checklist.md`](architecture/checklist.md) | **The only** authoritative invariant list | Every `INV-n` / `SR-n` / `INV-D*`, terse and checkable | Long explanations (those link out to `00`–`07`) | `architecture-reviewer`, planner gates |
+| `architecture/subsystems/` | Per-feature framework / **scoped-system** *design records* (commands, output, stats, future combat/effects) | "How feature X works," scoped to one feature/system — including the living design of a scoped system (e.g. stats) | Cross-cutting rules (→ `00`–`07`); the catalog of what exists (→ `reference/`) | Implementers of/around that feature |
 | [`design/`](design/) | Cross-cutting **forward design models** spanning many future slices (precede use-cases) | A scenario-spanning "north-star" model; a clearly-labeled draft with a graduate/trim lifecycle | Authoritative rules (→ `checklist.md`); single-feature design (→ `subsystems/`); single-scenario behavior (→ `use-cases/`) | Planner; designers scoping a multi-slice feature |
 | `architecture/flows/` | Runtime call-chain *traces* (the dynamic axis) | "If X happens, what executes and in what order," one flow per concern | Static structure; design rationale | Anyone tracing behavior; `use-case-planner` |
 | [`reference/`](reference/) | Terse catalog of **what exists** | Implemented components/systems/handlers/archetypes/commands | Idealized API for unbuilt features (segregate into a clearly-labeled `*-planned.md` companion file) | Planner ("what can I reuse?"); reviewers |
@@ -39,7 +39,8 @@ A growing codebase accretes overlapping docs: the same rule restated in three fi
 | Fact | Authoritative home | Everyone else |
 |---|---|---|
 | An architectural rule / invariant | `architecture/checklist.md` | links by `INV-id` |
-| Explanation of a layer / ECS / event / config concept | `architecture/00`–`06` | links to the section |
+| Explanation of a layer / ECS / event / config concept | `architecture/00`–`07` | links to the section |
+| The testing strategy / test-vs-skip rubric | `architecture/07-testing.md` | links to it |
 | A per-feature framework's design | `architecture/subsystems/<feature>.md` | links to it |
 | A runtime call chain | `architecture/flows/` (one flow) | references "Flow N"; never reproduces the diagram |
 | What components/systems/handlers/etc. *exist* | `reference/` (implemented) | links to the row |
@@ -60,8 +61,8 @@ A growing codebase accretes overlapping docs: the same rule restated in three fi
 A use-case doc moves through three states:
 
 1. **`planned`** — behavior spec drafted; no code.
-2. **In-flight** (`planned`/`partial`) — the doc is the *single per-slice work artifact*: behavior spec **plus** implementation plan, "Cross-cutting surfaces stressed," "Flows introduced or modified," and reference-catalog diffs. This fused form is intentional — it is what the `use-case-planner`, the spec-review gate, and `implement-use-case` operate on. Flow content **references `architecture/flows/Flow N`; it never reproduces the diagram.**
-3. **`implemented`** — at slice close-out, `sync-roadmap` **trims** the doc to its durable behavior spec: *Status, Actors, Module, Description, Preconditions, Postconditions, Main Flow, Events fired, Design notes, Related*. The implementation-plan, cross-cutting-audit, flow, and catalog-diff sections are **removed** (Design notes stay — they hold non-obvious rationale not captured in code) — they are now authoritative in code, `architecture/flows/`, and `reference/`. A trimmed doc states present truth, not a frozen plan.
+2. **In-flight** (`planned`/`partial`) — the doc is the *single per-slice work artifact*: behavior spec **plus** implementation plan, "Test plan / Verification," "Cross-cutting surfaces stressed," "Flows introduced or modified," and reference-catalog diffs. This fused form is intentional — it is what the `use-case-planner`, the spec-review gate, and `implement-use-case` operate on. Flow content **references `architecture/flows/Flow N`; it never reproduces the diagram.**
+3. **`implemented`** — at slice close-out, `sync-roadmap` **trims** the doc to its durable behavior spec: *Status, Actors, Module, Description, Preconditions, Postconditions, Main Flow, Events fired, Design notes, Related*. The implementation-plan, test-plan, cross-cutting-audit, flow, and catalog-diff sections are **removed** (Design notes stay — they hold non-obvious rationale not captured in code) — they are now authoritative in code, the `Hedron.Tests` suite, `architecture/flows/`, and `reference/`. The Postconditions remain the durable coverage contract. A trimmed doc states present truth, not a frozen plan.
 
 A shipped use-case later superseded by a redesign gets a one-line banner pointing to its successor, or is re-trimmed to match the new truth — never left silently stale.
 
@@ -75,6 +76,8 @@ A shipped use-case later superseded by a redesign gets a one-line banner pointin
 | add/rename/remove a system, handler, component, or event | the matching `reference/` catalog | `INV-16` |
 | introduce or change a runtime flow | `architecture/flows/` (body **and** mermaid) | `INV-17` |
 | ship a use-case slice | graduate the system's design into `architecture/subsystems/` (or `architecture/` if complex); trim the use-case to requirements + impl-plan; update `done.md` + `completed/`; advance `plan.md` | `sync-roadmap` skill, `INV-D2` |
+| add or change a system, persistence shape, validation, or Main Flow | ship tests for it per the rubric (the use-case **Test plan** section); `dotnet test` green | `INV-25`, reviewer |
+| add chance- or time-dependent logic to a system | route it through an injected seam (`IRandom`, heartbeat timestamp), never `Random.Shared`/`DateTime.Now` | `INV-26` |
 | repeat a hand-rolled pattern ≥3× | promote it to a framework + skill | `INV-19` |
 | change an architectural pattern a skill/agent teaches | that `.claude/` file, same PR | `INV-20` |
 | establish a new recurring pattern / exercise / task | a new skill / agent / command | tooling lifecycle (below) |
