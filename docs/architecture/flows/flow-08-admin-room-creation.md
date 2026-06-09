@@ -12,6 +12,7 @@ sequenceDiagram
     participant CD as CommandDispatcher
     participant Auth as IAuthorizationChecker
     participant Cmd as DigCommand
+    participant AS as IAreaSystem
     participant RBS as IRoomBuilderSystem
     participant PSys as IPersistenceSystem
     participant Bus as IEventBus
@@ -28,7 +29,10 @@ sequenceDiagram
         alt exit exists
             Cmd->>Sess: error PlainMessage
         else no exit
-            Cmd->>RBS: CreateRoom("Garden")
+            Cmd->>AS: GetAreaForRoom(sourceRoomId)
+            AS-->>Cmd: areaEntityId? (null if unassigned)
+            Note over Cmd: if area found, read area BlueprintComponent.BlueprintId → areaId
+            Cmd->>RBS: CreateRoom("Garden", areaId: areaId)
             RBS-->>Cmd: RoomCreationResult(newRoomId, "room.adhoc.a1b2c3")
             Cmd->>RBS: LinkExits(sourceId, North, newRoomId, true)
             Cmd->>Bus: Publish(RoomCreatedByAdminEvent)
@@ -45,9 +49,9 @@ sequenceDiagram
 
 1. `CommandDispatcher` routes `dig` to `DigCommand` after the privilege gate (`AdminRequirement` via `IAuthorizationChecker`).
 2. `DigCommand.ExecuteAsync` reads `LocationComponent.RoomEntityId` and checks `RoomComponent.Exits` for the requested direction. If an exit already exists, writes a `PlainMessage` error and returns.
-3. Calls `IRoomBuilderSystem.CreateRoom(name)` — allocates an entity, attaches `RoomComponent` + `BlueprintComponent` (no `PersistentEntity`), registers a minimal `RoomTemplate`, returns `RoomCreationResult(newRoomId, blueprintId)`.
+3. `DigCommand` resolves the source room's area: calls `IAreaSystem.GetAreaForRoom(sourceRoomId)` and, if the room belongs to an area, reads the area's `BlueprintComponent.BlueprintId`. Calls `IRoomBuilderSystem.CreateRoom(name, areaId: areaId)` — allocates an entity, attaches `RoomComponent` + `BlueprintComponent` (no `PersistentEntity`), registers a `RoomTemplate` (with `AreaId` set when the source room has one), and calls `IAreaSystem.AssignRoomToArea` to set `RoomComponent.AreaEntityId` immediately. If the source room had no area, `areaId` is empty and the new room is unassigned. Returns `RoomCreationResult(newRoomId, blueprintId)`.
 4. Calls `IRoomBuilderSystem.LinkExits(sourceId, direction, newRoomId, bidirectional: true)` — sets `Exits` on both room entities and mirrors to both in-memory `RoomTemplate` exit maps.
-5. Sets admin's `LocationComponent.RoomEntityId = newRoomId` and `RoomBlueprintId = result.BlueprintId`. Publishes `RoomCreatedByAdminEvent`. `AdminAuditHandler` (priority 80) logs one structured entry. `DigCommand` writes YAML for both rooms — the YAML file is the room's sole durable state. No `SaveEntityAsync` is called; rooms have no `PersistentEntity`.
+5. Sets admin's `LocationComponent.RoomEntityId = newRoomId` and `RoomBlueprintId = result.BlueprintId`. Publishes `RoomCreatedByAdminEvent`. `AdminAuditHandler` (priority 80) logs one structured entry. `DigCommand` writes YAML for both rooms — the YAML file is the room's sole durable state. When the source room belonged to an area, the written YAML for the new room includes `areaId` so the assignment survives `@reload`. No `SaveEntityAsync` is called; rooms have no `PersistentEntity`.
 6. Publishes `PlayerMovedEvent(adminId, sourceId, newRoomId, direction)`. `PlayerMovedHandler` fires: departure broadcast to the source room (excluding the admin), arrival broadcast to the new room, `look` sent to the admin.
 7. Writes a confirmation `PlainMessage` (e.g. `"Room 'Garden' (room.adhoc.a1b2c3) created to the north."`).
 

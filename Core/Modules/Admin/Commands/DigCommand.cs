@@ -28,6 +28,7 @@ namespace Hedron.Core.Modules.Admin.Commands
         private readonly ITemplateRegistry _templateRegistry;
         private readonly EntityService _entityService;
         private readonly IEventBus _eventBus;
+        private readonly IAreaSystem _areaSystem;
 
         public string Name => "dig";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -53,13 +54,15 @@ namespace Hedron.Core.Modules.Admin.Commands
             IRoomContentWriter contentWriter,
             ITemplateRegistry templateRegistry,
             EntityService entityService,
-            IEventBus eventBus)
+            IEventBus eventBus,
+            IAreaSystem areaSystem)
         {
             _roomBuilder = roomBuilder;
             _contentWriter = contentWriter;
             _templateRegistry = templateRegistry;
             _entityService = entityService;
             _eventBus = eventBus;
+            _areaSystem = areaSystem;
         }
 
         public async Task ExecuteAsync(CommandContext context)
@@ -90,7 +93,14 @@ namespace Hedron.Core.Modules.Admin.Commands
                 return;
             }
 
-            var result = _roomBuilder.CreateRoom(name);
+            // Inherit the source room's area if it has one.
+            string areaId = "";
+            var sourceAreaEntityId = _areaSystem.GetAreaForRoom(sourceRoomId);
+            if (sourceAreaEntityId.HasValue &&
+                _entityService.TryGet<BlueprintComponent>(sourceAreaEntityId.Value, out var areaBp))
+                areaId = areaBp.BlueprintId;
+
+            var result = _roomBuilder.CreateRoom(name, areaId: areaId);
             _roomBuilder.LinkExits(sourceRoomId, direction, result.RoomEntityId, bidirectional: true);
 
             location.RoomEntityId = result.RoomEntityId;

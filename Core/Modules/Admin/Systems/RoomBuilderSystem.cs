@@ -1,6 +1,7 @@
 using System;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.World.Systems;
 using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging;
@@ -16,19 +17,22 @@ namespace Hedron.Core.Modules.Admin.Systems
     {
         private readonly EntityService _entityService;
         private readonly ITemplateRegistry _templateRegistry;
+        private readonly IAreaSystem _areaSystem;
         private readonly ILogger<RoomBuilderSystem> _logger;
 
         public RoomBuilderSystem(
             EntityService entityService,
             ITemplateRegistry templateRegistry,
+            IAreaSystem areaSystem,
             ILogger<RoomBuilderSystem> logger)
         {
             _entityService = entityService;
             _templateRegistry = templateRegistry;
+            _areaSystem = areaSystem;
             _logger = logger;
         }
 
-        public RoomCreationResult CreateRoom(string name, string description = "")
+        public RoomCreationResult CreateRoom(string name, string description = "", string areaId = "")
         {
             var blueprintId = GenerateUniqueBlueprintId();
 
@@ -37,7 +41,22 @@ namespace Hedron.Core.Modules.Admin.Systems
             _entityService.AddComponent(entity.Id, new BlueprintComponent { BlueprintId = blueprintId });
 
             var template = new RoomTemplate(blueprintId) { Name = name, Description = description };
+            if (!string.IsNullOrEmpty(areaId))
+                template.AreaId = areaId;
             _templateRegistry.Register(blueprintId, template);
+
+            if (!string.IsNullOrEmpty(areaId))
+            {
+                // Find the area entity by its blueprint ID.
+                uint areaEntityId = 0;
+                foreach (var (id, bp) in _entityService.GetAllComponents<BlueprintComponent>())
+                {
+                    if (string.Equals(bp.BlueprintId, areaId, StringComparison.OrdinalIgnoreCase))
+                    { areaEntityId = id; break; }
+                }
+                if (areaEntityId != 0)
+                    _areaSystem.AssignRoomToArea(entity.Id, areaEntityId, areaId);
+            }
 
             _logger.LogDebug("RoomBuilderSystem: created room entity={EntityId} blueprint={BlueprintId}", entity.Id, blueprintId);
             return new RoomCreationResult(entity.Id, blueprintId);

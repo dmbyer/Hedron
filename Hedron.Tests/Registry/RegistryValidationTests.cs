@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Hedron.Core.ECS;
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Aspects;
 using Hedron.Core.Modules.Effects;
@@ -77,21 +79,51 @@ namespace Hedron.Tests.Registry
         /// <summary>
         /// Constructs a <see cref="RegistryValidationBootstrap"/> and calls
         /// <see cref="IHostedService.StartAsync"/> synchronously.
+        /// Pass <c>null</c> for <paramref name="entityService"/> to use an empty default.
         /// </summary>
         private static void RunValidator(
             IAbilityRegistry abilities,
             IEffectRegistry effects,
             IAspectRegistry aspects,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            EntityService? entityService = null)
         {
             var bootstrap = new RegistryValidationBootstrap(
                 abilities,
                 effects,
                 aspects,
                 configuration,
-                NullLogger<RegistryValidationBootstrap>.Instance);
+                NullLogger<RegistryValidationBootstrap>.Instance,
+                entityService ?? new EntityService());
 
             bootstrap.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Builds an <see cref="EntityService"/> containing one area entity.
+        /// When <paramref name="affinityWeights"/> is non-null, also attaches an
+        /// <see cref="AspectAffinitiesComponent"/> with those weights.
+        /// </summary>
+        private static EntityService BuildEntityServiceWithArea(
+            Dictionary<AspectId, int>? affinityWeights = null)
+        {
+            var ecs = new EntityService();
+            var entity = ecs.CreateEntity();
+            ecs.AddComponent(entity.Id, new AreaComponent
+            {
+                AreaId = "test.area",
+                Name = "Test Area",
+            });
+
+            if (affinityWeights != null)
+            {
+                ecs.AddComponent(entity.Id, new AspectAffinitiesComponent
+                {
+                    AffinityWeights = affinityWeights,
+                });
+            }
+
+            return ecs;
         }
 
         /// <summary>
@@ -329,6 +361,71 @@ namespace Hedron.Tests.Registry
 
             // Must not throw — null aspect skips the aspect validation block.
             RunValidator(abilities, effects, aspects, config);
+        }
+
+        // ═════════════════════════════════════════════════════════════════════
+        // Case 6: Area entity AspectAffinities composition validation
+        // ═════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// An area entity whose AspectAffinitiesComponent weights sum to something other
+        /// than 100 must cause validation to throw.
+        /// </summary>
+        [Fact]
+        public void RegistryValidationBootstrap_RejectsInvalidAreaAspectComposition()
+        {
+            // Weights sum to 90, not 100 — composition is invalid.
+            var ecs = BuildEntityServiceWithArea(
+                new Dictionary<AspectId, int> { [AspectId.Fire] = 90 });
+
+            var abilities = new StubAbilityRegistry(Array.Empty<AbilityDefinition>());
+            var effects   = new StubEffectRegistry(Array.Empty<EffectDefinition>());
+            var aspects   = new StubAspectRegistry(Array.Empty<AspectDefinition>());
+            var config    = BuildConfig();
+
+            Assert.Throws<InvalidOperationException>(
+                () => RunValidator(abilities, effects, aspects, config, ecs));
+        }
+
+        /// <summary>
+        /// An area entity whose AspectAffinitiesComponent weights sum to 100 must pass validation.
+        /// </summary>
+        [Fact]
+        public void RegistryValidationBootstrap_AcceptsValidAreaAspectComposition()
+        {
+            // Weights sum to 100 — valid composition.
+            var ecs = BuildEntityServiceWithArea(
+                new Dictionary<AspectId, int>
+                {
+                    [AspectId.Fire] = 60,
+                    [AspectId.Lightning] = 40,
+                });
+
+            var abilities = new StubAbilityRegistry(Array.Empty<AbilityDefinition>());
+            var effects   = new StubEffectRegistry(Array.Empty<EffectDefinition>());
+            var aspects   = new StubAspectRegistry(Array.Empty<AspectDefinition>());
+            var config    = BuildConfig();
+
+            // Must not throw.
+            RunValidator(abilities, effects, aspects, config, ecs);
+        }
+
+        /// <summary>
+        /// An area entity with no AspectAffinitiesComponent at all must pass validation.
+        /// </summary>
+        [Fact]
+        public void RegistryValidationBootstrap_AcceptsAreaWithNoAffinities()
+        {
+            // Area entity exists but has no AspectAffinitiesComponent.
+            var ecs = BuildEntityServiceWithArea(affinityWeights: null);
+
+            var abilities = new StubAbilityRegistry(Array.Empty<AbilityDefinition>());
+            var effects   = new StubEffectRegistry(Array.Empty<EffectDefinition>());
+            var aspects   = new StubAspectRegistry(Array.Empty<AspectDefinition>());
+            var config    = BuildConfig();
+
+            // Must not throw.
+            RunValidator(abilities, effects, aspects, config, ecs);
         }
     }
 }

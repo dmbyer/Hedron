@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Hedron.Core.ECS;
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Aspects;
 using Hedron.Core.Modules.Effects;
@@ -30,19 +33,22 @@ namespace Hedron.Server
         private readonly IAspectRegistry _aspectRegistry;
         private readonly IConfiguration _configuration;
         private readonly ILogger<RegistryValidationBootstrap> _logger;
+        private readonly EntityService _entityService;
 
         public RegistryValidationBootstrap(
             IAbilityRegistry abilityRegistry,
             IEffectRegistry effectRegistry,
             IAspectRegistry aspectRegistry,
             IConfiguration configuration,
-            ILogger<RegistryValidationBootstrap> logger)
+            ILogger<RegistryValidationBootstrap> logger,
+            EntityService entityService)
         {
             _abilityRegistry = abilityRegistry;
             _effectRegistry = effectRegistry;
             _aspectRegistry = aspectRegistry;
             _configuration = configuration;
             _logger = logger;
+            _entityService = entityService;
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
@@ -87,6 +93,17 @@ namespace Hedron.Server
                     errors.Add($"CharacterDefaults:StartingAbilities: ability '{abilityId}' not found in AbilityRegistry.");
             }
 
+            // 3. Area entity AspectAffinities composition validation.
+            foreach (var (entityId, _) in _entityService.GetAllComponents<AreaComponent>())
+            {
+                if (!_entityService.TryGet<AspectAffinitiesComponent>(entityId, out var affinities))
+                    continue;
+
+                var composition = new AspectComposition(affinities.AffinityWeights);
+                if (!composition.IsValid(out var compError))
+                    errors.Add($"Area entity {entityId}: AspectAffinities composition invalid — {compError}");
+            }
+
             if (errors.Count > 0)
             {
                 var report = new StringBuilder();
@@ -101,10 +118,11 @@ namespace Hedron.Server
 
             _logger.LogInformation(
                 "RegistryValidationBootstrap: all cross-refs valid " +
-                "({Abilities} abilities, {Effects} effects, {Aspects} aspects).",
+                "({Abilities} abilities, {Effects} effects, {Aspects} aspects, {Areas} areas validated).",
                 _abilityRegistry.AllIds.Count,
                 _effectRegistry.AllIds.Count,
-                _aspectRegistry.AllIds.Count);
+                _aspectRegistry.AllIds.Count,
+                _entityService.GetAllComponents<AreaComponent>().Count());
 
             return Task.CompletedTask;
         }
