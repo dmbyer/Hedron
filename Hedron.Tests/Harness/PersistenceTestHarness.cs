@@ -2,10 +2,11 @@ using System;
 using System.Threading.Tasks;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Persistence;
 using Hedron.Core.Systems;
 using Microsoft.Data.Sqlite;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Hedron.Tests.Harness
@@ -42,19 +43,12 @@ namespace Hedron.Tests.Harness
 
             var registry = new ComponentTypeRegistry();
             var serializer = new ComponentSerializer(registry);
-            var config = new ConfigurationBuilder()
-                .AddInMemoryCollection(new[]
-                {
-                    new System.Collections.Generic.KeyValuePair<string, string?>(
-                        "Persistence:DatabasePath", _sharedUri),
-                })
-                .Build();
 
             PersistenceSystem = new PersistenceSystem(
                 EntityService,
                 registry,
                 serializer,
-                config,
+                Options.Create(new PersistenceOptions { DatabasePath = _sharedUri }),
                 NullLogger<PersistenceSystem>.Instance);
         }
 
@@ -75,21 +69,11 @@ namespace Hedron.Tests.Harness
             var registry = new ComponentTypeRegistry();
             var serializer = new ComponentSerializer(registry);
 
-            // Reuse the same shared-cache URI so the reload reads from the same in-memory db.
-            var uri = _sharedUri;
-            var config = new ConfigurationBuilder()
-                .AddInMemoryCollection(new[]
-                {
-                    new System.Collections.Generic.KeyValuePair<string, string?>(
-                        "Persistence:DatabasePath", _sharedUri),
-                })
-                .Build();
-
             using var reloadSystem = new PersistenceSystem(
                 freshEcs,
                 registry,
                 serializer,
-                config,
+                Options.Create(new PersistenceOptions { DatabasePath = _sharedUri }),
                 NullLogger<PersistenceSystem>.Instance);
 
             await reloadSystem.LoadAllAsync();

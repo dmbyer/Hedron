@@ -10,8 +10,8 @@ using Hedron.Core.Modules.Items.Templates;
 using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Hedron.Core.Modules.World.Systems
 {
@@ -44,7 +44,7 @@ namespace Hedron.Core.Modules.World.Systems
             IContentSerializer serializer,
             IRoomContentWriter roomContentWriter,
             Hedron.Core.WorldConfiguration worldConfig,
-            IConfiguration configuration,
+            IOptions<WorldOptions> options,
             ILogger<WorldContentLoader> logger)
         {
             _entityService = entityService;
@@ -53,8 +53,8 @@ namespace Hedron.Core.Modules.World.Systems
             _roomContentWriter = roomContentWriter;
             _worldConfig = worldConfig;
             _logger = logger;
-            _contentDirectory = configuration["World:ContentDirectory"] ?? "data/content/";
-            _startingRoomBlueprintId = configuration["World:StartingRoomBlueprintId"] ?? "room.crossroads";
+            _contentDirectory = options.Value.ContentDirectory;
+            _startingRoomBlueprintId = options.Value.StartingRoomBlueprintId;
         }
 
         public async Task LoadAndSpawnAsync(CancellationToken ct = default)

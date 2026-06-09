@@ -1,7 +1,8 @@
+using Hedron.Core.Modules.Persistence;
 using Hedron.Core.Systems;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Hedron.Server
 {
@@ -12,9 +13,9 @@ namespace Hedron.Server
     /// performed — the flush pool is small enough that a full sweep is always cheap.
     /// </summary>
     /// <remarks>
-    /// Interval is read from <c>IConfiguration["Persistence:FlushIntervalSeconds"]</c>; default
-    /// is 60 seconds.  Configure in <c>appsettings.json</c> or via environment variable
-    /// (e.g. <c>HEDRON_PERSISTENCE__FLUSHINTERVALSECONDS=5</c> for fast dev-iteration).
+    /// Interval is read from <see cref="PersistenceOptions.FlushIntervalSeconds"/>; default
+    /// is 60 seconds.  Override via environment variable
+    /// <c>HEDRON_Persistence__FlushIntervalSeconds=5</c> for fast dev-iteration.
     /// </remarks>
     public sealed class PersistenceFlushTimer : BackgroundService
     {
@@ -24,14 +25,12 @@ namespace Hedron.Server
 
         public PersistenceFlushTimer(
             IPersistenceSystem persistence,
-            IConfiguration configuration,
+            IOptions<PersistenceOptions> options,
             ILogger<PersistenceFlushTimer> logger)
         {
             _persistence = persistence;
             _logger = logger;
-
-            var seconds = configuration.GetValue<int>("Persistence:FlushIntervalSeconds", defaultValue: 60);
-            _interval = TimeSpan.FromSeconds(seconds);
+            _interval = TimeSpan.FromSeconds(options.Value.FlushIntervalSeconds);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
