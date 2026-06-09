@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Aspects;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.World.Templates
@@ -19,6 +20,13 @@ namespace Hedron.Core.Modules.World.Templates
         public bool Pvp { get; set; }
         public List<string> Rooms { get; } = new();
 
+        /// <summary>
+        /// Optional elemental affinities for this area. When set (non-empty), attaches an
+        /// <see cref="AspectAffinitiesComponent"/> so gameplay systems can weight ambient damage,
+        /// mob spawn selection, and future resist/bonus calculations by area theme.
+        /// </summary>
+        public Dictionary<AspectId, int>? AspectAffinities { get; set; }
+
         public AreaTemplate(string blueprintId)
         {
             BlueprintId = blueprintId;
@@ -34,6 +42,14 @@ namespace Hedron.Core.Modules.World.Templates
                 RespawnRate = RespawnRate,
                 Pvp = Pvp,
             });
+
+            if (AspectAffinities is { Count: > 0 })
+            {
+                entityService.AddComponent(entity.Id, new AspectAffinitiesComponent
+                {
+                    AffinityWeights = new Dictionary<AspectId, int>(AspectAffinities),
+                });
+            }
         }
     }
 }

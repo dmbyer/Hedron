@@ -113,6 +113,7 @@ public static class Program
         bus.Subscribe<EffectAppliedByAdminEvent>(audit);
         bus.Subscribe<PlayerRespawnSetByAdminEvent>(audit);
         bus.Subscribe<AbilityTaughtByAdminEvent>(audit);
+        bus.Subscribe<RoomAreaAssignedByAdminEvent>(audit);
 
         var characterHydration = host.Services.GetRequiredService<CharacterHydrationHandler>();
         bus.Subscribe<WorldContentReadyEvent>(characterHydration);

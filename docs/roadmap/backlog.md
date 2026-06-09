@@ -55,13 +55,12 @@ Slice 11-c ([`../use-cases/resource-regeneration.md`](../use-cases/resource-rege
 
 ### 🔵 Locale enhancements
 
-Deferred from slice 5a (bare-bones content spawning). Three related capabilities held together because they share a data-model decision:
+Deferred from slice 5a (bare-bones content spawning). Remaining capabilities:
 
-- **Room-to-area membership** — a `RoomComponent.AreaId` field or a dedicated component linking each room to an `AreaComponent` entity. `RoomCreatedByAdminEvent` and `mkroom` logic would eventually set area membership at creation time.
 - **Coordinate system** — a `CoordinateComponent` (`int X, int Y, int Z`) on room entities, enabling map generation and cardinal distance queries.
-- **Area-level properties** — PvP flag, respawn rate, ambient lighting — currently on `AreaComponent` but not yet instantiated or enforced by any slice.
+- **Area-level properties enforcement** — PvP flag, respawn rate, ambient lighting — present on `AreaComponent` but not yet enforced by any slice.
 
-These are deferred together because adding coordinates without area membership is premature, and area properties without coordinates have limited value. Revisit when the mob-wandering slice (slice 8) or a mapping command surfaces a concrete need.
+(Room-to-area membership — `RoomComponent.AreaEntityId`, `IAreaSystem`, `setarea`/`area` commands, aspect-affinity YAML, and `RegistryValidationBootstrap` area sweep — landed in the area-model WP-2 slice.)
 
 ### 🔵 Equipment slot expansion
 
@@ -161,6 +160,12 @@ The deferred work is migrating `ResourceType` from an enum to a **string-keyed**
 ### 🔵 Full-featured content editor (transition from command-driven authoring)
 
 Content authoring today is command-driven (`mkmob`/`setmob`/`mkitem`/`setitem`/`dig`/`set`, …); a full-featured editor is a known future (Ticket B resolution in [`plan.md`](plan.md): in-game commands first, web/desktop editor deferred alongside the SignalR/dual-client transport). To keep that transition cheap, the established convention — reinforced by slice 9-d — is that **all authoring logic lives in builder/writer *systems*** (`IRoomBuilderSystem`, `IItemBuilderSystem`, `IMobBuilderSystem`, `*ContentWriter`), with the command as a thin caller. The editor becomes a second thin caller of the same systems; no authoring logic is trapped in command classes. New content-mutating features must add their logic to a system, not a command body. Revisit building the editor itself once the dual-client transport lands (it shares that deferral).
+
+### 🔵 Blueprint-scan index (`BlueprintComponent` lookup by blueprint ID)
+
+The pattern `foreach (var (id, bp) in entityService.GetAllComponents<BlueprintComponent>()) { if (bp.BlueprintId == target) ... }` has reached 11+ call sites after the area-model slice (added in `AreaCommand`, `SetAreaCommand`, `RoomBuilderSystem`, `WorldContentLoader`). Each scan is O(n) over all blueprint-bearing entities.
+
+Promote when the per-command overhead is measurable or when a new feature adds a 12th site: add a `TryResolveEntity(string blueprintId, out uint entityId)` method on `EntityService` (or a thin `IBlueprintIndex` singleton maintained by `EntityService`). This is a pure optimization; correctness is unaffected today at MUD-scale entity counts.
 
 ### 🔵 Archetype catalogue refresh
 

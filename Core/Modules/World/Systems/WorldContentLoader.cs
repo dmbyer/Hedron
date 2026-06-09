@@ -80,6 +80,7 @@ namespace Hedron.Core.Modules.World.Systems
                 LinkRoomExits(liveBlueprints);
                 PlaceItemsInRooms(liveBlueprints, newlySpawned);
                 PlaceMobsInRooms(liveBlueprints, newlySpawned);
+                LinkRoomAreas(liveBlueprints);
             }
 
             ResolveStartingRoom();
@@ -103,6 +104,7 @@ namespace Hedron.Core.Modules.World.Systems
             LinkRoomExits(liveBlueprints);
             PlaceItemsInRooms(liveBlueprints, newlySpawned);
             PlaceMobsInRooms(liveBlueprints, newlySpawned);
+            LinkRoomAreas(liveBlueprints);
 
             return new ContentReloadResult(loaded, unchanged, removed);
         }
@@ -324,6 +326,26 @@ namespace Hedron.Core.Modules.World.Systems
                 _logger.LogError(
                     "WorldContentLoader: no rooms available to resolve starting room '{Id}'.",
                     _startingRoomBlueprintId);
+            }
+        }
+
+        private void LinkRoomAreas(Dictionary<string, uint> liveBlueprints)
+        {
+            foreach (var (entityId, room) in _entityService.GetAllComponents<RoomComponent>())
+            {
+                if (!_entityService.TryGet<BlueprintComponent>(entityId, out var bp))
+                    continue;
+                if (!_templateRegistry.TryGet(bp.BlueprintId, out var template) ||
+                    template is not RoomTemplate roomTemplate)
+                    continue;
+                if (string.IsNullOrEmpty(roomTemplate.AreaId))
+                    continue;
+                if (liveBlueprints.TryGetValue(roomTemplate.AreaId, out var areaEntityId))
+                    room.AreaEntityId = areaEntityId;
+                else
+                    _logger.LogWarning(
+                        "WorldContentLoader: room '{RoomBp}' references unknown area blueprint '{AreaBp}' — AreaEntityId left 0.",
+                        bp.BlueprintId, roomTemplate.AreaId);
             }
         }
 

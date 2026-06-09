@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Hedron.Core.Modules.Aspects;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
@@ -54,6 +55,22 @@ namespace Hedron.Core.Modules.World.Templates
             if (dto.Rooms is { Count: > 0 })
                 template.Rooms.AddRange(dto.Rooms);
 
+            if (dto.AspectAffinities is { Count: > 0 })
+            {
+                var parsed = new Dictionary<AspectId, int>();
+                foreach (var (key, weight) in dto.AspectAffinities)
+                {
+                    if (Enum.TryParse<AspectId>(key, ignoreCase: true, out var aspectId))
+                        parsed[aspectId] = weight;
+                    else
+                        _logger.LogWarning(
+                            "AreaTemplateDeserializer: area '{Id}' has unknown aspect key '{Key}' — skipped.",
+                            dto.Id, key);
+                }
+                if (parsed.Count > 0)
+                    template.AspectAffinities = parsed;
+            }
+
             return template;
         }
 
@@ -66,6 +83,7 @@ namespace Hedron.Core.Modules.World.Templates
             public int RespawnRate { get; set; }
             public bool Pvp { get; set; }
             public List<string>? Rooms { get; set; }
+            public Dictionary<string, int>? AspectAffinities { get; set; }
         }
     }
 }

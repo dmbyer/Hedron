@@ -8,7 +8,7 @@ namespace Hedron.Core.Modules.Admin.Systems
     /// </summary>
     public interface IRoomBuilderSystem
     {
-        RoomCreationResult CreateRoom(string name, string description = "");
+        RoomCreationResult CreateRoom(string name, string description = "", string areaId = "");
         void LinkExits(uint sourceRoomId, Direction direction, uint targetRoomId, bool bidirectional);
         void SetRoomName(uint roomId, string name);
         void SetRoomDescription(uint roomId, string description);

@@ -226,6 +226,7 @@ The living catalog lives in the module events folders (`Core/Modules/<Feature>/E
 **Progression:** `ExperienceGainedEvent`, `LevelUpEvent`, `SkillIncreasedEvent`, `AttributeIncreasedEvent`
 **World:** `TimeTickEvent`, `DayNightChangedEvent`, `WeatherChangedEvent`
 **Input:** `CommandReceivedEvent`
+**Admin area:** `RoomAreaAssignedByAdminEvent` — publisher: `SetAreaCommand`; payload: `AdminEntityId`, `RoomEntityId`, `RoomBlueprintId`, `AreaEntityId`, `AreaBlueprintId`; purpose: audit log for `setarea` admin command.
 
 ---
 

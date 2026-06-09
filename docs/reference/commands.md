@@ -354,6 +354,20 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 
 ---
 
+### `area`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Admin/Commands/AreaCommand.cs`  
+**Description:** Inspects an area entity. Without an argument, shows the area for the room the invoker is currently in. With a blueprint id, inspects the named area entity. Displays the area name, description, aspect affinities (if any), and the list of rooms assigned to the area (name + blueprint id per room). Writes an error if the current room has no area assignment, or if the given blueprint id is not found. No events fired.  
+**Usage:** `area [blueprintId]`  
+**Schema:** `Token string "blueprintId"` (optional)  
+**Dependencies:** `IAreaSystem`, `EntityService`  
+**Events:** none  
+**RequiredPrivileges:** `AdminRequirement`
+
+---
+
 ### `defs`
 
 **Aliases:** none  
@@ -508,6 +522,20 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Usage:** `set <name|description> <value>`  
 **Schema:** `Token string "property"` (required, `name` or `description`), `RestOfLine string "value"` (required)  
 **Events:** `RoomPropertySetByAdminEvent`
+
+---
+
+### `setarea`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Admin/Commands/SetAreaCommand.cs`  
+**Description:** Assigns a room entity to an area entity, both identified by blueprint id. Resolves both entities by scanning `BlueprintComponent`; rejects if the room or area blueprint is not found. Calls `IAreaSystem.AssignRoomToArea` to set `RoomComponent.AreaEntityId` and mirrors the `AreaId` to the `RoomTemplate`; writes the updated room template to YAML via `IRoomContentWriter`. Publishes `RoomAreaAssignedByAdminEvent` for the audit log.  
+**Usage:** `setarea <roomBlueprintId> <areaBlueprintId>`  
+**Schema:** `Token string "roomBlueprintId"` (required), `Token string "areaBlueprintId"` (required)  
+**Dependencies:** `IAreaSystem`, `EntityService`, `ITemplateRegistry`, `IRoomContentWriter`, `IEventBus`  
+**Events:** `RoomAreaAssignedByAdminEvent`  
+**RequiredPrivileges:** `AdminRequirement`
 
 ---
 

@@ -13,5 +13,8 @@ namespace Hedron.Core.ECS.Components
 
         /// <summary>Direction → destination room entity id.</summary>
         public Dictionary<Direction, uint> Exits { get; set; } = new();
+
+        /// <summary>Runtime-only: the entity id of the area this room belongs to. 0 = unassigned.</summary>
+        public uint AreaEntityId { get; set; }
     }
 }

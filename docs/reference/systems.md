@@ -234,6 +234,20 @@ public readonly record struct ContentReloadResult(
 ```
 Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). No `PersistentEntity` is added to any world-content entity (rooms, areas, items, mobs) — the YAML file is the sole durable state. `SpawnMissingEntities` skips blueprints already represented by a live entity (correct for `@reload`; no-op at cold start). Both `LocationComponent` fields (`RoomEntityId` + `RoomBlueprintId`) are set when placing items and mobs. `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Implemented (Phase 3 slices 2, persistence-reform-stage-b, 8).
 
+### AreaSystem
+**Purpose:** Domain system for area–room membership queries and mutation. Provides `GetRoomsInArea`, `GetAreaForRoom`, and `AssignRoomToArea`. All operations are pure ECS mutations; no event publication (INV-5). `AssignRoomToArea` sets `RoomComponent.AreaEntityId` on the live entity and mirrors `areaBlueprintId` to `RoomTemplate.AreaId` in the template registry so the assignment survives `@reload`.
+**Location:** `Core/Modules/World/Systems/AreaSystem.cs`
+**Dependencies:** `EntityService`, `ITemplateRegistry`.
+```csharp
+public interface IAreaSystem
+{
+    IReadOnlyList<uint> GetRoomsInArea(uint areaEntityId);
+    uint? GetAreaForRoom(uint roomEntityId);
+    void AssignRoomToArea(uint roomEntityId, uint areaEntityId, string areaBlueprintId);
+}
+```
+Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RoomBuilderSystem` (when creating a room with an area) and `DigCommand` (inheriting the source room's area). Implemented (Phase 3, area-model WP-1).
+
 ### AccountSystem
 **Purpose:** Domain system owning all account and character lifecycle operations: registration, authentication, character creation, character list, and logout recording.
 **Location:** `Core/Modules/Account/Systems/AccountSystem.cs`
@@ -255,11 +269,11 @@ Maintains lazy in-memory HashSet indices for username and character name uniquen
 ### RoomBuilderSystem
 **Purpose:** Runtime room authoring — creates room entities, wires bidirectional exits, and mutates room properties (`Name`, `Description`). All methods return pure results or mutate in-place; event publication is the caller's responsibility, keeping this system reusable by a future in-game editor without a live player session.
 **Location:** `Core/Modules/Admin/Systems/RoomBuilderSystem.cs`
-**Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<RoomBuilderSystem>`.
+**Dependencies:** `EntityService`, `ITemplateRegistry`, `IAreaSystem`, `ILogger<RoomBuilderSystem>`.
 ```csharp
 public interface IRoomBuilderSystem
 {
-    RoomCreationResult CreateRoom(string name, string description = "");
+    RoomCreationResult CreateRoom(string name, string description = "", string areaId = "");
     void LinkExits(uint sourceRoomId, Direction direction, uint targetRoomId, bool bidirectional);
     void SetRoomName(uint roomId, string name);
     void SetRoomDescription(uint roomId, string description);
@@ -267,7 +281,7 @@ public interface IRoomBuilderSystem
 
 public readonly record struct RoomCreationResult(uint RoomEntityId, string BlueprintId);
 ```
-`CreateRoom` generates a unique blueprint id (`room.adhoc.<8-char-base36>`), creates the entity, attaches `RoomComponent` + `BlueprintComponent` + `PersistentEntity`, and registers a minimal `RoomTemplate`. `LinkExits` updates both `RoomComponent.Exits` and the in-memory `RoomTemplate` exit maps for same-session `reload` consistency. The `DigCommand` initiator calls `SaveEntityAsync` on both rooms after this method returns (INV-5: systems do not call persistence). Implemented (Phase 3 slices 5a, persistence-two-level-model).
+`CreateRoom` generates a unique blueprint id (`room.adhoc.<8-char-base36>`), creates the entity, attaches `RoomComponent` + `BlueprintComponent` (no `PersistentEntity`), and registers a `RoomTemplate`. When `areaId` is non-empty it sets `RoomTemplate.AreaId` and calls `IAreaSystem.AssignRoomToArea` to set `RoomComponent.AreaEntityId` immediately. `LinkExits` updates both `RoomComponent.Exits` and the in-memory `RoomTemplate` exit maps for same-session `reload` consistency. The `DigCommand` initiator writes YAML for both rooms after this method returns (INV-5: systems do not call persistence). Implemented (Phase 3 slices 5a, persistence-two-level-model, area-model WP-1).
 
 ### ItemSystem
 **Purpose:** Query and mutation operations on item entities — finds items in a room or inventory by entity id, prefix-matches a token against item names and keywords, and moves items between ground and inventory. Mutation methods are pure ECS mutations; no event publication, no persistence calls.
