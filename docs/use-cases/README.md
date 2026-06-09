@@ -62,6 +62,7 @@ At slice close-out, `sync-roadmap` **trims** it to its durable behavior spec —
 | `planned` | [`resource-regeneration.md`](resource-regeneration.md) | Phase 3 slice 11-c (supporting pool mechanic) |
 | `implemented` | [`aspect-foundation.md`](aspect-foundation.md) | Phase 3 slice 11-d (gameplay-model A + F) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
+| `planned` | [`area-model.md`](area-model.md) | Area model + room–area membership (bidirectional, aspect affinities, three area modes) |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C): SQLite backend, EntityService lifecycle, world content de-persistence, context-driven item persistence, spawn slot foundation |
 | `planned` | [`prompt-and-output-batching.md`](prompt-and-output-batching.md) | Phase 3 — player prompt + session-scoped output batching framework |
 | `planned` | [`testing-harness-and-backfill.md`](testing-harness-and-backfill.md) | Phase 4 — `Hedron.Tests` harness + architecture-guard suite + system backfill (sub-agent work packages) |
