@@ -3,7 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Hedron.Core.Modules.World.Templates;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -20,10 +20,9 @@ namespace Hedron.Core.Modules.World.Systems
         private readonly string _roomsDirectory;
         private readonly ISerializer _yaml;
 
-        public RoomContentWriter(IConfiguration configuration)
+        public RoomContentWriter(IOptions<WorldOptions> options)
         {
-            var contentDirectory = configuration["World:ContentDirectory"] ?? "data/content/";
-            _roomsDirectory = System.IO.Path.Combine(contentDirectory, "rooms");
+            _roomsDirectory = System.IO.Path.Combine(options.Value.ContentDirectory, "rooms");
             _yaml = new SerializerBuilder()
                 .WithNamingConvention(CamelCaseNamingConvention.Instance)
                 .Build();

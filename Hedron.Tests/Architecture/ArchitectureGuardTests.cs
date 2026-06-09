@@ -461,8 +461,8 @@ namespace Hedron.Tests.Architecture
 
             var services = new ServiceCollection();
 
-            // IConfiguration must be in the container — many systems take it by constructor
-            // (AccountSystem, PersistenceSystem, AdminAuthorizer, etc.).
+            // IConfiguration must be in the container — some hosted services still inject it
+            // directly (TelnetServer for Server:Port, HeartbeatBackgroundService for Heartbeat:IntervalMs).
             services.AddSingleton<IConfiguration>(config);
 
             // Logging is required by many systems registered in the composition root.

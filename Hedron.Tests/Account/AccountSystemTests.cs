@@ -5,12 +5,13 @@ using Hedron.Core;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Abilities.Systems;
+using Hedron.Core.Modules.Account;
 using Hedron.Core.Modules.Account.Components;
 using Hedron.Core.Modules.Account.Systems;
 using Hedron.Core.Systems;
 using Hedron.Tests.Harness;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Hedron.Tests.Account
@@ -81,7 +82,7 @@ namespace Hedron.Tests.Account
         /// pointing at <paramref name="startingRoomId"/>.
         /// </summary>
         private static (AccountSystem system, EntityService ecs, FakeClock clock)
-            Build(uint startingRoomId = 0u, IConfiguration? config = null)
+            Build(uint startingRoomId = 0u, CharacterDefaultsOptions? defaults = null)
         {
             var ecs = new EntityService();
             var clock = new FakeClock(BaseTime);
@@ -91,13 +92,11 @@ namespace Hedron.Tests.Account
                 StartingRoomBlueprintId = startingRoomId == 0u ? null : startingRoomId.ToString(),
             };
 
-            config ??= new ConfigurationBuilder().Build();
-
             var system = new AccountSystem(
                 ecs,
                 new PlaintextHasher(),
                 worldConfig,
-                config,
+                Options.Create(defaults ?? new CharacterDefaultsOptions()),
                 new NullAbilitySystem(),
                 clock,
                 NullLogger<AccountSystem>.Instance);

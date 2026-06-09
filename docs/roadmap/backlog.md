@@ -79,7 +79,7 @@ Deferred from slice 7 design notes. Two related capabilities:
 
 Both are meaningful improvements to UX but would bloat slices 6–7. Revisit when the number of "are you sure?" flows justifies the infrastructure cost.
 
-### 🟢 `IOptions<T>` sweep — typed config options across Core
+### ~~🟢 `IOptions<T>` sweep — typed config options across Core~~ — completed
 
 Surfaced during slice 10 architecture review. Every configuration block with multiple consumers in `Core/` should be bound via a typed options class + `services.Configure<T>(configuration.GetSection("X"))` rather than via raw `IConfiguration["X:Key"]` reads scattered across constructors. Raw reads have no IDE navigation, no compile-time safety, and duplicate default values across files.
 
@@ -88,13 +88,21 @@ Surfaced during slice 10 architecture review. Every configuration block with mul
 | Config section | Files using raw reads | Typed class exists? |
 |---|---|---|
 | `Death:` | `DeathSystem`, `DeathTickHandler`, `AttributeSystem` | ✅ `DeathOptions` — **wired in slice 10**; `AttributeSystem` cross-module dependency flagged below |
-| `World:` | `WorldContentLoader` (×2), `RoomContentWriter`, `ItemContentWriter`, `MobContentWriter` | ❌ |
-| `Persistence:` | `PersistenceSystem` | ❌ |
-| `CharacterDefaults:` | `AccountSystem` (slice 9-d) | ❌ |
+| `World:` | `WorldContentLoader`, `RoomContentWriter`, `ItemContentWriter`, `MobContentWriter` | ✅ `WorldOptions` — **wired; raw reads replaced** |
+| `Persistence:` | `PersistenceSystem`, `PersistenceFlushTimer` | ✅ `PersistenceOptions` — **wired; raw reads replaced** |
+| `CharacterDefaults:` | `AccountSystem` | ✅ `CharacterDefaultsOptions` — **wired; raw reads replaced** |
 
-**Specific follow-up for `AttributeSystem`.** It currently injects `IOptions<DeathOptions>` solely to read the HP-floor clamp — a cross-module dependency (`Attributes` → `Death`). The right long-term shape is either: (a) move `HpFloor` to an `AttributeOptions` class so `AttributeSystem` owns its own floor config, or (b) remove the floor clamp from `AttributeSystem` entirely and let callers (`DeathTickHandler`) enforce the floor before calling `SetCurrentHp`. Option (b) is the cleaner layer: `AttributeSystem` becomes a pure setter with `[0, Max]` clamping, and the death floor is a Death-module concern only.
+**Env-var override for data paths.** `Program.cs` registers the `HEDRON_` environment variable prefix via `cfg.AddEnvironmentVariables("HEDRON_")`. To point all worktrees at a machine-local world outside the git tree set these env vars (using `__` as the section separator on Windows):
+```
+HEDRON_World__ContentDirectory=C:\Users\dmbye\hedron-world\content\
+HEDRON_Persistence__DatabasePath=C:\Users\dmbye\hedron-world\hedron.db
+```
 
-**Work.** For each section without a typed class: create the options class, wire `services.Configure<T>()` in the owning module's `AddXModule()` method (or in `Server/Program.cs` following the `OutputConfiguration` + `DeathOptions` pattern), and replace raw string reads with `IOptions<T>` injection. Then resolve the `AttributeSystem` cross-module dependency.
+**Remaining follow-up: `AttributeSystem` cross-module dependency.** `AttributeSystem` still injects `IOptions<DeathOptions>` to read the HP-floor clamp — a cross-module dependency (`Attributes` → `Death`). Two options remain:
+- **(a)** Move `HpFloor` to an `AttributeOptions` class so `AttributeSystem` owns its floor config independently. Requires adding `Attributes:HpFloor` to `appsettings.json` and keeping it in sync with `Death:HpFloor`.
+- **(b)** Remove the floor clamp from `AttributeSystem` entirely (`SetCurrentHp` clamps to `[0, MaxHp]`) and have `DeathSystem.OnHpChanged` enforce the floor. Requires updating `DeathTickHandler` (which re-reads HP after the `SetCurrentHp` clamp) and the `AttributeSystem` tests that cover the HpFloor clamp invariant.
+
+Option (b) is the cleaner layer but touches the death pipeline. Not yet resolved.
 
 ### 🟢 Persistence save-on-change cleanup + manual `save`/`quit` commands
 

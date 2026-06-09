@@ -1,9 +1,10 @@
 using System.Collections.Generic;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Persistence;
 using Microsoft.Data.Sqlite;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Hedron.Core.Systems
 {
@@ -43,14 +44,14 @@ namespace Hedron.Core.Systems
             EntityService entityService,
             IComponentTypeRegistry typeRegistry,
             IComponentSerializer serializer,
-            IConfiguration configuration,
+            IOptions<PersistenceOptions> options,
             ILogger<PersistenceSystem> logger)
         {
             _entityService = entityService;
             _typeRegistry = typeRegistry;
             _serializer = serializer;
             _logger = logger;
-            _databasePath = configuration["Persistence:DatabasePath"] ?? "data/hedron.db";
+            _databasePath = options.Value.DatabasePath;
 
             entityService.OnPersistentEntityDestroying = DeleteEntitySync;
         }

@@ -73,6 +73,12 @@ public static class CompositionRoot
             configuration.GetSection("Output"));
         services.Configure<DeathOptions>(
             configuration.GetSection("Death"));
+        services.Configure<WorldOptions>(
+            configuration.GetSection("World"));
+        services.Configure<PersistenceOptions>(
+            configuration.GetSection("Persistence"));
+        services.Configure<CharacterDefaultsOptions>(
+            configuration.GetSection("CharacterDefaults"));
         // ECS world
         var world = new EntityService();
         EcsManager.SetWorld(world);

@@ -7,8 +7,8 @@ using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Abilities.Systems;
 using Hedron.Core.Modules.Account.Components;
 using Hedron.Core.Systems;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Hedron.Core.Modules.Account.Systems
 {
@@ -39,7 +39,7 @@ namespace Hedron.Core.Modules.Account.Systems
             EntityService entityService,
             IPasswordHasher passwordHasher,
             WorldConfiguration worldConfig,
-            IConfiguration configuration,
+            IOptions<CharacterDefaultsOptions> characterDefaults,
             IAbilitySystem abilitySystem,
             IClock clock,
             ILogger<AccountSystem> logger)
@@ -47,23 +47,10 @@ namespace Hedron.Core.Modules.Account.Systems
             _entityService = entityService;
             _passwordHasher = passwordHasher;
             _worldConfig = worldConfig;
+            _characterDefaults = characterDefaults.Value;
             _abilitySystem = abilitySystem;
             _clock = clock;
             _logger = logger;
-
-            _characterDefaults = new CharacterDefaultsOptions();
-            var section = configuration.GetSection("CharacterDefaults");
-            if (int.TryParse(section["AttributeDefault"], out var attrDefault)) _characterDefaults.AttributeDefault = attrDefault;
-            if (int.TryParse(section["MaxHp"], out var maxHp)) _characterDefaults.MaxHp = maxHp;
-            if (int.TryParse(section["MaxMana"], out var maxMana)) _characterDefaults.MaxMana = maxMana;
-            if (int.TryParse(section["MaxStamina"], out var maxStamina)) _characterDefaults.MaxStamina = maxStamina;
-            if (int.TryParse(section["MaxAstra"], out var maxAstra)) _characterDefaults.MaxAstra = maxAstra;
-            var abilitiesChildren = section.GetSection("StartingAbilities").GetChildren()
-                .Select(c => c.Value)
-                .Where(v => v != null)
-                .ToArray();
-            if (abilitiesChildren.Length > 0)
-                _characterDefaults.StartingAbilities = abilitiesChildren!;
         }
 
         public bool UsernameExists(string username)
