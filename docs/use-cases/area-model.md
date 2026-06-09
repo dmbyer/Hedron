@@ -17,7 +17,7 @@
 
 - **Three area modes via existing primitives — no new ECS machinery.** The three modes the user requested map cleanly:
   1. *Authored static* — YAML template → `BlueprintComponent` + `AreaComponent` + optional `AspectAffinitiesComponent`; no `PersistentEntity`; always present, re-spawned from YAML each startup. The standard world content path.
-  2. *Spawned instance* — same template, but the spawned entity is enrolled in `PersistentEntity` (e.g., a dungeon instance that should survive restart). The blueprint slot is freed by clearing `BlueprintComponent` so the template can seed another instance (INV-21). Rooms within it follow the same pattern.
+  2. *Spawned instance* — same template, but the spawned entity is enrolled in `PersistentEntity` (e.g., a dungeon instance that should survive restart). The area entity retains its `BlueprintComponent` as an origin record — clearing it is not permitted (INV-21). Spawn-slot vacancy for a multi-instance dungeon mode would be tracked via a domain event (the same model as mob death/respawn), not by inspecting or clearing `BlueprintComponent`. Rooms within the instance follow the same pattern.
   3. *In-memory only* — area and room entities created directly in `EntityService` by a future `IAreaSystem.CreateArea` call, carrying no `BlueprintComponent` and no `PersistentEntity`. Ephemeral; vanishes on restart. Not implemented in this slice (no concrete consumer yet), but the design accommodates it without change — `RoomComponent.AreaEntityId` is set directly, the query scan works identically.
 
 - **Area aspect affinities reuse `AspectAffinitiesComponent`.** Areas are entities; the component is already designed to be carried by any entity. The `AffinityWeights` map on the component (e.g., Fire → 60, Lightning → 40) declares the area's elemental character. No system consumes this in the current slice — the data is present for future "area aura" mechanics (buff/debuff resistances for entities inside the area). `RegistryValidationBootstrap` gains a sweep over area entities to validate that any authored `AspectAffinities` composition is either empty or sums to 100, consistent with the same check already performed on ability definitions.
@@ -40,7 +40,7 @@
 
 ## Postconditions
 
-- `RoomComponent` carries `uint AreaEntityId` (0 = not assigned).
+- `RoomComponent` carries `uint AreaEntityId` (0 = not assigned). The new field carries no `[Persistent]` attribute — `AreaEntityId` is a runtime-resolved value; its durable form is `RoomTemplate.AreaId` in YAML.
 - `WorldContentLoader.LoadAndSpawnAsync` includes a `LinkRoomAreas` phase (inserted after `PlaceMobsInRooms`) that sweeps all room entities: for YAML-spawned rooms it reads the corresponding `RoomTemplate.AreaId`; for both YAML and live rooms, it resolves the area blueprint to an entity ID via the live blueprint map and sets `RoomComponent.AreaEntityId`. Unresolvable area references log a warning and leave `AreaEntityId = 0` — no crash, no cascade. `ReloadAsync` runs the same phase.
 - A new `IAreaSystem` (domain system, `Core/Modules/World/Systems/`) provides:
   - `IReadOnlyList<uint> GetRoomsInArea(uint areaEntityId)` — scans `EntityService.GetAllComponents<RoomComponent>()`.
@@ -130,7 +130,7 @@ The `rooms` list in the area file is already supported in the template and is th
 
 | Flow | Change |
 |---|---|
-| **flow-01 — Server startup** | Step 7 (`WorldContentLoader.LoadAndSpawnAsync`) extended: a new `LinkRoomAreas` phase runs after `PlaceMobsInRooms`. The Mermaid sequence diagram and step description must be updated in `flow-01-server-startup.md`. |
+| **flow-01 — Server startup** | Step 7 (`WorldContentLoader.LoadAndSpawnAsync`) extended: a new `LinkRoomAreas` phase runs after `PlaceMobsInRooms`. Both the Mermaid sequence diagram (new `WCL->>WCL: LinkRoomAreas` step after `PlaceMobsInRooms`) and the prose step 7 description must be updated in `flow-01-server-startup.md`. |
 | **flow-08 — Admin room creation (`@dig`)** | `@dig` now passes `sourceRoom.AreaEntityId → areaBlueprintId` to `CreateRoom`; the written YAML includes `areaId`. Flow-08 description must be updated. |
 
 No new canonical flow is promoted. `area` and `setarea` follow the standard admin-command shape (flow-03 variant) and do not need a dedicated flow file.
@@ -192,6 +192,8 @@ No new canonical flow is promoted. `area` and `setarea` follow the standard admi
 - World module DI registration
 - `docs/architecture/flows/flow-01-server-startup.md`
 - `docs/architecture/flows/flow-08-admin-room-creation.md`
+- `docs/reference/systems.md` — add `IAreaSystem`/`AreaSystem` entry
+- `docs/reference/components.md` — update `RoomComponent` row to document the new `AreaEntityId` field
 - `Hedron.Tests/` — tests for rows 1–8 in the test plan above
 
 **Dependencies:** none — self-contained.
@@ -225,6 +227,8 @@ No new canonical flow is promoted. `area` and `setarea` follow the standard admi
 - `Core/Modules/Admin/Handlers/AdminAuditHandler.cs`
 - `Core/Systems/RegistryValidationBootstrap.cs` (or wherever the bootstrap lives)
 - `docs/roadmap/backlog.md`
+- `docs/architecture/03-events.md` — add `RoomAreaAssignedByAdminEvent` entry
+- `docs/reference/commands.md` — add rows for `area` and `setarea`
 - `Hedron.Tests/` — tests for rows 9–14 in the test plan above
 
 **Exit criterion:** tests for rows 9–14 pass; `dotnet test` green; a YAML area file with `aspectAffinities` causes `RegistryValidationBootstrap` to fail-fast if the weights don't sum to 100; the `area` command shows rooms and affinities in a running server; `setarea` persists across `@reload`.
