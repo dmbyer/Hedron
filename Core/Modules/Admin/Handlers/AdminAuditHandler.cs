@@ -41,7 +41,8 @@ namespace Hedron.Core.Modules.Admin.Handlers
         IEventHandler<EffectAppliedByAdminEvent>,
         IEventHandler<PlayerRespawnSetByAdminEvent>,
         IEventHandler<AbilityTaughtByAdminEvent>,
-        IEventHandler<RoomAreaAssignedByAdminEvent>
+        IEventHandler<RoomAreaAssignedByAdminEvent>,
+        IEventHandler<AreaCreatedByAdminEvent>
     {
         private readonly EntityService _entityService;
         private readonly ILogger<AdminAuditHandler> _logger;
@@ -179,6 +180,14 @@ namespace Hedron.Core.Modules.Admin.Handlers
             _logger.LogInformation(
                 "AdminCommandExecuted: admin={Admin} command=setarea room={RoomEntityId} blueprint={RoomBlueprintId} area={AreaEntityId} areaBlueprintId={AreaBlueprintId}",
                 ResolveName(e.AdminEntityId), e.RoomEntityId, e.RoomBlueprintId, e.AreaEntityId, e.AreaBlueprintId);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(AreaCreatedByAdminEvent e)
+        {
+            _logger.LogInformation(
+                "AdminCommandExecuted: admin={Admin} command=mkarea area={AreaEntityId} blueprint={BlueprintId}",
+                ResolveName(e.AdminEntityId), e.AreaEntityId, e.BlueprintId);
             return Task.CompletedTask;
         }
 

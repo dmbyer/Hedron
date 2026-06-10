@@ -19,6 +19,7 @@ namespace Hedron.Core.Modules.Admin
             services.AddSingleton<IAdminAuthorizer, AdminAuthorizer>();
             services.AddSingleton<IAuthorizationChecker, AuthorizationChecker>();
             services.AddSingleton<IRoomBuilderSystem, RoomBuilderSystem>();
+            services.AddSingleton<IAreaBuilderSystem, AreaBuilderSystem>();
 
             services.AddSingleton<ICommand, SpawnCommand>();
             services.AddSingleton<ICommand, TeleportCommand>();
@@ -28,6 +29,8 @@ namespace Hedron.Core.Modules.Admin
             services.AddSingleton<ICommand, DefsCommand>();
             services.AddSingleton<ICommand, AreaCommand>();
             services.AddSingleton<ICommand, SetAreaCommand>();
+            services.AddSingleton<ICommand, MkareaCommand>();
+            services.AddSingleton<ICommand, ListCommand>();
 
             services.AddSingleton<AdminAuditHandler>();
             return services;

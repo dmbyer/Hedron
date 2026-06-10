@@ -396,6 +396,34 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 
 ---
 
+### `list`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Admin/Commands/ListCommand.cs`  
+**Description:** Prints a tabular view of all entities of a given type. Accepts `area` or `room` (case-insensitive). Unknown type token → error message. Columns: Name | ShortDesc (first 15 chars) | BlueprintId (entity id if no `BlueprintComponent`). No events fired.  
+**Usage:** `list <area|room>`  
+**Schema:** `Token string "type"` (required: `area` or `room`)  
+**Dependencies:** `EntityService`  
+**Events:** none  
+**RequiredPrivileges:** `AdminRequirement`
+
+---
+
+### `mkarea`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Admin/Commands/MkareaCommand.cs`  
+**Description:** Creates an ad-hoc area entity. Delegates to `IAreaBuilderSystem.CreateArea`; the area gets `AreaComponent` + `BlueprintComponent` (no `PersistentEntity`). Writes the `AreaTemplate` to YAML via `IAreaContentWriter` before publishing the audit event. Prints the blueprint id (format `area.adhoc.<shortid>`) so the admin can configure it with `setarea`.  
+**Usage:** `mkarea [name]`  
+**Schema:** `RestOfLine string "name"` (optional, default `"New Area"`)  
+**Dependencies:** `IAreaBuilderSystem`, `IAreaContentWriter`, `IEventBus`  
+**Events:** `AreaCreatedByAdminEvent`  
+**RequiredPrivileges:** `AdminRequirement`
+
+---
+
 ### `mkitem`
 
 **Aliases:** none  
