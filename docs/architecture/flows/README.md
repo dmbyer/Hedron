@@ -36,6 +36,8 @@
 | 24 | [Ability activation](flow-24-ability-activation.md) | Admin sends `useability` (11-a); player sends `cast`/skill verb (11-b) | Phase 3 slice 11-a (extended 11-b) |
 | 25 | [Skill bare-verb invocation](flow-25-skill-verb-invocation.md) | Player types a skill id/prefix (e.g. `kick`, `ki`) | Phase 3 slice 11-b |
 | 26 | [Offensive ability opens combat](flow-26-offensive-ability-opens-combat.md) | Player casts offensive spell or uses skill against a new target | Phase 3 slice 11-b |
+| 27 | [Admin area creation](flow-27-admin-area-creation.md) | `mkarea [name]` creates an area entity and writes content/areas/<id>.yaml | [flow-27-admin-area-creation.md](flow-27-admin-area-creation.md) |
+| 28 | [Admin entity list](flow-28-admin-entity-list.md) | `list <area\|room>` prints a tabular view of all entities of a given type | [flow-28-admin-entity-list.md](flow-28-admin-entity-list.md) |
 
 Flows that don't yet exist (mob wander tick, etc.) get added by the slice that introduces them.
 

@@ -24,6 +24,7 @@ namespace Hedron.Core.Modules.World
             services.AddSingleton<IContentSerializer, YamlContentSerializer>();
             services.AddSingleton<IWorldContentLoader, WorldContentLoader>();
             services.AddSingleton<IRoomContentWriter, RoomContentWriter>();
+            services.AddSingleton<IAreaContentWriter, AreaContentWriter>();
             services.AddSingleton<IAreaSystem, AreaSystem>();
 
             // Per-kind deserializers — the World module owns the room/area kinds. Future

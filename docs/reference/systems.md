@@ -248,6 +248,18 @@ public interface IAreaSystem
 ```
 Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RoomBuilderSystem` (when creating a room with an area) and `DigCommand` (inheriting the source room's area). Implemented (Phase 3, area-model WP-1).
 
+### IAreaContentWriter
+**Purpose:** Serializes an `AreaTemplate` to YAML at `{contentDirectory}/areas/{blueprintId}.yaml` using an atomic write (tmp → rename). Symmetric write path for `AreaTemplateDeserializer`. Called by admin commands that create area blueprint definitions.
+**Location:** `Core/Modules/World/Systems/IAreaContentWriter.cs` (interface) · `Core/Modules/World/Systems/AreaContentWriter.cs` (implementation)
+**Dependencies:** `IConfiguration`.
+```csharp
+public interface IAreaContentWriter
+{
+    Task WriteAsync(AreaTemplate template, CancellationToken ct = default);
+}
+```
+Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `MkareaCommand` after `IAreaBuilderSystem.CreateArea` returns (INV-5: the system never calls persistence). Implemented (Phase 3 admin-area-authoring WP-1).
+
 ### AccountSystem
 **Purpose:** Domain system owning all account and character lifecycle operations: registration, authentication, character creation, character list, and logout recording.
 **Location:** `Core/Modules/Account/Systems/AccountSystem.cs`
@@ -282,6 +294,23 @@ public interface IRoomBuilderSystem
 public readonly record struct RoomCreationResult(uint RoomEntityId, string BlueprintId);
 ```
 `CreateRoom` generates a unique blueprint id (`room.adhoc.<8-char-base36>`), creates the entity, attaches `RoomComponent` + `BlueprintComponent` (no `PersistentEntity`), and registers a `RoomTemplate`. When `areaId` is non-empty it sets `RoomTemplate.AreaId` and calls `IAreaSystem.AssignRoomToArea` to set `RoomComponent.AreaEntityId` immediately. `LinkExits` updates both `RoomComponent.Exits` and the in-memory `RoomTemplate` exit maps for same-session `reload` consistency. The `DigCommand` initiator writes YAML for both rooms after this method returns (INV-5: systems do not call persistence). Implemented (Phase 3 slices 5a, persistence-two-level-model, area-model WP-1).
+
+### AreaBuilderSystem
+**Purpose:** Runtime area authoring — creates ad-hoc area entities. Mirrors `IRoomBuilderSystem`: all methods mutate ECS state only; event publication and YAML writing remain in the command (INV-5). No `IAreaSystem` or `IEventBus` dependency.
+**Location:** `Core/Modules/Admin/Systems/AreaBuilderSystem.cs`
+**Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<AreaBuilderSystem>`.
+```csharp
+public interface IAreaBuilderSystem
+{
+    AreaCreationResult CreateArea(string name);
+}
+
+public readonly record struct AreaCreationResult(
+    uint AreaEntityId,
+    string BlueprintId,
+    AreaTemplate Template);
+```
+`CreateArea` generates a unique blueprint id (`area.adhoc.<8-char-base36>`), creates the entity, attaches `AreaComponent` + `BlueprintComponent` (no `PersistentEntity`), and registers a minimal `AreaTemplate` (empty description, RespawnRate=0, Pvp=false). The `MkareaCommand` initiator writes YAML after this method returns (INV-5). Implemented (Phase 3 admin-area-authoring WP-2).
 
 ### ItemSystem
 **Purpose:** Query and mutation operations on item entities — finds items in a room or inventory by entity id, prefix-matches a token against item names and keywords, and moves items between ground and inventory. Mutation methods are pure ECS mutations; no event publication, no persistence calls.
