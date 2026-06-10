@@ -53,6 +53,10 @@ The combat-flavored ability mechanics 11-b deliberately deferred: **hit/miss/par
 
 Slice 11-c ([`../use-cases/resource-regeneration.md`](../use-cases/resource-regeneration.md)) ships flat, **hardcoded** out-of-combat regeneration (idle 1/pool/3-ticks; resting ~3×) so ability resource costs are recoverable. Surfacing the rates as configuration — and the richer model (per-area/terrain rates, stat-derived regen, food/effect interaction, a "fully rested" notification) — is a dedicated regeneration use-case that depends on a more robust configuration model (a separate backlog concern). Until then the constants live isolated in `RegenerationSystem` for a cheap later promotion.
 
+### 🔵 Tabular output helper — defer until third consumer
+
+Acknowledged debt from the admin-area-authoring slice (`docs/use-cases/admin-area-authoring.md`). `ListCommand` hand-rolls `StringBuilder`-based tabular output (header + rows, 15-char description truncation). Two admin commands now share this pattern (`AreaCommand` produces a similar structured listing; `ListCommand` is the second). At the third consumer, extract a shared `TableBuilder` or `ColumnFormatter` helper (INV-19: ≥3-consumer threshold). Until then the inline implementation is intentional.
+
 ### 🔵 Locale enhancements
 
 Deferred from slice 5a (bare-bones content spawning). Remaining capabilities:
