@@ -152,7 +152,18 @@ public static class CompositionRoot
         services.AddDeathModule();
         services.AddRegenerationModule();
 
-        // Hosted services — order matters.
+        return services;
+    }
+
+    /// <summary>
+    /// Composes the hosted services for the full gameplay host (the telnet server): startup
+    /// bootstraps, the periodic persistence flush, the telnet listener, and the heartbeat.
+    /// Kept separate from <see cref="Register"/> (which is pure DI) so that other hosts — e.g.
+    /// the content-authoring web host — compose their own hosted-service set without inheriting
+    /// the heartbeat/listener. Order matters: bootstraps run before the listener and heartbeat.
+    /// </summary>
+    public static IServiceCollection AddGameplayHostedServices(this IServiceCollection services)
+    {
         services.AddHostedService<PersistenceBootstrap>();
         services.AddHostedService<WorldContentBootstrap>();
         services.AddHostedService<RegistryValidationBootstrap>();

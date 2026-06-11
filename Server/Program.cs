@@ -45,6 +45,7 @@ public static class Program
             .ConfigureServices((context, services) =>
             {
                 services.Register(context.Configuration);
+                services.AddGameplayHostedServices();
             })
             .Build();
 
