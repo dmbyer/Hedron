@@ -45,6 +45,7 @@ After wiring, verify:
 - Every event listed in the use-case doc's "Events fired" has a real handler subscribed.
 - Every system listed in "Systems / handlers" has the method signatures the flow calls.
 - The handler priorities cohere: state mutations before notifications before persistence.
+- If the slice changed how the app is **run or configured** — a new project or run-mode, a new/changed CLI argument, a new/renamed config section or key, or a changed default port/bind or build/run path — update [`README.md`](../../../README.md) to match. Keep it high-level; specific config values live in `appsettings.json`, not the README.
 
 ## If the use-case doc is wrong
 
