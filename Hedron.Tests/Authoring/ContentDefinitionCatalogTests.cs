@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using Hedron.Core;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Abilities;
@@ -11,8 +12,10 @@ using Hedron.Core.Modules.Authoring.Systems;
 using Hedron.Core.Modules.Effects;
 using Hedron.Core.Modules.Items;
 using Hedron.Core.Modules.Items.Systems;
+using Hedron.Core.Modules.Items.Templates;
 using Hedron.Core.Modules.Mobs;
 using Hedron.Core.Modules.Mobs.Systems;
+using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.World;
 using Hedron.Core.Modules.World.Systems;
 using Hedron.Core.Modules.World.Templates;
@@ -139,6 +142,76 @@ namespace Hedron.Tests.Authoring
 
             var loaded = catalog.Load(ContentKind.Room, def.BlueprintId);
             Assert.Equal("Round Room", ((RoomTemplate)loaded!.Template).Name);
+        }
+
+        [Fact]
+        public async Task SaveAsync_WritesValidDefinition_RoundTrips_Item()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var def = catalog.CreateNew(ContentKind.Item, "Round Sword");
+            var item = (ItemTemplate)def.Template;
+            item.Description = "A keen blade.";
+            item.Keywords = new List<string> { "sword", "blade" };
+            item.ItemType = ItemType.Weapon;
+            item.WornSlots = new List<WornSlot> { WornSlot.MainHand };
+            item.DamageBonus = 7;
+            item.SpawnRoomBlueprintId = "room.adhoc.abc";
+
+            var result = await catalog.SaveAsync(def);
+            Assert.True(result.Success);
+
+            var loaded = catalog.Load(ContentKind.Item, def.BlueprintId);
+            var roundTripped = Assert.IsType<ItemTemplate>(loaded!.Template);
+            Assert.Equal("Round Sword", roundTripped.Name);
+            Assert.Equal("A keen blade.", roundTripped.Description);
+            Assert.Equal(new[] { "sword", "blade" }, roundTripped.Keywords);
+            Assert.Equal(ItemType.Weapon, roundTripped.ItemType);
+            Assert.Equal(new[] { WornSlot.MainHand }, roundTripped.WornSlots);
+            Assert.Equal(7, roundTripped.DamageBonus);
+            Assert.Equal("room.adhoc.abc", roundTripped.SpawnRoomBlueprintId);
+        }
+
+        [Fact]
+        public async Task SaveAsync_WritesValidDefinition_RoundTrips_Mob()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var def = catalog.CreateNew(ContentKind.Mob, "Round Goblin");
+            var mob = (MobTemplate)def.Template;
+            mob.Description = "A snarling goblin.";
+            mob.Keywords = new List<string> { "goblin", "snarl" };
+            mob.MobType = MobType.Creature;
+            mob.SpawnRoomBlueprintId = "room.adhoc.def";
+            mob.Level = 5;
+            mob.MaxHp = 120;
+            mob.Mind = 11;
+            mob.Body = 12;
+            mob.Spirit = 13;
+            mob.Attunement = 14;
+            mob.MaxMana = 60;
+            mob.MaxStamina = 70;
+            mob.MaxAstra = 15;
+
+            var result = await catalog.SaveAsync(def);
+            Assert.True(result.Success);
+
+            var loaded = catalog.Load(ContentKind.Mob, def.BlueprintId);
+            var roundTripped = Assert.IsType<MobTemplate>(loaded!.Template);
+            Assert.Equal("Round Goblin", roundTripped.Name);
+            Assert.Equal("A snarling goblin.", roundTripped.Description);
+            Assert.Equal(new[] { "goblin", "snarl" }, roundTripped.Keywords);
+            Assert.Equal(MobType.Creature, roundTripped.MobType);
+            Assert.Equal("room.adhoc.def", roundTripped.SpawnRoomBlueprintId);
+            Assert.Equal(5, roundTripped.Level);
+            Assert.Equal(120, roundTripped.MaxHp);
+            Assert.Equal(11, roundTripped.Mind);
+            Assert.Equal(12, roundTripped.Body);
+            Assert.Equal(13, roundTripped.Spirit);
+            Assert.Equal(14, roundTripped.Attunement);
+            Assert.Equal(60, roundTripped.MaxMana);
+            Assert.Equal(70, roundTripped.MaxStamina);
+            Assert.Equal(15, roundTripped.MaxAstra);
         }
 
         [Fact]

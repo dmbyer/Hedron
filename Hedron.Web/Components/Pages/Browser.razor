@@ -7,8 +7,7 @@
 <h1>Content browser</h1>
 
 <p class="hint">
-    Lists the authored YAML definitions on disk. Areas and rooms are editable; items and mobs are
-    list/read-only in this release.
+    Lists the authored YAML definitions on disk. All four content kinds are editable.
 </p>
 
 <div class="kind-tabs">
@@ -21,14 +20,7 @@
 </div>
 
 <div class="kind-toolbar">
-    @if (IsEditable(_kind))
-    {
-        <button class="primary" @onclick="CreateNew">+ New @_kind</button>
-    }
-    else
-    {
-        <span class="readonly-note">@_kind editing arrives in a later release (read-only here).</span>
-    }
+    <button class="primary" @onclick="CreateNew">+ New @_kind</button>
 </div>
 
 @if (_summaries.Count == 0)
@@ -54,10 +46,7 @@ else
                     <td>@s.Name</td>
                     <td class="desc">@Short(s.Description)</td>
                     <td>
-                        @if (IsEditable(_kind))
-                        {
-                            <a href="@EditHref(s.BlueprintId)">Edit</a>
-                        }
+                        <a href="@EditHref(s.BlueprintId)">Edit</a>
                     </td>
                 </tr>
             }
@@ -84,16 +73,20 @@ else
 
     private int CountFor(ContentKind kind) => Catalog.List(kind).Count;
 
-    private static bool IsEditable(ContentKind kind) =>
-        kind is ContentKind.Area or ContentKind.Room;
+    private static string RouteSegment(ContentKind kind) => kind switch
+    {
+        ContentKind.Area => "area",
+        ContentKind.Room => "room",
+        ContentKind.Item => "item",
+        ContentKind.Mob => "mob",
+        _ => "area",
+    };
 
     private void CreateNew() =>
-        Nav.NavigateTo(_kind == ContentKind.Area ? "area/new" : "room/new");
+        Nav.NavigateTo($"{RouteSegment(_kind)}/new");
 
     private string EditHref(string blueprintId) =>
-        _kind == ContentKind.Area
-            ? $"area/{Uri.EscapeDataString(blueprintId)}"
-            : $"room/{Uri.EscapeDataString(blueprintId)}";
+        $"{RouteSegment(_kind)}/{Uri.EscapeDataString(blueprintId)}";
 
     private static string Short(string description) =>
         string.IsNullOrEmpty(description) || description.Length <= 80

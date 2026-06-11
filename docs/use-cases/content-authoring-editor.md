@@ -1,6 +1,6 @@
 # Use Case: Offline Blazor Content-Authoring Editor (T2)
 
-**Status:** planned
+**Status:** implemented (WP-1 + WP-2 + WP-3 landed)
 **Actors:** Content designer / Administrator (offline, at a localhost browser)
 **Module:** new `Core/Modules/Authoring/` (`IContentDefinitionCatalog` facade + per-kind definition operations); new `Core/Modules/World/Systems/IContentValidator` factored from `RegistryValidationBootstrap`; new `Hedron.Web` Blazor Server host (boots the engine via `CompositionRoot.Register`); reuses the existing `I*ContentWriter` family, `*TemplateDeserializer`s, `IContentSerializer`, `ITemplateRegistry`, and the `reload` Initiator.
 
@@ -40,7 +40,7 @@ The editor re-implements **no** authoring logic. All read/list/load/edit/validat
 - **No live-world mutation from the editor.** The catalog reads/writes YAML only. It never calls `EntityService.CreateEntity`, never adds `PersistentEntity`, never calls `SaveEntityAsync`. Apply-to-live is solely via `reload`.
 - **Split hosted-service registration — ✅ landed in S0 (shared prereq).** `CompositionRoot.Register` is DI-only; the six `AddHostedService` calls live in `CompositionRoot.AddGameplayHostedServices(services)`, which `Server/Program.cs` calls. `Server` behavior is unchanged (guarded by `Hedron.Tests/Composition/HostCompositionTests.cs`). WP-2 adds only the web host's **trimmed** hosted-service composition (bootstraps-only, no telnet/heartbeat) — e.g. a sibling `AddContentBootstrapHostedServices()` or inline in `Hedron.Web`'s `Program.cs`. This is the seam that scales one process to the deferred three-suite superset.
 - **Blazor host.** New project `Hedron.Web` (`Microsoft.NET.Sdk.Web`) boots the engine via `CompositionRoot.Register(...)`, composes **bootstraps-only** hosted services (content load + registry validation — no telnet, no heartbeat), adds Blazor Server services, and **binds loopback-only** (`http://127.0.0.1:<port>`). `Server` is unchanged and still runs headless telnet-only.
-- **Editor surfaces.** Blazor pages: a content browser (list all four kinds), a definition editor for **areas and rooms** (load → edit fields → validate → save), a "Create new" flow for areas and rooms, and an "Apply to live (reload)" action that calls the reload path and shows the `ContentReloadResult` counts. Items and mobs are **list/read-only** in this slice (full edit lands in WP-3).
+- **Editor surfaces.** Blazor pages: a content browser (list all four kinds), a definition editor for **all four kinds** (load → edit fields → validate → save; areas/rooms in WP-2, items/mobs in WP-3), a "Create new" flow per kind, and an "Apply to live (reload)" action that calls the reload path and shows the `ContentReloadResult` counts.
 - **Catalog reload coupling.** The editor's "Apply to live" calls a thin caller of `IWorldContentLoader.ReloadAsync` and renders the counts. No new event type is introduced; if the reload runs in a context with an admin identity, the existing `ContentReloadedEvent` is reused (publishing belongs to the Initiator, not the catalog — INV-5).
 - **No event subscriptions in the web host (v1).** `Hedron.Web` composes **no** `bus.Subscribe(...)` wiring (all of which lives in `Server/Program.cs` today). This is deliberate: authoring is off the bus, the host runs no heartbeat/combat/session handlers, and it spawns no players to hydrate. The apply step's `reload` publishes `ContentReloadedEvent` from its Initiator, but the web host need not subscribe any handler to it for v1. (When the deferred player/admin suites land, they add their own subscriptions to this host's composition.)
 - **Docs.** `docs/architecture/flows/README.md` gains Flow 30 (offline content edit → save → apply). `docs/reference/systems.md` gains `IContentDefinitionCatalog` (Authoring) and `IContentValidator` (World). `docs/documentation-architecture.md` / module map notes the new `Hedron.Web` host. `docs/reference/components.md` is unchanged (no new components).
@@ -109,7 +109,7 @@ No events from `IContentDefinitionCatalog` or `IContentValidator` (domain system
 
 **Out of scope:** Blazor, the web host, any UI.
 
-### WP-2 — `Hedron.Web` Blazor host + areas/rooms editing (depends on WP-1)
+### WP-2 — `Hedron.Web` Blazor host + areas/rooms editing (depends on WP-1) — ✅ implemented
 
 **Scope:** Stand up the in-process Blazor Server host and the first edit surfaces.
 
@@ -124,7 +124,9 @@ No events from `IContentDefinitionCatalog` or `IContentValidator` (domain system
 
 **Out of scope:** items/mobs editing; any live-world mutation; player-facing UI / SignalR.
 
-### WP-3 — Items & mobs editing (fast-follow; depends on WP-2)
+### WP-3 — Items & mobs editing (fast-follow; depends on WP-2) — ✅ implemented
+
+> **Status:** landed. `Hedron.Web/Components/Pages/ItemEditor.razor` (`/item/new`, `/item/{id}`) and `MobEditor.razor` (`/mob/new`, `/mob/{id}`) mirror the area/room editors (`CreateNew`/`Load` → bind fields → `SaveAsync`, inline `ContentWriteResult.Errors`). Item fields: name, description, keywords (CSV), item type (dropdown), worn slots (checkboxes), damage bonus, spawn-room id. Mob fields: name, description, keywords (CSV), mob type (dropdown), level, attributes (mind/body/spirit/attunement), pools (max hp/mana/stamina/astra), spawn-room id. `Browser.razor` now links all four kinds to their editors (read-only gate removed). Catalog/writer round-trip coverage added for item + mob: `SaveAsync_WritesValidDefinition_RoundTrips_Item` and `…_Mob` in `Hedron.Tests/Authoring/ContentDefinitionCatalogTests.cs`. No new seam, no backend change (catalog already dispatched all four kinds). Build + 619 tests green. Flow 30 already covers the generic edit→save→apply loop; no new flow needed.
 
 **Scope:** Extend the editor with item and mob create/edit/write using the same catalog (`ContentKind.Item`, `ContentKind.Mob`), the same `I*ContentWriter`s, and the same validation/apply flow. No new seams — purely additional Blazor editor pages + catalog DTO coverage for the item/mob template field shapes.
 
