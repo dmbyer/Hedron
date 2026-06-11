@@ -86,7 +86,7 @@ Precedents: `AspectRegistry` (enum key) · `AbilityRegistry` · `EffectRegistry`
 ## Steps
 
 1. Create `Core/Systems/<X>System.cs` + interface `I<X>System.cs`.
-2. Register as a singleton in the root DI composition (`Server/Program.cs`, or a dedicated `AddCoreSystems(IServiceCollection)` extension invoked from it).
+2. Register as a singleton in the shared engine DI composition (`Server/CompositionRoot.Register`, or a dedicated `Add*Module(IServiceCollection)` extension it calls). **`Register` is pure DI and is the single composition both hosts boot** — the telnet `Server` and the Blazor authoring `Hedron.Web`. Register the system once here and both hosts get it; do **not** add it per-host. (Only *hosted services* are composed per-host — `AddGameplayHostedServices` for `Server`, `AddContentBootstrapHostedServices` for `Hedron.Web` — never in `Register`. A plain core system is not a hosted service.)
 3. Add signature to [docs/reference/systems.md](../../../docs/reference/systems.md) under the **Core systems** heading.
 
 ## Anti-patterns

@@ -43,14 +43,14 @@ The editor re-implements **no** authoring logic. All read/list/load/edit/validat
 - **Editor surfaces.** Blazor pages: a content browser (list all four kinds), a definition editor for **areas and rooms** (load → edit fields → validate → save), a "Create new" flow for areas and rooms, and an "Apply to live (reload)" action that calls the reload path and shows the `ContentReloadResult` counts. Items and mobs are **list/read-only** in this slice (full edit lands in WP-3).
 - **Catalog reload coupling.** The editor's "Apply to live" calls a thin caller of `IWorldContentLoader.ReloadAsync` and renders the counts. No new event type is introduced; if the reload runs in a context with an admin identity, the existing `ContentReloadedEvent` is reused (publishing belongs to the Initiator, not the catalog — INV-5).
 - **No event subscriptions in the web host (v1).** `Hedron.Web` composes **no** `bus.Subscribe(...)` wiring (all of which lives in `Server/Program.cs` today). This is deliberate: authoring is off the bus, the host runs no heartbeat/combat/session handlers, and it spawns no players to hydrate. The apply step's `reload` publishes `ContentReloadedEvent` from its Initiator, but the web host need not subscribe any handler to it for v1. (When the deferred player/admin suites land, they add their own subscriptions to this host's composition.)
-- **Docs.** `docs/architecture/flows/README.md` gains Flow 29 (offline content edit → save → apply). `docs/reference/systems.md` gains `IContentDefinitionCatalog` (Authoring) and `IContentValidator` (World). `docs/documentation-architecture.md` / module map notes the new `Hedron.Web` host. `docs/reference/components.md` is unchanged (no new components).
+- **Docs.** `docs/architecture/flows/README.md` gains Flow 30 (offline content edit → save → apply). `docs/reference/systems.md` gains `IContentDefinitionCatalog` (Authoring) and `IContentValidator` (World). `docs/documentation-architecture.md` / module map notes the new `Hedron.Web` host. `docs/reference/components.md` is unchanged (no new components).
 - **Agent tooling (INV-20).** The split hosted-service registration + the second engine host make the "register in `Server/Program.cs`" / "root DI composition" guidance in `.claude/skills/add-core-system/SKILL.md` (step 2) and `.claude/skills/add-domain-system/SKILL.md` (step 2) stale. Both are updated in this slice (WP-2 task) to note (a) the engine now has **two hosts** (`Server`, `Hedron.Web`) booting via the shared `CompositionRoot.Register`, and (b) **hosted services are composed per-host, not in `Register`** — a new hosted service is added to each host's set, not to `Register`.
 
 ---
 
 ## Main Flow
 
-### Flow 29 — Offline content edit → save → apply (`Hedron.Web`)
+### Flow 30 — Offline content edit → save → apply (`Hedron.Web`)
 
 1. **Browse.** Designer opens the loopback Blazor app; the browser page calls `IContentDefinitionCatalog.List(kind)` for the selected kind and renders the table (id | name | short-desc).
 2. **Load.** Designer picks a definition; the editor page calls `Load(kind, blueprintId)`, deserializing the YAML into an editable `ContentDefinition` DTO bound to the form.
@@ -117,7 +117,7 @@ No events from `IContentDefinitionCatalog` or `IContentValidator` (domain system
 - `Hedron.Web/appsettings.json` — same content/world config the engine consumes.
 - Blazor components: content **browser** (lists all four kinds via `List`), **area editor**, **room editor** (load → edit → validate → save via the catalog), **create-new** for area + room, **apply-to-live** action (thin caller of `ReloadAsync`, renders counts).
 - **Host hosted-service set (split registration — already landed in S0).** `CompositionRoot.Register` is pure DI; `CompositionRoot.AddGameplayHostedServices` holds the six gameplay hosted services and is called by `Server`. **This WP-2 task is only to compose `Hedron.Web`'s trimmed set:** bootstraps only (content load + registry validation, so the validator's live-scan has data) — run **neither** `TelnetServer` nor `HeartbeatBackgroundService`. Add a sibling composer (e.g. `AddContentBootstrapHostedServices`) or compose inline in `Hedron.Web`'s `Program.cs`. A host-role *flag inside* `Register` was rejected (it grows a conditional arm per host; three surfaces are planned). This split is the seam that lets the same `Hedron.Web` process later compose the **superset** (engine + heartbeat + SignalR player sessions + admin) without reshaping `Register`. See Design notes.
-- `docs/architecture/flows/README.md` + `flow-29-offline-content-edit.md`; `docs/reference/systems.md` rows; module-map note for `Hedron.Web`.
+- `docs/architecture/flows/README.md` + `flow-30-offline-content-edit.md`; `docs/reference/systems.md` rows; module-map note for `Hedron.Web`.
 - **Update `.claude/skills/add-core-system/SKILL.md` and `.claude/skills/add-domain-system/SKILL.md`** (step 2 in each) for the two-host / per-host hosted-service reality (INV-20 — see Postconditions "Agent tooling").
 
 **Exit criterion:** `dotnet build` green for the new host; launching `Hedron.Web` on loopback lets a designer create + edit an area and a room, save YAML, and apply via reload. Blazor components are presentation/skip-tier (no unit tests — see Test Plan).
@@ -173,9 +173,9 @@ No events from `IContentDefinitionCatalog` or `IContentValidator` (domain system
 
 | # | Flow | Change |
 |---|---|---|
-| 29 | Offline content edit → save → apply | New — append row to `flows/README.md`; create `flow-29-offline-content-edit.md`. |
+| 30 | Offline content edit → save → apply | New — append row to `flows/README.md`; create `flow-30-offline-content-edit.md`. (Flow 29 is the bulk-generation slice.) |
 
-Flow 29 reuses Flow 5 (content reload) as its apply leg — the new flow links to Flow 5 rather than redefining it. No existing flow is modified (the reload path is unchanged; the editor is a new front door to it).
+Flow 30 reuses Flow 5 (content reload) as its apply leg — the new flow links to Flow 5 rather than redefining it. No existing flow is modified (the reload path is unchanged; the editor is a new front door to it).
 
 ---
 

@@ -1,0 +1,67 @@
+@page "/apply"
+@using Hedron.Core.Modules.World.Systems
+@inject IWorldContentLoader Loader
+
+<PageTitle>Apply to live</PageTitle>
+
+<h1>Apply to live (reload)</h1>
+
+<p class="hint">
+    Re-derives world content from the YAML on disk into this authoring host's preview world via the
+    existing <span class="mono">reload</span> path. Newly authored templates are seeded; existing live
+    entities are not mutated.
+</p>
+
+<div class="callout">
+    <strong>File-only limitation.</strong> This reload runs inside the authoring host's process &mdash;
+    a preview/validation world with no heartbeat. It does not push to a separately running game server;
+    that remains a separate reload/restart on the server side.
+</div>
+
+<div class="actions">
+    <button class="primary" disabled="@_running" @onclick="Run">
+        @(_running ? "Reloading..." : "Apply to live")
+    </button>
+</div>
+
+@if (_result is { } r)
+{
+    <table class="grid result">
+        <tbody>
+            <tr><th>Templates loaded</th><td>@r.TemplatesLoaded</td></tr>
+            <tr><th>Templates unchanged</th><td>@r.TemplatesUnchanged</td></tr>
+            <tr><th>Templates removed</th><td>@r.TemplatesRemoved</td></tr>
+        </tbody>
+    </table>
+}
+
+@if (_error is not null)
+{
+    <p class="error">Reload failed: @_error</p>
+}
+
+@code {
+    private bool _running;
+    private ContentReloadResult? _result;
+    private string? _error;
+
+    private async Task Run()
+    {
+        _running = true;
+        _result = null;
+        _error = null;
+
+        try
+        {
+            _result = await Loader.ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+}

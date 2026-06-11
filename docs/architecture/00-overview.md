@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Hedron is a C# MUD engine targeting .NET 8. `Server/` is a generic-host console app that runs the telnet listener and owns DI composition; `Core/` holds the engine (ECS, systems, handlers, events, commands). The architecture is **event-driven, ECS-based, and layered**.
+Hedron is a C# MUD engine targeting .NET 8. The engine (`Core/` — ECS, systems, handlers, events, commands) is composed by `Server/CompositionRoot.Register` (pure DI), which **two hosts** boot: `Server/` — a generic-host console app that runs the telnet listener and the heartbeat (`AddGameplayHostedServices`); and `Hedron.Web/` — an in-process `Microsoft.NET.Sdk.Web` Blazor Server host for offline content authoring that runs **bootstraps only** (`AddContentBootstrapHostedServices` — content load + registry validation, no telnet/heartbeat/persistence), binds loopback-only, and writes YAML via `IContentDefinitionCatalog` (never mutating the live world). Hosted services are composed **per-host**, not in `Register`. The architecture is **event-driven, ECS-based, and layered**.
 
 > **Note on idealized API.** The architecture docs describe the target API (e.g. `EcsManager.World`, `EntityWorld`, `IEventBus`). The codebase is being rebuilt against this target — see [docs/roadmap/plan.md](../roadmap/plan.md) for the phase sequence. **Write new code against the idealized API; legacy code outside the keep list is reference material only.**
 

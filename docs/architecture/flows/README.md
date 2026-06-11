@@ -39,6 +39,7 @@
 | 27 | [Admin area creation](flow-27-admin-area-creation.md) | `mkarea [name]` creates an area entity and writes content/areas/<id>.yaml | [flow-27-admin-area-creation.md](flow-27-admin-area-creation.md) |
 | 28 | [Admin entity list](flow-28-admin-entity-list.md) | `list <area\|room>` prints a tabular view of all entities of a given type | [flow-28-admin-entity-list.md](flow-28-admin-entity-list.md) |
 | 29 | [Headless bulk content generation](flow-29-bulk-content-generation.md) | `dotnet run --project Server -- generate --profile <path> [--seed N]` | [flow-29-bulk-content-generation.md](flow-29-bulk-content-generation.md) |
+| 30 | [Offline content edit → save → apply](flow-30-offline-content-edit.md) | Designer edits/creates an area or room in the loopback `Hedron.Web` Blazor editor | content-authoring-editor (WP-2) |
 
 Flows that don't yet exist (mob wander tick, etc.) get added by the slice that introduces them.
 

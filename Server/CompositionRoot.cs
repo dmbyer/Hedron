@@ -173,4 +173,32 @@ public static class CompositionRoot
 
         return services;
     }
+
+    /// <summary>
+    /// Composes the hosted services for the content-authoring web host (<c>Hedron.Web</c>): only
+    /// the two startup bootstraps that give the editor and the on-demand validator data to work
+    /// against — <see cref="WorldContentBootstrap"/> (load + register the authored YAML so the
+    /// catalog/preview and registry validation have content) and <see cref="RegistryValidationBootstrap"/>
+    /// (fail-fast on bad content at boot).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Deliberately registers <b>neither</b> <c>PersistenceBootstrap</c>/<c>PersistenceFlushTimer</c>
+    /// (no SQLite — authoring writes YAML only), <c>TelnetServer</c> (no players), nor
+    /// <c>HeartbeatBackgroundService</c> (authoring is off the tick). The web host re-derives a
+    /// preview/validation world from YAML; it never marshals world-mutating work onto a game loop.
+    /// </para>
+    /// <para>
+    /// This is the sibling of <see cref="AddGameplayHostedServices"/>: <see cref="Register"/> stays
+    /// pure DI and each host composes its own hosted-service set, so the same process can later scale
+    /// from authoring-only to the full engine + web superset without reshaping the shared registration.
+    /// </para>
+    /// </remarks>
+    public static IServiceCollection AddContentBootstrapHostedServices(this IServiceCollection services)
+    {
+        services.AddHostedService<WorldContentBootstrap>();
+        services.AddHostedService<RegistryValidationBootstrap>();
+
+        return services;
+    }
 }

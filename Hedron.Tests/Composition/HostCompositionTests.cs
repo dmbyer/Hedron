@@ -40,5 +40,31 @@ namespace Hedron.Tests.Composition
             Assert.Contains("HeartbeatBackgroundService", implementationTypeNames);
             Assert.Equal(6, implementationTypeNames.Count);
         }
+
+        [Fact]
+        public void AddContentBootstrapHostedServices_RegistersBootstrapsOnly()
+        {
+            var services = new ServiceCollection();
+
+            services.AddContentBootstrapHostedServices();
+
+            var implementationTypeNames = services
+                .Where(d => d.ServiceType == typeof(IHostedService))
+                .Select(d => d.ImplementationType?.Name)
+                .ToHashSet();
+
+            // The web authoring host composes only the two startup bootstraps that give the catalog,
+            // preview, and registry validation data to work against.
+            Assert.Contains("WorldContentBootstrap", implementationTypeNames);
+            Assert.Contains("RegistryValidationBootstrap", implementationTypeNames);
+
+            // It must run neither the telnet listener, the heartbeat, nor any persistence service:
+            // authoring is off the tick and never touches SQLite.
+            Assert.DoesNotContain("TelnetServer", implementationTypeNames);
+            Assert.DoesNotContain("HeartbeatBackgroundService", implementationTypeNames);
+            Assert.DoesNotContain("PersistenceFlushTimer", implementationTypeNames);
+            Assert.DoesNotContain("PersistenceBootstrap", implementationTypeNames);
+            Assert.Equal(2, implementationTypeNames.Count);
+        }
     }
 }

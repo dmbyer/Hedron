@@ -1,0 +1,142 @@
+@page "/room/new"
+@page "/room/{BlueprintId}"
+@using Hedron.Core
+@using Hedron.Core.Modules.World.Templates
+@inject IContentDefinitionCatalog Catalog
+@inject NavigationManager Nav
+
+<PageTitle>@(IsNew ? "New room" : "Edit room")</PageTitle>
+
+<h1>@(IsNew ? "New room" : "Edit room")</h1>
+
+@if (_notFound)
+{
+    <p class="error">No room definition with id <span class="mono">@BlueprintId</span> was found.</p>
+    <a href="">Back to browser</a>
+}
+else if (_template is not null)
+{
+    <p class="mono blueprint-id">@_template.BlueprintId</p>
+
+    <div class="field">
+        <label>Name</label>
+        <input @bind="_template.Name" />
+    </div>
+
+    <div class="field">
+        <label>Area id <span class="hint-inline">(target area blueprint id)</span></label>
+        <input @bind="_template.AreaId" />
+    </div>
+
+    <div class="field">
+        <label>Description</label>
+        <textarea rows="4" @bind="_template.Description"></textarea>
+    </div>
+
+    <fieldset class="exits">
+        <legend>Exits</legend>
+        @foreach (var dir in AllDirections)
+        {
+            <div class="field-row exit">
+                <label class="exit-label">@dir</label>
+                <input placeholder="target room blueprint id" value="@ExitFor(dir)"
+                       @onchange="e => SetExit(dir, e.Value?.ToString())" />
+            </div>
+        }
+        <p class="hint">Leave a direction blank for no exit. Values are target room blueprint ids.</p>
+    </fieldset>
+
+    @if (_errors.Count > 0)
+    {
+        <div class="error-box">
+            <strong>Cannot save &mdash; validation failed:</strong>
+            <ul>
+                @foreach (var err in _errors)
+                {
+                    <li>@err</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (_saved)
+    {
+        <p class="success">Saved <span class="mono">@_template.BlueprintId</span> to YAML.</p>
+    }
+
+    <div class="actions">
+        <button class="primary" disabled="@_saving" @onclick="Save">
+            @(_saving ? "Saving..." : "Save")
+        </button>
+        <a class="cancel" href="">Back to browser</a>
+    </div>
+}
+
+@code {
+    [Parameter] public string? BlueprintId { get; set; }
+
+    private static readonly Direction[] AllDirections = Enum.GetValues<Direction>();
+
+    private RoomTemplate? _template;
+    private bool _notFound;
+    private bool _saving;
+    private bool _saved;
+    private IReadOnlyList<string> _errors = Array.Empty<string>();
+
+    private bool IsNew => string.IsNullOrEmpty(BlueprintId);
+
+    protected override void OnParametersSet()
+    {
+        _saved = false;
+        _errors = Array.Empty<string>();
+
+        if (IsNew)
+        {
+            _template = (RoomTemplate)Catalog.CreateNew(ContentKind.Room, "New Room").Template;
+            _notFound = false;
+        }
+        else
+        {
+            var definition = Catalog.Load(ContentKind.Room, BlueprintId!);
+            _template = definition?.Template as RoomTemplate;
+            _notFound = _template is null;
+        }
+    }
+
+    private string ExitFor(Direction dir) =>
+        _template is not null && _template.Exits.TryGetValue(dir, out var target) ? target : string.Empty;
+
+    private void SetExit(Direction dir, string? raw)
+    {
+        if (_template is null) return;
+        var target = raw?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrEmpty(target))
+            _template.Exits.Remove(dir);
+        else
+            _template.Exits[dir] = target;
+    }
+
+    private async Task Save()
+    {
+        if (_template is null) return;
+
+        _saving = true;
+        _saved = false;
+        _errors = Array.Empty<string>();
+
+        var result = await Catalog.SaveAsync(new ContentDefinition(ContentKind.Room, _template));
+
+        _saving = false;
+        if (result.Success)
+        {
+            _saved = true;
+            if (IsNew)
+                Nav.NavigateTo($"room/{Uri.EscapeDataString(_template.BlueprintId)}");
+        }
+        else
+        {
+            _errors = result.Errors;
+        }
+    }
+}
