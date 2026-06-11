@@ -27,14 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–11-d + output-batching + area-model done; **next: slice 12 — Shopping**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–11-d + output-batching + area-model + content-tooling platform done; **next: slice 12 — Shopping**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🟡 testing complete (`Hedron.Tests` + 566 tests + CI live; Wave 2 backfill done); remaining: perf, thread-safety | CI green; see [`backlog.md`](backlog.md); testing strategy in [`../architecture/07-testing.md`](../architecture/07-testing.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 12 — Shopping.** The area model slice is complete: `RoomComponent.AreaEntityId` is linked at startup by `WorldContentLoader.LinkRoomAreas`; `IAreaSystem` provides `GetRoomsInArea`/`GetAreaForRoom`/`AssignRoomToArea`; `AreaTemplate` now carries optional `AspectAffinities`; `RegistryValidationBootstrap` validates area aspect compositions at boot; `area`/`setarea` admin commands are live; `@dig` inherits the source room's area. The next slice is **Shopping** ([`../use-cases/shopping.md`](../use-cases/shopping.md) — to be authored) — economy mechanics enabling players to buy/sell items from vendor NPCs. This slice builds on the items + inventory substrate (slice 6) and the mob model (slice 8); no ability or combat dependency.
+**Phase 3 slice 12 — Shopping.** The area model slice is complete: `RoomComponent.AreaEntityId` is linked at startup by `WorldContentLoader.LinkRoomAreas`; `IAreaSystem` provides `GetRoomsInArea`/`GetAreaForRoom`/`AssignRoomToArea`; `AreaTemplate` now carries optional `AspectAffinities`; `RegistryValidationBootstrap` validates area aspect compositions at boot; `area`/`setarea` admin commands are live; `@dig` inherits the source room's area. The **content-tooling platform** also landed since (advisor-initiated, off the numbered queue): a shared content-definition layer (`IContentDefinitionCatalog`) + callable `IContentValidator` factored from the boot bootstrap, split hosted-service registration, a headless `generate` bulk-generation run-mode, and an in-process Blazor authoring editor (`Hedron.Web`) over all four content kinds — see [`../use-cases/content-tooling-platform.md`](../use-cases/content-tooling-platform.md). The next *numbered* slice is **Shopping** ([`../use-cases/shopping.md`](../use-cases/shopping.md) — to be authored) — economy mechanics enabling players to buy/sell items from vendor NPCs. This slice builds on the items + inventory substrate (slice 6) and the mob model (slice 8); no ability or combat dependency.
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -87,6 +87,7 @@ Order is **revised** from the original Phase 3 list to pull content tooling forw
 | output-batching | **Player prompt + output batching** | Status prompt trailing every command + tick; session-scoped buffer; `IPromptSource` port; immediate flush for Chat | ✅ done |
 | 11-d | **Aspect & Registry Foundation** (gameplay-model A + F) | `AspectComposition` + `IAspectSystem` (aspect-typed combat damage; affinity + independent per-aspect resistance); generic `IRegistry<TKey,TDef>` registry layer + Ability/Effect/Stat retrofit; fail-fast registry validation; `defs` inspector | ✅ done |
 | area-model | **Area model + room–area membership** | Bidirectional area linking, `IAreaSystem`, aspect affinities on areas, `area`/`setarea` admin commands, `@dig` area inheritance | ✅ done |
+| content-tooling | **Content-tooling platform** | Shared content-definition layer + callable `IContentValidator`; split hosted-service registration; headless `generate` bulk-generation CLI; in-process Blazor authoring editor (`Hedron.Web`) over all four content kinds. Advisor-initiated (off the numbered queue). | ✅ done |
 | 12 | Shopping | Economy | 🟢 next (ready after 6) |
 | 13 | Crafting, potions | Content depth | 🟢 ready after 6 |
 | 14 | Web/SignalR client (deferred) | Dual-client transport | 🔵 deferred — see [`backlog.md`](backlog.md) |
