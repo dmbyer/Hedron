@@ -288,6 +288,18 @@ public interface IContentDefinitionCatalog
 ```
 Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling WP-1). The Blazor host (WP-2) and the bulk-generation system are thin callers.
 
+### IContentGenerationSystem (Authoring module)
+**Purpose:** Headless bulk content generator (content-tooling track T1). Composes the four existing per-kind content writers + `*Template` types to emit a connected, walkable swath of world-content YAML from a `GenerationProfile` (area count, rooms-per-area range, level range, mob/item density, aspect mix, scaling curve, seed, blueprint prefix). Each area's rooms are wired into an east/west chain and consecutive areas are joined up/down, so the generated world is one reachable graph (Resolved Decision 3). All randomness flows through a per-run `SeededRandom` constructed from `profile.Seed`, and blueprint ids are derived deterministically from `prefix + a per-kind counter` (never `Guid`), so a fixed-seed run is byte-reproducible within a runtime image (INV-26). **Writes YAML only** — creates no live entities, registers nothing in `TemplateRegistry`, never calls persistence (INV-12/22/23). **Returns a `GenerationResult`; never publishes** (INV-5); validation is the caller's (run-mode's) concern.
+**Location:** `Core/Modules/Authoring/Systems/IContentGenerationSystem.cs` (interface) · `ContentGenerationSystem.cs` (implementation); data types `GenerationProfile`/`GenerationResult`/`AspectMixEntry`/`ScalingCurve` under `Core/Modules/Authoring/`; the seedable `SeededRandom : IRandom` at `Core/Systems/`.
+**Dependencies:** `IAreaContentWriter`, `IRoomContentWriter`, `IItemContentWriter`, `IMobContentWriter`.
+```csharp
+public interface IContentGenerationSystem
+{
+    Task<GenerationResult> GenerateAsync(GenerationProfile profile, CancellationToken ct = default);
+}
+```
+Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling bulk-content-generation slice, WP-1). The headless `generate` run-mode in `Server` (WP-2) is the v1 caller; it composes DI without gameplay hosted services, loads a profile YAML, runs one `GenerateAsync`, validates each emitted definition via `IContentValidator.Validate` (single-definition mode), prints a summary, and exits 0/non-zero. See Flow 29.
+
 ### AccountSystem
 **Purpose:** Domain system owning all account and character lifecycle operations: registration, authentication, character creation, character list, and logout recording.
 **Location:** `Core/Modules/Account/Systems/AccountSystem.cs`

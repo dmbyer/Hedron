@@ -24,7 +24,7 @@ Content authoring today is command-driven over telnet: each `mk*`/`set*`/`dig` v
 
 - **The builders currently fuse two concerns that file-authoring must separate.** `AreaBuilderSystem.CreateArea` (and siblings) both (a) construct + register a template *and* (b) create a live entity. Offline authoring and bulk generation want **(a) without (b)**. The factored seam is a **content-definition layer** owning template construction, mutation, validation, and YAML write; the live `mk*` builders keep their live-spawn half and call the definition layer for the template/write half. One home for validation and DTO shape; no fork (INV-15/INV-19).
 
-- **Validation must become callable on-demand, not only at boot.** `RegistryValidationBootstrap` validates content once at startup (hosted service). Interactive per-edit validation and pre-write generation validation both need that logic injectable. Factor an `IRegistryValidator` (or `IContentValidator`) out of the bootstrap; the bootstrap, the editor, and the generator all call it. This is the INV-19 framework-parity obligation for the new authoring surface.
+- **Validation must become callable on-demand, not only at boot.** `RegistryValidationBootstrap` validates content once at startup (hosted service). Interactive per-edit validation and pre-write generation validation both need that logic injectable. Factor a callable `IContentValidator` out of the bootstrap; the bootstrap, the editor, and the generator all call it. This is the INV-19 framework-parity obligation for the new authoring surface.
 
 - **Bulk generation is a domain system over the definition layer, seeded for reproducibility.** `IContentGenerationSystem` composes the definition/writer systems from a generation spec (count, level range, aspect mix, scaling curve) and emits validated YAML — reproducible, reviewable, version-controlled, reloadable. It rolls through the existing `IRandom` seam (INV-26), so a **seeded** run produces a deterministic content set — which is exactly what reproducible scaling-regression tests want. It is keyed by a generation *profile* so it later generalizes to in-game **procedural content** (gameplay-model Spine D / feature-horizon "Procedural / generated areas") — a refactor, not a rewrite.
 
@@ -49,7 +49,7 @@ Content authoring today is command-driven over telnet: each `mk*`/`set*`/`dig` v
 | New verb / state / signal | Home | Layer | Notes |
 |---|---|---|---|
 | Read / edit / validate / write a content **definition** | content-definition layer (factored from builders/writers + `RegistryValidationBootstrap`) | Domain systems | The shared backing for all three surfaces. |
-| On-demand content **validation** | `IRegistryValidator` (factored out of the boot hosted-service) | Domain system | Domain-tier: reads ability/aspect/effect registries (domain→domain, INV-1). Called by bootstrap, editor, generator. |
+| On-demand content **validation** | `IContentValidator` (factored out of the boot hosted-service) | Domain system | Domain-tier: reads ability/aspect/effect registries (domain→domain, INV-1). Called by bootstrap, editor, generator. |
 | **Generate** a swath of content from a spec | `IContentGenerationSystem` | Domain system | Composes definition/writer systems; seeded via `IRandom`. |
 | Offline **authoring UI** | Blazor Server components | Presentation (new) | Thin over the definition layer; **no** game events, **no** live-world writes. |
 | **Apply to live world** | existing `reload` Initiator | Initiator | UI "apply" / generator "load" is a thin caller of `ReloadCommand`/`ContentReloadedEvent`. |
@@ -107,7 +107,7 @@ Content authoring today is command-driven over telnet: each `mk*`/`set*`/`dig` v
 4. **Generation trigger.** ~~CLI, admin verb, or both?~~ **Resolved:** headless CLI run-mode is the v1 trigger (no-chain Initiator, INV-10); admin verb is a later thin second caller.
 5. **Editing-existing vs. create-new flows.** **Resolved (T2 planner):** list/read for all four types; create + edit + write on areas & rooms in the first slice; items/mobs editing as a follow-up WP.
 6. **Bulk-gen room connectivity.** **Resolved:** generate a connected room graph (exits wired) so generated worlds are walkable for scaling tests — not a flat room set.
-7. **Validator sequencing.** **Resolved:** the callable `IContentValidator`/`IRegistryValidator` factoring lands first as a shared prerequisite; both tracks consume it (no interim throwaway validation in bulk-gen).
+7. **Validator sequencing.** **Resolved:** the callable `IContentValidator` factoring lands first as a shared prerequisite; both tracks consume it (no interim throwaway validation in bulk-gen).
 
 ---
 

@@ -13,6 +13,7 @@ namespace Hedron.Core.Modules.Authoring
         public static IServiceCollection AddAuthoringModule(this IServiceCollection services)
         {
             services.AddSingleton<IContentDefinitionCatalog, ContentDefinitionCatalog>();
+            services.AddSingleton<IContentGenerationSystem, ContentGenerationSystem>();
             return services;
         }
     }

@@ -38,6 +38,7 @@
 | 26 | [Offensive ability opens combat](flow-26-offensive-ability-opens-combat.md) | Player casts offensive spell or uses skill against a new target | Phase 3 slice 11-b |
 | 27 | [Admin area creation](flow-27-admin-area-creation.md) | `mkarea [name]` creates an area entity and writes content/areas/<id>.yaml | [flow-27-admin-area-creation.md](flow-27-admin-area-creation.md) |
 | 28 | [Admin entity list](flow-28-admin-entity-list.md) | `list <area\|room>` prints a tabular view of all entities of a given type | [flow-28-admin-entity-list.md](flow-28-admin-entity-list.md) |
+| 29 | [Headless bulk content generation](flow-29-bulk-content-generation.md) | `dotnet run --project Server -- generate --profile <path> [--seed N]` | [flow-29-bulk-content-generation.md](flow-29-bulk-content-generation.md) |
 
 Flows that don't yet exist (mob wander tick, etc.) get added by the slice that introduces them.
 
