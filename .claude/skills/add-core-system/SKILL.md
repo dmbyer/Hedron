@@ -81,7 +81,7 @@ public sealed class AspectRegistry : DefinitionRegistry<AspectId, AspectDefiniti
 
 Precedents: `AspectRegistry` (enum key) · `AbilityRegistry` · `EffectRegistry` (string key) · `StatRegistry` (`ScoreId` enum).
 
-**Companion: startup validation.** Every slice that adds a new definition family should also extend `Server/RegistryValidationBootstrap.cs` to assert referential integrity at boot (dangling cross-refs fail startup with a full report — INV-10). The generic `defs <family> [id]` admin inspector covers any `IRegistry`-implementing registry automatically (INV-18).
+**Companion: startup validation.** Every slice that adds a new definition family should also extend `IContentValidator` (`Core/Modules/World/Systems/ContentValidator.cs`) with the new referential-integrity rule. `RegistryValidationBootstrap` already calls `ValidateRegistry` at boot and will pick it up (dangling cross-refs fail startup with a full report — INV-10); the same rule then runs on-demand for the content-authoring editor and the bulk generator, which call `IContentValidator` directly. **Do not** add validation logic to `RegistryValidationBootstrap` itself — it owns only host fail-fast policy now, and rules trapped there would not run in the editor/generator. The generic `defs <family> [id]` admin inspector covers any `IRegistry`-implementing registry automatically (INV-18).
 
 ## Steps
 

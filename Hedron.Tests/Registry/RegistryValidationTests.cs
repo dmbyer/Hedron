@@ -7,6 +7,7 @@ using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Aspects;
 using Hedron.Core.Modules.Effects;
 using Hedron.Core.Modules.Stats;
+using Hedron.Core.Modules.World.Systems;
 using Hedron.Core.Systems;
 using Hedron.Server;
 using Microsoft.Extensions.Configuration;
@@ -88,13 +89,16 @@ namespace Hedron.Tests.Registry
             IConfiguration configuration,
             EntityService? entityService = null)
         {
+            // The bootstrap now delegates the rules to ContentValidator (factored out for the
+            // authoring editor + bulk generator); this helper composes the same pieces so the
+            // existing cases keep exercising the boot fail-fast contract end-to-end.
+            var validator = new ContentValidator(
+                abilities, effects, aspects, entityService ?? new EntityService());
+
             var bootstrap = new RegistryValidationBootstrap(
-                abilities,
-                effects,
-                aspects,
+                validator,
                 configuration,
-                NullLogger<RegistryValidationBootstrap>.Instance,
-                entityService ?? new EntityService());
+                NullLogger<RegistryValidationBootstrap>.Instance);
 
             bootstrap.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
         }

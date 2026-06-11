@@ -1,14 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Hedron.Core.ECS;
-using Hedron.Core.ECS.Components;
-using Hedron.Core.Modules.Abilities;
-using Hedron.Core.Modules.Aspects;
-using Hedron.Core.Modules.Effects;
+using Hedron.Core.Modules.World.Systems;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -20,110 +15,50 @@ namespace Hedron.Server
     /// are populated and world content is ready. Must be registered after
     /// <see cref="WorldContentBootstrap"/> in <c>Program.cs</c>.
     /// <para>
-    /// Validates: ability→effect cross-refs; ability→aspect cross-refs; aspect composition
-    /// normalization (empty or sums to 100); StartingAbilities config → ability cross-refs.
-    /// On any failure: logs a full report and throws, aborting boot (INV-10, OQ5).
-    /// On success: publishes nothing — closed mechanical sweep (INV-10).
+    /// The validation rules live in <see cref="IContentValidator"/> (callable on demand by the
+    /// authoring editor and the bulk generator too). This bootstrap owns only the host policy:
+    /// read the configured starting abilities, run the registry sweep, and on any failure log a
+    /// full report and throw, aborting boot (INV-10). On success it publishes nothing — a closed
+    /// mechanical sweep (INV-10).
     /// </para>
     /// </summary>
     public sealed class RegistryValidationBootstrap : IHostedService
     {
-        private readonly IAbilityRegistry _abilityRegistry;
-        private readonly IEffectRegistry _effectRegistry;
-        private readonly IAspectRegistry _aspectRegistry;
+        private readonly IContentValidator _validator;
         private readonly IConfiguration _configuration;
         private readonly ILogger<RegistryValidationBootstrap> _logger;
-        private readonly EntityService _entityService;
 
         public RegistryValidationBootstrap(
-            IAbilityRegistry abilityRegistry,
-            IEffectRegistry effectRegistry,
-            IAspectRegistry aspectRegistry,
+            IContentValidator validator,
             IConfiguration configuration,
-            ILogger<RegistryValidationBootstrap> logger,
-            EntityService entityService)
+            ILogger<RegistryValidationBootstrap> logger)
         {
-            _abilityRegistry = abilityRegistry;
-            _effectRegistry = effectRegistry;
-            _aspectRegistry = aspectRegistry;
+            _validator = validator;
             _configuration = configuration;
             _logger = logger;
-            _entityService = entityService;
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            var errors = new List<string>();
-
-            // 1. Ability → effect + aspect cross-refs and composition normalization.
-            foreach (var abilityId in _abilityRegistry.AllIds)
-            {
-                if (!_abilityRegistry.TryGet(abilityId, out var def))
-                    continue;
-
-                foreach (var effectId in def.Effects)
-                {
-                    if (!_effectRegistry.TryGet(effectId, out _))
-                        errors.Add($"Ability '{abilityId}': effect '{effectId}' not found in EffectRegistry.");
-                }
-
-                if (def.Aspect != null)
-                {
-                    if (!def.Aspect.IsValid(out var compError))
-                        errors.Add($"Ability '{abilityId}': Aspect composition invalid — {compError}");
-                    else
-                    {
-                        foreach (var aspectId in def.Aspect.Weights.Keys)
-                        {
-                            if (!_aspectRegistry.TryGet(aspectId, out _))
-                                errors.Add($"Ability '{abilityId}': Aspect key '{aspectId}' not found in AspectRegistry.");
-                        }
-                    }
-                }
-            }
-
-            // 2. StartingAbilities config → ability cross-refs.
             var startingAbilities = _configuration
                 .GetSection("CharacterDefaults:StartingAbilities")
                 .Get<string[]>() ?? Array.Empty<string>();
 
-            foreach (var abilityId in startingAbilities)
+            var report = _validator.ValidateRegistry(startingAbilities);
+
+            if (!report.IsValid)
             {
-                if (!string.IsNullOrWhiteSpace(abilityId) && !_abilityRegistry.TryGet(abilityId, out _))
-                    errors.Add($"CharacterDefaults:StartingAbilities: ability '{abilityId}' not found in AbilityRegistry.");
-            }
+                var builder = new StringBuilder();
+                builder.AppendLine($"Registry validation failed — {report.Errors.Count} error(s):");
+                foreach (var e in report.Errors)
+                    builder.AppendLine($"  • {e}");
 
-            // 3. Area entity AspectAffinities composition validation.
-            foreach (var (entityId, _) in _entityService.GetAllComponents<AreaComponent>())
-            {
-                if (!_entityService.TryGet<AspectAffinitiesComponent>(entityId, out var affinities))
-                    continue;
-
-                var composition = new AspectComposition(affinities.AffinityWeights);
-                if (!composition.IsValid(out var compError))
-                    errors.Add($"Area entity {entityId}: AspectAffinities composition invalid — {compError}");
-            }
-
-            if (errors.Count > 0)
-            {
-                var report = new StringBuilder();
-                report.AppendLine($"Registry validation failed — {errors.Count} error(s):");
-                foreach (var e in errors)
-                    report.AppendLine($"  • {e}");
-
-                var message = report.ToString();
+                var message = builder.ToString();
                 _logger.LogCritical("{Report}", message);
                 throw new InvalidOperationException(message);
             }
 
-            _logger.LogInformation(
-                "RegistryValidationBootstrap: all cross-refs valid " +
-                "({Abilities} abilities, {Effects} effects, {Aspects} aspects, {Areas} areas validated).",
-                _abilityRegistry.AllIds.Count,
-                _effectRegistry.AllIds.Count,
-                _aspectRegistry.AllIds.Count,
-                _entityService.GetAllComponents<AreaComponent>().Count());
-
+            _logger.LogInformation("RegistryValidationBootstrap: all content cross-refs valid.");
             return Task.CompletedTask;
         }
 

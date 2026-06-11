@@ -260,6 +260,34 @@ public interface IAreaContentWriter
 ```
 Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `MkareaCommand` after `IAreaBuilderSystem.CreateArea` returns (INV-5: the system never calls persistence). Implemented (Phase 3 admin-area-authoring WP-1).
 
+### IContentValidator
+**Purpose:** On-demand content validator, factored out of `RegistryValidationBootstrap` so the same referential-integrity rules run in two call modes. `ValidateRegistry(startingAbilityIds)` is the whole-registry sweep (ability→effect/aspect cross-refs, aspect-composition normalization, starting-ability cross-refs, live area-entity affinity normalization) used by the boot bootstrap. `Validate(IEntityTemplate)` is the single in-memory definition check (area aspect-composition normalization) used by the authoring editor per edit and the bulk generator pre-write. Returns a structured `ValidationReport` and **never throws** (INV-5) — the host decides fail-fast policy. Domain-tier: reads the ability/aspect/effect registries (domain→domain, INV-1).
+**Location:** `Core/Modules/World/Systems/IContentValidator.cs` (interface) · `ContentValidator.cs` (implementation) · `ValidationReport.cs`
+**Dependencies:** `IAbilityRegistry`, `IEffectRegistry`, `IAspectRegistry`, `EntityService`.
+```csharp
+public interface IContentValidator
+{
+    ValidationReport ValidateRegistry(IReadOnlyCollection<string> startingAbilityIds);
+    ValidationReport Validate(IEntityTemplate template);
+}
+```
+Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RegistryValidationBootstrap` (boot) and `IContentDefinitionCatalog.SaveAsync` (per-edit). Implemented (Phase 3 content-tooling WP-1, shared prerequisite for both tracks).
+
+### IContentDefinitionCatalog (Authoring module)
+**Purpose:** The shared content-definition layer both content-tooling tracks call — the offline Blazor editor and the headless bulk generator. Reads/lists/loads/creates/validates/writes the YAML content-definition families (area, room, item, mob) over the existing per-kind content writers + serializer + `IContentValidator`. Dispatches per-kind specifics (which writer, which template) internally by `ContentKind`. **Writes YAML only** — never creates a live entity, adds `PersistentEntity`, or calls `SaveEntityAsync` (INV-12/22/23); applying content to the live world is a separate `reload` step. `SaveAsync` validates before writing and refuses to write an invalid definition. `CreateNew` mints an ad-hoc blueprint id (via `AdhocBlueprintId`) without touching the registry or the world.
+**Location:** `Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs` (interface) · `ContentDefinitionCatalog.cs` (implementation); DTOs `ContentDefinition`/`ContentSummary`/`ContentWriteResult`/`ContentKind` and helper `AdhocBlueprintId` under `Core/Modules/Authoring/`.
+**Dependencies:** `IContentSerializer`, `IContentValidator`, `ITemplateRegistry`, `IAreaContentWriter`, `IRoomContentWriter`, `IItemContentWriter`, `IMobContentWriter`, `IOptions<WorldOptions>`, `ILogger`.
+```csharp
+public interface IContentDefinitionCatalog
+{
+    IReadOnlyList<ContentSummary> List(ContentKind kind);
+    ContentDefinition? Load(ContentKind kind, string blueprintId);
+    Task<ContentWriteResult> SaveAsync(ContentDefinition definition, CancellationToken ct = default);
+    ContentDefinition CreateNew(ContentKind kind, string name);
+}
+```
+Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling WP-1). The Blazor host (WP-2) and the bulk-generation system are thin callers.
+
 ### AccountSystem
 **Purpose:** Domain system owning all account and character lifecycle operations: registration, authentication, character creation, character list, and logout recording.
 **Location:** `Core/Modules/Account/Systems/AccountSystem.cs`
@@ -716,10 +744,10 @@ Registered as `services.AddSingleton<IPromptSource, PromptComposerSystem>()` in 
 Initiators drive the tick loop or startup; they are not "systems" in the domain-logic sense but are catalogued here because they publish events that domain handlers subscribe to.
 
 ### RegistryValidationBootstrap
-**Purpose:** Startup Initiator (hosted service) that runs a fail-fast referential-integrity sweep after registries are populated and world content is ready. Validates: ability→effect cross-refs; ability→aspect cross-refs; `AspectComposition` normalization (empty or sums to 100); `CharacterDefaults:StartingAbilities` config → ability cross-refs. On failure: logs a full report and throws, aborting boot (INV-10, fail-fast). Publishes nothing — closed mechanical sweep (INV-10).
+**Purpose:** Startup Initiator (hosted service) that runs a fail-fast referential-integrity sweep after registries are populated and world content is ready. The validation rules now live in `IContentValidator`; this bootstrap owns only the host policy — read `CharacterDefaults:StartingAbilities`, call `IContentValidator.ValidateRegistry`, and on any failure log a full report and throw, aborting boot (INV-10, fail-fast). Publishes nothing — closed mechanical sweep (INV-10).
 **Location:** `Server/RegistryValidationBootstrap.cs`
-**Dependencies:** `IAbilityRegistry`, `IEffectRegistry`, `IAspectRegistry`, `IConfiguration`, `ILogger`.
-**Startup ordering:** Registered after `WorldContentBootstrap` (registries are populated at DI-construction time, but the ordering guarantees world content spawning is complete before the sweep). Implemented (Phase 3 slice 11-d).
+**Dependencies:** `IContentValidator`, `IConfiguration`, `ILogger`.
+**Startup ordering:** Registered after `WorldContentBootstrap` (registries are populated at DI-construction time, but the ordering guarantees world content spawning is complete before the sweep). Implemented (Phase 3 slice 11-d; validation logic factored to `IContentValidator` in content-tooling WP-1).
 
 ### HeartbeatBackgroundService (TimeModule)
 **Purpose:** Shared game clock. Fires a `PeriodicTimer` at `Heartbeat:IntervalMs` (default 2000 ms) and publishes `HeartbeatTickEvent { TickId, Timestamp, Elapsed }` on each tick. No game logic — downstream handlers (combat, mob AI, effect expiry) subscribe independently. The `TimeModule` (`Core/Modules/Time/TimeModule.cs`) is the Core-side anchor; the hosted-service registration lives in `Server/Program.cs`.

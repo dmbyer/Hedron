@@ -9,6 +9,7 @@ using Hedron.Core.Handlers;
 using Hedron.Core.Modules.Account;
 using Hedron.Core.Modules.Account.Handlers;
 using Hedron.Core.Modules.Admin;
+using Hedron.Core.Modules.Authoring;
 using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Admin.Handlers;
 using Hedron.Core.Modules.Items;
@@ -134,6 +135,7 @@ public static class CompositionRoot
         services.AddAccountModule();
         services.AddPersistenceModule();
         services.AddWorldModule();
+        services.AddAuthoringModule();
         services.AddAdminModule();
         services.AddHelpModule();
         services.AddItemsModule();
