@@ -1,0 +1,157 @@
+@page "/area/new"
+@page "/area/{BlueprintId}"
+@using Hedron.Core.Modules.Aspects
+@using Hedron.Core.Modules.World.Templates
+@inject IContentDefinitionCatalog Catalog
+@inject NavigationManager Nav
+
+<PageTitle>@(IsNew ? "New area" : "Edit area")</PageTitle>
+
+<h1>@(IsNew ? "New area" : "Edit area")</h1>
+
+@if (_notFound)
+{
+    <p class="error">No area definition with id <span class="mono">@BlueprintId</span> was found.</p>
+    <a href="">Back to browser</a>
+}
+else if (_template is not null)
+{
+    <p class="mono blueprint-id">@_template.BlueprintId</p>
+
+    <div class="field">
+        <label>Name</label>
+        <input @bind="_template.Name" />
+    </div>
+
+    <div class="field">
+        <label>Area id <span class="hint-inline">(blank = blueprint id)</span></label>
+        <input @bind="_template.AreaId" />
+    </div>
+
+    <div class="field">
+        <label>Description</label>
+        <textarea rows="4" @bind="_template.Description"></textarea>
+    </div>
+
+    <div class="field-row">
+        <div class="field">
+            <label>Respawn rate</label>
+            <input type="number" @bind="_template.RespawnRate" />
+        </div>
+        <div class="field checkbox">
+            <label><input type="checkbox" @bind="_template.Pvp" /> PvP enabled</label>
+        </div>
+    </div>
+
+    <fieldset class="affinities">
+        <legend>Aspect affinities</legend>
+        @foreach (var aspect in AllAspects)
+        {
+            <div class="field-row affinity">
+                <label class="affinity-label">@aspect</label>
+                <input type="number" value="@AffinityFor(aspect)"
+                       @onchange="e => SetAffinity(aspect, e.Value?.ToString())" />
+            </div>
+        }
+        <p class="hint">Leave all at 0 to attach no affinities component.</p>
+    </fieldset>
+
+    @if (_errors.Count > 0)
+    {
+        <div class="error-box">
+            <strong>Cannot save &mdash; validation failed:</strong>
+            <ul>
+                @foreach (var err in _errors)
+                {
+                    <li>@err</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (_saved)
+    {
+        <p class="success">Saved <span class="mono">@_template.BlueprintId</span> to YAML.</p>
+    }
+
+    <div class="actions">
+        <button class="primary" disabled="@_saving" @onclick="Save">
+            @(_saving ? "Saving..." : "Save")
+        </button>
+        <a class="cancel" href="">Back to browser</a>
+    </div>
+}
+
+@code {
+    [Parameter] public string? BlueprintId { get; set; }
+
+    private static readonly AspectId[] AllAspects = Enum.GetValues<AspectId>();
+
+    private AreaTemplate? _template;
+    private bool _notFound;
+    private bool _saving;
+    private bool _saved;
+    private IReadOnlyList<string> _errors = Array.Empty<string>();
+
+    private bool IsNew => string.IsNullOrEmpty(BlueprintId);
+
+    protected override void OnParametersSet()
+    {
+        _saved = false;
+        _errors = Array.Empty<string>();
+
+        if (IsNew)
+        {
+            _template = (AreaTemplate)Catalog.CreateNew(ContentKind.Area, "New Area").Template;
+            _notFound = false;
+        }
+        else
+        {
+            var definition = Catalog.Load(ContentKind.Area, BlueprintId!);
+            _template = definition?.Template as AreaTemplate;
+            _notFound = _template is null;
+        }
+    }
+
+    private int AffinityFor(AspectId aspect) =>
+        _template?.AspectAffinities is { } map && map.TryGetValue(aspect, out var weight) ? weight : 0;
+
+    private void SetAffinity(AspectId aspect, string? raw)
+    {
+        if (_template is null) return;
+        _ = int.TryParse(raw, out var weight);
+
+        _template.AspectAffinities ??= new Dictionary<AspectId, int>();
+        if (weight == 0)
+            _template.AspectAffinities.Remove(aspect);
+        else
+            _template.AspectAffinities[aspect] = weight;
+
+        if (_template.AspectAffinities.Count == 0)
+            _template.AspectAffinities = null;
+    }
+
+    private async Task Save()
+    {
+        if (_template is null) return;
+
+        _saving = true;
+        _saved = false;
+        _errors = Array.Empty<string>();
+
+        var result = await Catalog.SaveAsync(new ContentDefinition(ContentKind.Area, _template));
+
+        _saving = false;
+        if (result.Success)
+        {
+            _saved = true;
+            // After a successful create, switch the URL to the edit route for the minted id.
+            if (IsNew)
+                Nav.NavigateTo($"area/{Uri.EscapeDataString(_template.BlueprintId)}");
+        }
+        else
+        {
+            _errors = result.Errors;
+        }
+    }
+}

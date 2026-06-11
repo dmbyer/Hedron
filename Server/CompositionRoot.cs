@@ -9,6 +9,7 @@ using Hedron.Core.Handlers;
 using Hedron.Core.Modules.Account;
 using Hedron.Core.Modules.Account.Handlers;
 using Hedron.Core.Modules.Admin;
+using Hedron.Core.Modules.Authoring;
 using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Admin.Handlers;
 using Hedron.Core.Modules.Items;
@@ -134,6 +135,7 @@ public static class CompositionRoot
         services.AddAccountModule();
         services.AddPersistenceModule();
         services.AddWorldModule();
+        services.AddAuthoringModule();
         services.AddAdminModule();
         services.AddHelpModule();
         services.AddItemsModule();
@@ -150,13 +152,52 @@ public static class CompositionRoot
         services.AddDeathModule();
         services.AddRegenerationModule();
 
-        // Hosted services — order matters.
+        return services;
+    }
+
+    /// <summary>
+    /// Composes the hosted services for the full gameplay host (the telnet server): startup
+    /// bootstraps, the periodic persistence flush, the telnet listener, and the heartbeat.
+    /// Kept separate from <see cref="Register"/> (which is pure DI) so that other hosts — e.g.
+    /// the content-authoring web host — compose their own hosted-service set without inheriting
+    /// the heartbeat/listener. Order matters: bootstraps run before the listener and heartbeat.
+    /// </summary>
+    public static IServiceCollection AddGameplayHostedServices(this IServiceCollection services)
+    {
         services.AddHostedService<PersistenceBootstrap>();
         services.AddHostedService<WorldContentBootstrap>();
         services.AddHostedService<RegistryValidationBootstrap>();
         services.AddHostedService<PersistenceFlushTimer>();
         services.AddHostedService<TelnetServer>();
         services.AddHostedService<HeartbeatBackgroundService>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Composes the hosted services for the content-authoring web host (<c>Hedron.Web</c>): only
+    /// the two startup bootstraps that give the editor and the on-demand validator data to work
+    /// against — <see cref="WorldContentBootstrap"/> (load + register the authored YAML so the
+    /// catalog/preview and registry validation have content) and <see cref="RegistryValidationBootstrap"/>
+    /// (fail-fast on bad content at boot).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Deliberately registers <b>neither</b> <c>PersistenceBootstrap</c>/<c>PersistenceFlushTimer</c>
+    /// (no SQLite — authoring writes YAML only), <c>TelnetServer</c> (no players), nor
+    /// <c>HeartbeatBackgroundService</c> (authoring is off the tick). The web host re-derives a
+    /// preview/validation world from YAML; it never marshals world-mutating work onto a game loop.
+    /// </para>
+    /// <para>
+    /// This is the sibling of <see cref="AddGameplayHostedServices"/>: <see cref="Register"/> stays
+    /// pure DI and each host composes its own hosted-service set, so the same process can later scale
+    /// from authoring-only to the full engine + web superset without reshaping the shared registration.
+    /// </para>
+    /// </remarks>
+    public static IServiceCollection AddContentBootstrapHostedServices(this IServiceCollection services)
+    {
+        services.AddHostedService<WorldContentBootstrap>();
+        services.AddHostedService<RegistryValidationBootstrap>();
 
         return services;
     }

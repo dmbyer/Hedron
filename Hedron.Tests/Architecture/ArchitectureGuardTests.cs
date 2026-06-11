@@ -326,6 +326,10 @@ namespace Hedron.Tests.Architecture
             {
                 "SystemClock.cs",
                 "SystemRandom.cs",
+                // SeededRandom IS an IRandom seam adapter — the one place a deterministic
+                // per-run generator instance is constructed from a seed (INV-26). Like
+                // SystemRandom, it is the seam, not a caller that should consume the seam.
+                "SeededRandom.cs",
                 "IClock.cs",
                 "IRandom.cs",
             };

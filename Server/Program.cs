@@ -38,13 +38,25 @@ namespace Hedron.Server;
 /// </summary>
 public static class Program
 {
-    public static async Task Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
+        // Headless one-shot run-modes branch before the listener host is built (INV-10 no-chain
+        // Initiator): they compose DI, run one operation, and exit — no telnet/heartbeat.
+        if (GenerationRunMode.Matches(args))
+        {
+            var configuration = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: true)
+                .AddEnvironmentVariables("HEDRON_")
+                .Build();
+            return await GenerationRunMode.RunAsync(args, configuration);
+        }
+
         var host = Host.CreateDefaultBuilder(args)
             .ConfigureAppConfiguration((_, cfg) => cfg.AddEnvironmentVariables("HEDRON_"))
             .ConfigureServices((context, services) =>
             {
                 services.Register(context.Configuration);
+                services.AddGameplayHostedServices();
             })
             .Build();
 
@@ -140,6 +152,7 @@ public static class Program
         bus.Subscribe<ItemDroppedEvent>(itemContext);
 
         await host.RunAsync();
+        return 0;
     }
 }
 

@@ -1,0 +1,175 @@
+@page "/item/new"
+@page "/item/{BlueprintId}"
+@using Hedron.Core
+@using Hedron.Core.Modules.Items.Templates
+@inject IContentDefinitionCatalog Catalog
+@inject NavigationManager Nav
+
+<PageTitle>@(IsNew ? "New item" : "Edit item")</PageTitle>
+
+<h1>@(IsNew ? "New item" : "Edit item")</h1>
+
+@if (_notFound)
+{
+    <p class="error">No item definition with id <span class="mono">@BlueprintId</span> was found.</p>
+    <a href="">Back to browser</a>
+}
+else if (_template is not null)
+{
+    <p class="mono blueprint-id">@_template.BlueprintId</p>
+
+    <div class="field">
+        <label>Name</label>
+        <input @bind="_template.Name" />
+    </div>
+
+    <div class="field">
+        <label>Description</label>
+        <textarea rows="4" @bind="_template.Description"></textarea>
+    </div>
+
+    <div class="field-row">
+        <div class="field">
+            <label>Item type</label>
+            <select @bind="_template.ItemType">
+                @foreach (var type in AllItemTypes)
+                {
+                    <option value="@type">@type</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label>Damage bonus</label>
+            <input type="number" @bind="_template.DamageBonus" />
+        </div>
+    </div>
+
+    <div class="field">
+        <label>Spawn room blueprint id <span class="hint-inline">(blank = no spawn location)</span></label>
+        <input @bind="_template.SpawnRoomBlueprintId" />
+    </div>
+
+    <fieldset class="keywords">
+        <legend>Keywords</legend>
+        <p class="hint">Comma-separated keyword aliases used to reference the item in game.</p>
+        <input class="csv" placeholder="sword, blade, weapon"
+               value="@string.Join(", ", _template.Keywords)"
+               @onchange="e => SetKeywords(e.Value?.ToString())" />
+    </fieldset>
+
+    <fieldset class="worn-slots">
+        <legend>Worn slots</legend>
+        <p class="hint">Slots this item occupies when worn. Leave all unchecked for a non-wearable item.</p>
+        @foreach (var slot in AllWornSlots)
+        {
+            <label class="checkbox">
+                <input type="checkbox" checked="@_template.WornSlots.Contains(slot)"
+                       @onchange="e => SetWornSlot(slot, (bool?)e.Value ?? false)" />
+                @slot
+            </label>
+        }
+    </fieldset>
+
+    @if (_errors.Count > 0)
+    {
+        <div class="error-box">
+            <strong>Cannot save &mdash; validation failed:</strong>
+            <ul>
+                @foreach (var err in _errors)
+                {
+                    <li>@err</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (_saved)
+    {
+        <p class="success">Saved <span class="mono">@_template.BlueprintId</span> to YAML.</p>
+    }
+
+    <div class="actions">
+        <button class="primary" disabled="@_saving" @onclick="Save">
+            @(_saving ? "Saving..." : "Save")
+        </button>
+        <a class="cancel" href="">Back to browser</a>
+    </div>
+}
+
+@code {
+    [Parameter] public string? BlueprintId { get; set; }
+
+    private static readonly ItemType[] AllItemTypes = Enum.GetValues<ItemType>();
+    private static readonly WornSlot[] AllWornSlots = Enum.GetValues<WornSlot>();
+
+    private ItemTemplate? _template;
+    private bool _notFound;
+    private bool _saving;
+    private bool _saved;
+    private IReadOnlyList<string> _errors = Array.Empty<string>();
+
+    private bool IsNew => string.IsNullOrEmpty(BlueprintId);
+
+    protected override void OnParametersSet()
+    {
+        _saved = false;
+        _errors = Array.Empty<string>();
+
+        if (IsNew)
+        {
+            _template = (ItemTemplate)Catalog.CreateNew(ContentKind.Item, "New Item").Template;
+            _notFound = false;
+        }
+        else
+        {
+            var definition = Catalog.Load(ContentKind.Item, BlueprintId!);
+            _template = definition?.Template as ItemTemplate;
+            _notFound = _template is null;
+        }
+    }
+
+    private void SetKeywords(string? raw)
+    {
+        if (_template is null) return;
+        _template.Keywords = (raw ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+    }
+
+    private void SetWornSlot(WornSlot slot, bool include)
+    {
+        if (_template is null) return;
+        if (include)
+        {
+            if (!_template.WornSlots.Contains(slot))
+                _template.WornSlots.Add(slot);
+        }
+        else
+        {
+            _template.WornSlots.Remove(slot);
+        }
+    }
+
+    private async Task Save()
+    {
+        if (_template is null) return;
+
+        _saving = true;
+        _saved = false;
+        _errors = Array.Empty<string>();
+
+        var result = await Catalog.SaveAsync(new ContentDefinition(ContentKind.Item, _template));
+
+        _saving = false;
+        if (result.Success)
+        {
+            _saved = true;
+            if (IsNew)
+                Nav.NavigateTo($"item/{Uri.EscapeDataString(_template.BlueprintId)}");
+        }
+        else
+        {
+            _errors = result.Errors;
+        }
+    }
+}

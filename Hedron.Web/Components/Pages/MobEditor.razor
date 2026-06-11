@@ -1,0 +1,193 @@
+@page "/mob/new"
+@page "/mob/{BlueprintId}"
+@using Hedron.Core.ECS.Components
+@using Hedron.Core.Modules.Mobs.Templates
+@inject IContentDefinitionCatalog Catalog
+@inject NavigationManager Nav
+
+<PageTitle>@(IsNew ? "New mob" : "Edit mob")</PageTitle>
+
+<h1>@(IsNew ? "New mob" : "Edit mob")</h1>
+
+@if (_notFound)
+{
+    <p class="error">No mob definition with id <span class="mono">@BlueprintId</span> was found.</p>
+    <a href="">Back to browser</a>
+}
+else if (_template is not null)
+{
+    <p class="mono blueprint-id">@_template.BlueprintId</p>
+
+    <div class="field">
+        <label>Name</label>
+        <input @bind="_template.Name" />
+    </div>
+
+    <div class="field">
+        <label>Description</label>
+        <textarea rows="4" @bind="_template.Description"></textarea>
+    </div>
+
+    <div class="field-row">
+        <div class="field">
+            <label>Mob type</label>
+            <select @bind="_template.MobType">
+                @foreach (var type in AllMobTypes)
+                {
+                    <option value="@type">@type</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label>Level</label>
+            <input type="number" @bind="_template.Level" />
+        </div>
+    </div>
+
+    <div class="field">
+        <label>Spawn room blueprint id <span class="hint-inline">(blank = no spawn location)</span></label>
+        <input @bind="_template.SpawnRoomBlueprintId" />
+    </div>
+
+    <fieldset class="keywords">
+        <legend>Keywords</legend>
+        <p class="hint">Comma-separated keyword aliases used to reference the mob in game.</p>
+        <input class="csv" placeholder="goblin, guard, sentry"
+               value="@string.Join(", ", _template.Keywords)"
+               @onchange="e => SetKeywords(e.Value?.ToString())" />
+    </fieldset>
+
+    <fieldset class="attributes">
+        <legend>Attributes</legend>
+        <div class="field-row">
+            <div class="field">
+                <label>Mind</label>
+                <input type="number" @bind="_template.Mind" />
+            </div>
+            <div class="field">
+                <label>Body</label>
+                <input type="number" @bind="_template.Body" />
+            </div>
+            <div class="field">
+                <label>Spirit</label>
+                <input type="number" @bind="_template.Spirit" />
+            </div>
+            <div class="field">
+                <label>Attunement</label>
+                <input type="number" @bind="_template.Attunement" />
+            </div>
+        </div>
+        <p class="hint">Leave an attribute at 0 to use the apply-time default.</p>
+    </fieldset>
+
+    <fieldset class="pools">
+        <legend>Pools</legend>
+        <div class="field-row">
+            <div class="field">
+                <label>Max HP</label>
+                <input type="number" @bind="_template.MaxHp" />
+            </div>
+            <div class="field">
+                <label>Max mana</label>
+                <input type="number" @bind="_template.MaxMana" />
+            </div>
+            <div class="field">
+                <label>Max stamina</label>
+                <input type="number" @bind="_template.MaxStamina" />
+            </div>
+            <div class="field">
+                <label>Max astra</label>
+                <input type="number" @bind="_template.MaxAstra" />
+            </div>
+        </div>
+        <p class="hint">Leave a pool at 0 to use the apply-time default.</p>
+    </fieldset>
+
+    @if (_errors.Count > 0)
+    {
+        <div class="error-box">
+            <strong>Cannot save &mdash; validation failed:</strong>
+            <ul>
+                @foreach (var err in _errors)
+                {
+                    <li>@err</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (_saved)
+    {
+        <p class="success">Saved <span class="mono">@_template.BlueprintId</span> to YAML.</p>
+    }
+
+    <div class="actions">
+        <button class="primary" disabled="@_saving" @onclick="Save">
+            @(_saving ? "Saving..." : "Save")
+        </button>
+        <a class="cancel" href="">Back to browser</a>
+    </div>
+}
+
+@code {
+    [Parameter] public string? BlueprintId { get; set; }
+
+    private static readonly MobType[] AllMobTypes = Enum.GetValues<MobType>();
+
+    private MobTemplate? _template;
+    private bool _notFound;
+    private bool _saving;
+    private bool _saved;
+    private IReadOnlyList<string> _errors = Array.Empty<string>();
+
+    private bool IsNew => string.IsNullOrEmpty(BlueprintId);
+
+    protected override void OnParametersSet()
+    {
+        _saved = false;
+        _errors = Array.Empty<string>();
+
+        if (IsNew)
+        {
+            _template = (MobTemplate)Catalog.CreateNew(ContentKind.Mob, "New Mob").Template;
+            _notFound = false;
+        }
+        else
+        {
+            var definition = Catalog.Load(ContentKind.Mob, BlueprintId!);
+            _template = definition?.Template as MobTemplate;
+            _notFound = _template is null;
+        }
+    }
+
+    private void SetKeywords(string? raw)
+    {
+        if (_template is null) return;
+        _template.Keywords = (raw ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+    }
+
+    private async Task Save()
+    {
+        if (_template is null) return;
+
+        _saving = true;
+        _saved = false;
+        _errors = Array.Empty<string>();
+
+        var result = await Catalog.SaveAsync(new ContentDefinition(ContentKind.Mob, _template));
+
+        _saving = false;
+        if (result.Success)
+        {
+            _saved = true;
+            if (IsNew)
+                Nav.NavigateTo($"mob/{Uri.EscapeDataString(_template.BlueprintId)}");
+        }
+        else
+        {
+            _errors = result.Errors;
+        }
+    }
+}

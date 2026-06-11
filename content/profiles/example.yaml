@@ -1,0 +1,46 @@
+# Sample bulk-content-generation profile.
+#
+# Run with:
+#   dotnet run --project Server -- generate --profile content/profiles/example.yaml
+#   dotnet run --project Server -- generate --profile content/profiles/example.yaml --seed 1234
+#
+# A profile is the SOLE input that determines a run's output: two runs with the same profile
+# (and seed) emit byte-identical YAML (within a runtime image). All fields are camelCase, the
+# same convention the content writers/deserializers use.
+
+# RNG seed. A fixed seed makes the whole run reproducible (INV-26). --seed on the CLI overrides this.
+seed: 1234
+
+# How many areas to generate.
+areaCount: 3
+
+# Inclusive room-count range per area. Rooms are wired into a walkable east/west chain, and
+# consecutive areas are joined up/down, so the generated world is one connected graph.
+roomsPerArea:
+  min: 3
+  max: 6
+
+# Inclusive level range; each area picks a level in this range and scales its mobs by it.
+levelRange:
+  min: 1
+  max: 10
+
+# Mean number of mobs / items placed per generated room (fractional = probabilistic).
+mobDensity: 1.5
+itemDensity: 0.75
+
+# How mob stats scale with level: Linear | Quadratic.
+scaling: Linear
+
+# Weighted distribution of elemental affinities assigned to generated areas. Weights are relative
+# (need not sum to 100). Omit or leave empty to generate areas with no affinity.
+aspectMix:
+  - aspect: Fire
+    weight: 3
+  - aspect: Ice
+    weight: 2
+  - aspect: Nature
+    weight: 1
+
+# Prefix for every derived blueprint id (e.g. gen.area.0001, gen.room.0001, ...).
+blueprintPrefix: "gen."
