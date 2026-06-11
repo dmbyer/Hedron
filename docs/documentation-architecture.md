@@ -21,7 +21,7 @@ A growing codebase accretes overlapping docs: the same rule restated in three fi
 | Surface | Owns (single responsibility) | Belongs here | Does **not** belong here | Primary consumer |
 |---|---|---|---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Entry point + AI directives + a *day-to-day summary* of the rules | Pointers, ground-rule summaries (each linking to its INV), where-to-read order | An authoritative rule copy; per-feature detail; history | Every agent session (always loaded) |
-| [`architecture/`](architecture/) `00`–`07` | Foundational, cross-cutting, slice-independent design (layers, ECS, events, pitfalls, config, persistence, testing) | The *explanation* of how the engine is shaped | Per-feature framework designs; runtime traces; invariant restatements | Anyone writing a system/handler/event |
+| [`architecture/`](architecture/) `00`–`08` | Foundational, cross-cutting, slice-independent design (layers, ECS, events, pitfalls, config, persistence, testing, the web/UI host tier) | The *explanation* of how the engine is shaped | Per-feature framework designs; runtime traces; invariant restatements | Anyone writing a system/handler/event |
 | [`architecture/checklist.md`](architecture/checklist.md) | **The only** authoritative invariant list | Every `INV-n` / `SR-n` / `INV-D*`, terse and checkable | Long explanations (those link out to `00`–`07`) | `architecture-reviewer`, planner gates |
 | `architecture/subsystems/` | Per-feature framework / **scoped-system** *design records* (commands, output, stats, future combat/effects) | "How feature X works," scoped to one feature/system — including the living design of a scoped system (e.g. stats) | Cross-cutting rules (→ `00`–`07`); the catalog of what exists (→ `reference/`) | Implementers of/around that feature |
 | [`design/`](design/) | Cross-cutting **forward design models** spanning many future slices (precede use-cases) | A scenario-spanning "north-star" model; a clearly-labeled draft with a graduate/trim lifecycle | Authoritative rules (→ `checklist.md`); single-feature design (→ `subsystems/`); single-scenario behavior (→ `use-cases/`) | Planner; designers scoping a multi-slice feature |
@@ -39,7 +39,7 @@ A growing codebase accretes overlapping docs: the same rule restated in three fi
 | Fact | Authoritative home | Everyone else |
 |---|---|---|
 | An architectural rule / invariant | `architecture/checklist.md` | links by `INV-id` |
-| Explanation of a layer / ECS / event / config concept | `architecture/00`–`07` | links to the section |
+| Explanation of a layer / ECS / event / config / web-host concept | `architecture/00`–`08` | links to the section |
 | The testing strategy / test-vs-skip rubric | `architecture/07-testing.md` | links to it |
 | A per-feature framework's design | `architecture/subsystems/<feature>.md` | links to it |
 | A runtime call chain | `architecture/flows/` (one flow) | references "Flow N"; never reproduces the diagram |

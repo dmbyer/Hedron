@@ -78,6 +78,7 @@ Rows marked *(target)* describe locations that are rebuilt as part of Phase 2. T
 | [subsystems/output.md](subsystems/output.md) | Output framework: `IOutputMessage` catalog, `IOutputFormatter`/telnet ANSI, inline color syntax, broadcast model |
 | [06-persistence.md](06-persistence.md) | Persistence model: `PersistentEntity` marker, `[Persistent]` attribute, three save patterns (save-on-change, area-scoped flush, timestamp/lazy) |
 | [07-testing.md](07-testing.md) | Testing strategy: the 5 test tiers, what to test vs. skip, the harness, the determinism seam (INV-25/26) |
+| [08-blazor.md](08-blazor.md) | The web/UI tier: the two-host model, Blazor-component discipline (thin, no live-world mutation), hosting/config, the three-suite end-state |
 | [checklist.md](checklist.md) | **The authoritative invariant list.** Cite `INV-n` IDs in reviews. Every other doc explains; this one enforces. |
 | [../documentation-architecture.md](../documentation-architecture.md) | How the docs + `.claude/` tooling are organized — what each surface owns and the discipline that keeps them current (enforced via `INV-D*`) |
 | [../reference/commands.md](../reference/commands.md) | Living catalog of every command |
