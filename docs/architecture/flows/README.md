@@ -30,7 +30,7 @@
 | 18 | [Combat round pulse](flow-18-combat-round-pulse.md) | `HeartbeatTickEvent` dispatched to `CombatTickHandler` | Phase 3 slice 9 |
 | 19 | [`flee` — combat exit](flow-19-flee-combat-exit.md) | Player sends `flee` | Phase 3 slice 9 |
 | 20 | [Mob death and respawn](flow-20-mob-death-respawn.md) | Mob HP reaches zero; `SpawnSystem` schedules and executes respawn | Persistence reform Stage C |
-| 21 | [Effect tick](flow-21-effect-tick.md) | `HeartbeatTickEvent` dispatched to `EffectTickHandler` | Phase 3 slice 9-e |
+| 21 | [Effects journey (apply · tick · expire)](flow-21-effect-tick.md) | An effect is applied, then ticked/expired on `HeartbeatTickEvent` | [effects](../../features/effects/effects.md) feature |
 | 22 | [Player incapacitation and bleed-out](flow-22-incapacitation-bleedout.md) | Player HP crosses zero; `DeathTickHandler` bleeds out per tick | Phase 3 slice 10 |
 | 23 | [Player death and respawn](flow-23-player-death-respawn.md) | HP reaches `Death:HpFloor`; `PlayerDeathHandler` triggers full respawn | Phase 3 slice 10 |
 | 24 | [Ability activation](flow-24-ability-activation.md) | Admin sends `useability` (11-a); player sends `cast`/skill verb (11-b) | Phase 3 slice 11-a (extended 11-b) |

@@ -530,19 +530,8 @@ public interface IStatSystem
 
 ### EffectSystem
 **Purpose:** Core system that manages active effects on entities. Applies/removes individual effects or entire categories; returns active effect lists and per-`ScoreId` stat modifier sums; advances time on each tick, collecting expired and periodic-due effects. Never touches the event bus (INV-5).
-**Location:** `Core/Modules/Effects/Systems/EffectSystem.cs` (implementation) · `Core/Modules/Effects/Systems/IEffectSystem.cs` (interface)
+**Location:** `Core/Modules/Effects/Systems/EffectSystem.cs` · interface [`IEffectSystem.cs`](../../Core/Modules/Effects/Systems/IEffectSystem.cs) (`Apply` / `Remove` / `RemoveByCategory` / `GetActive` / `GetModifiers` / `AdvanceTick`).
 **Dependencies:** `EntityService`.
-```csharp
-public interface IEffectSystem
-{
-    Effect? Apply(uint targetEntityId, EffectDefinition definition, uint sourceEntityId);
-    void Remove(uint entityId, string effectId);
-    void RemoveByCategory(uint entityId, EffectCategory category);
-    IReadOnlyList<Effect> GetActive(uint entityId);
-    int GetModifiers(uint entityId, ScoreId scoreId);
-    EffectTickResult AdvanceTick(TimeSpan elapsed);
-}
-```
 `Apply` returns `null` when `StackPolicy.HighestWins` blocks application (existing effect has equal or greater power). `AdvanceTick` advances elapsed time on timed effects, removes expired ones, and returns `EffectTickResult { DueApplications, Expired }` sorted by `EffectPhase` (Early → Normal → Late). Injects `IEnumerable<IEffectContributor>`; `GetModifiers`/`GetActive` sum stored effects **plus** all registered contributors (INV-24 seam, slice 11-a). Registered via `AddEffectsModule()`. Implemented (Phase 3 slices 9-e, 11-a).
 
 ### EffectRegistry
@@ -662,16 +651,8 @@ Starter set: `toughness` (Skill/Passive/Self — `toughness_passive` effect), `k
 
 ### AbilityEffectContributor
 **Purpose:** Implements the `IEffectContributor` seam (INV-24). Derives `WhileKnown` passive ability effects into `EffectSystem.GetModifiers`/`GetActive` at read time. Each tick of `GetModifiers`, this contributor returns the stat modifiers implied by any `Passive` abilities the entity knows and that have `WhileKnown` effects in `IEffectRegistry`. No domain types are referenced from core; the adapter owns the translation.
-**Location:** `Core/Modules/Abilities/AbilityEffectContributor.cs`
+**Location:** `Core/Modules/Abilities/AbilityEffectContributor.cs` · implements the core port [`IEffectContributor.cs`](../../Core/Modules/Effects/Systems/IEffectContributor.cs) (`GetModifiers` / `GetActive`).
 **Dependencies:** `EntityService`, `IAbilityRegistry`, `IEffectRegistry`.
-```csharp
-// Implements: Core/Modules/Effects/Systems/IEffectContributor.cs
-public interface IEffectContributor
-{
-    int GetModifiers(uint entityId, ScoreId scoreId);
-    IEnumerable<Effect> GetActive(uint entityId);
-}
-```
 Registered via `AddAbilitiesModule()` as `IEffectContributor` (DI-collected by `EffectSystem`). Implemented (Phase 3 slice 11-a).
 
 ---

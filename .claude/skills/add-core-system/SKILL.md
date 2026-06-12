@@ -50,7 +50,7 @@ Sometimes a core-tier system must aggregate data **owned by domain modules** —
 - The aggregator sums what is registered and never changes as sources are added (open/closed).
 - Contributions are **pulled on read, never materialized** into a stored component (compute-on-read).
 
-The dependency arrow points domain → core interface — legal. This is **INV-24**; the worked precedent is `IEffectContributor` ([docs/architecture/effects.md](../../../docs/architecture/effects.md#the-contributor-seam), one of the three [composition shapes](../../../docs/architecture/01-layers.md#the-three-composition-shapes)). Use this whenever a core aggregator needs heterogeneous domain contributions; do **not** reach for a direct domain reference or push derived state into a component.
+The dependency arrow points domain → core interface — legal. This is **INV-24**; the worked precedent is `IEffectContributor` ([effect-system.md](../../../docs/features/effects/effect-system.md#the-contributor-seam), one of the three [composition shapes](../../../docs/architecture/01-layers.md#the-three-composition-shapes)). Use this whenever a core aggregator needs heterogeneous domain contributions; do **not** reach for a direct domain reference or push derived state into a component.
 
 > Note: a core-*tier* system may itself live inside a feature module (`Core/Modules/<Feature>/Systems/`) when it is that feature's primary mechanic (e.g. `EffectSystem`). Tier is a role, not a path (INV-2); the rules below apply wherever it sits.
 

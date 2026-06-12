@@ -117,4 +117,4 @@ The effect substrate (slice 9-e) will inject a `StatModifier` summation step ins
 
 - [`../../../docs/design/gameplay-model.md`](../../design/gameplay-model.md) — S1 design (§3 Substrate, R3 resources, R4 attributes)
 - [`../../../docs/implementation-plans/stat-resource-substrate.md`](../../implementation-plans/stat-resource-substrate.md) — slice 9-d requirements + implementation detail
-- [`../../../docs/implementation-plans/effect-substrate.md`](../../implementation-plans/effect-substrate.md) — S2; targets `ScoreId` via `StatModifier`
+- [`../../../docs/implementation-plans/effect-substrate.md`](../../features/effects/effects.md) — S2; targets `ScoreId` via `StatModifier`

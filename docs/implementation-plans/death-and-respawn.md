@@ -151,7 +151,7 @@ Mob death already destroys the entity and publishes `MobDiedEvent` (slice 9 / pe
 ## Related
 
 - [`combat.md`](combat.md) — slice 9; the `PlayerIncapacitated` clamp-to-1 stub this slice replaces; `MobDiedEvent` and `CombatMobDeathHandler` extended here; the death seam was explicitly deferred to "slice 10" in the combat spec.
-- [`effect-substrate.md`](effect-substrate.md) — slice 9-e; `EffectsComponent`, `EffectLifetime`, and the `IEffectSystem` extended with `RemoveImpermanent`; DoT ticks become a death-pipeline entry point.
+- [`effect-substrate.md`](../features/effects/effects.md) — slice 9-e; `EffectsComponent`, `EffectLifetime`, and the `IEffectSystem` extended with `RemoveImpermanent`; DoT ticks become a death-pipeline entry point.
 - [`entity-state-management.md`](entity-state-management.md) — slice 9-a; the `Incapacitated` flag (already defined, no entry-block rule) and `IEntityStateService` gate this slice's command-block and bleed query.
 - [`stat-resource-substrate.md`](stat-resource-substrate.md) — slice 9-d; the four pools and `IAttributeSystem` setters used for the 25% restore; the `SetCurrentHp` clamp this slice lowers; the `CharacterDefaults:`/config precedent for `Death:` keys.
 - [`time-system.md`](time-system.md) — slice 9-b; `HeartbeatTickEvent` drives the bleed pulse.

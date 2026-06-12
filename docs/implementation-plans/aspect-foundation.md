@@ -72,5 +72,5 @@
 
 - [`../design/gameplay-model.md`](../design/gameplay-model.md) — Spine A (Aspect), Spine F (Registry layer), the substrate table, and resolved decisions R1–R7.
 - [`../design/feature-horizon.md`](../design/feature-horizon.md) — the downstream features (aspect-typed abilities, rarity, objectives, …) that instance these spines.
-- [`combat.md`](combat.md) / [`stat-system.md`](stat-system.md) / [`effect-substrate.md`](effect-substrate.md) / [`ability-substrate.md`](ability-substrate.md) — built consumers and the registries this slice retrofits.
+- [`combat.md`](combat.md) / [`stat-system.md`](stat-system.md) / [`effect-substrate.md`](../features/effects/effects.md) / [`ability-substrate.md`](ability-substrate.md) — built consumers and the registries this slice retrofits.
 - [`../architecture/checklist.md`](../architecture/checklist.md) — the authoritative invariants every assertion above cites.
