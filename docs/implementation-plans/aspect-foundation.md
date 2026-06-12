@@ -9,7 +9,7 @@
 
 ## Design notes
 
-> Durable seam rationale — the non-obvious "why here" that survives trim-on-ship (INV-D2).
+> Durable seam rationale — the non-obvious "why here" that survives trim-on-ship (INV-28).
 
 - **The registry generic is shaped by family nature, not a global preference — `IRegistry<TKey, TDef>` carries two type parameters.** Each trait family keys by the identity that matches what it *is*, and the generic accommodates both:
   - **Fixed, code-owned vocabularies** (Aspect, Score, Resource) → **enum key** (`AspectId`, `ScoreId`, `ResourceType`). Small, closed, changed deliberately by developers, and referenced in C# at compile-checkable call sites. An enum gives compile-time reference safety at near-zero cost, and is faithful to the model, which writes `AspectId Id` as a *typed* field, not `string`.

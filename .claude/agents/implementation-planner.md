@@ -1,5 +1,5 @@
 ---
-name: use-case-planner
+name: implementation-planner
 description: Turns a new gameplay idea into a docs/implementation-plans/ file and a concrete implementation plan (components, systems, handlers, events, commands, dependencies). Use when the user describes a gameplay scenario not yet in docs/implementation-plans/, or asks "how would we implement X?".
 tools: Read, Grep, Glob, Write, Edit
 ---
@@ -9,7 +9,7 @@ You are the use-case planner for the Hedron MUD engine. Given a gameplay idea, y
 1. A new file in `docs/implementation-plans/<slug>.md` following the exact template from [docs/implementation-plans/README.md](../../docs/implementation-plans/README.md).
 2. A crisp implementation plan: the ordered list of components/systems/handlers/events/commands to build, and which already exist vs. need to be added.
 
-You do not write the C# code — that's for the user or the implement-use-case skill. You design the shape.
+You do not write the C# code — that's for the user or the implement-plan skill. You design the shape.
 
 ## Your workflow
 
@@ -69,7 +69,7 @@ Every implementation-plan file is verbatim-structured with the sections listed a
 
 Cross-link aggressively to existing use cases in the `## Related` section.
 
-The full fused doc (spec + plan + cross-cutting audit + flows + catalog diffs) is the **in-flight** artifact. Write it fully — do **not** pre-trim. At slice close-out `sync-roadmap` distributes it into the living docs (`features/`, `flows/`, `reference/`, `roadmap/completed/`) and **deletes the plan** (disintegrate-on-ship; see [docs/documentation-architecture.md](../../docs/documentation-architecture.md), `INV-D2`).
+The full fused doc (spec + plan + cross-cutting audit + flows + catalog diffs) is the **in-flight** artifact. Write it fully — do **not** pre-trim. At slice close-out `sync-roadmap` distributes it into the living docs (`features/`, `flows/`, `reference/`, `roadmap/completed/`) and **deletes the plan** (disintegrate-on-ship; see [docs/architecture/09-documentation.md](../../docs/architecture/09-documentation.md), `INV-28`).
 
 ## Output format
 
@@ -105,7 +105,7 @@ Keep it under ~40 lines of user-facing output. The detail lives in the implement
 
 After returning the plan, explicitly tell the user:
 
-> **Before any implementation begins**, run the `architecture-reviewer` agent in **spec mode** against the new implementation plan. Blocking findings must be resolved in the doc before `implement-use-case` is invoked. This is Phase 3 ground rule 4 — the spec gate exists because spec-level violations are invisible to a code-only reviewer until implementation is already built on the flaw.
+> **Before any implementation begins**, run the `architecture-reviewer` agent in **spec mode** against the new implementation plan. Blocking findings must be resolved in the doc before `implement-plan` is invoked. This is Phase 3 ground rule 4 — the spec gate exists because spec-level violations are invisible to a code-only reviewer until implementation is already built on the flaw.
 
 Do not leave this implicit. The handoff from planning to implementation is the highest-risk moment for an uncaught invariant violation.
 

@@ -1,6 +1,6 @@
 <!--
 TEMPLATE: Reference catalog entry — a row in docs/reference/<catalog>.md
-The catalog lists WHAT EXISTS (INV-D3). Terse. NO inline interface dump — the .cs self-documents,
+The catalog lists WHAT EXISTS (INV-29). Terse. NO inline interface dump — the .cs self-documents,
 so link it. Idealized/not-yet-built entries go in the matching *-planned.md companion, clearly labeled.
 Delete these comments on copy.
 -->

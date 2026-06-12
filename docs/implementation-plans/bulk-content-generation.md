@@ -4,7 +4,7 @@
 **Actors:** Developer (headless CLI), System
 **Module:** new `Core/Modules/Authoring/` (`IContentGenerationSystem`, `GenerationProfile`, `GenerationResult`); `Server/` (headless CLI run-mode entry point); reuses `Core/Modules/World/`, `Core/Modules/Items/`, `Core/Modules/Mobs/` writers + templates.
 
-> **Track T1 of the [content-tooling platform](content-tooling-platform.md).** The shared architecture, seam rationale, family disposition, and resolved decisions live in that platform brief (INV-D1); this slice references them rather than restating. This is the bulk-generation track named in the platform's scope note; the Blazor authoring track (T2) is a sibling slice. The two share only the content-definition writer seam, so neither blocks the other.
+> **Track T1 of the [content-tooling platform](content-tooling-platform.md).** The shared architecture, seam rationale, family disposition, and resolved decisions live in that platform brief (INV-27); this slice references them rather than restating. This is the bulk-generation track named in the platform's scope note; the Blazor authoring track (T2) is a sibling slice. The two share only the content-definition writer seam, so neither blocks the other.
 
 ---
 
@@ -66,7 +66,7 @@ A developer needs to assemble large swaths of areas/rooms/items/mobs to deeply t
 
 ## Design Notes
 
-> Slice-specific seam rationale. Platform-wide rationale lives in [`content-tooling-platform.md`](content-tooling-platform.md) Design notes + Architecture brief (INV-D1); not restated here.
+> Slice-specific seam rationale. Platform-wide rationale lives in [`content-tooling-platform.md`](content-tooling-platform.md) Design notes + Architecture brief (INV-27); not restated here.
 
 - **Bulk generation is a domain system over the existing writer seam (platform brief, "build the family seam now").** `IContentGenerationSystem` composes `I*ContentWriter` + `*Template` and emits YAML; it does not re-implement authoring logic. This is the brief's family disposition realized: the four writers already shipped, so the generator is a thin composer. The system returns a `GenerationResult` and never publishes (INV-5) — the run-mode Initiator owns process-level concerns.
 

@@ -25,8 +25,9 @@ sequenceDiagram
 
 ## Steps
 
-1. Major step — name the system/event, the decision made, the outcome. Not the call signature.
-2. …
+<!-- Optional. List ONLY the major steps the path actually has (typically 3–7) — each names a
+     system/event, the decision made, and the outcome, not call signatures. Do NOT pad to a
+     fixed count. If the Summary + mermaid already convey the path, omit this section entirely. -->
 
 ## Where to look
 

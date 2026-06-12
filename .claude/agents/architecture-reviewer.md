@@ -1,6 +1,6 @@
 ---
 name: architecture-reviewer
-description: Reviews Hedron changes against the architecture invariant checklist. Runs in two modes — spec-review (an implementation plan, before implementation) and code-review (a diff, before merge). Use spec mode after use-case-planner and before implement-use-case; use code mode after any PR-sized change to Core/ and before merging.
+description: Reviews Hedron changes against the architecture invariant checklist. Runs in two modes — spec-review (an implementation plan, before implementation) and code-review (a diff, before merge). Use spec mode after implementation-planner and before implement-plan; use code mode after any PR-sized change to Core/ and before merging.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -30,7 +30,7 @@ The point of this mode is to catch architecture violations **before code exists*
 5. Cross-check the doc's **Cross-cutting surfaces stressed**, **Test plan / Verification**, and **Flows introduced or modified** sections: are they honest and complete given what the spec actually describes? A surface the spec clearly exercises but doesn't list is a finding. So is a **Postcondition that asserts player-invisible internal state with no matching test in the Test plan** (INV-25), or a Main-Flow step that rolls randomness / reads wall-clock time without an injected seam (INV-26).
 6. **Agent/skill audit (INV-20).** Glob `.claude/skills/*.md` and `.claude/agents/*.md`. For each file, check whether the spec introduces, extends, or contradicts a pattern that skill/agent advises. Flag any file that would give incorrect guidance if the spec ships without updating it. This is a blocking finding — stale tooling produces violations on the next slice.
 
-A spec-mode review blocks `implement-use-case` until blocking findings are resolved in the doc.
+A spec-mode review blocks `implement-plan` until blocking findings are resolved in the doc.
 
 ### Code-review mode (input: a diff, before merge)
 
@@ -45,7 +45,7 @@ A spec-mode review blocks `implement-use-case` until blocking findings are resol
 5. **Cross-cutting-surface audit (INV-19).** For each surface in the implementation plan: "Adequate" → spot-check no new file hand-rolled what the surface should absorb; "Gap exposed" → confirm the framework landed here or in a merged prerequisite; "Acknowledged debt" → confirm the backlog entry exists.
 6. **Pattern-repetition sweep (INV-19).** Any hand-rolled pattern in ≥3 new/modified files (arg parsing, privilege checks, output formatting, `PersistentEntity` queries, `[Persistent]` component loops) → framework-promotion finding.
 7. **Flows-doc audit (INV-17).** For each flow in the doc's "Flows introduced or modified," open `flows/README.md` and verify body **and** mermaid match the as-built code.
-8. **Catalog audit (INV-16 / INV-D2).** New/changed component, system, handler, event → matching `docs/reference/*.md` updated. On ship, confirm the plan is disintegrated into `docs/features/` (feature + system docs) and `docs/architecture/flows/`, with decisions recorded in `docs/roadmap/completed/`, and the plan file deleted.
+8. **Catalog audit (INV-16 / INV-28).** New/changed component, system, handler, event → matching `docs/reference/*.md` updated. On ship, confirm the plan is disintegrated into `docs/features/` (feature + system docs) and `docs/architecture/flows/`, with decisions recorded in `docs/roadmap/completed/`, and the plan file deleted.
 9. **README run/config audit.** If the diff changes how a developer **runs or configures** the app — a new project or run-mode, a new/changed CLI argument, a new/renamed config section or key, or a changed default port/bind or build/run path — confirm [`README.md`](../../README.md) is updated to match. Stale run/config docs block a new contributor. (The README stays high-level — specific config values live in `appsettings.json`, not the README.)
 10. **Agent/skill audit (INV-20).** Glob `.claude/skills/*.md` and `.claude/agents/*.md`. For each changed architectural pattern in the diff, check whether any skill or agent file advises that pattern and would become stale or misleading. Flag as a blocking finding with a suggested resolution.
 11. **Test audit (INV-25).** For each system/handler/flow/`[Persistent]` shape/fail-fast validation the diff adds or changes, confirm the plan's **Test plan** names a test and the test exists in `Hedron.Tests`. Run `dotnet test` (Bash) — the suite must be green; a red or absent-where-required suite is a blocking finding. **On-touch ratchet:** if the diff modifies a system that had no prior tests, confirm it gained coverage. A Postcondition asserting player-invisible state with no test is a finding. You verify test *presence* and that the suite *passes* — not test *logic quality*. *(Until the `Hedron.Tests` harness lands, treat a missing suite as "prerequisite not yet met" and flag the Test-plan section as the gating item rather than a green-suite failure.)*

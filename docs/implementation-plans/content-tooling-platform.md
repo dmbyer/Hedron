@@ -4,7 +4,7 @@
 **Actors:** Content designer / Administrator (interactive authoring), Developer (bulk content generation)
 **Module:** new `Core/Modules/Authoring/` (cross-cutting content-definition catalog + `IContentGenerationSystem`); definition/validation refactors in `Core/Modules/World/`, `Core/Modules/Items/`, `Core/Modules/Mobs/`; new `Hedron.Web` Blazor Server host (or promotion of `Server` to a web SDK) — reuses `CompositionRoot`.
 
-> **Scope note.** This is a *platform* brief spanning two parallel tracks that share one seam. It is expected to **fork into ≥2 sibling slices** when the planner runs: (T1) the headless **bulk-generation** slice, and (T2) the **offline Blazor authoring** slice (itself likely 2–3 work packages). The shared architecture lives here once (INV-D1); per-slice docs reference it.
+> **Scope note.** This is a *platform* brief spanning two parallel tracks that share one seam. It is expected to **fork into ≥2 sibling slices** when the planner runs: (T1) the headless **bulk-generation** slice, and (T2) the **offline Blazor authoring** slice (itself likely 2–3 work packages). The shared architecture lives here once (INV-27); per-slice docs reference it.
 
 ---
 
@@ -16,7 +16,7 @@ Content authoring today is command-driven over telnet: each `mk*`/`set*`/`dig` v
 
 ## Design notes
 
-> Durable seam rationale (survives trim-on-ship, INV-D2).
+> Durable seam rationale (survives trim-on-ship, INV-28).
 
 - **The shared backing is the C# system layer, not an HTTP API.** The integration point between telnet commands, the Blazor editor, and the bulk generator is a set of in-process **content-definition systems** (read / edit / validate / write over the YAML `*Template` types), *not* a REST surface. Each user-facing surface is a thin adapter over those systems — peer to how `MkareaCommand` adapts `IAreaBuilderSystem`. This is why surface **parity is unnecessary**: telnet can stay minimal while the editor grows rich, with zero logic duplication, *provided no authoring logic leaks into a command body, a Blazor component, or the generator* (the fat-controller analogue of a fat command — INV-8 discipline extended to the new surfaces).
 

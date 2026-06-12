@@ -5,7 +5,7 @@ description: Use when creating, updating, moving, or trimming any Hedron documen
 
 # Manage Docs
 
-The single entry point for documentation work in Hedron. The docs are treated like code: **one fact, one home; one doc, one job; link, don't duplicate; no silent staleness.** This skill carries the *method*; it carries **no copy** of the invariant list — it reads [`docs/architecture/checklist.md`](../../../docs/architecture/checklist.md) (the `INV-D*` series) live and cites by id, and defers the full rationale to [`docs/documentation-architecture.md`](../../../docs/documentation-architecture.md).
+The single entry point for documentation work in Hedron. The docs are treated like code: **one fact, one home; one doc, one job; link, don't duplicate; no silent staleness.** This skill carries the *method*; it carries **no copy** of the invariant list — it reads [`docs/architecture/checklist.md`](../../../docs/architecture/checklist.md) (the `INV-27`–`INV-30` series) live and cites by id, and defers the full rationale to [`docs/architecture/09-documentation.md`](../../../docs/architecture/09-documentation.md).
 
 ## Where each kind of fact lives (pick the bucket first)
 
@@ -20,18 +20,18 @@ The single entry point for documentation work in Hedron. The docs are treated li
 | A **foundational/cross-cutting rule or concept** | `docs/architecture/00`–`08` + the rule in `checklist.md` | — (edit in place) |
 | A **forward design model** spanning many slices | `docs/design/<model>.md` | — |
 
-If a fact doesn't fit its bucket, it moves to the bucket that owns it (`INV-D4`). The canonical taxonomy and the feature list are [`docs/features/README.md`](../../../docs/features/README.md); the navigation doc-map is the Related Documents table in [`docs/architecture/00-overview.md`](../../../docs/architecture/00-overview.md). Don't fork either.
+If a fact doesn't fit its bucket, it moves to the bucket that owns it (`INV-30`). The canonical taxonomy and the feature list are [`docs/features/README.md`](../../../docs/features/README.md); the navigation doc-map is the Related Documents table in [`docs/architecture/00-overview.md`](../../../docs/architecture/00-overview.md). Don't fork either.
 
 ## The four discipline rules (every doc)
 
-1. **Link, don't duplicate.** A one-line summary + link is allowed; an authoritative-sounding restatement is not (`INV-D1`). Never restate an invariant outside `checklist.md` — cite `INV-n`. Never reproduce a flow's mermaid outside `flows/`.
+1. **Link, don't duplicate.** A one-line summary + link is allowed; an authoritative-sounding restatement is not (`INV-27`). Never restate an invariant outside `checklist.md` — cite `INV-n`. Never reproduce a flow's mermaid outside `flows/`.
 2. **Link interfaces; don't dump them.** An implementer will open the `.cs` anyway, and it self-documents. Reference `I<X>.cs` and describe *behavior and invariants* in words — do not paste method signatures into a system doc or a reference row. (This is the main lever for trimming the reference catalogs.)
-3. **Catalogs list what exists** (`INV-D3`). Idealized/not-yet-built designs go in the matching `*-planned.md` companion, clearly labeled — never in the implemented catalog.
+3. **Catalogs list what exists** (`INV-29`). Idealized/not-yet-built designs go in the matching `*-planned.md` companion, clearly labeled — never in the implemented catalog.
 4. **No silent staleness.** A doc is current, or explicitly marked (trimmed/superseded/archived). When code moves, its docs move in the same change.
 
 ## Disintegrate-on-ship (when a slice lands)
 
-An implementation plan is a **transient build artifact**, deleted on ship (`INV-D2`). At close-out (driven by the `sync-roadmap` skill), distribute its content and delete it:
+An implementation plan is a **transient build artifact**, deleted on ship (`INV-28`). At close-out (driven by the `sync-roadmap` skill), distribute its content and delete it:
 
 1. **Behavior / orchestration →** the [`features/`](../../../docs/features/) feature doc and its `<system>.md` design docs (create or update).
 2. **Runtime path →** the feature's `flows/` journey (create/extend; de-detail to systems+events).
@@ -67,4 +67,4 @@ Copy from [`templates/`](templates/) and delete the guidance comments. Keep docs
 
 ## Keep tooling current (`INV-20`)
 
-If a change alters a pattern a skill or agent teaches, update that `.claude/` file in the same PR. If it alters the doc taxonomy or lifecycle, update [`documentation-architecture.md`](../../../docs/documentation-architecture.md) and this skill — they move together.
+If a change alters a pattern a skill or agent teaches, update that `.claude/` file in the same PR. If it alters the doc taxonomy or lifecycle, update [`09-documentation.md`](../../../docs/architecture/09-documentation.md) and this skill — they move together.

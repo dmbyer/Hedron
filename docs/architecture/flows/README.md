@@ -57,4 +57,4 @@ When a slice introduces a recurring runtime call chain (combat round, player dea
 
 Then add a row to the index table above.
 
-The use-case-planner agent surfaces flow additions as part of its workflow; the architecture-reviewer agent verifies the doc matches the diff. Drift between code and this file is a merge gate.
+The implementation-planner agent surfaces flow additions as part of its workflow; the architecture-reviewer agent verifies the doc matches the diff. Drift between code and this file is a merge gate.

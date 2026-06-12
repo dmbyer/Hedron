@@ -4,7 +4,7 @@
 **Actors:** Administrator (existing), Player (target of elevation)
 **Module:** `Core/Modules/Admin/`
 
-> **This is a placeholder.** It captures the shape of a future slice so the design is recorded but not yet ready to implement. A later `use-case-planner` run should flesh it out, resolve open questions, and promote the status to `planned` before any code is written. Slice number TBD — the queue is in [`../roadmap/plan.md`](../roadmap/plan.md).
+> **This is a placeholder.** It captures the shape of a future slice so the design is recorded but not yet ready to implement. A later `implementation-planner` run should flesh it out, resolve open questions, and promote the status to `planned` before any code is written. Slice number TBD — the queue is in [`../roadmap/plan.md`](../roadmap/plan.md).
 
 ---
 

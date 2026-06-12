@@ -1,8 +1,8 @@
 # Implementation Plans
 
-**Transient per-slice build artifacts.** An implementation plan captures *what is being built right now* — the behavior spec **plus** the implementation plan, cross-cutting audit, flows, test plan, and reference diffs that the planner, the spec-review gate, and `implement-use-case` all operate on. It is the single source of truth for a slice **while in flight**, and it is **deleted on ship** — its durable content moves into the living docs.
+**Transient per-slice build artifacts.** An implementation plan captures *what is being built right now* — the behavior spec **plus** the implementation plan, cross-cutting audit, flows, test plan, and reference diffs that the planner, the spec-review gate, and `implement-plan` all operate on. It is the single source of truth for a slice **while in flight**, and it is **deleted on ship** — its durable content moves into the living docs.
 
-> **The durable home is no longer here.** A shipped feature's behavior lives in [`../features/`](../features/) (holistic) and its `<system>.md` design docs; its runtime path in [`../architecture/flows/`](../architecture/flows/); its catalog rows in [`../reference/`](../reference/); its history and design rationale in [`../roadmap/completed/`](../roadmap/completed/). An implementation plan is the scaffolding, not the building. See [`../documentation-architecture.md`](../documentation-architecture.md) and `INV-D2`.
+> **The durable home is no longer here.** A shipped feature's behavior lives in [`../features/`](../features/) (holistic) and its `<system>.md` design docs; its runtime path in [`../architecture/flows/`](../architecture/flows/); its catalog rows in [`../reference/`](../reference/); its history and design rationale in [`../roadmap/completed/`](../roadmap/completed/). An implementation plan is the scaffolding, not the building. See [`../architecture/09-documentation.md`](../architecture/09-documentation.md) and `INV-28`.
 
 Plans are authored on demand, one per slice, against the current architecture. See [`../roadmap/plan.md`](../roadmap/plan.md) for the slice queue and current focus.
 
@@ -36,24 +36,21 @@ A plan moves through three states:
    - catalog diffs → the [`../reference/`](../reference/) catalogs;
    - **decisions, rationale, as-built record → [`../roadmap/completed/<slice>.md`](../roadmap/completed/)** — the single historical artifact. The completed-record is *verified to capture the design decisions before the plan is deleted* (enriched if anything is missing).
 
-   There is no retained trimmed spec. History is `roadmap/completed/`; present truth is the living docs. See [`../documentation-architecture.md`](../documentation-architecture.md) (`INV-D2`) and the `sync-roadmap` skill.
+   There is no retained trimmed spec. History is `roadmap/completed/`; present truth is the living docs. See [`../architecture/09-documentation.md`](../architecture/09-documentation.md) (`INV-28`) and the `sync-roadmap` skill.
 
 A small quick-fix or minor enhancement that warrants no slice-sized record updates the living docs directly and needs no plan at all.
 
 ## Index (in-flight only)
 
-> Implemented plans are disintegrated and removed as each feature is migrated; this index tracks only `planned`/`partial`/`deferred` work. The shipped history lives in [`../roadmap/done.md`](../roadmap/done.md) and [`../roadmap/completed/`](../roadmap/completed/).
+> This index tracks only genuinely **in-flight** work — plans whose `Status` is `planned` / `partial` / `deferred`. Shipped history lives in [`../roadmap/done.md`](../roadmap/done.md) and [`../roadmap/completed/`](../roadmap/completed/).
 
 | Status | Plan | Slice |
 |---|---|---|
-| `planned` | [`ability-substrate.md`](ability-substrate.md) | Phase 3 slice 11-a |
-| `planned` | [`ability-invocation.md`](ability-invocation.md) | Phase 3 slice 11-b |
-| `planned` | [`resource-regeneration.md`](resource-regeneration.md) | Phase 3 slice 11-c |
-| `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 | `planned` | [`admin-area-authoring.md`](admin-area-authoring.md) | `mkarea` + `list <type>` |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C) |
-| `planned` | [`prompt-and-output-batching.md`](prompt-and-output-batching.md) | Player prompt + output batching |
-| `planned` | [`testing-harness-and-backfill.md`](testing-harness-and-backfill.md) | Phase 4 — `Hedron.Tests` |
+| `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
+
+> **Legacy implemented plans pending disintegration.** The other ~28 `*.md` files in this folder carry `Status: implemented` — they shipped under the *old* trim-and-keep lifecycle and predate disintegrate-on-ship (`INV-28`). They are the migration backlog: the docs-refinement program (WP-3…N, tracked in [`../roadmap/backlog.md`](../roadmap/backlog.md)) distributes each into its `features/` + `flows/` homes, verifies its `roadmap/completed/` record, then deletes it. They are **not** open work — their behavior is already live and catalogued in `reference/`.
 
 > See [`../roadmap/plan.md`](../roadmap/plan.md#slice-queue) for the full slice queue and current focus.
 
@@ -61,4 +58,4 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 
 For a net-new feature or non-trivial change, **frame it first with the [`architecture-advisor`](../../.claude/skills/architecture-advisor/SKILL.md) skill (`/advise`)** — the interactive principal-architect intake seeds the plan with Description, Module, seam rationale, and an in-flight `## Architecture brief`. The planner then extends that seed into the full template above. For a small, well-understood slice, skip straight to planning.
 
-Use the `implement-use-case` skill or the `/new-use-case` command (see [`.claude/README.md`](../../.claude/README.md) for current tooling names). Every plan committed here must be authoritative — resolve open design questions (or park them on an explicit roadmap ticket) before merging. No `TODO` / "to be decided" language in merged plans.
+Use the `implement-plan` skill or the `/new-plan` command (see [`.claude/README.md`](../../.claude/README.md) for current tooling names). Every plan committed here must be authoritative — resolve open design questions (or park them on an explicit roadmap ticket) before merging. No `TODO` / "to be decided" language in merged plans.

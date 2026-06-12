@@ -9,7 +9,7 @@
 
 ## Design notes
 
-> Durable seam rationale — the non-obvious "why here" that survives trim-on-ship (INV-D2).
+> Durable seam rationale — the non-obvious "why here" that survives trim-on-ship (INV-28).
 
 - **Bidirectional via component field + query, not a stored list.** `RoomComponent` carries `uint AreaEntityId` (one direction); the reverse — area → rooms — is a scan over `EntityService.GetAllComponents<RoomComponent>()` inside `IAreaSystem.GetRoomsInArea`. Storing a `List<uint> RoomIds` on `AreaComponent` would require concurrent maintenance (a room is added via `@dig`, assigned via `@setarea`, or spawned from a template — all mutation sites would have to keep the list in sync). The scan is O(n) over room entities; at MUD-scale room counts this is not a hot path. A cache layer inside `AreaSystem` is a future optimization if profiling shows real cost (backlog).
 

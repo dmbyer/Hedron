@@ -1,11 +1,11 @@
 ---
-name: implement-use-case
+name: implement-plan
 description: Use when implementing a full gameplay use case end-to-end (shop purchase, combat pulse, crafting, etc.). Translates an implementation plan into the concrete set of components/systems/handlers/events needed, and sequences the work so each piece is independently testable. Invoke when the user picks a use case to build, or says "let's implement X" where X matches a docs/implementation-plans/ file.
 ---
 
-# Implement a Use Case
+# Implement a Plan
 
-Every gameplay scenario in [docs/implementation-plans/](../../../docs/implementation-plans/README.md) follows a fixed template:
+Every implementation plan in [docs/implementation-plans/](../../../docs/implementation-plans/README.md) follows a fixed template:
 - **Preconditions** → guard checks
 - **Postconditions** → what must be true when done
 - **Main flow** → the sequence that takes preconditions to postconditions
@@ -26,7 +26,7 @@ Your job is to turn those sections into real code without slipping gameplay logi
 8. **Write the tests named in the plan's Test plan (INV-25).** Use the **add-tests** skill. Cover each new/changed system method (system-unit tier), each Main-Flow postcondition that asserts player-invisible state (the matching tier), each `[Persistent]` shape (round-trip), and each fail-fast validation (throws-test). **On-touch ratchet:** if you modified a previously-untested system, add its tests now too. Then run `dotnet test` — it must be green before the code-review gate. If a system needs an un-injected seam to be testable (randomness, wall-clock, I/O), add the seam (INV-26) — don't skip the test. *(Until the `Hedron.Tests` harness lands — see [backlog](../../../docs/roadmap/backlog.md) — author the Test plan and flag this as the gating prerequisite.)*
 9. **Set the plan's Status** — `implemented` if fully done, keep `partial` if only some paths are live.
 10. **Update the in-flight index** — open [docs/implementation-plans/README.md](../../../docs/implementation-plans/README.md): a `partial` plan stays in the index with its status updated; a fully `implemented` plan is removed from the index by step 11 when it is disintegrated.
-11. **Sync roadmap + disintegrate the plan.** Run the **sync-roadmap** skill. It updates `plan.md` (phase summary, slice queue status, current focus), adds a row to `done.md`, creates `completed/<slug>.md`, then **distributes the plan's content into the living docs** (`features/`, `flows/`, `reference/`) and **deletes the plan** (disintegrate-on-ship, `INV-D2`; the **manage-docs** skill has the placement rules). This is Phase 3 ground rule 7.
+11. **Sync roadmap + disintegrate the plan.** Run the **sync-roadmap** skill. It updates `plan.md` (phase summary, slice queue status, current focus), adds a row to `done.md`, creates `completed/<slug>.md`, then **distributes the plan's content into the living docs** (`features/`, `flows/`, `reference/`) and **deletes the plan** (disintegrate-on-ship, `INV-28`; the **manage-docs** skill has the placement rules). This is Phase 3 ground rule 7.
 12. **Code-review gate (mandatory).** Run the `architecture-reviewer` agent in **code mode** against the diff before this branch merges. This is Phase 3 ground rule 6; the gate also confirms the Test-plan tests are present and `dotnet test` is green (INV-25). Do not skip it even for "infrastructure-only" slices — the code gate catches drift between the as-built code and the spec that the spec gate cannot see.
 
 ## Guard the layer discipline

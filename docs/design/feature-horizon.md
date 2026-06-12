@@ -1133,7 +1133,7 @@ This catalog is a **menu, not a plan**. To turn an entry into work:
 2. Note which **spine** it instances (A–F). Most of §4–§14 are *instances of existing primitives*, not
    new systems — that is the whole point of [`gameplay-model.md`](gameplay-model.md). A new entry that
    needs a genuinely new primitive is the rare, reviewed exception.
-3. Run the `new-use-case` skill / `use-case-planner` to produce a use-case doc, then the normal
+3. Run the `new-plan` skill / `implementation-planner` to produce a use-case doc, then the normal
    per-slice loop (spec gate → implement → code gate → sync-roadmap).
 
 ### Natural clustering (suggested reading, not a commitment)

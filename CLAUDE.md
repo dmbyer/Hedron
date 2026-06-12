@@ -45,11 +45,11 @@ Read these in order the first time:
 
 **Roadmap:** [`docs/roadmap/plan.md`](docs/roadmap/plan.md) · [`docs/roadmap/done.md`](docs/roadmap/done.md) · [`docs/roadmap/backlog.md`](docs/roadmap/backlog.md)
 
-**Documentation map & rules:** [`docs/documentation-architecture.md`](docs/documentation-architecture.md) — how the docs and `.claude/` tooling are organized, what each surface owns, and the discipline that keeps them current (enforced via checklist `INV-D*`).
+**Documentation map & rules:** [`docs/architecture/09-documentation.md`](docs/architecture/09-documentation.md) — how the docs and `.claude/` tooling are organized, what each surface owns, and the discipline that keeps them current (enforced via checklist `INV-27`–`INV-30`).
 
 ## Ground rules when writing code
 
-> Every architectural invariant lives in [`docs/architecture/checklist.md`](docs/architecture/checklist.md) (the `INV` list). The lines below are a day-to-day index into it — each summarizes one rule and links to its `INV`. The checklist *defines*; this list *summarizes*. If the two disagree, the checklist wins and this summary is fixed — never treat a line here as the authoritative rule. (Why each rule has one home: [`docs/documentation-architecture.md`](docs/documentation-architecture.md).)
+> Every architectural invariant lives in [`docs/architecture/checklist.md`](docs/architecture/checklist.md) (the `INV` list). The lines below are a day-to-day index into it — each summarizes one rule and links to its `INV`. The checklist *defines*; this list *summarizes*. If the two disagree, the checklist wins and this summary is fixed — never treat a line here as the authoritative rule. (Why each rule has one home: [`docs/architecture/09-documentation.md`](docs/architecture/09-documentation.md).)
 
 1. **Match the idealized API** — write new code against the documented target; if the target is wrong, fix the doc first (INV-15).
 2. **4-layer discipline** — handlers orchestrate → domain systems decide → core systems compute → components hold data; never call upward (INV-1, INV-2).

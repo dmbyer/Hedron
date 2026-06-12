@@ -80,7 +80,7 @@ Stood up the `Hedron.Tests` xUnit project and the full shared test harness, enab
 
 - `add-tests/SKILL.md` updated (INV-20): dropped "once it exists" hedge, added `FakeClock`, fixed stale INV-21 Tier-3 example.
 - `SpawnSystemTests.cs`: local `Tick()` helper replaced with `Ticks.At()` factory.
-- Use-case doc trimmed per INV-D2.
+- Use-case doc trimmed per INV-28.
 
 ## Notable design points
 

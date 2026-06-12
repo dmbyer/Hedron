@@ -39,10 +39,10 @@ Code-mode architecture review ran after all three work packages landed. Two bloc
 
 **Blocking (both fixed):**
 - INV-20: `add-command/SKILL.md` `DrinkCommand` example used the obsolete two-argument `PlainMessage` constructor → updated to three-argument form with `OutputCategory`.
-- INV-D2: use-case doc still read `Status: planned` → trimmed to implemented state; in-flight sections removed.
+- INV-28: use-case doc still read `Status: planned` → trimmed to implemented state; in-flight sections removed.
 
 **Non-blocking (all fixed):**
-- INV-D1: `subsystems/output.md` referenced a `NullPromptSource` stub that was never created (implementation went straight to `PromptComposerSystem`) → description corrected.
+- INV-27: `subsystems/output.md` referenced a `NullPromptSource` stub that was never created (implementation went straight to `PromptComposerSystem`) → description corrected.
 - INV-17: flow-16 and flow-18 claimed `CombatMessage` type and `OutputCategory.Combat` for combat handler output; actual handlers write `PlainMessage(System)` → corrected in both flow docs.
 
 ## Notable design points

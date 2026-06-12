@@ -2,7 +2,7 @@
 
 **Spec:** [`../../implementation-plans/content-tooling-platform.md`](../../implementation-plans/content-tooling-platform.md) (architecture-advisor brief) · [`../../implementation-plans/bulk-content-generation.md`](../../implementation-plans/bulk-content-generation.md) (T1) · [`../../implementation-plans/content-authoring-editor.md`](../../implementation-plans/content-authoring-editor.md) (T2)
 **Commits:** `c2d6d77` (WP-1) · `c4dc84f` (S0) · `3088684` (T1) · `d472375` (T2-WP-2) · `92f6208` (T2-WP-3)
-**Advisor-initiated** — framed with `/advise`, planned with `use-case-planner`, both spec-gated and code-gated; not part of the numbered slice queue.
+**Advisor-initiated** — framed with `/advise`, planned with `implementation-planner`, both spec-gated and code-gated; not part of the numbered slice queue.
 
 ## Outcome
 

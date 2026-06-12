@@ -82,7 +82,7 @@ None new. This slice introduces no new event types — the prompt observes by re
 
 ## Design notes
 
-*(Durable rationale — kept on ship per [INV-D2](../architecture/checklist.md).)*
+*(Durable rationale — kept on ship per [INV-28](../architecture/checklist.md).)*
 
 - **Two layers, decoupled by a port — the central decision.** The *flush mechanism* (a per-session buffer that coalesces and emits typed messages) is pure transport plumbing → it stays **core-tier** in `Core/Output/`, carrying no domain dependency. The *prompt content* is a projection of entity **state + pools** → it is a **domain read** and cannot sit in core ([INV-2](../architecture/checklist.md)). They are joined by a **core-owned `IPromptSource` port** ([INV-24](../architecture/checklist.md)): the core buffer calls the port at flush; a domain-aware composer implements it. This is what lets the buffer self-flush an immediate-category message (a `say`) and still append a prompt without the core knowing anything about state or pools.
 - **The prompt is computed on read, never cached.** The composer builds a fresh `PromptMessage` at each flush from current state + pools. This is why no "prompt dirty" flag and no `PromptChangedEvent` are needed: a prompt composed *after* the tick's mutations automatically reflects the post-round HP. Caching the prompt would re-introduce the "did I recompute when HP changed?" bug family ([INV-24](../architecture/checklist.md), compute-on-read).

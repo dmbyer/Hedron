@@ -2,7 +2,7 @@
 TEMPLATE: Completed-record — docs/roadmap/completed/<slice>.md
 The SINGLE historical artifact for a shipped slice: what shipped, the as-built record, and the
 design decisions. This is where a deleted implementation plan's rationale lands. It must capture
-the slice's decisions BEFORE the plan is deleted (INV-D2). Rarely referenced — for archaeology
+the slice's decisions BEFORE the plan is deleted (INV-28). Rarely referenced — for archaeology
 beyond what the living docs show. Delete these comments on copy.
 -->
 # <Slice> (completed)

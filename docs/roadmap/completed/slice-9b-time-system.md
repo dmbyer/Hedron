@@ -24,7 +24,7 @@ The game now has a shared clock. `HeartbeatBackgroundService` runs a `PeriodicTi
 **Spec-mode gate:** Passed before implementation (use-case doc authored as part of slice 9 planning batch).
 
 **Code-mode gate:** Run before merge. Two blocking findings resolved:
-1. **INV-D2** — `time-system.md` in-flight sections not trimmed; `docs/implementation-plans/README.md` index showed `planned`. Fixed: use-case doc trimmed to durable spec; index updated to `implemented`.
+1. **INV-28** — `time-system.md` in-flight sections not trimmed; `docs/implementation-plans/README.md` index showed `planned`. Fixed: use-case doc trimmed to durable spec; index updated to `implemented`.
 2. **INV-16** — `HeartbeatBackgroundService` missing from `docs/reference/systems.md`. Fixed: added a new "Background Services / Initiators" section with the entry.
 
 One non-blocking finding noted: `.claude/skills/add-event/SKILL.md` example uses `: IGameEvent` instead of `: IEvent`. Spawned as a follow-up task; not blocking this slice.

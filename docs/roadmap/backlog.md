@@ -6,10 +6,10 @@ Status markers: 🟢 ready · 🟡 blocked · 🔵 deferred
 
 ## Docs refinement & cleanup (in progress)
 
-Multi-session program restructuring the docs into the feature/system taxonomy, consolidating flows, trimming reference catalogs, and moving to the disintegrate-on-ship plan lifecycle. Governing spec: [`../documentation-architecture.md`](../documentation-architecture.md). Per-feature packages (WP-3…N) are self-contained and may run in any order once WP-1/WP-2 land.
+Multi-session program restructuring the docs into the feature/system taxonomy, consolidating flows, trimming reference catalogs, and moving to the disintegrate-on-ship plan lifecycle. Governing spec: [`../architecture/09-documentation.md`](../architecture/09-documentation.md). Per-feature packages (WP-3…N) are self-contained and may run in any order once WP-1/WP-2 land.
 
-- [x] **WP-1 — Structure + spec.** `docs/features/` skeleton + README; renamed the use-cases folder to `implementation-plans/`; rewrote `documentation-architecture.md`, `checklist.md` (`INV-D2`/`INV-D4`), `CLAUDE.md`, `00-overview.md` doc-map, `.claude/README.md`.
-- [x] **WP-2 — Templates + `manage-docs` skill + tooling repoint.** 6 templates in `.claude/skills/manage-docs/templates/`; new `manage-docs` skill; repointed `sync-roadmap` (disintegrate-on-ship), `use-case-planner`, `implement-use-case`, `architecture-reviewer`, `architecture-advisor`, `.claude/README`, `add-*`. Agent/command *file names* kept (repoint-only); rename later if desired.
+- [x] **WP-1 — Structure + spec.** `docs/features/` skeleton + README; renamed the use-cases folder to `implementation-plans/`; rewrote `architecture/09-documentation.md` (moved from docs root), `checklist.md` (`INV-28`/`INV-30`), `CLAUDE.md`, `00-overview.md` doc-map, `.claude/README.md`.
+- [x] **WP-2 — Templates + `manage-docs` skill + tooling repoint.** 6 templates in `.claude/skills/manage-docs/templates/`; new `manage-docs` skill; repointed `sync-roadmap` (disintegrate-on-ship), `implementation-planner`, `implement-plan`, `architecture-reviewer`, `architecture-advisor`, `.claude/README`, `add-*`. Agent/command *file names* kept (repoint-only); rename later if desired.
 - [ ] **WP-3…N — Per-feature migration.** One package per feature: write `<feature>.md` + `<system>.md`(s), consolidate flows into one journey, trim reference rows, distribute → verify `roadmap/completed/` → delete shipped plans. Order: effects → combat → character-stats → items → world → mobs → abilities → aspects → accounts → admin-authoring → output → commands → communication.
 - [ ] **WP-Z — Closing sweep.** Delete empty `subsystems/`; `Core/Sessions` reference home; consolidate cross-cutting runtime flows + finalize `flows/README.md`; repo-wide link-integrity pass; final `architecture-reviewer` pass.
 
@@ -192,7 +192,7 @@ The archetype list in [`../reference/archetypes.md`](../reference/archetypes.md)
 
 ### 🔵 Use-case → subsystem-doc conversion audit (docs lifecycle, 2026-05)
 
-The docs lifecycle changed: a slice now graduates a system's *design* into [`../architecture/subsystems/`](../architecture/subsystems/) (or a higher-level [`../architecture/`](../architecture/) doc for a complex system such as effects), leaving the use-case as a requirements + implementation-plan artifact. See [`../documentation-architecture.md`](../documentation-architecture.md) ("Use-case lifecycle" → "Design graduates to its durable home"). Existing implemented use-cases predate this split and still carry their design inline. Audit them and convert the durable design into subsystem docs — prioritizing the systems most likely to be extended (stats, combat, items). Two enforcement surfaces still need a matching update to make the new lifecycle binding: the `sync-roadmap` skill's step list, and a checklist clause (extend `INV-D2`). Forward slices follow the new split natively; this is the retroactive cleanup.
+The docs lifecycle changed: a slice now graduates a system's *design* into [`../architecture/subsystems/`](../architecture/subsystems/) (or a higher-level [`../architecture/`](../architecture/) doc for a complex system such as effects), leaving the use-case as a requirements + implementation-plan artifact. See [`../architecture/09-documentation.md`](../architecture/09-documentation.md) ("Use-case lifecycle" → "Design graduates to its durable home"). Existing implemented use-cases predate this split and still carry their design inline. Audit them and convert the durable design into subsystem docs — prioritizing the systems most likely to be extended (stats, combat, items). Two enforcement surfaces still need a matching update to make the new lifecycle binding: the `sync-roadmap` skill's step list, and a checklist clause (extend `INV-28`). Forward slices follow the new split natively; this is the retroactive cleanup.
 
 ### 🔵 Use-case catalogue audit
 
@@ -208,11 +208,11 @@ Detection heuristics it should run:
 - ≥3 files with the same shape of session output formatting (`session.SendLineAsync($"{prefix} {body}")`) → output-framework promotion candidate.
 - ≥3 files iterating `[Persistent]`-tagged components with identical loops → core-helper candidate.
 - New player-facing surface (verb, prompt, output type) introduced without an `ICommand` / `ICommandDispatcher` / `IOutputMessage` / equivalent registration → infrastructure-discipline-parity violation.
-- A `.claude/skills/*.md` or `.claude/agents/*.md` that references a rule, path, or pattern no longer matching [`../architecture/checklist.md`](../architecture/checklist.md) or the code → stale-tooling candidate (`INV-20`). The spec for this lives in [`../documentation-architecture.md`](../documentation-architecture.md).
+- A `.claude/skills/*.md` or `.claude/agents/*.md` that references a rule, path, or pattern no longer matching [`../architecture/checklist.md`](../architecture/checklist.md) or the code → stale-tooling candidate (`INV-20`). The spec for this lives in [`../architecture/09-documentation.md`](../architecture/09-documentation.md).
 
 Output: a punch list of promotion candidates with evidence (file:line for each instance) and a recommended slice to absorb the work. Does **not** modify code or docs — surface only.
 
-The slice-by-slice ground rule 9 check (use-case-planner + architecture-reviewer) is the integral development-cycle defence; this agent is the periodic backstop for whatever slips through. Build when there's been enough drift to make it useful — likely after several Phase 3 slices have shipped.
+The slice-by-slice ground rule 9 check (implementation-planner + architecture-reviewer) is the integral development-cycle defence; this agent is the periodic backstop for whatever slips through. Build when there's been enough drift to make it useful — likely after several Phase 3 slices have shipped.
 
 ## Done — moved out of this file
 

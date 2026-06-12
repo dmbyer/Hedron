@@ -79,7 +79,7 @@ Rows marked *(target)* describe locations that are rebuilt as part of Phase 2. T
 | [07-testing.md](07-testing.md) | Testing strategy: the 5 test tiers, what to test vs. skip, the harness, the determinism seam (INV-25/26) |
 | [08-blazor.md](08-blazor.md) | The web/UI tier: the two-host model, Blazor-component discipline (thin, no live-world mutation), hosting/config, the three-suite end-state |
 | [checklist.md](checklist.md) | **The authoritative invariant list.** Cite `INV-n` IDs in reviews. Every other doc explains; this one enforces. |
-| [../documentation-architecture.md](../documentation-architecture.md) | How the docs + `.claude/` tooling are organized — what each surface owns and the discipline that keeps them current (enforced via `INV-D*`) |
+| [09-documentation.md](09-documentation.md) | How the docs + `.claude/` tooling are organized — what each surface owns and the discipline that keeps them current (enforced via `INV-27`–`INV-30`) |
 | [../reference/commands.md](../reference/commands.md) | Living catalog of every command |
 | [../reference/systems.md](../reference/systems.md) | Catalog of implemented systems (idealized/future designs: `systems-planned.md`) |
 | [../reference/handlers.md](../reference/handlers.md) | Catalog of implemented handlers (idealized/future designs: `handlers-planned.md`) |

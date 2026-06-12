@@ -44,10 +44,10 @@ Each slice runs this loop. There are **two** `architecture-reviewer` gates — o
 
 1. Pick the next use-case file from [`../implementation-plans/`](../implementation-plans/), or author a new one.
    - For a net-new feature or a non-trivial change, **frame it first with the `architecture-advisor` skill (`/advise`)** — an interactive principal-architect intake that locates the architectural seams, weighs the feature against existing and planned work ([gameplay-model spines](../design/gameplay-model.md), [feature-horizon](../design/feature-horizon.md), [backlog](backlog.md)), and seeds the use-case doc with a forward-looking architectural brief *before* the planner goes deep. This is the cheapest point to catch a seam-in-the-wrong-place or a missed generalization — the failure class the HP-threshold example surfaced. Skip only for a small, well-understood slice.
-2. Plan via the `use-case-planner` agent — extends the advisor's seed (if present) into the component / system / handler / event list and file plan, folds the architectural brief's seam decisions into **Design notes**, and fills the use-case doc's **Cross-cutting surfaces stressed**, **Test plan / Verification** (INV-25), and **Flows introduced or modified** sections.
+2. Plan via the `implementation-planner` agent — extends the advisor's seed (if present) into the component / system / handler / event list and file plan, folds the architectural brief's seam decisions into **Design notes**, and fills the use-case doc's **Cross-cutting surfaces stressed**, **Test plan / Verification** (INV-25), and **Flows introduced or modified** sections.
 3. Resolve open questions with the user.
 4. **Spec-review gate** — `architecture-reviewer` in **spec mode** against the use-case doc. Blocking findings are fixed *in the doc* before any code is written. The gate also checks the **Test plan** is honest given the Postconditions (a postcondition asserting player-invisible state with no test is a finding — INV-25). Re-run until the verdict is clean.
-5. Implement (`implement-use-case`) against the corrected spec — **including the tests named in the Test plan**; `dotnet test` must be green (INV-25). A previously-untested system this slice touches gains tests too (on-touch ratchet).
+5. Implement (`implement-plan`) against the corrected spec — **including the tests named in the Test plan**; `dotnet test` must be green (INV-25). A previously-untested system this slice touches gains tests too (on-touch ratchet).
 6. **Code-review gate** — `architecture-reviewer` in **code mode** against the diff, before merge. It also confirms the Test-plan tests are present and `dotnet test` is green (INV-25), and greps systems for ambient nondeterminism (INV-26).
 7. **Sync roadmap** (`sync-roadmap` skill) — update [`done.md`](done.md), add `completed/<slice>.md`, and advance the slice queue in this file. Run before the PR merges.
 8. Ship green — build **and** `dotnet test` green.
@@ -109,7 +109,7 @@ Tracked in [`backlog.md`](backlog.md) until promoted into a dated slice.
 
 ## Ground rules
 
-Architectural invariants (layering, ECS, events, persistence, …) are the `INV` list in [`../architecture/checklist.md`](../architecture/checklist.md); CLAUDE.md carries their day-to-day summary. This roadmap does not restate them — one rule, one home (see [`../documentation-architecture.md`](../documentation-architecture.md)).
+Architectural invariants (layering, ECS, events, persistence, …) are the `INV` list in [`../architecture/checklist.md`](../architecture/checklist.md); CLAUDE.md carries their day-to-day summary. This roadmap does not restate them — one rule, one home (see [`../architecture/09-documentation.md`](../architecture/09-documentation.md)).
 
 What this roadmap *owns* are the **slice-delivery obligations** — process rules the checklist enforces but explains here:
 
@@ -132,4 +132,4 @@ The per-slice delivery loop is the [Phase 3 ground rules](#phase-3-ground-rules)
 - **What's next?** → "Current focus" above, then the linked use-case doc
 - **What's deferred?** → [`backlog.md`](backlog.md)
 - **What's the target architecture?** → [`../architecture/`](../architecture/)
-- **How do I plan/implement/review a slice?** → `architecture-advisor`, `new-use-case`, `use-case-planner`, `implement-use-case`, `architecture-reviewer` under [`../../.claude/`](../../.claude/)
+- **How do I plan/implement/review a slice?** → `architecture-advisor`, `new-plan`, `implementation-planner`, `implement-plan`, `architecture-reviewer` under [`../../.claude/`](../../.claude/)

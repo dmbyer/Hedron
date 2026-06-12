@@ -4,7 +4,7 @@ Living catalog of the ECS components **implemented** in Hedron. Update this file
 
 Source of truth: `Core/ECS/Components/` (cross-cutting) and `Core/Modules/<Feature>/Components/` (feature-owned).
 
-> The full target component model (Identity, Transform, Attributes, Pools, item/room/area data, …) is design intent for future slices and lives in [`components-planned.md`](components-planned.md) — do not assume those types exist. Shape-level documentation only; for design rules (archetypes, persistence, effects) see [../architecture/02-ecs.md](../architecture/02-ecs.md). Why implemented and planned are separated: [`../documentation-architecture.md`](../documentation-architecture.md).
+> The full target component model (Identity, Transform, Attributes, Pools, item/room/area data, …) is design intent for future slices and lives in [`components-planned.md`](components-planned.md) — do not assume those types exist. Shape-level documentation only; for design rules (archetypes, persistence, effects) see [../architecture/02-ecs.md](../architecture/02-ecs.md). Why implemented and planned are separated: [`../architecture/09-documentation.md`](../architecture/09-documentation.md).
 
 ---
 

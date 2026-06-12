@@ -2,7 +2,7 @@
 
 Living catalog of the systems **implemented** in Hedron (core and domain). Update this file whenever a system is added, removed, or renamed.
 
-> Idealized designs for systems not yet built live in [`systems-planned.md`](systems-planned.md) — design intent only; do not assume anything there exists. Why implemented and planned are separated: [`../documentation-architecture.md`](../documentation-architecture.md).
+> Idealized designs for systems not yet built live in [`systems-planned.md`](systems-planned.md) — design intent only; do not assume anything there exists. Why implemented and planned are separated: [`../architecture/09-documentation.md`](../architecture/09-documentation.md).
 
 ---
 

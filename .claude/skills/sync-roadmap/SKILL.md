@@ -5,7 +5,7 @@ description: Use after a slice merges (or before a PR is created) to keep plan.m
 
 # Sync Roadmap Docs
 
-Run this skill whenever a slice is complete — either as the final step of `implement-use-case` or standalone on any PR that closes out an implementation plan. It does two jobs: advance the roadmap ledger, and **disintegrate the plan on ship** (`INV-D2`). For the doc-placement rules and templates it relies on, see the [`manage-docs`](../manage-docs/SKILL.md) skill.
+Run this skill whenever a slice is complete — either as the final step of `implement-plan` or standalone on any PR that closes out an implementation plan. It does two jobs: advance the roadmap ledger, and **disintegrate the plan on ship** (`INV-28`). For the doc-placement rules and templates it relies on, see the [`manage-docs`](../manage-docs/SKILL.md) skill.
 
 ## What to update
 
@@ -48,7 +48,7 @@ Create it from `templates/completed-record.md` (in the [`manage-docs`](../manage
 
 Pull the content from the implementation plan (before deleting it) and the PR diff (`git show <hash> --stat`).
 
-### 4. Disintegrate the plan, then delete it (`INV-D2`)
+### 4. Disintegrate the plan, then delete it (`INV-28`)
 
 The implementation plan is transient. Distribute its durable content into the living docs, then remove the file — there is **no trimmed spec left behind**:
 
@@ -68,7 +68,7 @@ A small quick-fix that warranted no plan simply updates the living docs directly
 - [ ] `done.md` row added (points at `completed/` + the live feature doc)
 - [ ] `completed/<slug>.md` created from the template, **including Behavior digest, Tests shipped, and Decisions**
 - [ ] `dotnet test` green and the plan's Test-plan tests are present (INV-25) — "ship green" = build green **and** tests green
-- [ ] Plan content distributed to `features/` / `flows/` / `reference/`; decisions verified in `completed/`; **plan deleted** (`INV-D2`); inbound links repointed; link check clean
+- [ ] Plan content distributed to `features/` / `flows/` / `reference/`; decisions verified in `completed/`; **plan deleted** (`INV-28`); inbound links repointed; link check clean
 
 ## When in doubt
 
