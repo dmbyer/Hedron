@@ -1,6 +1,6 @@
 # Phase 4 — Testing Harness & System Backfill
 
-**PR:** (this branch) · **Spec:** [`../../use-cases/testing-harness-and-backfill.md`](../../use-cases/testing-harness-and-backfill.md)
+**PR:** (this branch) · **Spec:** [`../../implementation-plans/testing-harness-and-backfill.md`](../../implementation-plans/testing-harness-and-backfill.md)
 
 ## Outcome
 

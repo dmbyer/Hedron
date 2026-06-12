@@ -1,6 +1,6 @@
 # Phase 3 Slice 11-a — Ability Substrate
 
-**PR:** #105 · **Spec:** [`../../use-cases/ability-substrate.md`](../../use-cases/ability-substrate.md)
+**PR:** #105 · **Spec:** [`../../implementation-plans/ability-substrate.md`](../../implementation-plans/ability-substrate.md)
 
 > Ledger backfilled retroactively (merged in #105 without a `done.md`/`completed/` entry at the time).
 

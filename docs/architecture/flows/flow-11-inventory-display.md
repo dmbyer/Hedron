@@ -39,4 +39,4 @@ sequenceDiagram
 **Cross-references.**
 - [`Core/Modules/Items/Commands/InventoryCommand.cs`](../../../Core/Modules/Items/Commands/InventoryCommand.cs)
 - [`Core/Output/InventoryListMessage.cs`](../../../Core/Output/InventoryListMessage.cs), [`Core/Output/TelnetOutputFormatter.cs`](../../../Core/Output/TelnetOutputFormatter.cs)
-- [`docs/use-cases/items-and-inventory.md`](../../use-cases/items-and-inventory.md) — slice 6 spec, flow B-3
+- [`docs/implementation-plans/items-and-inventory.md`](../../implementation-plans/items-and-inventory.md) — slice 6 spec, flow B-3

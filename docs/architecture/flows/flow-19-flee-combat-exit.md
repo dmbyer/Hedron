@@ -43,4 +43,4 @@ sequenceDiagram
 - [`Core/Modules/Combat/Commands/FleeCommand.cs`](../../../Core/Modules/Combat/Commands/FleeCommand.cs)
 - [`Core/Modules/Combat/Handlers/CombatHandler.cs`](../../../Core/Modules/Combat/Handlers/CombatHandler.cs)
 - [`Core/Modules/Combat/Events/CombatEndedEvent.cs`](../../../Core/Modules/Combat/Events/CombatEndedEvent.cs)
-- [`docs/use-cases/combat.md`](../../use-cases/combat.md) — slice 9 spec
+- [`docs/implementation-plans/combat.md`](../../implementation-plans/combat.md) — slice 9 spec

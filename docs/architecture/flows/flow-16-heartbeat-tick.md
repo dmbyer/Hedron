@@ -57,4 +57,4 @@ sequenceDiagram
 - [`Core/Output/ISessionBufferRegistry.cs`](../../../Core/Output/ISessionBufferRegistry.cs) — registry flushed by `OutputFlushTickHandler`
 - [`Core/Modules/Abilities/Handlers/AbilityCooldownTickHandler.cs`](../../../Core/Modules/Abilities/Handlers/AbilityCooldownTickHandler.cs) — slice 11-a
 - [`Core/Modules/Regeneration/Handlers/RegenerationTickHandler.cs`](../../../Core/Modules/Regeneration/Handlers/RegenerationTickHandler.cs) — slice 11-c
-- [`docs/use-cases/time-system.md`](../../use-cases/time-system.md) — slice 9-b spec; [`docs/use-cases/prompt-and-output-batching.md`](../../use-cases/prompt-and-output-batching.md) — output batching spec
+- [`docs/implementation-plans/time-system.md`](../../implementation-plans/time-system.md) — slice 9-b spec; [`docs/implementation-plans/prompt-and-output-batching.md`](../../implementation-plans/prompt-and-output-batching.md) — output batching spec

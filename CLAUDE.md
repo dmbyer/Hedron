@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Primary entry point for Claude Code (and any agent) working in this repository. Keep this file short. Detailed architecture, reference, use cases, and roadmap live under [`docs/`](docs/).
+Primary entry point for Claude Code (and any agent) working in this repository. Keep this file short. Detailed architecture, features, reference, implementation plans, and roadmap live under [`docs/`](docs/).
 
 ## What Hedron is
 
@@ -36,10 +36,12 @@ Read these in order the first time:
 6. [`docs/architecture/04-pitfalls.md`](docs/architecture/04-pitfalls.md) — what to avoid and why
 7. [`docs/architecture/07-testing.md`](docs/architecture/07-testing.md) — testing strategy: the tiers, what to test vs. skip, the harness
 
+**Features** (holistic, player-facing — what a capability is and how it composes its systems; the per-system design docs live beside each one): [`docs/features/README.md`](docs/features/README.md)
+
 **Reference catalogs** (look up specific pieces):
 - [`docs/reference/systems.md`](docs/reference/systems.md) · [`docs/reference/handlers.md`](docs/reference/handlers.md) · [`docs/reference/components.md`](docs/reference/components.md) · [`docs/reference/archetypes.md`](docs/reference/archetypes.md)
 
-**Use cases** (designer scenarios traced through events/handlers/systems — also the per-slice spec): [`docs/use-cases/README.md`](docs/use-cases/README.md)
+**Implementation plans** (transient per-slice build artifacts — behavior spec + build plan, deleted on ship): [`docs/implementation-plans/README.md`](docs/implementation-plans/README.md)
 
 **Roadmap:** [`docs/roadmap/plan.md`](docs/roadmap/plan.md) · [`docs/roadmap/done.md`](docs/roadmap/done.md) · [`docs/roadmap/backlog.md`](docs/roadmap/backlog.md)
 
@@ -56,10 +58,10 @@ Read these in order the first time:
 5. **One world model** — every live entity is in `EntityService`; authored content spawns via `TemplateRegistry`, bespoke entities are built by the owning feature (INV-12).
 6. **Entity identity is a `uint`, wrapped as `Entity(uint Id)`** at call sites (INV-13).
 7. **Persistence is a two-level opt-in** — `PersistentEntity` opts an entity in; `[Persistent]` on a component type controls snapshot inclusion for already-opted-in entities (INV-14).
-8. **Content-tooling discipline** — a slice adding gameplay state ships the tooling to author and inspect it, declared in its use-case **Content tooling impact** section (INV-18).
+8. **Content-tooling discipline** — a slice adding gameplay state ships the tooling to author and inspect it, declared in its implementation plan's **Content tooling impact** section (INV-18).
 9. **Infrastructure-discipline parity** — a new player-facing surface, or a pattern repeated ≥3×, lands its supporting framework in the same or an adjacent slice; any runtime flow it changes updates the canonical flows doc (INV-19, INV-17).
 10. **Blueprint/instance separation** — a blueprint template is the durable spawn definition; a blueprint instance is the live entity it seeds. When a player interaction makes an instance independent (e.g. item pickup), clear `BlueprintComponent` on the entity so the blueprint slot is free to re-spawn. Admin mutations update both template and entity (INV-21).
-11. **Verification discipline** — a slice that adds/changes a system, persistence shape, validation, or Main Flow ships tests for it (the use-case **Test plan** section), per the rubric in [`docs/architecture/07-testing.md`](docs/architecture/07-testing.md); chance/time-dependent system logic resolves through an injected seam (`IRandom`, heartbeat timestamp), never `Random.Shared`/`DateTime.Now` (INV-25, INV-26). "Ship green" = build **and** `dotnet test` green.
+11. **Verification discipline** — a slice that adds/changes a system, persistence shape, validation, or Main Flow ships tests for it (the implementation plan's **Test plan** section), per the rubric in [`docs/architecture/07-testing.md`](docs/architecture/07-testing.md); chance/time-dependent system logic resolves through an injected seam (`IRandom`, heartbeat timestamp), never `Random.Shared`/`DateTime.Now` (INV-25, INV-26). "Ship green" = build **and** `dotnet test` green.
 
 When adding a new feature:
 - New component → `Core/ECS/Components/<Feature>Component.cs` or `Core/Modules/<Feature>/Components/`
@@ -76,7 +78,7 @@ When adding a new feature:
 
 The `.claude/` directory provides Claude-Code-native helpers (skills, subagents, slash commands) tuned for this codebase. See [`.claude/README.md`](.claude/README.md) for the index.
 
-The per-slice loop runs **two** `architecture-reviewer` gates: spec-mode (against the use-case doc, before any code) and code-mode (against the diff, before merge). Both enforce [`docs/architecture/checklist.md`](docs/architecture/checklist.md). The full loop is in [`docs/roadmap/plan.md`](docs/roadmap/plan.md) "Phase 3 ground rules".
+The per-slice loop runs **two** `architecture-reviewer` gates: spec-mode (against the implementation plan, before any code) and code-mode (against the diff, before merge). Both enforce [`docs/architecture/checklist.md`](docs/architecture/checklist.md). The full loop is in [`docs/roadmap/plan.md`](docs/roadmap/plan.md) "Phase 3 ground rules".
 
 ## If docs and code disagree
 

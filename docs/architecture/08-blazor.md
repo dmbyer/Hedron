@@ -97,6 +97,6 @@ The seam was pre-shaped: `ISession` already reserves `TransportKey = "signalr"` 
 - [01-layers.md](01-layers.md) — the four layers + the Initiators tier the UI feeds.
 - [05-configuration.md](05-configuration.md) — how settings bind; `Web:BindUrl` and the `HEDRON_` override.
 - [flows/README.md](flows/README.md) — Flow 30 (offline content edit → save → apply); Flow 5 (content reload).
-- [../use-cases/content-tooling-platform.md](../use-cases/content-tooling-platform.md) · [content-authoring-editor.md](../use-cases/content-authoring-editor.md) · [bulk-content-generation.md](../use-cases/bulk-content-generation.md) — the slices that built this tier; durable seam rationale in their Design notes.
+- [../implementation-plans/content-tooling-platform.md](../implementation-plans/content-tooling-platform.md) · [content-authoring-editor.md](../implementation-plans/content-authoring-editor.md) · [bulk-content-generation.md](../implementation-plans/bulk-content-generation.md) — the slices that built this tier; durable seam rationale in their Design notes.
 - [../reference/systems.md](../reference/systems.md) — `IContentDefinitionCatalog`, `IContentValidator`, `IContentGenerationSystem`.
 - [checklist.md](checklist.md) — invariants this tier answers to: INV-5, INV-8, INV-12, INV-15, INV-19, INV-22, INV-23.

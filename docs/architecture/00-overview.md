@@ -73,9 +73,8 @@ Rows marked *(target)* describe locations that are rebuilt as part of Phase 2. T
 | [03-events.md](03-events.md) | Before defining a new event or subscription |
 | [04-pitfalls.md](04-pitfalls.md) | When tempted to shortcut the layering |
 | [05-configuration.md](05-configuration.md) | Before wiring any setting to `IConfiguration` or adding a constant |
-| [subsystems/commands.md](subsystems/commands.md) | Command framework design: `ICommand` shape, argument schema, privilege gate, output, help |
+| [../features/README.md](../features/README.md) | The feature catalog: one folder per player-facing capability, each with a holistic feature doc + its per-system design docs (commands, output, combat, effects, stats, …) |
 | [flows/README.md](flows/README.md) | When tracing a runtime call chain (startup, command lifecycle, persistence flush, content reload, …) |
-| [subsystems/output.md](subsystems/output.md) | Output framework: `IOutputMessage` catalog, `IOutputFormatter`/telnet ANSI, inline color syntax, broadcast model |
 | [06-persistence.md](06-persistence.md) | Persistence model: `PersistentEntity` marker, `[Persistent]` attribute, three save patterns (save-on-change, area-scoped flush, timestamp/lazy) |
 | [07-testing.md](07-testing.md) | Testing strategy: the 5 test tiers, what to test vs. skip, the harness, the determinism seam (INV-25/26) |
 | [08-blazor.md](08-blazor.md) | The web/UI tier: the two-host model, Blazor-component discipline (thin, no live-world mutation), hosting/config, the three-suite end-state |
@@ -86,8 +85,9 @@ Rows marked *(target)* describe locations that are rebuilt as part of Phase 2. T
 | [../reference/handlers.md](../reference/handlers.md) | Catalog of implemented handlers (idealized/future designs: `handlers-planned.md`) |
 | [../reference/components.md](../reference/components.md) | Catalog of implemented components (target model: `components-planned.md`) |
 | [../reference/archetypes.md](../reference/archetypes.md) | Target archetype catalog (the archetype system is not yet built) |
-| [../use-cases/](../use-cases/) | Designer-level feature specs |
+| [../implementation-plans/](../implementation-plans/) | Transient per-slice build artifacts (behavior spec + build plan); deleted on ship |
 | [../design/gameplay-model.md](../design/gameplay-model.md) | Forward design north-star for gameplay systems (Aspects, Abilities, Effects, Scaling, Progression) — feeds the roadmap; draft, not yet built |
 | [../roadmap/plan.md](../roadmap/plan.md) | Strategy, end goal, phase summary, current focus |
 | [../roadmap/done.md](../roadmap/done.md) | Short ledger of completed phases / slices |
+| [../roadmap/completed/](../roadmap/completed/) | Per-slice history: what shipped, the as-built record, and the design decisions (the durable home for shipped-slice rationale) |
 | [../roadmap/backlog.md](../roadmap/backlog.md) | Deferred work queue |

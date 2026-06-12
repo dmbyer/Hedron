@@ -1,6 +1,6 @@
 # Phase 3 slice 9 — Combat (completed)
 
-> Implemented on branch `claude/heuristic-blackwell-2b63c2`. Full feature spec: [`../../use-cases/combat.md`](../../use-cases/combat.md).
+> Implemented on branch `claude/heuristic-blackwell-2b63c2`. Full feature spec: [`../../implementation-plans/combat.md`](../../implementation-plans/combat.md).
 
 ## Outcome
 
@@ -28,7 +28,7 @@ The codebase now has a working core melee loop. A player types `kill <mob>` to i
 | `docs/reference/systems.md` — `ICombatSystem`/`CombatSystem` entry added | `docs/reference/systems.md` |
 | `docs/reference/handlers.md` — `CombatTickHandler`, `CombatHandler`, `CombatMobDeathHandler` entries added; `AdminAuditHandler` entry updated | `docs/reference/handlers.md` |
 | `docs/reference/commands.md` — `kill` and `flee` entries added | `docs/reference/commands.md` |
-| `docs/use-cases/combat.md` — status set to `implemented`; trimmed to durable spec | `docs/use-cases/combat.md` |
+| `docs/implementation-plans/combat.md` — status set to `implemented`; trimmed to durable spec | `docs/implementation-plans/combat.md` |
 
 **Validation fix additions (commit 3 — found during PR validation):**
 

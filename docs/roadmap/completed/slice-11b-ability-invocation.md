@@ -1,6 +1,6 @@
 # Phase 3 Slice 11-b — Ability Invocation & Combat Targeting
 
-**PR:** #106 · **Spec:** [`../../use-cases/ability-invocation.md`](../../use-cases/ability-invocation.md)
+**PR:** #106 · **Spec:** [`../../implementation-plans/ability-invocation.md`](../../implementation-plans/ability-invocation.md)
 
 > Ledger backfilled retroactively (merged in #106 without a `done.md`/`completed/` entry at the time).
 

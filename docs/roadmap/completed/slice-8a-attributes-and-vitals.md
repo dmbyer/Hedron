@@ -1,6 +1,6 @@
 # Phase 3 slice 8a — Attributes and vitals (completed)
 
-> Implemented on branch `claude/serene-jepsen-3b5701`. Full feature spec: [`../../use-cases/attributes.md`](../../use-cases/attributes.md).
+> Implemented on branch `claude/serene-jepsen-3b5701`. Full feature spec: [`../../implementation-plans/attributes.md`](../../implementation-plans/attributes.md).
 
 ## Outcome
 

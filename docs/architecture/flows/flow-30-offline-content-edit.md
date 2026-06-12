@@ -80,6 +80,6 @@ running game server; that remains a separate reload/restart there. Cross-process
 - Systems: `IContentDefinitionCatalog` ([`../../reference/systems.md`](../../reference/systems.md)),
   `IContentValidator`, the four `I*ContentWriter`s, `IWorldContentLoader`.
 - Host: `Hedron.Web/Program.cs`; composition in `Server/CompositionRoot.AddContentBootstrapHostedServices`.
-- Use case: [`../../use-cases/content-authoring-editor.md`](../../use-cases/content-authoring-editor.md).
+- Use case: [`../../implementation-plans/content-authoring-editor.md`](../../implementation-plans/content-authoring-editor.md).
 - Related flows: [Flow 5 — content reload](flow-05-content-reload.md) (the apply leg, reused),
   [Flow 27 — admin area creation](flow-27-admin-area-creation.md) (the writer half this reuses).

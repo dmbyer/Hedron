@@ -50,7 +50,7 @@ sequenceDiagram
 - [`Core/Modules/Abilities/Commands/UseAbilityCommand.cs`](../../../Core/Modules/Abilities/Commands/UseAbilityCommand.cs)
 - [`Core/Modules/Abilities/Commands/AbilityInvocationPipeline.cs`](../../../Core/Modules/Abilities/Commands/AbilityInvocationPipeline.cs)
 - [`Core/Modules/Abilities/Commands/CastCommand.cs`](../../../Core/Modules/Abilities/Commands/CastCommand.cs)
-- [`docs/use-cases/ability-substrate.md`](../../use-cases/ability-substrate.md)
+- [`docs/implementation-plans/ability-substrate.md`](../../implementation-plans/ability-substrate.md)
 - [Flow 16](flow-16-heartbeat-tick.md) — heartbeat trigger (for `AbilityCooldownTickHandler`)
 - [Flow 21](flow-21-effect-tick.md) — effect tick (downstream consumer of applied effects)
 - [Flow 25](flow-25-skill-verb-invocation.md) — player skill bare-verb invocation (in combat)

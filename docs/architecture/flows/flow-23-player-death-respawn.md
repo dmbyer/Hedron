@@ -58,4 +58,4 @@ The admin `setrespawn <player> <roomBlueprintId>` command sets option 1 and pers
 - [`Core/Modules/Death/Events/PlayerRespawnedEvent.cs`](../../../Core/Modules/Death/Events/PlayerRespawnedEvent.cs)
 - [`Core/ECS/Components/RespawnComponent.cs`](../../../Core/ECS/Components/RespawnComponent.cs)
 - [Flow 22 — Player incapacitation and bleed-out](flow-22-incapacitation-bleedout.md)
-- [`docs/use-cases/death-and-respawn.md`](../../use-cases/death-and-respawn.md) — slice 10 spec
+- [`docs/implementation-plans/death-and-respawn.md`](../../implementation-plans/death-and-respawn.md) — slice 10 spec

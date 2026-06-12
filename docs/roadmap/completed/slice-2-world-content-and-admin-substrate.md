@@ -1,6 +1,6 @@
 # Phase 3 slice 2 — World content loading + admin substrate (completed)
 
-> Implemented and merged on `master`. The full feature spec lives in [`../../use-cases/world-content-loading-and-admin-substrate.md`](../../use-cases/world-content-loading-and-admin-substrate.md). This file records the as-built state and any deviations from the spec.
+> Implemented and merged on `master`. The full feature spec lives in [`../../implementation-plans/world-content-loading-and-admin-substrate.md`](../../implementation-plans/world-content-loading-and-admin-substrate.md). This file records the as-built state and any deviations from the spec.
 
 ## Outcome
 
@@ -49,7 +49,7 @@ Read via `IConfiguration` per [`../../architecture/05-configuration.md`](../../a
 | # | Question | Decision |
 |---|---|---|
 | 1 | Content data file format — JSON or YAML? | **YAML** via `YamlDotNet`. Persistence stays JSON; both serializers coexist. |
-| 2 | Admin privilege gate? | **Layered.** Settings allowlist now (`Admin:PrivilegedNames`); persisted `AdminPrivilegeComponent` later — placeholder use-case at [`../../use-cases/admin-privilege-elevation.md`](../../use-cases/admin-privilege-elevation.md). Settings is the floor. |
+| 2 | Admin privilege gate? | **Layered.** Settings allowlist now (`Admin:PrivilegedNames`); persisted `AdminPrivilegeComponent` later — placeholder use-case at [`../../implementation-plans/admin-privilege-elevation.md`](../../implementation-plans/admin-privilege-elevation.md). Settings is the floor. |
 | 3 | `@reload` semantics? | **Additive only.** Refresh registry, seed missing entities. Live entities are not mutated. |
 | 4 | `@dig` write-back to source files? | **No file round-trip in this slice.** In-memory template updated; durability via `PersistenceSystem` next flush. |
 | 5 | Empty/missing content dir at startup? | **Spawn a single `room.void` and warn.** Host stays up. Audit sink is `ILogger<AdminAuditHandler>` only. |

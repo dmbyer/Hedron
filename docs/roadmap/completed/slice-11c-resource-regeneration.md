@@ -1,6 +1,6 @@
 # Phase 3 Slice 11-c — Resource Regeneration + `rest`
 
-**PR:** (this branch) · **Spec:** [`../../use-cases/resource-regeneration.md`](../../use-cases/resource-regeneration.md)
+**PR:** (this branch) · **Spec:** [`../../implementation-plans/resource-regeneration.md`](../../implementation-plans/resource-regeneration.md)
 
 ## Outcome
 
@@ -17,7 +17,7 @@ Added out-of-combat baseline regeneration for all four resource pools (HP/Mana/S
 | `RegenerationModule` | `Core/Modules/Regeneration/RegenerationModule.cs` | DI entry point |
 | `EntityStateService._autoExits` table | `Core/Modules/EntityState/Systems/EntityStateService.cs` | `InCombat → Resting`; applied in `TryEnterState` after validation |
 | `MoveCommand` rest-break guard | `Core/Modules/Movement/Commands/MoveCommand.cs` | explicit `ExitState(Resting)` + `EntityStateChangedEvent` before move |
-| `entity-state-management.md` rule table amended | `docs/use-cases/entity-state-management.md` | added Auto-exits column + design note (INV-24 analogue for mutual exclusion) |
+| `entity-state-management.md` rule table amended | `docs/implementation-plans/entity-state-management.md` | added Auto-exits column + design note (INV-24 analogue for mutual exclusion) |
 | Flow 16 amended | `docs/architecture/flows/flow-16-heartbeat-tick.md` | `RegenerationTickHandler` added to participant list, mermaid, and prose |
 | Reference catalogs | `docs/reference/commands.md`, `systems.md`, `handlers.md` | `rest`, `stand`/`wake`, `RegenerationSystem`, `RegenerationTickHandler` added; six MoveCommand entries updated |
 

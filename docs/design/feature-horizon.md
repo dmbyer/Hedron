@@ -4,7 +4,7 @@
 > This is a wide, deliberately granular catalog of features common and uncommon in MUDs, plus
 > some signature ideas specific to Hedron's themes. It exists to **feed the roadmap** — items
 > here graduate into [`../roadmap/plan.md`](../roadmap/plan.md) slices and
-> [`../use-cases/`](../use-cases/) docs through the normal per-slice loop. Nothing here is
+> [`../implementation-plans/`](../implementation-plans/) docs through the normal per-slice loop. Nothing here is
 > designed to spec depth; each entry is a few sentences plus a rough read on cost, payoff, and
 > how well it survives a text / light-web interface.
 >
@@ -1180,4 +1180,4 @@ client is where they shine."
 - [`../roadmap/backlog.md`](../roadmap/backlog.md) — deferred work already tracked (don't re-brainstorm it).
 - [`../reference/components-planned.md`](../reference/components-planned.md) /
   [`../reference/systems-planned.md`](../reference/systems-planned.md) — idealized APIs for unbuilt pieces.
-- [`../use-cases/README.md`](../use-cases/README.md) — the per-slice behavior-spec format these graduate into.
+- [`../implementation-plans/README.md`](../implementation-plans/README.md) — the per-slice behavior-spec format these graduate into.

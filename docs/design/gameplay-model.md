@@ -12,7 +12,7 @@
 >
 > When a spine graduates into real slices, the durable parts migrate to their permanent
 > homes: cross-cutting design → `architecture/`, per-feature framework → `architecture/subsystems/`,
-> behavior → `use-cases/`, what-exists → `reference/`. This document is then trimmed to the
+> behavior → `implementation-plans/`, what-exists → `reference/`. This document is then trimmed to the
 > overlap map + open questions, or archived. It must never become a second source of truth for
 > a rule that lives in [`../architecture/checklist.md`](../architecture/checklist.md).
 
@@ -98,7 +98,7 @@ base (primary/pool) or run the derive function (derived) → sum every `StatModi
 is that `ScoreId` → apply aspect adjustments.
 
 This is **partly built already**: `IStatSystem.GetEffectiveAttackPower = strength/2 + weaponBonus`
-([stat-system.md](../use-cases/stat-system.md)) is one derived score; `AttributesComponent` holds
+([stat-system.md](../implementation-plans/stat-system.md)) is one derived score; `AttributesComponent` holds
 primaries; `PoolsComponent` holds pools. The model generalizes "one hardcoded derived stat" into
 "any `ScoreId` with a registered derive function." Strength is a *primary*, Damage and Speed are
 *derived*, HP is a *pool* — all addressed by `IStatSystem`, all modifiable by the one
@@ -347,9 +347,9 @@ change), never a new layer of indirection.
 orders, queries, and ticks effects without knowing what any effect *means* (this matches the
 planned [`IEffectTracker`](../reference/systems-planned.md): "Doesn't know what effects *mean* —
 only tracks presence and duration"). `StatModifier` effects are summed at read time by the stat
-pipeline ([`IStatSystem`](../use-cases/stat-system.md), already built — extend it to fold effects
+pipeline ([`IStatSystem`](../implementation-plans/stat-system.md), already built — extend it to fold effects
 + aspect scores). `Periodic`/`Trigger` effects are processed on the heartbeat
-([`IHeartbeatService`](../use-cases/time-system.md), already built).
+([`IHeartbeatService`](../implementation-plans/time-system.md), already built).
 
 ---
 
@@ -582,7 +582,7 @@ The §6 forks were resolved with the owner (2026-05-30); the slices inherit them
 | **R5 — Stacking + Power** | Timed buffs (potion / spell / skill) **and** auras → `HighestWins` keyed on **`Power`**, refreshing on equal-or-stronger re-apply. DoTs / HoTs `Stack` `UniquePerSource`; equipment `Stack`; curses `UniquePerSource`. Per-source defaults, overridable per effect. |
 | **R6 — Permanent growth** | **No `Permanent` effect.** Persistent-but-removable = `UntilRemoved` (`duration = -1`). True base growth (rare-material consumption) is a **direct state-modification action** that rewrites base once and leaves no effect (Spine E). |
 | **R7 — Docs** | Keep `docs/design/` (taxonomy row added). Scoped-system design → `architecture/subsystems/`; complex systems (Effects) get a higher-level design doc; on ship, a use-case **graduates its design into subsystem / architecture docs** and is trimmed to requirements + implementation plan. Retroactive conversion is a backlogged audit. |
-| **R8 — Aspect representation** (2026-06-06) | Elemental identity/affinity is an optional **normalized aspect composition** (`AspectId → weight`; empty, single = 100, or a blend summing to 100), carried by entities, damage packets, and areas. **Resistance is an independent per-aspect score** (base + effects), decoupled from the composition — aspects are semantic tags beyond damage types. `AspectDefinition` is shaped to carry aspect-unique ability/effect riders later (not built in the foundation slice). Lands in the Aspect & Registry Foundation slice ([`../use-cases/aspect-foundation.md`](../use-cases/aspect-foundation.md)). |
+| **R8 — Aspect representation** (2026-06-06) | Elemental identity/affinity is an optional **normalized aspect composition** (`AspectId → weight`; empty, single = 100, or a blend summing to 100), carried by entities, damage packets, and areas. **Resistance is an independent per-aspect score** (base + effects), decoupled from the composition — aspects are semantic tags beyond damage types. `AspectDefinition` is shaped to carry aspect-unique ability/effect riders later (not built in the foundation slice). Lands in the Aspect & Registry Foundation slice ([`../implementation-plans/aspect-foundation.md`](../implementation-plans/aspect-foundation.md)). |
 
 ### Power — the one new concept R5 introduced (provisional sub-decisions)
 
@@ -603,9 +603,9 @@ sub-points carry **provisional defaults** — confirm before the Effect slice is
 
 - [`../architecture/02-ecs.md`](../architecture/02-ecs.md) — computed-stats + two-level effect
   persistence this model extends.
-- [`../use-cases/stat-system.md`](../use-cases/stat-system.md) — the built `IStatSystem` read
+- [`../implementation-plans/stat-system.md`](../implementation-plans/stat-system.md) — the built `IStatSystem` read
   seam that folds in effects + aspect scores.
-- [`../use-cases/combat.md`](../use-cases/combat.md) / [`../use-cases/time-system.md`](../use-cases/time-system.md)
+- [`../implementation-plans/combat.md`](../implementation-plans/combat.md) / [`../implementation-plans/time-system.md`](../implementation-plans/time-system.md)
   — built consumers (combat tick, heartbeat) of Aspect + Effect.
 - [`../reference/systems-planned.md`](../reference/systems-planned.md) — the idealized
   `EffectTracker` / `SkillSystem` / `SpellSystem` / `AdvancementSystem` / `LootSystem` /

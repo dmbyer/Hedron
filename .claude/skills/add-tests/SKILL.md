@@ -1,6 +1,6 @@
 ---
 name: add-tests
-description: Use when writing or updating automated tests for a Hedron slice — covering a system's decision, a handler's orchestration, a use-case flow, a persistence round-trip, or an architecture invariant. Covers which tier to use, the shared test harness, the test-vs-skip rubric, and a worked example per tier. Invoke when implementing a use-case's Test plan, backfilling an existing system, or when the on-touch ratchet pulls an untested system into a slice.
+description: Use when writing or updating automated tests for a Hedron slice — covering a system's decision, a handler's orchestration, a use-case flow, a persistence round-trip, or an architecture invariant. Covers which tier to use, the shared test harness, the test-vs-skip rubric, and a worked example per tier. Invoke when implementing a plan's Test plan, backfilling an existing system, or when the on-touch ratchet pulls an untested system into a slice.
 ---
 
 # Add Tests

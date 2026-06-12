@@ -49,4 +49,4 @@ sequenceDiagram
 - [`Core/Modules/Combat/Systems/CombatSystem.cs`](../../../Core/Modules/Combat/Systems/CombatSystem.cs)
 - [`Core/Modules/Combat/Handlers/CombatHandler.cs`](../../../Core/Modules/Combat/Handlers/CombatHandler.cs)
 - [`Core/Modules/Combat/Events/CombatStartedEvent.cs`](../../../Core/Modules/Combat/Events/CombatStartedEvent.cs)
-- [`docs/use-cases/combat.md`](../../use-cases/combat.md) — slice 9 spec
+- [`docs/implementation-plans/combat.md`](../../implementation-plans/combat.md) — slice 9 spec

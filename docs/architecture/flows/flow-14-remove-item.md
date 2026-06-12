@@ -45,4 +45,4 @@ sequenceDiagram
 - [`Core/Modules/Items/Commands/RemoveCommand.cs`](../../../Core/Modules/Items/Commands/RemoveCommand.cs)
 - [`Core/Modules/Items/Systems/EquipmentSystem.cs`](../../../Core/Modules/Items/Systems/EquipmentSystem.cs)
 - [`Core/Modules/Items/Handlers/EquipmentInteractionHandler.cs`](../../../Core/Modules/Items/Handlers/EquipmentInteractionHandler.cs)
-- [`docs/use-cases/equipment.md`](../../use-cases/equipment.md) — slice 7 spec
+- [`docs/implementation-plans/equipment.md`](../../implementation-plans/equipment.md) — slice 7 spec

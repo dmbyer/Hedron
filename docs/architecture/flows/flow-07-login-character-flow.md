@@ -81,4 +81,4 @@ sequenceDiagram
 - [`Core/Modules/Account/Systems/AccountSystem.cs`](../../../Core/Modules/Account/Systems/AccountSystem.cs)
 - [`Core/Modules/Account/Systems/IAccountSystem.cs`](../../../Core/Modules/Account/Systems/IAccountSystem.cs)
 - [`docs/reference/systems.md`](../../reference/systems.md) — `AccountSystem`, `PasswordHasher`
-- [`docs/use-cases/account-character-creation.md`](../../use-cases/account-character-creation.md) — slice 5 spec
+- [`docs/implementation-plans/account-character-creation.md`](../../implementation-plans/account-character-creation.md) — slice 5 spec

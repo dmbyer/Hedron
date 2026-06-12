@@ -47,4 +47,4 @@ sequenceDiagram
 
 **Cross-references.**
 - [`Core/Systems/PersistenceSystem.cs`](../../../Core/Systems/PersistenceSystem.cs), [`Server/PersistenceFlushTimer.cs`](../../../Server/PersistenceFlushTimer.cs), [`Server/PersistenceBootstrap.cs`](../../../Server/PersistenceBootstrap.cs)
-- [`docs/use-cases/persistence-reform.md`](../../use-cases/persistence-reform.md) Stages A and B
+- [`docs/implementation-plans/persistence-reform.md`](../../implementation-plans/persistence-reform.md) Stages A and B

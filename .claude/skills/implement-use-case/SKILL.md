@@ -1,11 +1,11 @@
 ---
 name: implement-use-case
-description: Use when implementing a full gameplay use case end-to-end (shop purchase, combat pulse, crafting, etc.). Translates a use-case doc into the concrete set of components/systems/handlers/events needed, and sequences the work so each piece is independently testable. Invoke when the user picks a use case to build, or says "let's implement X" where X matches a docs/use-cases/ file.
+description: Use when implementing a full gameplay use case end-to-end (shop purchase, combat pulse, crafting, etc.). Translates an implementation plan into the concrete set of components/systems/handlers/events needed, and sequences the work so each piece is independently testable. Invoke when the user picks a use case to build, or says "let's implement X" where X matches a docs/implementation-plans/ file.
 ---
 
 # Implement a Use Case
 
-Every gameplay scenario in [docs/use-cases/](../../../docs/use-cases/README.md) follows a fixed template:
+Every gameplay scenario in [docs/implementation-plans/](../../../docs/implementation-plans/README.md) follows a fixed template:
 - **Preconditions** → guard checks
 - **Postconditions** → what must be true when done
 - **Main flow** → the sequence that takes preconditions to postconditions
@@ -16,17 +16,17 @@ Your job is to turn those sections into real code without slipping gameplay logi
 
 ## Order of implementation
 
-1. **Read the use-case doc carefully.** Note every component, system, handler, and event it names.
+1. **Read the implementation plan carefully.** Note every component, system, handler, and event it names.
 2. **Components first.** Anything the flow mentions that isn't yet in [docs/reference/components.md](../../../docs/reference/components.md) → add via the **add-component** skill.
 3. **Archetypes.** If the use case introduces a new entity type, use **add-archetype**.
 4. **Domain systems next.** Pure resolvers first; state-mutating methods second. See **add-domain-system**.
 5. **Events.** Define payloads for every event the use case fires. See **add-event**.
 6. **Handlers.** One handler per step that orchestrates; subscribe with priorities. See **add-handler**.
 7. **Command (if player-initiated).** Thin; delegates to the first handler. See **add-command**.
-8. **Write the tests named in the use-case's Test plan (INV-25).** Use the **add-tests** skill. Cover each new/changed system method (system-unit tier), each Main-Flow postcondition that asserts player-invisible state (the matching tier), each `[Persistent]` shape (round-trip), and each fail-fast validation (throws-test). **On-touch ratchet:** if you modified a previously-untested system, add its tests now too. Then run `dotnet test` — it must be green before the code-review gate. If a system needs an un-injected seam to be testable (randomness, wall-clock, I/O), add the seam (INV-26) — don't skip the test. *(Until the `Hedron.Tests` harness lands — see [backlog](../../../docs/roadmap/backlog.md) — author the Test plan and flag this as the gating prerequisite.)*
-9. **Update the use-case doc** — set Status to `implemented` if fully done, keep `partial` if only some paths are live.
-10. **Update the use-cases index** — open [docs/use-cases/README.md](../../../docs/use-cases/README.md) and set the status cell in the index table to match the use-case doc's new Status value.
-11. **Sync roadmap docs.** Run the **sync-roadmap** skill. Updates `plan.md` (phase summary, slice queue status, current focus), adds a row to `done.md`, and creates `completed/<slug>.md`. This is Phase 3 ground rule 7.
+8. **Write the tests named in the plan's Test plan (INV-25).** Use the **add-tests** skill. Cover each new/changed system method (system-unit tier), each Main-Flow postcondition that asserts player-invisible state (the matching tier), each `[Persistent]` shape (round-trip), and each fail-fast validation (throws-test). **On-touch ratchet:** if you modified a previously-untested system, add its tests now too. Then run `dotnet test` — it must be green before the code-review gate. If a system needs an un-injected seam to be testable (randomness, wall-clock, I/O), add the seam (INV-26) — don't skip the test. *(Until the `Hedron.Tests` harness lands — see [backlog](../../../docs/roadmap/backlog.md) — author the Test plan and flag this as the gating prerequisite.)*
+9. **Set the plan's Status** — `implemented` if fully done, keep `partial` if only some paths are live.
+10. **Update the in-flight index** — open [docs/implementation-plans/README.md](../../../docs/implementation-plans/README.md): a `partial` plan stays in the index with its status updated; a fully `implemented` plan is removed from the index by step 11 when it is disintegrated.
+11. **Sync roadmap + disintegrate the plan.** Run the **sync-roadmap** skill. It updates `plan.md` (phase summary, slice queue status, current focus), adds a row to `done.md`, creates `completed/<slug>.md`, then **distributes the plan's content into the living docs** (`features/`, `flows/`, `reference/`) and **deletes the plan** (disintegrate-on-ship, `INV-D2`; the **manage-docs** skill has the placement rules). This is Phase 3 ground rule 7.
 12. **Code-review gate (mandatory).** Run the `architecture-reviewer` agent in **code mode** against the diff before this branch merges. This is Phase 3 ground rule 6; the gate also confirms the Test-plan tests are present and `dotnet test` is green (INV-25). Do not skip it even for "infrastructure-only" slices — the code gate catches drift between the as-built code and the spec that the spec gate cannot see.
 
 ## Guard the layer discipline
@@ -42,14 +42,14 @@ For each domain system method you add, ask: can I unit-test this with constructe
 ## Cross-reference checks
 
 After wiring, verify:
-- Every event listed in the use-case doc's "Events fired" has a real handler subscribed.
+- Every event listed in the implementation plan's "Events fired" has a real handler subscribed.
 - Every system listed in "Systems / handlers" has the method signatures the flow calls.
 - The handler priorities cohere: state mutations before notifications before persistence.
 - If the slice changed how the app is **run or configured** — a new project or run-mode, a new/changed CLI argument, a new/renamed config section or key, or a changed default port/bind or build/run path — update [`README.md`](../../../README.md) to match. Keep it high-level; specific config values live in `appsettings.json`, not the README.
 
-## If the use-case doc is wrong
+## If the implementation plan is wrong
 
-Use cases are living documents. If reality differs from the doc in a non-trivial way, update the doc as part of the implementation PR — don't silently drift. Particularly:
+An implementation plan is the in-flight working document. If reality differs from it in a non-trivial way, update the plan as part of the implementation PR — don't silently drift. Particularly:
 - If an event name changes, update every doc that referenced it (search `docs/` for the old name).
 - If a system signature changes, update [docs/reference/systems.md](../../../docs/reference/systems.md).
 

@@ -81,4 +81,4 @@ sequenceDiagram
 - [`Core/Systems/BroadcastSystem.cs`](../../../Core/Systems/BroadcastSystem.cs)
 - [`Core/Handlers/OutputFlushTickHandler.cs`](../../../Core/Handlers/OutputFlushTickHandler.cs) — tick-end flush trigger (WP-C)
 - [`subsystems/output.md`](../subsystems/output.md) — full output framework design including buffer model and flush policy
-- [`docs/use-cases/output-framework.md`](../../use-cases/output-framework.md) — slice 4 spec; [`docs/use-cases/prompt-and-output-batching.md`](../../use-cases/prompt-and-output-batching.md) — output batching spec
+- [`docs/implementation-plans/output-framework.md`](../../implementation-plans/output-framework.md) — slice 4 spec; [`docs/implementation-plans/prompt-and-output-batching.md`](../../implementation-plans/prompt-and-output-batching.md) — output batching spec

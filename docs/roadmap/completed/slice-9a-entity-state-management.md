@@ -1,6 +1,6 @@
 # Phase 3 slice 9-a — Entity state management (completed)
 
-> Implemented on branch `claude/admiring-swanson-cd9fbc`. Full feature spec: [`../../use-cases/entity-state-management.md`](../../use-cases/entity-state-management.md).
+> Implemented on branch `claude/admiring-swanson-cd9fbc`. Full feature spec: [`../../implementation-plans/entity-state-management.md`](../../implementation-plans/entity-state-management.md).
 
 ## Outcome
 

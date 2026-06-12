@@ -51,4 +51,4 @@ sequenceDiagram
 - [`Server/Sessions/TelnetServer.cs`](../../../Server/Sessions/TelnetServer.cs), [`Server/Sessions/TelnetSession.cs`](../../../Server/Sessions/TelnetSession.cs), [`Server/Sessions/LoginFlow.cs`](../../../Server/Sessions/LoginFlow.cs)
 - [`docs/reference/handlers.md`](../../reference/handlers.md) — `PlayerSessionHandler`
 - [Flow 7](flow-07-login-character-flow.md) — full login state machine
-- [`docs/use-cases/account-character-creation.md`](../../use-cases/account-character-creation.md) — slice 5 spec
+- [`docs/implementation-plans/account-character-creation.md`](../../implementation-plans/account-character-creation.md) — slice 5 spec

@@ -59,5 +59,5 @@ sequenceDiagram
 - [`Core/Modules/Effects/Events/EffectExpiredEvent.cs`](../../../Core/Modules/Effects/Events/EffectExpiredEvent.cs)
 - [`Core/ECS/Components/EffectsComponent.cs`](../../../Core/ECS/Components/EffectsComponent.cs)
 - [`docs/architecture/effects.md`](../effects.md) — effect model design (kinds, lifetimes, stacking, phases)
-- [`docs/use-cases/effect-substrate.md`](../../use-cases/effect-substrate.md) — slice 9-e spec
+- [`docs/implementation-plans/effect-substrate.md`](../../implementation-plans/effect-substrate.md) — slice 9-e spec
 - [Flow 16](flow-16-heartbeat-tick.md) — heartbeat trigger

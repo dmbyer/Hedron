@@ -55,4 +55,4 @@ sequenceDiagram
 - [`Core/Modules/Spawn/Handlers/ItemContextHandler.cs`](../../../Core/Modules/Spawn/Handlers/ItemContextHandler.cs)
 - [`Core/Modules/Spawn/Systems/SpawnSystem.cs`](../../../Core/Modules/Spawn/Systems/SpawnSystem.cs)
 - [`Core/Modules/Items/Handlers/ItemInteractionHandler.cs`](../../../Core/Modules/Items/Handlers/ItemInteractionHandler.cs)
-- [`docs/use-cases/persistence-reform.md`](../../use-cases/persistence-reform.md) — Stage C, item pickup flow
+- [`docs/implementation-plans/persistence-reform.md`](../../implementation-plans/persistence-reform.md) — Stage C, item pickup flow

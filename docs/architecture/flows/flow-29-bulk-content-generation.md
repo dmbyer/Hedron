@@ -51,5 +51,5 @@ sequenceDiagram
 ## Cross-references
 
 - Systems: `IContentGenerationSystem` ([`../../reference/systems.md`](../../reference/systems.md)), `IContentValidator`, the four `I*ContentWriter`s.
-- Use case: [`../../use-cases/bulk-content-generation.md`](../../use-cases/bulk-content-generation.md).
+- Use case: [`../../implementation-plans/bulk-content-generation.md`](../../implementation-plans/bulk-content-generation.md).
 - Related flows: [Flow 27 — admin area creation](flow-27-admin-area-creation.md) (the writer half this composes).

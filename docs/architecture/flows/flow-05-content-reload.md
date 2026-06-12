@@ -60,4 +60,4 @@ sequenceDiagram
 
 **Cross-references.**
 - [`Core/Modules/Admin/Commands/ReloadCommand.cs`](../../../Core/Modules/Admin/Commands/ReloadCommand.cs), [`Core/Modules/World/Systems/WorldContentLoader.cs`](../../../Core/Modules/World/Systems/WorldContentLoader.cs)
-- [`docs/use-cases/world-content-loading-and-admin-substrate.md`](../../use-cases/world-content-loading-and-admin-substrate.md)
+- [`docs/implementation-plans/world-content-loading-and-admin-substrate.md`](../../implementation-plans/world-content-loading-and-admin-substrate.md)

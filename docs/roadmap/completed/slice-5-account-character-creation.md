@@ -1,6 +1,6 @@
 # Phase 3 slice 5 — Account / character creation (completed)
 
-> Implemented on branch `claude/quizzical-mestorf-0a3d47`. Full feature spec: [`../../use-cases/account-character-creation.md`](../../use-cases/account-character-creation.md).
+> Implemented on branch `claude/quizzical-mestorf-0a3d47`. Full feature spec: [`../../implementation-plans/account-character-creation.md`](../../implementation-plans/account-character-creation.md).
 
 ## Outcome
 

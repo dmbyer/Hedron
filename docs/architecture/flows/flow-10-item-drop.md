@@ -52,4 +52,4 @@ sequenceDiagram
 - [`Core/Modules/Items/Resolvers/ItemInInventoryResolver.cs`](../../../Core/Modules/Items/Resolvers/ItemInInventoryResolver.cs)
 - [`Core/Modules/Spawn/Handlers/ItemContextHandler.cs`](../../../Core/Modules/Spawn/Handlers/ItemContextHandler.cs)
 - [`Core/Modules/Items/Handlers/ItemInteractionHandler.cs`](../../../Core/Modules/Items/Handlers/ItemInteractionHandler.cs)
-- [`docs/use-cases/persistence-reform.md`](../../use-cases/persistence-reform.md) — Stage C, item drop flow
+- [`docs/implementation-plans/persistence-reform.md`](../../implementation-plans/persistence-reform.md) — Stage C, item drop flow

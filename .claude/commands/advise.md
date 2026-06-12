@@ -1,5 +1,5 @@
 ---
-description: Principal-architect intake — frame a feature's architecture (seams, future-proofing) and seed its use-case doc before planning
+description: Principal-architect intake — frame a feature's architecture (seams, future-proofing) and seed its implementation plan before planning
 argument-hint: <short description of the feature or change to frame>
 ---
 

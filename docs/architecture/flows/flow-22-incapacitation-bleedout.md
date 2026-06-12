@@ -51,4 +51,4 @@ sequenceDiagram
 - [`Core/Commands/CommandDispatcher.cs`](../../../Core/Commands/CommandDispatcher.cs) — incapacitation gate
 - [Flow 18 — Combat round pulse](flow-18-combat-round-pulse.md) — incapacitation trigger
 - [Flow 23 — Player death and respawn](flow-23-player-death-respawn.md) — bleed-out terminal path
-- [`docs/use-cases/death-and-respawn.md`](../../use-cases/death-and-respawn.md) — slice 10 spec
+- [`docs/implementation-plans/death-and-respawn.md`](../../implementation-plans/death-and-respawn.md) — slice 10 spec

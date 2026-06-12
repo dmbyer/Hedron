@@ -1,6 +1,6 @@
 # Effects — design reference
 
-> **Purpose.** This doc captures the effect model design — the decisions and invariants that every future slice consuming effects must understand. The per-slice behavioral spec lives in [`../use-cases/effect-substrate.md`](../use-cases/effect-substrate.md). See [`../design/gameplay-model.md`](../design/gameplay-model.md) Spine C and decisions R5/R6 for the upstream design inputs.
+> **Purpose.** This doc captures the effect model design — the decisions and invariants that every future slice consuming effects must understand. The per-slice behavioral spec lives in [`../implementation-plans/effect-substrate.md`](../implementation-plans/effect-substrate.md). See [`../design/gameplay-model.md`](../design/gameplay-model.md) Spine C and decisions R5/R6 for the upstream design inputs.
 
 ---
 
@@ -157,7 +157,7 @@ The seam is **dependency inversion**: a core-owned port `IEffectContributor`, DI
 
 - [`Core/Modules/Effects/`](../../Core/Modules/Effects/) — module source
 - [`Core/ECS/Components/EffectsComponent.cs`](../../Core/ECS/Components/EffectsComponent.cs)
-- [`docs/use-cases/effect-substrate.md`](../use-cases/effect-substrate.md) — behavioral spec (slice 9-e)
+- [`docs/implementation-plans/effect-substrate.md`](../implementation-plans/effect-substrate.md) — behavioral spec (slice 9-e)
 - [`docs/architecture/flows/flow-21-effect-tick.md`](flows/flow-21-effect-tick.md) — effect tick runtime flow
 - [`docs/design/gameplay-model.md`](../design/gameplay-model.md) — Spine C, R5, R6
 - [`docs/reference/systems.md`](../reference/systems.md) — `EffectSystem` catalog entry

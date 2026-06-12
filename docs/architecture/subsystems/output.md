@@ -252,5 +252,5 @@ Task SendRoomDescriptionAsync(uint playerEntityId, uint roomEntityId);
 
 - [`flows/README.md`](../flows/README.md) — Flow 3 (output leg), Flow 6 (output rendering)
 - [`systems.md`](../../reference/systems.md) — `IBroadcastSystem`, output infrastructure catalog
-- [`output-framework.md`](../../use-cases/output-framework.md) — slice 4 spec
+- [`output-framework.md`](../../implementation-plans/output-framework.md) — slice 4 spec
 - [`Core/Output/`](../../../Core/Output/) — all message shapes, interfaces, formatter, registry

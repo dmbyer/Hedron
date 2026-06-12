@@ -89,5 +89,5 @@ sequenceDiagram
 - [`Core/Handlers/CommandLoggingHandler.cs`](../../../Core/Handlers/CommandLoggingHandler.cs)
 - [`subsystems/commands.md`](../subsystems/commands.md) — command framework design
 - [`subsystems/output.md`](../subsystems/output.md) — output framework design including buffer model
-- [`docs/use-cases/command-framework.md`](../../use-cases/command-framework.md) — slice 3 spec; [`docs/use-cases/output-framework.md`](../../use-cases/output-framework.md) — slice 4 spec; [`docs/use-cases/prompt-and-output-batching.md`](../../use-cases/prompt-and-output-batching.md) — output batching spec
+- [`docs/implementation-plans/command-framework.md`](../../implementation-plans/command-framework.md) — slice 3 spec; [`docs/implementation-plans/output-framework.md`](../../implementation-plans/output-framework.md) — slice 4 spec; [`docs/implementation-plans/prompt-and-output-batching.md`](../../implementation-plans/prompt-and-output-batching.md) — output batching spec
 - [`docs/reference/handlers.md`](../../reference/handlers.md) — handler priority tiers

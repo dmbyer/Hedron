@@ -20,7 +20,8 @@ Invoke via model-selected skill triggers or directly in prompts. Each one docume
 | [`add-command`](skills/add-command/SKILL.md) | Adding a player or admin command |
 | [`add-tests`](skills/add-tests/SKILL.md) | Writing tests for a slice — picking the tier, the shared harness, the test-vs-skip rubric (INV-25/26) |
 | [`implement-use-case`](skills/implement-use-case/SKILL.md) | Implementing a full use case end-to-end |
-| [`sync-roadmap`](skills/sync-roadmap/SKILL.md) | Updating plan.md, done.md, and completed/ after a slice merges |
+| [`sync-roadmap`](skills/sync-roadmap/SKILL.md) | Updating plan.md, done.md, and completed/ after a slice merges; disintegrating the shipped plan into the living docs |
+| [`manage-docs`](skills/manage-docs/SKILL.md) | Creating/updating/moving any docs — the taxonomy, the templates, the disintegrate-on-ship lifecycle, link discipline |
 
 ## Subagents (`agents/`)
 
@@ -29,13 +30,13 @@ Launched via the `Agent` tool with `subagent_type` set to the agent's name.
 | Agent | Use for |
 |---|---|
 | [`architecture-reviewer`](agents/architecture-reviewer.md) | Reviewing a diff for 4-layer / ECS / event-bus discipline |
-| [`use-case-planner`](agents/use-case-planner.md) | Turning a gameplay idea into a use-case doc + build plan |
+| [`use-case-planner`](agents/use-case-planner.md) | Turning a gameplay idea into an implementation plan + build plan |
 
 ## Slash commands (`commands/`)
 
 | Command | Effect |
 |---|---|
-| `/advise <description>` | Principal-architect intake: frame a feature's seams + future-proofing, seed its use-case doc |
+| `/advise <description>` | Principal-architect intake: frame a feature's seams + future-proofing, seed its implementation plan |
 | `/new-use-case <description>` | Spawn the use-case-planner on your idea |
 | `/check-layers [scope]` | Run architecture review on the current branch |
 
@@ -43,9 +44,9 @@ Launched via the `Agent` tool with `subagent_type` set to the agent's name.
 
 For a new feature end-to-end:
 
-1. `/advise <describe the feature>` → interactive principal-architect intake; frames the seams, weighs existing + planned work, and seeds `docs/use-cases/<x>.md` with an architectural brief (skip for a small, obvious slice)
+1. `/advise <describe the feature>` → interactive principal-architect intake; frames the seams, weighs existing + planned work, and seeds `docs/implementation-plans/<x>.md` with an architectural brief (skip for a small, obvious slice)
 2. `/new-use-case` → use-case-planner extends the seed into the full plan; then the spec-review gate (`architecture-reviewer` in spec mode)
-3. Use `implement-use-case` skill → builds each layer using the other skills as sub-patterns (incl. `add-tests` for the use-case's Test plan)
+3. Use `implement-use-case` skill → builds each layer using the other skills as sub-patterns (incl. `add-tests` for the plan's Test plan)
 4. `/check-layers` → architecture-reviewer flags any violations before merge (incl. INV-25 test presence + `dotnet test` green)
 
 For a bug fix or small change:

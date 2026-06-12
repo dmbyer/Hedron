@@ -1,6 +1,6 @@
 # Phase 3 — Output Batching + Player Prompt
 
-**PR:** (this branch — `claude/clever-franklin-1a33c3`) · **Spec:** [`../../use-cases/prompt-and-output-batching.md`](../../use-cases/prompt-and-output-batching.md)
+**PR:** (this branch — `claude/clever-franklin-1a33c3`) · **Spec:** [`../../implementation-plans/prompt-and-output-batching.md`](../../implementation-plans/prompt-and-output-batching.md)
 
 ## Outcome
 

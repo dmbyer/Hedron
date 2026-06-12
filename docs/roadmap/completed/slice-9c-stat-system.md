@@ -1,6 +1,6 @@
 # Phase 3 slice 9-c — Stat computation system (completed)
 
-> Implemented on branch `claude/confident-gates-534273`. Full feature spec: [`../../use-cases/stat-system.md`](../../use-cases/stat-system.md).
+> Implemented on branch `claude/confident-gates-534273`. Full feature spec: [`../../implementation-plans/stat-system.md`](../../implementation-plans/stat-system.md).
 
 ## Outcome
 
@@ -25,8 +25,8 @@ The codebase now has a stable effective-stat read seam (`IStatSystem`) that aggr
 | `Program.cs` — `services.AddStatsModule()` added after `AddAttributesModule()` | `Server/Program.cs` |
 | `docs/reference/systems.md` — `IAttributeSystem` entry updated with `SetCurrentHp`; `IStatSystem`/`StatSystem` entry added; `IItemBuilderSystem` entry updated with `SetItemDamageBonus` | `docs/reference/systems.md` |
 | `docs/reference/components.md` — `ItemDataComponent` row updated to include `DamageBonus: int` | `docs/reference/components.md` |
-| `docs/use-cases/stat-system.md` — status set to `implemented`; open questions marked resolved; trimmed to durable spec | `docs/use-cases/stat-system.md` |
-| `docs/use-cases/README.md` — status updated to `implemented` | `docs/use-cases/README.md` |
+| `docs/implementation-plans/stat-system.md` — status set to `implemented`; open questions marked resolved; trimmed to durable spec | `docs/implementation-plans/stat-system.md` |
+| `docs/implementation-plans/README.md` — status updated to `implemented` | `docs/implementation-plans/README.md` |
 
 ## Spec-review provenance
 

@@ -1,6 +1,6 @@
 # Phase 3 slice 5b — Persistence two-level model (completed)
 
-> Implemented on branch `claude/zealous-darwin-61b4b5` (PR #76). Full feature spec: [`../../use-cases/persistence-two-level-model.md`](../../use-cases/persistence-two-level-model.md).
+> Implemented on branch `claude/zealous-darwin-61b4b5` (PR #76). Full feature spec: [`../../implementation-plans/persistence-two-level-model.md`](../../implementation-plans/persistence-two-level-model.md).
 
 ## Outcome
 
@@ -34,7 +34,7 @@ The persistence layer is redesigned from a global dirty-set sweep to a two-level
 | `docs/reference/systems.md` — `PersistenceSystem` interface updated; `AccountSystem` description updated; `WorldContentLoader` and `RoomBuilderSystem` notes added | — |
 | `docs/architecture/06-flows.md` — Flow 1 (startup `PersistentEntity` addition + shutdown note), Flow 2 (disconnect save path), Flow 4 (full rewrite to area-scoped model), Flow 7 (save-before-publish login), Flow 8 (remove `PH`, direct `SaveEntityAsync`) updated | — |
 | `docs/architecture/03-events.md` — `PersistenceHandler` removed from `PlayerDeathEvent` subscriber table; save-on-change note added | — |
-| `docs/use-cases/persistence-two-level-model.md` — Status set to `implemented` | — |
+| `docs/implementation-plans/persistence-two-level-model.md` — Status set to `implemented` | — |
 
 ## Spec-review provenance
 

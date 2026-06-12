@@ -57,4 +57,4 @@ sequenceDiagram
 - [`Core/Modules/Mobs/Events/MobDiedEvent.cs`](../../../Core/Modules/Mobs/Events/MobDiedEvent.cs)
 - [`Core/Modules/Spawn/Systems/SpawnSystem.cs`](../../../Core/Modules/Spawn/Systems/SpawnSystem.cs)
 - [`Core/ECS/Components/SpawnConfigComponent.cs`](../../../Core/ECS/Components/SpawnConfigComponent.cs)
-- [`docs/use-cases/persistence-reform.md`](../../use-cases/persistence-reform.md) — Stage C, mob death flow
+- [`docs/implementation-plans/persistence-reform.md`](../../implementation-plans/persistence-reform.md) — Stage C, mob death flow

@@ -49,4 +49,4 @@ sequenceDiagram
 - [`Core/Modules/Mobs/Commands/MkMobCommand.cs`](../../../Core/Modules/Mobs/Commands/MkMobCommand.cs), [`Core/Modules/Mobs/Systems/MobBuilderSystem.cs`](../../../Core/Modules/Mobs/Systems/MobBuilderSystem.cs)
 - [`Core/Modules/Mobs/Events/MobCreatedByAdminEvent.cs`](../../../Core/Modules/Mobs/Events/MobCreatedByAdminEvent.cs)
 - [`Core/Modules/Admin/Handlers/AdminAuditHandler.cs`](../../../Core/Modules/Admin/Handlers/AdminAuditHandler.cs)
-- [`docs/use-cases/mobs.md`](../../use-cases/mobs.md) — slice 8 spec
+- [`docs/implementation-plans/mobs.md`](../../implementation-plans/mobs.md) — slice 8 spec

@@ -448,7 +448,7 @@ public interface IAdminAuthorizer
     bool IsPrivileged(uint playerEntityId);
 }
 ```
-**Layered authorization model.** Bootstrap layer (slice 2): reads `Admin:PrivilegedNames` (string array) from `IConfiguration` and matches against the player's `PlayerComponent.DisplayName`. Persisted layer (deferred — see [`../use-cases/admin-privilege-elevation.md`](../use-cases/admin-privilege-elevation.md)): an `AdminPrivilegeComponent` (`[Persistent]`) on a player entity also grants admin rights. Settings is the floor — anyone in `Admin:PrivilegedNames` is always admin even without the component. Implemented (Phase 3 slice 2; component layer deferred).
+**Layered authorization model.** Bootstrap layer (slice 2): reads `Admin:PrivilegedNames` (string array) from `IConfiguration` and matches against the player's `PlayerComponent.DisplayName`. Persisted layer (deferred — see [`../implementation-plans/admin-privilege-elevation.md`](../implementation-plans/admin-privilege-elevation.md)): an `AdminPrivilegeComponent` (`[Persistent]`) on a player entity also grants admin rights. Settings is the floor — anyone in `Admin:PrivilegedNames` is always admin even without the component. Implemented (Phase 3 slice 2; component layer deferred).
 
 ### AttributeSystem
 **Purpose:** Read/write seam for `AttributesComponent` and `PoolsComponent`. Getters are the surface the combat slice will call; setters serve the admin and initialization paths. Never touches the event bus or persistence (INV-5).
