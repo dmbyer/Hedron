@@ -19,7 +19,8 @@ Multi-session program restructuring the docs into the feature/system taxonomy, c
   - [x] **world** (4.6) — `features/world/` (world + world-content/movement/area-model/spawn/time-system; added missing MovementSystem ref row); 4 plans deleted; infra flows kept.
   - [x] **mobs** (4.6) — `features/mobs/` (mobs + mob-system); mobs.md plan deleted.
   - [x] **abilities** (4.6, finished by 4.8 after the sub-agent hit a session limit) — `features/abilities/` (abilities + ability-system); flow-24 → Abilities journey (25/26 deleted, broken `.cs` links fixed to real files); 2 plans deleted.
-  - [ ] remaining 6 → sub-agents, sequential (aspects → accounts → admin-authoring → output → commands → communication).
+  - [x] **aspects** (4.6) — `features/aspects/` (aspects + aspect-system); aspect-foundation.md plan deleted.
+  - [ ] remaining 5 → sub-agents, sequential (accounts → accounts → admin-authoring → output → commands → communication).
 - [ ] **WP-Z — Closing sweep.** Delete empty `subsystems/`; `Core/Sessions` reference home; consolidate cross-cutting runtime flows + finalize `flows/README.md`; repo-wide link-integrity pass; final `architecture-reviewer` pass.
 
 ## Phase 4 — Hardening
@@ -163,7 +164,7 @@ Not a runtime "module" — balance math stays co-located with its owning system 
 
 ### 🔵 YAML-authored definition pipeline for the big registry families (deferred from aspect-foundation)
 
-Deferred from the aspect-foundation slice ([`../implementation-plans/aspect-foundation.md`](../implementation-plans/aspect-foundation.md)), which lands the Spine F registry layer (`IRegistry<TKey, TDef>` + `DefinitionRegistry<TKey, TDef>` base) with **hardcoded** definitions only — correct and expected for the spine families per [`../design/gameplay-model.md`](../design/gameplay-model.md) Spine F ("hardcoded is fine and expected").
+Deferred from the aspect-foundation slice ([`../implementation-plans/aspect-foundation.md`](../features/aspects/aspects.md)), which lands the Spine F registry layer (`IRegistry<TKey, TDef>` + `DefinitionRegistry<TKey, TDef>` base) with **hardcoded** definitions only — correct and expected for the spine families per [`../design/gameplay-model.md`](../design/gameplay-model.md) Spine F ("hardcoded is fine and expected").
 
 The deferred work is a **YAML authoring path** for the genuinely content-shaped, string-keyed families (Ability, Effect, and later Objective), analogous to the existing per-module `ITemplateDeserializer` pattern (which today produces `IEntityTemplate` spawn-templates, not trait definitions — so this is an *analogous* seam, not a literal reuse). It carries one real design decision the aspect-foundation slice deliberately did **not** make: **hardcoded-and-YAML coexistence + override/reload order** — when a definition exists in both a code registration and a YAML file, which wins, and how `@reload` re-derives the registry (cf. `ITemplateRegistry.Clear`).
 

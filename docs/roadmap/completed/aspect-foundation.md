@@ -1,6 +1,6 @@
 # Phase 3 Slice 11-d — Aspect & Registry Foundation
 
-**PR:** (this branch) · **Spec:** [`../../implementation-plans/aspect-foundation.md`](../../implementation-plans/aspect-foundation.md)
+**PR:** (this branch) · **Spec:** [`../../implementation-plans/aspect-foundation.md`](../../features/aspects/aspects.md)
 
 ## Outcome
 

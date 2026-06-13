@@ -420,29 +420,15 @@ Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slices 11-a, 11-b).
 
 ### AspectRegistry
 **Purpose:** Hardcoded read-only catalog of `AspectDefinition` records. Born on `DefinitionRegistry<AspectId, AspectDefinition>` (the fourth consumer that anchored the generic extraction). Pure data — no event bus, no persistence. Aspected abilities reference `AspectId` keys validated at startup by `RegistryValidationBootstrap`.
-**Location:** `Core/Modules/Aspects/AspectRegistry.cs` (implementation · interface `IAspectRegistry` in same file)
+**Location:** [`Core/Modules/Aspects/AspectRegistry.cs`](../../Core/Modules/Aspects/AspectRegistry.cs) (implementation · interface `IAspectRegistry : IRegistry<AspectId, AspectDefinition>` in same file)
 **Dependencies:** none.
-```csharp
-public interface IAspectRegistry : IRegistry<AspectId, AspectDefinition> { }
-```
-Starter vocabulary: `Fire`, `Ice`, `Lightning` (Elemental); `Nature` (Primal); `Void`, `Light` (Arcane). Registered via `AddAspectsModule()`. Implemented (Phase 3 slice 11-d).
+Starter vocabulary: `Fire`, `Ice`, `Lightning` (Elemental); `Nature` (Primal); `Void`, `Light` (Arcane). Registered via `AddAspectsModule()`. See [`../features/aspects/aspect-system.md`](../features/aspects/aspect-system.md) for the registry key-type rationale and startup validation. Implemented (Phase 3 slice 11-d).
 
 ### AspectSystem / IAspectSystem
 **Purpose:** Core system: generic aspect math with no game-semantic branching (no FireSystem, no per-aspect switch). Three responsibilities: `Resolve` (apply affinity boost + independent resist); `Affinity` (entity's outgoing composition); `Resist` (entity's effective resistance to one aspect, compute-on-read INV-24). Pure: no events, no persistence, no game rules (INV-2, INV-5).
-**Location:** `Core/Modules/Aspects/Systems/AspectSystem.cs` · `Core/Modules/Aspects/Systems/IAspectSystem.cs`
+**Location:** [`Core/Modules/Aspects/Systems/IAspectSystem.cs`](../../Core/Modules/Aspects/Systems/IAspectSystem.cs) (interface) · [`AspectSystem.cs`](../../Core/Modules/Aspects/Systems/AspectSystem.cs) (implementation)
 **Dependencies:** `EntityService`.
-```csharp
-public interface IAspectSystem
-{
-    // Formula per aspect A: portion = magnitude * weight/100;
-    // boosted = portion * (1 + attackerAffinityWeight_A / 100);
-    // resisted = boosted * (1 - resist_A / 100). Sum across all aspects, clamp to [0, int.Max].
-    int Resolve(int magnitude, AspectComposition composition, uint attackerEntityId, uint defenderEntityId);
-    AspectComposition Affinity(uint entityId);
-    int Resist(uint entityId, AspectId aspect);   // [0, 100]; 100 = full immunity
-}
-```
-Registered via `AddAspectsModule()`. Composed by `CombatSystem` (WP-3): called in both `ExecuteRound` (melee affinity) and `ResolveAbilityStrike` (ability `Aspect` field). Implemented (Phase 3 slice 11-d).
+Registered via `AddAspectsModule()`. Composed by `CombatSystem`: called in both `ExecuteRound` (melee affinity) and `ResolveAbilityStrike` (ability `Aspect` field). See [`../features/aspects/aspect-system.md`](../features/aspects/aspect-system.md) for the resolution formula, affinity/resistance model, and design rationale. Implemented (Phase 3 slice 11-d).
 
 ### AbilityRegistry
 **Purpose:** Hardcoded read-only catalog of `AbilityDefinition` records. Pure data — no event bus, no persistence. Now a `DefinitionRegistry<string, AbilityDefinition>` subclass (WP-1 retrofit). Promotion to a data file is a future content concern.
