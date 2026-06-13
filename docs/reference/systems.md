@@ -342,32 +342,13 @@ public readonly record struct AreaCreationResult(
 **Purpose:** Runtime mob authoring — creates ad-hoc mob entities and mutates mob properties (`Name`, `Description`, `Keywords`, `MobType`). Mirrors `IItemBuilderSystem`: all methods mutate ECS state only; event publication and persistence calls remain in the command (INV-5).
 **Location:** `Core/Modules/Mobs/Systems/MobBuilderSystem.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<MobBuilderSystem>`.
-```csharp
-public interface IMobBuilderSystem
-{
-    MobCreationResult CreateMob(string name, uint roomEntityId);
-    void SetMobName(uint mobEntityId, string name);
-    void SetMobDescription(uint mobEntityId, string description);
-    void SetMobKeywords(uint mobEntityId, IReadOnlyList<string> keywords);
-    void SetMobType(uint mobEntityId, MobType mobType);
-    void SetAttribute(uint mobEntityId, MobTemplate template, string property, int value);
-}
-
-public readonly record struct MobCreationResult(uint MobEntityId, string BlueprintId, MobTemplate Template);
-```
-`CreateMob` generates a unique blueprint id (`mob.adhoc.<8-char-base36>`), creates the entity, attaches `MobDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `MobTemplate`. Implemented (Phase 3 slice 8). Extended in slice 8a: `SetAttribute(mobEntityId, template, property, value)` mutates `AttributesComponent`/`PoolsComponent` on the live entity and updates the template. Valid properties: `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra`. Enforces `CurrentX ≤ MaxX` clamp on pool max changes (INV-8). Does not call persistence or events (INV-5). Updated `str`/`dex`/`con` to `mind`/`body`/`spirit`/`attunement` in slice 9-d.
+**Interface:** [`IMobBuilderSystem.cs`](../../Core/Modules/Mobs/Systems/IMobBuilderSystem.cs) — `CreateMob` / `SetMobName` / `SetMobDescription` / `SetMobKeywords` / `SetMobType` / `SetAttribute`. `CreateMob` generates a unique blueprint id (`mob.adhoc.<8-char-base36>`), creates the entity, attaches `MobDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `MobTemplate`. Slice 8-a added `SetAttribute` for `AttributesComponent`/`PoolsComponent` mutations; enforces `CurrentX ≤ MaxX` clamp (INV-8). See [`../features/mobs/mob-system.md`](../features/mobs/mob-system.md) for the full builder model and YAML shape. Implemented (Phase 3 slices 8, 8-a, 9-d).
 
 ### MobContentWriter
 **Purpose:** Serializes a `MobTemplate` to YAML at `{contentDirectory}/mobs/{blueprintId}.yaml` using an atomic write (tmp → rename). Mirrors `IItemContentWriter`.
 **Location:** `Core/Modules/Mobs/Systems/MobContentWriter.cs`
 **Dependencies:** `IConfiguration`.
-```csharp
-public interface IMobContentWriter
-{
-    Task WriteAsync(MobTemplate template, CancellationToken ct = default);
-}
-```
-YAML DTO fields: `blueprintId`, `name`, `description`, `keywords`, `type` (string enum value), `spawnRoomBlueprintId`. Implemented (Phase 3 slice 8). Extended in slice 8a: DTO includes `level`, `maxHp`, and attribute fields. Updated in slice 9-d: attribute fields are now `mind`, `body`, `spirit`, `attunement`; added `maxMana`, `maxStamina`, `maxAstra` pool fields.
+**Interface:** [`IMobContentWriter.cs`](../../Core/Modules/Mobs/Systems/IMobContentWriter.cs) — `WriteAsync(MobTemplate, CancellationToken)`. YAML DTO: `blueprintId`, `name`, `description`, `keywords`, `type`, `spawnRoomBlueprintId`; extended in slice 8-a with `level`, `maxHp`, attributes; updated in slice 9-d to `mind`/`body`/`spirit`/`attunement` + pool fields. See [`../features/mobs/mob-system.md`](../features/mobs/mob-system.md) for the full YAML shape. Implemented (Phase 3 slices 8, 8-a, 9-d).
 
 ### AdminAuthorizer
 **Purpose:** Policy seam for admin command authorization. Each admin `ICommand.Execute` calls `IsPrivileged` as its first line; non-privileged sessions get a single rejection line and the command body short-circuits.
