@@ -1,8 +1,10 @@
-# Flow 9 — Item pickup (`get`)
+# Items journey (pickup · drop · inventory)
 
-> [Back to flows index](README.md)
+> Source: [../../features/items/items.md](../../features/items/items.md)
 
-**Summary.** Player sends `get <item>`. `GetCommand` uses `ItemInRoomResolver` to prefix-match the token against items in the player's room, calls `IItemSystem.MoveToInventory` to transfer the item from ground to inventory, publishes `ItemPickedUpEvent`. `ItemContextHandler` promotes the item to persistent; `SpawnSystem` marks the spawn slot vacant and schedules a respawn; `ItemInteractionHandler` broadcasts the pickup messages. No immediate save — both item and player are persisted in the next flush cycle.
+[Back to flows index](README.md)
+
+## Pickup (`get <item>`)
 
 **Trigger.** Player sends `get <item>`.
 
@@ -10,49 +12,103 @@
 sequenceDiagram
     participant Client
     participant CD as CommandDispatcher
-    participant Parser as ICommandArgumentParser
-    participant Resolver as ItemInRoomResolver
     participant Cmd as GetCommand
     participant IS as IItemSystem
     participant Bus as IEventBus
     participant ICH as ItemContextHandler (Domain 20)
     participant SS as SpawnSystem (Domain 20)
     participant IIH as ItemInteractionHandler (Notification 80)
-    participant Broadcast as IBroadcastSystem
 
     Client->>CD: "get sword"
-    CD->>Parser: Parse(schema, "sword", resolverContext)
-    Parser->>Resolver: GetCandidates(resolverContext)
-    Resolver->>IS: GetItemsInRoom(playerRoomId)
-    Resolver-->>Parser: [ResolvedCandidate("a short sword","a short sword"), ...]
-    Parser-->>CD: ParsedArguments{item="a short sword"}
-    CD->>Cmd: ExecuteAsync(CommandContext)
-    Cmd->>IS: TryFindItemInRoom(roomId, "a short sword", out itemEntityId)
-    IS-->>Cmd: true, itemEntityId
+    CD->>Cmd: ExecuteAsync — ItemInRoomResolver prefix-matches
+    Cmd->>IS: TryFindItemInRoom(roomId, canonical)
+    IS-->>Cmd: itemEntityId
     Cmd->>IS: MoveToInventory(itemEntityId, playerEntityId)
     Cmd->>Bus: Publish(ItemPickedUpEvent)
-    Bus->>ICH: HandleAsync — AddComponent<PersistentEntity>(itemEntityId)
-    Bus->>SS: HandleAsync — mark slot vacant; schedule respawn timer
-    Bus->>IIH: HandleAsync — broadcast pickup messages
-    IIH->>Broadcast: SendToRoomAsync(roomId, "Bob picks up a short sword.", id≠player)
-    IIH->>Broadcast: SendToRoomAsync(roomId, "You pick up a short sword.", id==player)
+    Bus->>ICH: AddComponent PersistentEntity → item enters flush pool
+    Bus->>SS: mark spawn slot vacant; schedule respawn
+    Bus->>IIH: broadcast pickup messages
 ```
 
 **Steps.**
 
-1. `CommandDispatcher` routes `get` to `GetCommand`. No privilege requirement.
-2. **Argument resolution.** `ICommandArgumentParser` calls `ItemInRoomResolver.GetCandidates(resolverContext)`, which reads the invoker's `LocationComponent.RoomEntityId`, calls `IItemSystem.GetItemsInRoom`, and emits `ResolvedCandidate(MatchString, CanonicalValue)` pairs — one for each item name and each keyword. The parser prefix-matches the token against all `MatchString` values, deduplicates by `CanonicalValue`, and substitutes the canonical item name into `ParsedArguments.item` (unique match) or fails with an ambiguity error (two+ distinct canonical values).
-3. **Entity resolve.** `IItemSystem.TryFindItemInRoom(roomId, canonicalName, out itemEntityId)` performs a final entity lookup. If not found (race condition: item taken between resolve and pickup), writes "You don't see that here." and returns.
-4. **Pickup mutation.** `IItemSystem.MoveToInventory(itemEntityId, playerEntityId)` — removes `LocationComponent` from the item (no-op if already absent), appends item id to `InventoryComponent.ItemEntityIds`.
-5. **Event.** Publishes `ItemPickedUpEvent(PlayerEntityId, ItemEntityId, RoomEntityId)`.
-6. **Context promotion.** `ItemContextHandler` (priority 20) calls `EntityService.AddComponent(itemEntityId, new PersistentEntity())`. The item entity enters the flush pool and will be saved on the next periodic flush cycle.
-7. **Spawn slot vacancy.** `SpawnSystem` (priority 20) checks its reverse map for `itemEntityId`. If the item occupied a spawn slot (world-spawn item), marks the slot vacant and schedules a respawn after `RespawnDelaySeconds`.
-8. **Broadcast.** `ItemInteractionHandler` (priority 80) broadcasts `"<name> picks up <item>."` to the room excluding the picker, then `"You pick up <item>."` to the picker via `SendToRoomAsync` with opposite filters.
+1. `CommandDispatcher` routes `get` to `GetCommand` (no privilege requirement).
+2. `ItemInRoomResolver` builds `ResolvedCandidate(MatchString, CanonicalValue)` pairs for items in the room; the parser prefix-matches and deduplicates by `CanonicalValue`.
+3. `IItemSystem.TryFindItemInRoom` performs final entity lookup. Race condition (item already taken) → "You don't see that here."
+4. `IItemSystem.MoveToInventory` — removes `LocationComponent`, clears `BlueprintComponent` (INV-21), appends to `InventoryComponent.ItemEntityIds`.
+5. Publishes `ItemPickedUpEvent`.
+6. `ItemContextHandler` (priority 20) adds `PersistentEntity` to the item — it enters the flush pool and survives restarts.
+7. `SpawnSystem` (priority 20) marks the spawn slot vacant and schedules respawn if the item was world-content.
+8. `ItemInteractionHandler` (priority 80) broadcasts pickup messages to the room.
+
+---
+
+## Drop (`drop <item>`)
+
+**Trigger.** Player sends `drop <item>`.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant CD as CommandDispatcher
+    participant Cmd as DropCommand
+    participant IS as IItemSystem
+    participant Bus as IEventBus
+    participant ICH as ItemContextHandler (Domain 20)
+    participant IIH as ItemInteractionHandler (Notification 80)
+
+    Client->>CD: "drop sword"
+    CD->>Cmd: ExecuteAsync — ItemInInventoryResolver prefix-matches
+    Cmd->>IS: TryFindItemInInventory(playerEntityId, canonical)
+    IS-->>Cmd: itemEntityId
+    Cmd->>IS: DropToRoom(itemEntityId, playerEntityId, roomEntityId)
+    Cmd->>Bus: Publish(ItemDroppedEvent)
+    Bus->>ICH: RemoveComponent PersistentEntity → item leaves flush pool
+    Bus->>IIH: broadcast drop messages
+```
+
+**Steps.**
+
+1. `ItemInInventoryResolver` builds candidates from the holder's `InventoryComponent`; parser prefix-matches.
+2. `IItemSystem.TryFindItemInInventory`. Not found → "You aren't carrying that."
+3. `IItemSystem.DropToRoom` — removes item id from `InventoryComponent`, attaches `LocationComponent { RoomEntityId }`.
+4. Publishes `ItemDroppedEvent`. Saves player entity only — item is *not* saved (drop-and-vanish policy).
+5. `ItemContextHandler` (priority 20) removes `PersistentEntity` — item leaves flush pool and vanishes on restart.
+6. `ItemInteractionHandler` (priority 80) broadcasts drop messages.
+
+---
+
+## Inventory display (`inventory`)
+
+**Trigger.** Player sends `inventory`, `inv`, or `i`.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant CD as CommandDispatcher
+    participant Cmd as InventoryCommand
+    participant IS as IItemSystem
+
+    Client->>CD: "inv"
+    CD->>Cmd: ExecuteAsync
+    Cmd->>IS: GetItemsInInventory(playerEntityId)
+    alt empty
+        Cmd-->>Client: "You are carrying nothing."
+    else non-empty
+        Cmd-->>Client: InventoryListMessage([item names])
+    end
+```
+
+**Steps.**
+
+1. `IItemSystem.GetItemsInInventory` returns entity ids from `InventoryComponent.ItemEntityIds`.
+2. Empty → "You are carrying nothing." Otherwise resolves each id to `ItemDataComponent.Name` (silently skips missing components) and writes `InventoryListMessage`. No events fired.
+
+---
 
 **Cross-references.**
-- [`Core/Modules/Items/Commands/GetCommand.cs`](../../../Core/Modules/Items/Commands/GetCommand.cs), [`Core/Modules/Items/Systems/ItemSystem.cs`](../../../Core/Modules/Items/Systems/ItemSystem.cs)
-- [`Core/Modules/Items/Resolvers/ItemInRoomResolver.cs`](../../../Core/Modules/Items/Resolvers/ItemInRoomResolver.cs)
+- [`Core/Modules/Items/Commands/GetCommand.cs`](../../../Core/Modules/Items/Commands/GetCommand.cs) · [`Core/Modules/Items/Commands/DropCommand.cs`](../../../Core/Modules/Items/Commands/DropCommand.cs) · [`Core/Modules/Items/Commands/InventoryCommand.cs`](../../../Core/Modules/Items/Commands/InventoryCommand.cs)
+- [`Core/Modules/Items/Systems/ItemSystem.cs`](../../../Core/Modules/Items/Systems/ItemSystem.cs)
 - [`Core/Modules/Spawn/Handlers/ItemContextHandler.cs`](../../../Core/Modules/Spawn/Handlers/ItemContextHandler.cs)
-- [`Core/Modules/Spawn/Systems/SpawnSystem.cs`](../../../Core/Modules/Spawn/Systems/SpawnSystem.cs)
 - [`Core/Modules/Items/Handlers/ItemInteractionHandler.cs`](../../../Core/Modules/Items/Handlers/ItemInteractionHandler.cs)
-- [`docs/implementation-plans/persistence-reform.md`](../../implementation-plans/persistence-reform.md) — Stage C, item pickup flow
+- [`../../features/items/item-inventory-system.md`](../../features/items/item-inventory-system.md) — system design + persistence lifecycle.

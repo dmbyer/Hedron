@@ -106,7 +106,7 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Aliases:** none  
 **MatchingMode:** `Partial`  
 **Location:** `Core/Modules/Items/Commands/DropCommand.cs`  
-**Description:** Drops a named item from the player's inventory to the ground in the current room. Argument is resolved via `ItemInInventoryResolver` (prefix-matched against carried item names and keywords). On no match: "You aren't carrying that." `IItemSystem.DropToRoom` mutates ECS state (removes from `InventoryComponent`, attaches `LocationComponent`); the player entity is saved immediately; the item entity is **not** saved (dropped items vanish on restart by design — see the items-and-inventory use-case spec). Broadcasts drop messages to the room via `ItemInteractionHandler`.  
+**Description:** Drops a named item from the player's inventory to the ground in the current room. Argument is resolved via `ItemInInventoryResolver` (prefix-matched against carried item names and keywords). On no match: "You aren't carrying that." `IItemSystem.DropToRoom` mutates ECS state; the player entity is saved immediately; the item entity is **not** saved (drop-and-vanish policy — see [`../features/items/item-inventory-system.md`](../features/items/item-inventory-system.md)). Broadcasts drop messages to the room via `ItemInteractionHandler`.  
 **Usage:** `drop <item>`  
 **Schema:** `Token string "item"` (required, `ItemInInventoryResolver`)  
 **Dependencies:** `IItemSystem`, `EntityService`, `IEventBus`, `IPersistenceSystem`, `ItemInInventoryResolver`  

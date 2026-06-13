@@ -1,6 +1,6 @@
 # Phase 3 slice 7 — Equipment + `wear`/`remove` (completed)
 
-> Implemented on branch `claude/naughty-turing-b0bbef`. Full feature spec: [`../../implementation-plans/equipment.md`](../../implementation-plans/equipment.md).
+> Implemented on branch `claude/naughty-turing-b0bbef`. Living feature docs: [`../../features/items/items.md`](../../features/items/items.md).
 
 ## Outcome
 

@@ -356,55 +356,19 @@ public readonly record struct AreaCreationResult(
 **Purpose:** Query and mutation operations on item entities — finds items in a room or inventory by entity id, prefix-matches a token against item names and keywords, and moves items between ground and inventory. Mutation methods are pure ECS mutations; no event publication, no persistence calls.
 **Location:** `Core/Modules/Items/Systems/ItemSystem.cs`
 **Dependencies:** `EntityService`.
-```csharp
-public interface IItemSystem
-{
-    IReadOnlyList<uint> GetItemsInRoom(uint roomEntityId);
-    IReadOnlyList<uint> GetItemsInInventory(uint holderEntityId);
-    bool TryFindItemInRoom(uint roomEntityId, string token, out uint itemEntityId);
-    bool TryFindItemInInventory(uint holderEntityId, string token, out uint itemEntityId);
-    void MoveToInventory(uint itemEntityId, uint holderEntityId);
-    void DropToRoom(uint itemEntityId, uint holderEntityId, uint roomEntityId);
-}
-```
-`GetItemsInRoom` iterates all `ItemDataComponent` entities and returns those whose `LocationComponent.RoomEntityId` matches. `GetItemsInInventory` reads `InventoryComponent.ItemEntityIds` from the holder. `TryFindItemInRoom` / `TryFindItemInInventory` do a linear prefix-match against `ItemDataComponent.Name` and each keyword, returning the first match. `MoveToInventory` removes `LocationComponent` from the item and appends its id to the holder's `InventoryComponent`; no-ops if the item has no `LocationComponent` (race condition: already picked up). `DropToRoom` removes the item id from `InventoryComponent` and attaches a `LocationComponent` pointing to the given room. Implemented (Phase 3 slice 6).
+**Interface:** [`IItemSystem.cs`](../../Core/Modules/Items/Systems/IItemSystem.cs) — `GetItemsInRoom` / `GetItemsInInventory` / `TryFindItemInRoom` / `TryFindItemInInventory` / `MoveToInventory` / `DropToRoom`. See [`../features/items/item-inventory-system.md`](../features/items/item-inventory-system.md) for the location model, persistence lifecycle, and resolver design. Implemented (Phase 3 slice 6).
 
 ### ItemBuilderSystem
-**Purpose:** Runtime item authoring — creates ad-hoc item entities and mutates item properties (`Name`, `Description`, `Keywords`, `ItemType`, `WornSlots`). Mirrors `IRoomBuilderSystem`: all methods mutate ECS state only; event publication and persistence calls remain in the command (INV-5). Reusable by a future in-game editor without a live player session.
+**Purpose:** Runtime item authoring — creates ad-hoc item entities and mutates item properties (`Name`, `Description`, `Keywords`, `ItemType`, `WornSlots`, `DamageBonus`). Mirrors `IRoomBuilderSystem`: all methods mutate ECS state only; event publication and persistence calls remain in the command (INV-5).
 **Location:** `Core/Modules/Items/Systems/ItemBuilderSystem.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<ItemBuilderSystem>`.
-```csharp
-public interface IItemBuilderSystem
-{
-    ItemCreationResult CreateItem(string name, uint roomEntityId);
-    void SetItemName(uint itemEntityId, string name);
-    void SetItemDescription(uint itemEntityId, string description);
-    void SetItemKeywords(uint itemEntityId, IReadOnlyList<string> keywords);
-    void SetItemType(uint itemEntityId, ItemType itemType);
-    void SetItemSlots(uint itemEntityId, IReadOnlyList<WornSlot> slots);
-    void SetItemDamageBonus(uint itemEntityId, int value);
-}
-
-public readonly record struct ItemCreationResult(uint ItemEntityId, string BlueprintId, ItemTemplate Template);
-```
-`CreateItem` generates a unique blueprint id (`item.adhoc.<8-char-base36>`), creates the entity, attaches `ItemDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `ItemTemplate`. The `MkitemCommand` initiator calls `SaveEntityAsync` after this method returns (INV-5). `SetItemSlots` updates both `ItemDataComponent.WornSlots` and `ItemTemplate.WornSlots` in the registry. `SetItemDamageBonus` updates both `ItemDataComponent.DamageBonus` and `ItemTemplate.DamageBonus`; called by `SetitemCommand` for the `dmg` property. Implemented (Phase 3 slices 6, 7, 9-c).
+**Interface:** [`IItemBuilderSystem.cs`](../../Core/Modules/Items/Systems/IItemBuilderSystem.cs) — `CreateItem` / `SetItemName` / `SetItemDescription` / `SetItemKeywords` / `SetItemType` / `SetItemSlots` / `SetItemDamageBonus`. Returns `ItemCreationResult(ItemEntityId, BlueprintId, Template)`; never calls persistence or events. `SetItemSlots` mirrors changes to both `ItemDataComponent` and `ItemTemplate` so the assignment survives `@reload`. See [`../features/items/item-inventory-system.md`](../features/items/item-inventory-system.md) for the authoring flow. Implemented (Phase 3 slices 6, 7, 9-c).
 
 ### EquipmentSystem
 **Purpose:** Query and mutation operations on character equipment slots — finds equipped items, prefix-matches tokens against worn item names/keywords, equips items from inventory into their declared slots (with implicit displacement of existing occupants), and removes items from slots back to inventory. All methods are pure ECS mutations; no event publication, no persistence calls.
 **Location:** `Core/Modules/Items/Systems/EquipmentSystem.cs`
 **Dependencies:** `EntityService`.
-```csharp
-public interface IEquipmentSystem
-{
-    IReadOnlyList<WornSlot> GetWornSlots(uint itemEntityId);
-    IReadOnlyList<uint> GetEquippedItems(uint characterEntityId);
-    bool TryFindEquippedItem(uint characterEntityId, string token, out uint itemEntityId);
-    void EquipItem(uint characterEntityId, uint itemEntityId);
-    void RemoveItem(uint characterEntityId, uint itemEntityId);
-    void RemoveFromSlot(uint characterEntityId, WornSlot slot);
-}
-```
-`EquipItem` internally performs the implicit-remove pass: for each slot declared on the item, if the slot is occupied it calls `RemoveFromSlot` to silently return the displaced item to inventory before placing the new item. `WearCommand` calls only `EquipItem` — never a loop over slots. Implemented (Phase 3 slice 7).
+**Interface:** [`IEquipmentSystem.cs`](../../Core/Modules/Items/Systems/IEquipmentSystem.cs) — `GetWornSlots` / `GetEquippedItems` / `TryFindEquippedItem` / `EquipItem` / `RemoveItem` / `RemoveFromSlot`. `EquipItem` owns the implicit-remove loop: for each slot declared on the item, displaces the existing occupant (silently, no event) before placing the new item. `WearCommand` calls only `EquipItem` — never a loop over slots (INV-8). See [`../features/items/equipment-system.md`](../features/items/equipment-system.md) for the slot model and design notes. Implemented (Phase 3 slice 7).
 
 ### MobBuilderSystem
 **Purpose:** Runtime mob authoring — creates ad-hoc mob entities and mutates mob properties (`Name`, `Description`, `Keywords`, `MobType`). Mirrors `IItemBuilderSystem`: all methods mutate ECS state only; event publication and persistence calls remain in the command (INV-5).

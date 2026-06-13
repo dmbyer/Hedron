@@ -15,7 +15,8 @@ Multi-session program restructuring the docs into the feature/system taxonomy, c
   - [x] **manifests** authored — [`docs-refinement-manifests.md`](docs-refinement-manifests.md) (per-feature source→target maps for 4.6).
   - [x] **combat** (4.6) — `features/combat/` (combat.md + combat-system / death-system / entity-state); flow-17 → Combat journey, flow-20 → Death & respawn journey (18/19/22/23 deleted); reference trimmed; 3 plans deleted.
   - [x] **character-stats** (4.6) — `features/character-stats/` (4 docs; stat-system ← subsystems/stats.md); 4 plans deleted; reference trimmed.
-  - [ ] remaining 10 → 4.6 sub-agents, sequential (items → world → mobs → abilities → aspects → accounts → admin-authoring → output → commands → communication).
+  - [x] **items** (4.6) — `features/items/` (items + item-inventory-system + equipment-system); flow-09 → Items journey, flow-13 → Equipment journey (10/11/14 deleted); 2 plans deleted.
+  - [ ] remaining 9 → 4.6 sub-agents, sequential (world → world → mobs → abilities → aspects → accounts → admin-authoring → output → commands → communication).
 - [ ] **WP-Z — Closing sweep.** Delete empty `subsystems/`; `Core/Sessions` reference home; consolidate cross-cutting runtime flows + finalize `flows/README.md`; repo-wide link-integrity pass; final `architecture-reviewer` pass.
 
 ## Phase 4 — Hardening
@@ -126,7 +127,7 @@ Option (b) is the cleaner layer but touches the death pipeline. Not yet resolved
 Follow-up from the death-and-respawn slice (slice 10), where INV-22 was reworded to name **three** permitted `SaveEntityAsync` boundary categories — construction, admin boundary, session-end. Two cleanup items and two new commands remain:
 
 **Cleanup — migrate stray runtime saves to the flush.**
-- `WearCommand` and `RemoveCommand` (`Core/Modules/Items/Commands/`, lines ~90/~80) call `SaveEntityAsync` after an equip/unequip. Equipment changes are ordinary runtime inventory mutations and do **not** warrant an immediate save — drop these calls and let the periodic flush cover them. ([`../implementation-plans/equipment.md`](../implementation-plans/equipment.md) steps 4–5 also spec the save and must be updated to match.)
+- `WearCommand` and `RemoveCommand` (`Core/Modules/Items/Commands/`, lines ~90/~80) call `SaveEntityAsync` after an equip/unequip. Equipment changes are ordinary runtime inventory mutations and do **not** warrant an immediate save — drop these calls and let the periodic flush cover them.
 - Audit `CharacterHydrationHandler` (`Core/Modules/Account/Handlers/`, ~line 70), which calls `SaveEntityAsync` in its startup error-recovery path (unresolvable `RoomBlueprintId` → reset to starting room → persist the correction). Decide whether this is a legitimate startup/hydration boundary (if so, name it as a fourth INV-22 category) or should be restructured. It is currently the one `SaveEntityAsync` site that does not fit the three named categories.
 
 **New `save` command (admin).** An admin-gated command that forces an immediate persistence write, with arguments selecting scope: a specific player and/or the world. Player save → `SaveEntityAsync(playerEntityId)` (admin boundary save, paired with an audit event). "World" save → a full flush (`FlushAllAsync`) and/or YAML write of authored content (exact scope to be designed). Admin-gated; audited.

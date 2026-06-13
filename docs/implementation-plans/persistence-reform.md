@@ -287,8 +287,7 @@ Stage B is merged and green.
 | `docs/reference/components.md` | Add `SpawnConfigComponent` |
 | `docs/reference/systems.md` | Add `SpawnSystem` |
 | `docs/reference/handlers.md` | Add `ItemContextHandler` |
-| `docs/architecture/flows/flow-09-item-pickup.md` | Update to include `ItemContextHandler` step |
-| `docs/architecture/flows/flow-10-item-drop.md` | Update to include `ItemContextHandler` step |
+| `docs/architecture/flows/flow-09-item-pickup.md` | Items journey (pickup + drop) — includes `ItemContextHandler` step |
 
 ---
 
@@ -410,6 +409,6 @@ Infrastructure only. No new admin commands, content file shapes, or `TemplateReg
 - [`persistence-two-level-model.md`](persistence-two-level-model.md) — `PersistentEntity` marker + area-scoped flush (slice 5b); this slice replaces that model
 - [`bare-bones-content-spawning.md`](bare-bones-content-spawning.md) — introduces save-on-change calls in admin commands that Stage B removes
 - [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) — YAML content pipeline; Stage B modifies `WorldContentLoader`
-- [`items-and-inventory.md`](items-and-inventory.md) — item entity lifecycle; Stage C modifies pickup/drop flows
+- [`items-and-inventory.md`](../features/items/items.md) — item entity lifecycle; Stage C modifies pickup/drop flows
 - [`mobs.md`](mobs.md) — mob entity construction; Stage B removes `PersistentEntity` from mob construction
 - [`docs/architecture/06-persistence.md`](../architecture/06-persistence.md) — authoritative persistence model (rewritten in Stage A)

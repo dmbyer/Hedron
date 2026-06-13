@@ -228,7 +228,7 @@ No existing flows are modified. Flow 27 follows the same structural shape as Flo
 ## Related
 
 - [`area-model.md`](area-model.md) — implemented slice that introduced `AreaComponent`, `AreaTemplate`, `IAreaSystem`, `AreaCommand`, and `SetAreaCommand`. This slice is a direct continuation of that work.
-- [`items-and-inventory.md`](items-and-inventory.md) — `MkitemCommand` and `IItemBuilderSystem` are the command/builder patterns mirrored here.
+- [`items-and-inventory.md`](../features/items/items.md) — `MkitemCommand` and `IItemBuilderSystem` are the command/builder patterns mirrored here.
 - [`mobs.md`](mobs.md) — `MkmobCommand` and `IMobBuilderSystem` are additional reference patterns.
 - [`bare-bones-content-spawning.md`](bare-bones-content-spawning.md) — `IRoomBuilderSystem` and `IRoomContentWriter` are the direct structural models for `IAreaBuilderSystem` and `IAreaContentWriter`.
 - [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) — `WorldContentLoader`, `TemplateRegistry`, and the `content/` directory layout established here.

@@ -1,6 +1,6 @@
 # Phase 3 slice 6 — Items + inventory + `get`/`drop`/`look <item>` (completed)
 
-> Implemented on branch `claude/quizzical-robinson-3ac390` (Phase A PR #80; Phase B this PR). Full feature spec: [`../../implementation-plans/items-and-inventory.md`](../../implementation-plans/items-and-inventory.md).
+> Implemented on branch `claude/quizzical-robinson-3ac390` (Phase A PR #80; Phase B this PR). Living feature docs: [`../../features/items/items.md`](../../features/items/items.md).
 
 ## Outcome
 

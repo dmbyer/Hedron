@@ -94,8 +94,8 @@ This slice is **deliberately narrow**: no combat, no loot, no dialogue, no wande
 
 ## Related
 
-- [`items-and-inventory.md`](items-and-inventory.md) — slice 6; `IItemBuilderSystem`, `PlaceItemsInRooms`, `ItemTemplateDeserializer`, `IItemContentWriter` are the direct precedents.
-- [`equipment.md`](equipment.md) — slice 7; `EquipmentComponent` is cross-cutting for players and mobs; not attached in this slice.
+- [`items-and-inventory.md`](../features/items/items.md) — slice 6; `IItemBuilderSystem`, `PlaceItemsInRooms`, `ItemTemplateDeserializer`, `IItemContentWriter` are the direct precedents.
+- [`equipment.md`](../features/items/items.md) — slice 7; `EquipmentComponent` is cross-cutting for players and mobs; not attached in this slice.
 - [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) — slice 2; `ITemplateDeserializer` pattern and `WorldContentLoader` extension points.
 - [`persistence-two-level-model.md`](persistence-two-level-model.md) — slice 5b; `[Persistent]` + `PersistentEntity` model that mobs follow.
 - [`output-framework.md`](output-framework.md) — slice 4; `RoomDescriptionMessage` extended here with a `Mobs` field.

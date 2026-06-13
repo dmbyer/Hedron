@@ -18,12 +18,9 @@
 | 6 | [Output rendering](flow-06-output-rendering.md) | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4 |
 | 7 | [Login / character flow](flow-07-login-character-flow.md) | TCP client connects, new or returning player | Phase 3 slice 5 |
 | 8 | [Admin room creation (`dig`)](flow-08-admin-room-creation.md) | Privileged session sends `dig <direction> [name]` | Phase 3 slice 5a |
-| 9 | [Item pickup (`get`)](flow-09-item-pickup.md) | Player sends `get <item>` | Phase 3 slice 6; updated persistence reform Stage C |
-| 10 | [Item drop (`drop`)](flow-10-item-drop.md) | Player sends `drop <item>` | Phase 3 slice 6; updated persistence reform Stage C |
-| 11 | [Inventory display (`inventory`)](flow-11-inventory-display.md) | Player sends `inventory` / `inv` / `i` | Phase 3 slice 6 |
+| 9 | [Items journey (pickup · drop · inventory)](flow-09-item-pickup.md) | Player sends `get`/`drop`/`inventory` | Phase 3 slice 6; updated persistence reform Stage C; source: [../../features/items/items.md](../../features/items/items.md) |
 | 12 | [Admin item creation (`mkitem`)](flow-12-admin-item-creation.md) | Privileged session sends `mkitem [name]` | Phase 3 slice 6 |
-| 13 | [`wear <item>`](flow-13-wear-item.md) | Player sends `wear <item>` | Phase 3 slice 7 |
-| 14 | [`remove <item>`](flow-14-remove-item.md) | Player sends `remove <item>` | Phase 3 slice 7 |
+| 13 | [Equipment journey (wear · remove)](flow-13-wear-item.md) | Player sends `wear`/`remove` | Phase 3 slice 7; source: [../../features/items/items.md](../../features/items/items.md) |
 | 15 | [Admin mob creation (`mkmob`)](flow-15-admin-mob-creation.md) | Privileged session sends `mkmob [name]` | Phase 3 slice 8 |
 | 16 | [Heartbeat tick](flow-16-heartbeat-tick.md) | `PeriodicTimer` fires in `HeartbeatBackgroundService` | Phase 3 slice 9-b |
 | 17 | [Combat journey (initiation · round pulse · flee)](flow-17-kill-mob-combat-initiation.md) | Player sends `kill <mob>`; heartbeat drives rounds; `flee` exits | Phase 3 slice 9; source: [../../features/combat/combat.md](../../features/combat/combat.md) |
