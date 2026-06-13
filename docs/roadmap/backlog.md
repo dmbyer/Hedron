@@ -24,7 +24,7 @@ Multi-session program restructuring the docs into the feature/system taxonomy, c
   - [x] **admin-authoring** (4.6) — `features/admin-authoring/` (admin-authoring + admin-commands/content-authoring/content-tooling); flow-08 → Admin authoring journey, flow-29 → Content-tooling journey (12/15/27/28/30 deleted); 3 plans deleted (admin-area-authoring + admin-privilege-elevation kept).
   - [x] **output** (4.6) — `features/output/` (output + output-framework ← subsystems/output.md + prompt); flow-06 → Output journey; BroadcastSystem/Output-infra dumps trimmed; 2 plans deleted.
   - [x] **commands** (4.6) — `features/commands/` (commands + command-framework ← subsystems/commands.md); flow-03 → Command journey; INV-11 checklist link fixed; 2 plans deleted.
-  - [ ] remaining 1 → sub-agent (communication → accounts → admin-authoring → output → commands → communication).
+  - [x] **communication** (4.6) — `features/communication/` (communication + chat-system + help-system); no plans/flows; reference trimmed. **All 13 features migrated.**
 - [ ] **WP-Z — Closing sweep.** Delete empty `subsystems/`; `Core/Sessions` reference home; consolidate cross-cutting runtime flows + finalize `flows/README.md`; repo-wide link-integrity pass; final `architecture-reviewer` pass.
 
 ## Phase 4 — Hardening
