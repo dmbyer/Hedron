@@ -22,7 +22,8 @@ Multi-session program restructuring the docs into the feature/system taxonomy, c
   - [x] **aspects** (4.6) — `features/aspects/` (aspects + aspect-system); aspect-foundation.md plan deleted.
   - [x] **accounts** (4.6) — `features/accounts/` (accounts + account-system + login-flow); Core/Sessions reference gap closed; flow-07 → Login journey; account plan deleted.
   - [x] **admin-authoring** (4.6) — `features/admin-authoring/` (admin-authoring + admin-commands/content-authoring/content-tooling); flow-08 → Admin authoring journey, flow-29 → Content-tooling journey (12/15/27/28/30 deleted); 3 plans deleted (admin-area-authoring + admin-privilege-elevation kept).
-  - [ ] remaining 3 → sub-agents, sequential (output → accounts → admin-authoring → output → commands → communication).
+  - [x] **output** (4.6) — `features/output/` (output + output-framework ← subsystems/output.md + prompt); flow-06 → Output journey; BroadcastSystem/Output-infra dumps trimmed; 2 plans deleted.
+  - [ ] remaining 2 → sub-agents, sequential (commands → accounts → admin-authoring → output → commands → communication).
 - [ ] **WP-Z — Closing sweep.** Delete empty `subsystems/`; `Core/Sessions` reference home; consolidate cross-cutting runtime flows + finalize `flows/README.md`; repo-wide link-integrity pass; final `architecture-reviewer` pass.
 
 ## Phase 4 — Hardening
@@ -38,7 +39,7 @@ Becomes meaningful once `LocationSystem` and `CombatSystem` exist and profiling 
 
 Evaluate after `TimeSystem` exists and concurrency shape is known. May not be needed if the heartbeat stays single-threaded with an event queue.
 
-**Concrete site — per-session output buffer.** The prompt/output-batching slice ([`../implementation-plans/prompt-and-output-batching.md`](../implementation-plans/prompt-and-output-batching.md)) introduces a session-scoped output buffer that three threads can touch concurrently: the player's own command read-loop, *other* players' read-loops (a `say` broadcasting into this session), and the heartbeat background thread (combat/effect/tick output). The buffer must guard its pending list and perform drain-then-append-prompt atomically. This is a known concurrency site to fold into the review (it ships with its own buffer-level lock; the review confirms it composes correctly with the session write lock and the event bus under background-service access).
+**Concrete site — per-session output buffer.** The prompt/output-batching slice ([`../implementation-plans/prompt-and-output-batching.md`](../features/output/output.md)) introduces a session-scoped output buffer that three threads can touch concurrently: the player's own command read-loop, *other* players' read-loops (a `say` broadcasting into this session), and the heartbeat background thread (combat/effect/tick output). The buffer must guard its pending list and perform drain-then-append-prompt atomically. This is a known concurrency site to fold into the review (it ships with its own buffer-level lock; the review confirms it composes correctly with the session write lock and the event bus under background-service access).
 
 ## Phase 3+ ideas (not yet a slice)
 
@@ -52,7 +53,7 @@ If a web client becomes a goal, unify telnet sessions and web sessions behind th
 
 ### 🔵 Broadcast channel mode (global / newbie chat)
 
-Acknowledged debt from Phase 3 slice 4 ([`../implementation-plans/output-framework.md`](../implementation-plans/output-framework.md)). Slice 4's broadcast expansion ships room-scope-with-audience-filter and system-wide `SendToAllAsync`, but **channel mode** (global/newbie chat membership) is deferred: it requires per-entity channel-membership state that no slice has introduced yet. Lands with whichever later slice introduces channel membership (likely alongside or after account / character creation, slice 5). The `IBroadcastSystem` interface shaped in slice 4 should accommodate a `SendToChannelAsync` addition without breaking the room/system modes.
+Acknowledged debt from Phase 3 slice 4 ([`../implementation-plans/output-framework.md`](../features/output/output.md)). Slice 4's broadcast expansion ships room-scope-with-audience-filter and system-wide `SendToAllAsync`, but **channel mode** (global/newbie chat membership) is deferred: it requires per-entity channel-membership state that no slice has introduced yet. Lands with whichever later slice introduces channel membership (likely alongside or after account / character creation, slice 5). The `IBroadcastSystem` interface shaped in slice 4 should accommodate a `SendToChannelAsync` addition without breaking the room/system modes.
 
 ### 🔵 Command-arg log redaction (acknowledged debt from slice 3)
 

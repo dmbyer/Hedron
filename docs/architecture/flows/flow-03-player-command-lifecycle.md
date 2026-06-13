@@ -88,6 +88,6 @@ sequenceDiagram
 - [`Core/Output/ISessionBufferRegistry.cs`](../../../Core/Output/ISessionBufferRegistry.cs) — singleton buffer map; `GetOrCreate` called by `OutputWriterFactory`
 - [`Core/Handlers/CommandLoggingHandler.cs`](../../../Core/Handlers/CommandLoggingHandler.cs)
 - [`subsystems/commands.md`](../subsystems/commands.md) — command framework design
-- [`subsystems/output.md`](../subsystems/output.md) — output framework design including buffer model
-- [`docs/implementation-plans/command-framework.md`](../../implementation-plans/command-framework.md) — slice 3 spec; [`docs/implementation-plans/output-framework.md`](../../implementation-plans/output-framework.md) — slice 4 spec; [`docs/implementation-plans/prompt-and-output-batching.md`](../../implementation-plans/prompt-and-output-batching.md) — output batching spec
+- [`features/output/output-framework.md`](../../features/output/output-framework.md) — output framework design including buffer model
+- [`docs/implementation-plans/command-framework.md`](../../implementation-plans/command-framework.md) — slice 3 spec; [`features/output/output.md`](../../features/output/output.md) — output feature (slice 4 + batching)
 - [`docs/reference/handlers.md`](../../reference/handlers.md) — handler priority tiers

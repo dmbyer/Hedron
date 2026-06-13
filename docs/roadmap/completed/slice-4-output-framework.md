@@ -1,6 +1,6 @@
 # Phase 3 slice 4 — Output framework (completed)
 
-> Implemented on `master` (no PR number yet — uncommitted working-tree changes as of this ledger entry). The full feature spec lives in [`../../implementation-plans/output-framework.md`](../../implementation-plans/output-framework.md). This file records the as-built state and any deviations from the spec.
+> Implemented on `master` (no PR number yet — uncommitted working-tree changes as of this ledger entry). The full feature spec lives in [`../../implementation-plans/output-framework.md`](../../features/output/output.md). This file records the as-built state and any deviations from the spec.
 
 ## Outcome
 

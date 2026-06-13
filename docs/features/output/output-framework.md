@@ -1,12 +1,8 @@
 # Output Framework
 
-> **Introduced:** Phase 3 slice 4.  
-> **Updated:** Phase 3 slice 12-a (WP-A) — per-session output buffering and prompt source port added.  
-> **Summary:** A formatter-backed rendering pipeline that converts typed `IOutputMessage` values into transport-correct, capability-aware strings before writing them to sessions. Messages are coalesced in a per-session `SessionOutputBuffer`; flush is triggered by command completion or heartbeat.
+> The formatter-backed rendering pipeline that converts typed `IOutputMessage` values into transport-correct strings, coalesces them in a per-session buffer, and flushes them at defined boundaries with a trailing status prompt. **Authoring checkpoint:** slice 4 (formatter pipeline); slice 12-a WP-A/B/C (session buffer, prompt, flush triggers). Living document.
 
----
-
-## Layer position
+## What it is / does
 
 The output framework sits **between the command/handler tier and the session transport tier**. Commands and broadcast callers produce typed messages; the formatter converts them; the session transmits bytes. No command or handler ever constructs a raw terminal string.
 
@@ -26,130 +22,53 @@ TCP stream
     [then, if IPromptSource returns non-null, prompt is sent last]
 ```
 
----
-
-## Interfaces
-
-### IOutputMessage
-
-```csharp
-public interface IOutputMessage
-{
-    OutputCategory Category { get; }
-}
-```
-
-Every typed output shape implements this. Commands and systems produce shapes; the formatter consumes them. Callers never stringify.
+## How it works
 
 ### IOutputWriter / IOutputWriterFactory
 
-```csharp
-public interface IOutputWriter
-{
-    Task WriteAsync(IOutputMessage message);
-    Task FlushAsync();
-}
-
-public interface IOutputWriterFactory
-{
-    IOutputWriter Create(ISession session);
-}
-```
-
 `IOutputWriter` is the single-session output seam. `IOutputWriterFactory` is bound once per request by the `CommandDispatcher` and internally by `BroadcastSystem` per recipient.
 
-`SessionBufferedOutputWriter` (the implementation) enqueues messages into a `SessionOutputBuffer` and auto-flushes synchronously only for `OutputCategory.Chat` messages. All other messages batch until `FlushAsync()` is called explicitly (by WP-C flush triggers). `FlushAsync()` delegates to `ISessionOutputBuffer.FlushAsync()`. The `IOutputWriter` and `IOutputWriterFactory` interfaces are stable.
+`SessionBufferedOutputWriter` (the implementation) enqueues messages into a `SessionOutputBuffer` and auto-flushes synchronously only for `OutputCategory.Chat` messages. All other messages batch until `FlushAsync()` is called explicitly by flush triggers. `FlushAsync()` delegates to `ISessionOutputBuffer.FlushAsync()`. The `IOutputWriter` and `IOutputWriterFactory` interfaces are stable.
+
+See [`Core/Output/IOutputWriter.cs`](../../../Core/Output/IOutputWriter.cs) · [`Core/Output/IOutputWriterFactory.cs`](../../../Core/Output/IOutputWriterFactory.cs).
 
 ### IOutputFormatter / IOutputFormatterRegistry
 
-```csharp
-public interface IOutputFormatter
-{
-    string TransportKey { get; }    // "telnet", "signalr", etc.
-    string Format(IOutputMessage message, ISession session);
-}
-
-public interface IOutputFormatterRegistry
-{
-    IOutputFormatter Resolve(ISession session);    // by session.TransportKey
-}
-```
-
 `IOutputFormatterRegistry` resolves the formatter whose `TransportKey` matches `session.TransportKey`. If no exact match is registered, it falls back to the first registered formatter (safe while only telnet exists).
+
+See [`Core/Output/IOutputFormatter.cs`](../../../Core/Output/IOutputFormatter.cs) · [`Core/Output/IOutputFormatterRegistry.cs`](../../../Core/Output/IOutputFormatterRegistry.cs).
 
 ### ISession — capability flags
 
-```csharp
-public interface ISession
-{
-    string TransportKey { get; }      // "telnet" for TelnetSession
-    bool SupportsColor { get; }       // initial value from Output:DefaultColor config
-    // ... existing members ...
-}
-```
+`SupportsColor` defaults to `Output:DefaultColor` (config, default `true`). A private setter on `TelnetSession` provides the seam for a future per-session `/color off` command; the command is not built yet.
 
-`SupportsColor` defaults to `Output:DefaultColor` (config, default `true`). A private setter on `TelnetSession` provides the seam for a future per-session `/color off` command; the command is not built this slice.
-
----
+See [`Core/Sessions/ISession.cs`](../../../Core/Sessions/ISession.cs).
 
 ## Per-session buffering
 
 ### ISessionOutputBuffer / SessionOutputBuffer
 
-```csharp
-public interface ISessionOutputBuffer
-{
-    bool HasPending { get; }
-    void Enqueue(IOutputMessage message);
-    Task FlushAsync();
-}
-```
-
 `SessionOutputBuffer` is bound to one `ISession`. `FlushAsync` atomically snapshots and clears the queue under a lock, then sends each message and (optionally) a prompt outside the lock. Lock granularity is minimal — no I/O under lock.
+
+See [`Core/Output/ISessionOutputBuffer.cs`](../../../Core/Output/ISessionOutputBuffer.cs).
 
 ### ISessionBufferRegistry / SessionBufferRegistry
 
-```csharp
-public interface ISessionBufferRegistry
-{
-    ISessionOutputBuffer GetOrCreate(ISession session);
-    void Release(Guid sessionId);
-    Task FlushAllPendingAsync();
-}
-```
-
 Singleton `ConcurrentDictionary<Guid, SessionOutputBuffer>`. `GetOrCreate` uses `GetOrAdd`. `FlushAllPendingAsync` iterates entries where `HasPending` is true. `Release` removes the buffer when a session disconnects.
+
+See [`Core/Output/ISessionBufferRegistry.cs`](../../../Core/Output/ISessionBufferRegistry.cs).
 
 ### CategoryFlushPolicy
 
-```csharp
-public static class CategoryFlushPolicy
-{
-    public static FlushPolicy GetPolicy(OutputCategory category);
-}
-```
-
 Maps `OutputCategory.Chat` and `OutputCategory.Notification` → `FlushPolicy.Immediate`; all other categories → `FlushPolicy.Batched`. `SessionBufferedOutputWriter` uses this to decide whether to call `FlushAsync()` immediately after enqueue. `Notification` is used for login-flow prompts and bystander movement messages — any push message that should reach the recipient without waiting for a tick boundary.
+
+See [`Core/Output/CategoryFlushPolicy.cs`](../../../Core/Output/CategoryFlushPolicy.cs).
 
 ### IPromptSource
 
-```csharp
-public interface IPromptSource
-{
-    PromptMessage? GetPrompt(uint playerEntityId);
-}
-```
+Called by `SessionOutputBuffer.FlushAsync()` after all queued messages have been sent. Returns `null` for unbound sessions (`playerEntityId == 0`) to suppress the prompt. The concrete implementation is `PromptComposerSystem` (`Core/Modules/Prompt/Systems/`), which reads `IEntityStateService` and `IStatSystem` — domain-aware, wired via DI. The full prompt design is the [prompt system doc](prompt.md).
 
-Called by `SessionOutputBuffer.FlushAsync()` after all queued messages have been sent. Returns `null` for unbound sessions (`playerEntityId == 0`) to suppress the prompt. The concrete implementation is `PromptComposerSystem` (`Core/Modules/Prompt/Systems/`), which reads `IEntityStateService` and `IStatSystem` — domain-aware, wired via DI.
-
-`PromptMessage` shape:
-
-```csharp
-public sealed record PromptMessage(string? StateLabel, IReadOnlyList<PoolDisplay> Pools) : IOutputMessage;
-public sealed record PoolDisplay(string Name, int Current, int Max);
-```
-
----
+See [`Core/Output/IPromptSource.cs`](../../../Core/Output/IPromptSource.cs).
 
 ## Message shape catalog
 
@@ -165,8 +84,6 @@ public sealed record PoolDisplay(string Name, int Current, int Max);
 **Planned — not yet built (ship with their gameplay slices):**
 - `PlayerInformationMessage` — character stats display
 
----
-
 ## TelnetOutputFormatter
 
 `Core/Output/TelnetOutputFormatter.cs`. `TransportKey = "telnet"`.
@@ -180,7 +97,7 @@ public sealed record PoolDisplay(string Name, int Current, int Max);
 | `<room-name>` | `\x1B[93m` (bright yellow) | Yellow | Room name header, help verb names |
 | `<direction>` | `\x1B[32m` (green) | Green | Exit directions |
 
-Reset: `\x1B[0m`. No other palette roles exist this slice; theme management is out of scope.
+Reset: `\x1B[0m`. No other palette roles exist today; theme management is out of scope.
 
 ### Inline color marker syntax
 
@@ -190,13 +107,13 @@ Designer-friendly XML-like tags embedded in output strings:
 <role>text</role>
 ```
 
-Valid roles: `system`, `error`, `room-name`, `direction`. Tags are **YAML-safe** in unquoted scalars (angle brackets have no special meaning in YAML plain scalars). Convention: quote YAML strings that contain color markers.
+Valid roles: `system`, `error`, `room-name`, `direction`. Tags are **YAML-safe** in unquoted scalars. Convention: quote YAML strings that contain color markers.
 
 **With `SupportsColor = true`:** markers are replaced with the ANSI code for the role; the content is wrapped between the ANSI opener and `\x1B[0m`.
 
 **With `SupportsColor = false`:** tags and their delimiters are stripped; only the inner text remains.
 
-Nesting and hex colors are not supported. Escaping a literal `<` is not defined this slice.
+Nesting and hex colors are not supported. Escaping a literal `<` is not defined today.
 
 ### Per-shape rendering
 
@@ -206,13 +123,11 @@ Nesting and hex colors are not supported. Escaping a literal `<` is not defined 
 - **`HelpIndexMessage`** — section headers in `<system>`, verb names in `<room-name>` (padded before colorizing to preserve column alignment).
 - **`HelpEntryMessage`** — verb/alias header in `<room-name>`.
 
----
-
 ## Broadcast model
 
-`IBroadcastSystem` delivers typed messages to multiple recipients, each rendered through their own formatter:
+`IBroadcastSystem` delivers typed messages to multiple recipients, each rendered through their own formatter. See [`Core/Systems/BroadcastSystem.cs`](../../../Core/Systems/BroadcastSystem.cs).
 
-```csharp
+```
 // Room broadcast with optional audience filter
 Task SendToRoomAsync(uint roomEntityId, IOutputMessage message, Func<uint, bool>? audienceFilter = null);
 
@@ -223,11 +138,9 @@ Task SendToAllAsync(IOutputMessage message);
 Task SendRoomDescriptionAsync(uint playerEntityId, uint roomEntityId);
 ```
 
-`BroadcastSystem` composes `IOutputWriterFactory` per recipient. The old `excludeEntityId` pattern degenerates to `audienceFilter: entityId => entityId != excluded`.
+`BroadcastSystem` composes `IOutputWriterFactory` per recipient. The `excludeEntityId` pattern degenerates to `audienceFilter: entityId => entityId != excluded`.
 
-**Channel mode (global chat, newbie channel):** not built this slice. Needs channel-membership state. Tracked in [`backlog.md`](../../roadmap/backlog.md).
-
----
+**Channel mode (global chat, newbie channel):** not built. Needs channel-membership state. Tracked in [`../../roadmap/backlog.md`](../../roadmap/backlog.md).
 
 ## Configuration
 
@@ -235,7 +148,17 @@ Task SendRoomDescriptionAsync(uint playerEntityId, uint roomEntityId);
 |---|---|---|
 | `Output:DefaultColor` | `true` | Initial `SupportsColor` for new telnet sessions. Operators set `false` to disable color globally. |
 
----
+## Flush boundaries
+
+There are three:
+
+- **Command-end** (`CommandDispatcher.DispatchAsync` `finally` block) — fires after every command path, including failures and exceptions.
+- **Chat immediate** — any `Chat`-category message triggers an inline `buffer.FlushAsync()` before returning from `WriteAsync`.
+- **Tick-end** (`OutputFlushTickHandler`, priority 85 on `HeartbeatTickEvent`) — flushes every session with pending output at the end of each heartbeat tick.
+
+## Thread safety
+
+The atomic drain (snapshot-and-clear under lock, I/O outside lock) guarantees that concurrent enqueues from the player's read loop, other players' read loops (chat broadcasts), and the heartbeat thread never corrupt the buffer. Two concurrent flushes produce at most one extra prompt — the second drain finds an empty list and appends only the prompt. Accepted consequence; see [`../../roadmap/completed/output-batching.md`](../../roadmap/completed/output-batching.md) for the rationale.
 
 ## Seams for future transports
 
@@ -246,11 +169,10 @@ Task SendRoomDescriptionAsync(uint playerEntityId, uint roomEntityId);
 3. Is registered in DI alongside `TelnetOutputFormatter`.
 4. `TelnetSession` returns `TransportKey = "telnet"`; a future `SignalRSession` returns `"signalr"`. No caller changes.
 
----
+## Related
 
-## Cross-references
-
-- [`flows/README.md`](../flows/README.md) — Flow 3 (output leg), Flow 6 (output rendering)
-- [`systems.md`](../../reference/systems.md) — `IBroadcastSystem`, output infrastructure catalog
-- [`output-framework.md`](../../implementation-plans/output-framework.md) — slice 4 spec
-- [`Core/Output/`](../../../Core/Output/) — all message shapes, interfaces, formatter, registry
+- [`output.md`](output.md) — holistic feature view and player-facing surfaces.
+- [`prompt.md`](prompt.md) — `IPromptSource` port and `PromptComposerSystem` design.
+- [`../../architecture/flows/flow-06-output-rendering.md`](../../architecture/flows/flow-06-output-rendering.md) — output journey: typed message → formatter → session write.
+- [`../../reference/systems.md`](../../reference/systems.md) — `IBroadcastSystem`, Output Infrastructure catalog rows.
+- [`../../roadmap/completed/slice-4-output-framework.md`](../../roadmap/completed/slice-4-output-framework.md) · [`../../roadmap/completed/output-batching.md`](../../roadmap/completed/output-batching.md) — as-built records.

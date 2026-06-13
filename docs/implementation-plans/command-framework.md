@@ -18,7 +18,7 @@ This slice introduces a first-class **command framework**:
 4. A `CommandExecutedEvent` fired on every dispatch, consumed by a lightweight `CommandLoggingHandler`.
 5. `help` / `commands` commands and a `HelpModule`.
 
-It also lands the **bare-minimum output seam** (`IOutputMessage`, `PlainMessage`, `HelpEntryMessage`, `HelpIndexMessage`, a stringify-and-forward `IOutputWriter`) — the full formatter/color/broadcast work is slice 4 ([`output-framework.md`](output-framework.md)). The 12 existing commands are refactored onto the new shape with no gameplay change.
+It also lands the **bare-minimum output seam** (`IOutputMessage`, `PlainMessage`, `HelpEntryMessage`, `HelpIndexMessage`, a stringify-and-forward `IOutputWriter`) — the full formatter/color/broadcast work is slice 4 ([`output-framework.md`](../features/output/output.md)). The 12 existing commands are refactored onto the new shape with no gameplay change.
 
 ---
 
@@ -85,7 +85,7 @@ It also lands the **bare-minimum output seam** (`IOutputMessage`, `PlainMessage`
 ## Related
 
 - [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) — slice 2; established the four admin commands and the convention-only privilege check this slice replaces.
-- [`output-framework.md`](output-framework.md) — slice 4; consumes the minimal output seam shaped here and replaces the stringify-and-forward writer.
+- [`output-framework.md`](../features/output/output.md) — slice 4; consumes the minimal output seam shaped here and replaces the stringify-and-forward writer.
 - [`command-prefix-matching.md`](command-prefix-matching.md) — slice 3a; adds verb-prefix resolution deferred here.
 - [`persistence-substrate.md`](persistence-substrate.md) — slice 1; precedent for a pure-infrastructure slice.
 - [`../architecture/subsystems/commands.md`](../architecture/subsystems/commands.md) — the command framework design reference.

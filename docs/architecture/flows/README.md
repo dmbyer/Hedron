@@ -15,7 +15,7 @@
 | 3 | [Player command lifecycle](flow-03-player-command-lifecycle.md) | Player sends a line of input | Phase 2 (replaced by slice 3 command framework; output leg updated in slice 4; prefix resolution added in slice 3a) |
 | 4 | [Persistence flush cycle](flow-04-persistence-flush-cycle.md) | `PersistenceFlushTimer` ticks, or shutdown | Phase 3 slice 1 |
 | 5 | [Content reload](flow-05-content-reload.md) | Privileged session sends `reload` | Phase 3 slice 2 (gate moved to dispatcher in slice 3) |
-| 6 | [Output rendering](flow-06-output-rendering.md) | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4 |
+| 6 | [Output journey](flow-06-output-rendering.md) | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4; source: [../../features/output/output.md](../../features/output/output.md) |
 | 7 | [Login journey](flow-07-login-character-flow.md) | TCP client connects, new or returning player | Phase 3 slice 5; source: [../../features/accounts/accounts.md](../../features/accounts/accounts.md) |
 | 8 | [Admin authoring journey (dig · mkitem · mkmob · mkarea · list)](flow-08-admin-room-creation.md) | Privileged session issues a builder verb | Phase 3 slices 5a, 6, 8, admin-area-authoring; source: [../../features/admin-authoring/admin-authoring.md](../../features/admin-authoring/admin-authoring.md) |
 | 9 | [Items journey (pickup · drop · inventory)](flow-09-item-pickup.md) | Player sends `get`/`drop`/`inventory` | Phase 3 slice 6; updated persistence reform Stage C; source: [../../features/items/items.md](../../features/items/items.md) |

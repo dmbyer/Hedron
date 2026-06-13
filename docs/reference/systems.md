@@ -40,44 +40,17 @@ public abstract class DefinitionRegistry<TKey, TDef> : IRegistry<TKey, TDef> { .
 
 ### BroadcastSystem
 **Purpose:** Deliver typed `IOutputMessage` output to rooms, every session, or a single player. Each recipient's message is rendered by their transport's `IOutputFormatter` via `IOutputWriterFactory`, so callers never construct raw strings.
-**Location:** `Core/Systems/BroadcastSystem.cs`
+**Location:** [`Core/Systems/BroadcastSystem.cs`](../../Core/Systems/BroadcastSystem.cs) · interface [`Core/Systems/IBroadcastSystem.cs`](../../Core/Systems/IBroadcastSystem.cs)
 **Dependencies:** `EntityService`, `ISessionManager`, `IOutputWriterFactory`.
-**Note:** Classified as output infrastructure rather than a pure-computation core system; it does I/O (calls `IOutputWriter` per recipient) as the designated multi-recipient fan-out seam. Extended in slice 8: `SendRoomDescriptionAsync` populates `RoomDescriptionMessage.Mobs` with `MobDataComponent.Name` for each entity in the room carrying `MobDataComponent`.
-```csharp
-public interface IBroadcastSystem
-{
-    Task SendToRoomAsync(uint roomEntityId, IOutputMessage message, Func<uint, bool>? audienceFilter = null);
-    Task SendToAllAsync(IOutputMessage message);
-    Task SendRoomDescriptionAsync(uint playerEntityId, uint roomEntityId);
-}
-```
+**Note:** Classified as output infrastructure rather than a pure-computation core system; it does I/O (calls `IOutputWriter` per recipient) as the designated multi-recipient fan-out seam. Extended in slice 8: `SendRoomDescriptionAsync` populates `RoomDescriptionMessage.Mobs` with `MobDataComponent.Name` for each entity in the room carrying `MobDataComponent`. Channel mode (global chat, newbie channel) is acknowledged backlog debt — needs channel-membership state. See [`../features/output/output-framework.md#broadcast-model`](../features/output/output-framework.md#broadcast-model) for the full broadcast design.
 Implemented (Phase 2, rewritten in Phase 3 slice 4).
 
 ### Output Infrastructure (IOutputFormatter, IOutputFormatterRegistry, IOutputWriterFactory)
 **Purpose:** Formatter pipeline that converts typed `IOutputMessage` shapes to transport-encoded strings before writing to sessions.
-**Location:** `Core/Output/`
+**Location:** [`Core/Output/`](../../Core/Output/) — `IOutputFormatter.cs`, `IOutputFormatterRegistry.cs`, `IOutputWriter.cs`, `IOutputWriterFactory.cs`, `TelnetOutputFormatter.cs`, `OutputFormatterRegistry.cs`
 **Dependencies:** `ISession` (for `TransportKey` and `SupportsColor`).
 
-```csharp
-// One implementation per transport.
-public interface IOutputFormatter
-{
-    string TransportKey { get; }    // "telnet", future "signalr"
-    string Format(IOutputMessage message, ISession session);
-}
-
-// Selects the right formatter by session.TransportKey.
-public interface IOutputFormatterRegistry
-{
-    IOutputFormatter Resolve(ISession session);
-}
-
-// Single-session output seam consumed by commands and broadcast.
-public interface IOutputWriter  { Task WriteAsync(IOutputMessage message); }
-public interface IOutputWriterFactory { IOutputWriter Create(ISession session); }
-```
-
-`TelnetOutputFormatter` (`TransportKey = "telnet"`) applies the four-role ANSI palette (system/error/room-name/direction) and parses `<role>text</role>` inline markers. Strips all color when `session.SupportsColor == false`. See [`../architecture/subsystems/output.md`](../architecture/subsystems/output.md) for the full design including the color palette table and inline marker syntax.
+`IOutputFormatter` has one implementation per transport (`TransportKey` string). `IOutputFormatterRegistry` resolves the right formatter by `session.TransportKey`, falling back to the first registered if no exact match. `IOutputWriter` is the single-session output seam; `IOutputWriterFactory` creates one per request. `TelnetOutputFormatter` (`TransportKey = "telnet"`) applies the four-role ANSI palette (system/error/room-name/direction) and parses `<role>text</role>` inline markers. Strips all color when `session.SupportsColor == false`. See [`../features/output/output-framework.md`](../features/output/output-framework.md) for the full design including the palette table, inline marker syntax, and transport extension points.
 
 Implemented (Phase 3 slice 4).
 
