@@ -4,7 +4,7 @@
 
 Status markers: 🟢 ready · 🟡 blocked · 🔵 deferred
 
-## Docs refinement & cleanup (in progress)
+## Docs refinement & cleanup (✅ complete)
 
 Multi-session program restructuring the docs into the feature/system taxonomy, consolidating flows, trimming reference catalogs, and moving to the disintegrate-on-ship plan lifecycle. Governing spec: [`../architecture/09-documentation.md`](../architecture/09-documentation.md). Per-feature packages (WP-3…N) are self-contained and may run in any order once WP-1/WP-2 land.
 
