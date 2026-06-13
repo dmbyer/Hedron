@@ -18,7 +18,8 @@ Multi-session program restructuring the docs into the feature/system taxonomy, c
   - [x] **items** (4.6) — `features/items/` (items + item-inventory-system + equipment-system); flow-09 → Items journey, flow-13 → Equipment journey (10/11/14 deleted); 2 plans deleted.
   - [x] **world** (4.6) — `features/world/` (world + world-content/movement/area-model/spawn/time-system; added missing MovementSystem ref row); 4 plans deleted; infra flows kept.
   - [x] **mobs** (4.6) — `features/mobs/` (mobs + mob-system); mobs.md plan deleted.
-  - [ ] remaining 7 → 4.6 sub-agents, sequential (abilities → world → mobs → abilities → aspects → accounts → admin-authoring → output → commands → communication).
+  - [x] **abilities** (4.6, finished by 4.8 after the sub-agent hit a session limit) — `features/abilities/` (abilities + ability-system); flow-24 → Abilities journey (25/26 deleted, broken `.cs` links fixed to real files); 2 plans deleted.
+  - [ ] remaining 6 → sub-agents, sequential (aspects → accounts → admin-authoring → output → commands → communication).
 - [ ] **WP-Z — Closing sweep.** Delete empty `subsystems/`; `Core/Sessions` reference home; consolidate cross-cutting runtime flows + finalize `flows/README.md`; repo-wide link-integrity pass; final `architecture-reviewer` pass.
 
 ## Phase 4 — Hardening
@@ -60,7 +61,7 @@ Acknowledged debt from Phase 3 slice 4 ([`../implementation-plans/output-framewo
 
 ### 🔵 Combat action-economy & command queue (acknowledged debt from slice 11-b)
 
-Slice 11-b ([`../implementation-plans/ability-invocation.md`](../implementation-plans/ability-invocation.md)) lets an offensive ability fire immediately (cooldown-gated) — so an actor already in combat gets the ability strike **plus** the heartbeat auto-attack in the same ~2s tick (no one-ability-per-round metering). Intentional and bounded for 11-b's "minimal combat touch." The full action economy — a per-actor combat command **queue** (max ~10, with a `clear` verb), one-combat-ability-per-round, immediate-first-then-metered, cooldown-blocks-queue, plus the Speed-attribute / Action-Points scaling that paves the way to an optional real-time combat mode — is its own follow-up use-case (gameplay-model combat depth). Lands when combat depth is scheduled.
+Slice 11-b ([`../implementation-plans/ability-invocation.md`](../features/abilities/abilities.md)) lets an offensive ability fire immediately (cooldown-gated) — so an actor already in combat gets the ability strike **plus** the heartbeat auto-attack in the same ~2s tick (no one-ability-per-round metering). Intentional and bounded for 11-b's "minimal combat touch." The full action economy — a per-actor combat command **queue** (max ~10, with a `clear` verb), one-combat-ability-per-round, immediate-first-then-metered, cooldown-blocks-queue, plus the Speed-attribute / Action-Points scaling that paves the way to an optional real-time combat mode — is its own follow-up use-case (gameplay-model combat depth). Lands when combat depth is scheduled.
 
 ### 🔵 Combat depth — resolution & reactions (follow-up to slice 11-b)
 

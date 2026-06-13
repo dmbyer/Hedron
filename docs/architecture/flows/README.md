@@ -26,9 +26,7 @@
 | 17 | [Combat journey (initiation · round pulse · flee)](flow-17-kill-mob-combat-initiation.md) | Player sends `kill <mob>`; heartbeat drives rounds; `flee` exits | Phase 3 slice 9; source: [../../features/combat/combat.md](../../features/combat/combat.md) |
 | 20 | [Death & respawn journey (mob death · incapacitation · bleed-out · player death/respawn)](flow-20-mob-death-respawn.md) | Mob or player HP reaches zero | Phase 3 slices 9, 10; source: [../../features/combat/combat.md](../../features/combat/combat.md) |
 | 21 | [Effects journey (apply · tick · expire)](flow-21-effect-tick.md) | An effect is applied, then ticked/expired on `HeartbeatTickEvent` | [effects](../../features/effects/effects.md) feature |
-| 24 | [Ability activation](flow-24-ability-activation.md) | Admin sends `useability` (11-a); player sends `cast`/skill verb (11-b) | Phase 3 slice 11-a (extended 11-b) |
-| 25 | [Skill bare-verb invocation](flow-25-skill-verb-invocation.md) | Player types a skill id/prefix (e.g. `kick`, `ki`) | Phase 3 slice 11-b |
-| 26 | [Offensive ability opens combat](flow-26-offensive-ability-opens-combat.md) | Player casts offensive spell or uses skill against a new target | Phase 3 slice 11-b |
+| 24 | [Abilities journey (activation · bare-verb skill invocation · offensive-opens-combat)](flow-24-ability-activation.md) | Admin sends `useability`; player sends `cast`/skill verb; offensive ability opens combat | Phase 3 slices 11-a, 11-b; source: [../../features/abilities/abilities.md](../../features/abilities/abilities.md) |
 | 27 | [Admin area creation](flow-27-admin-area-creation.md) | `mkarea [name]` creates an area entity and writes content/areas/<id>.yaml | [flow-27-admin-area-creation.md](flow-27-admin-area-creation.md) |
 | 28 | [Admin entity list](flow-28-admin-entity-list.md) | `list <area\|room>` prints a tabular view of all entities of a given type | [flow-28-admin-entity-list.md](flow-28-admin-entity-list.md) |
 | 29 | [Headless bulk content generation](flow-29-bulk-content-generation.md) | `dotnet run --project Server -- generate --profile <path> [--seed N]` | [flow-29-bulk-content-generation.md](flow-29-bulk-content-generation.md) |

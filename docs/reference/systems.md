@@ -412,25 +412,11 @@ Registered entries: `empower` (Body +5, Buff, 30s, HighestWins), `weaken` (Body 
 `OnHpChanged` evaluates HP-threshold crossings and returns `DeathTransition` (`None` / `BecameIncapacitated` / `Died`); only applies to entities with `CharacterComponent`. `Respawn` exits Incapacitated state, relocates to respawn room, strips impermanent effects, restores pools. Configuration: `Death:HpFloor` (default `-10`), `Death:RespawnPoolPercent` (default `0.25`). See [`../features/combat/death-system.md`](../features/combat/death-system.md) for the full lifecycle and design rationale. Registered via `AddDeathModule()`. Implemented (Phase 3 slice 10).
 
 ### AbilitySystem
-**Purpose:** Domain system managing the full ability lifecycle for players and mobs. Handles learn/teach, multi-cost atomic activation (resolve ability → entity state/cooldown/cost checks → spend costs → apply effects → set cooldown), per-ability cooldown tracking, and batch cooldown advancement on each heartbeat tick.
-**Location:** `Core/Modules/Abilities/Systems/AbilitySystem.cs` (implementation) · `Core/Modules/Abilities/Systems/IAbilitySystem.cs` (interface)
+**Purpose:** Domain system managing the full ability lifecycle for players and mobs. Handles learn/teach, multi-cost atomic activation (entity-state/cooldown/cost checks → spend costs → apply effects via `IEffectSystem` → set cooldown → return result), per-ability cooldown tracking, and batch cooldown advancement on each heartbeat tick. Pure: returns results, never touches the event bus or persistence (INV-5).
+**Location:** `Core/Modules/Abilities/Systems/AbilitySystem.cs` (implementation)
 **Dependencies:** `EntityService`, `IAbilityRegistry`, `IEffectSystem`, `IAttributeSystem`, `IEntityStateService`.
-```csharp
-public interface IAbilitySystem
-{
-    AbilityActivationResult Activate(uint actorEntityId, string abilityId,
-        uint? targetEntityId = null, bool resolveOffensiveExternally = false);
-    bool IsOffensive(string abilityId);
-    bool Learn(uint entityId, string abilityId);
-    bool Teach(uint teacherEntityId, uint studentEntityId, string abilityId);
-    IReadOnlyList<string> GetKnown(uint entityId);
-    bool IsKnown(uint entityId, string abilityId);
-    float GetCooldownRemaining(uint entityId, string abilityId);
-    IReadOnlyList<(string AbilityId, float CooldownRemaining)> GetCooldowns(uint entityId);
-    void AdvanceCooldowns(TimeSpan elapsed);
-}
-```
-`Activate` validates in order: ability exists → actor knows it → `Active` activation → entity state ok (not Incapacitated) → cooldown ready → all costs affordable (atomic check before any spend). On success: spends each cost via `IAttributeSystem`, sets `AbilitiesComponent.CooldownRemaining[abilityId] = CooldownSeconds`, and calls `IEffectSystem.Apply` per effect id. When `resolveOffensiveExternally = true`, any offensive damage effect (Instant/Periodic, `TargetScore == HpCurrent`, `BaseMagnitude < 0`) is skipped by `IEffectSystem` and its raw magnitude is returned as `AbilityActivationResult.OffensivePower` instead — the caller (`AbilityInvocationPipeline`) applies it via `ICombatSystem.ResolveAbilityStrike` with defense mitigation. `IsOffensive` returns `true` if the ability has `Targeting.Target` and at least one offensive damage effect. Returns `AbilityActivationResult { Outcome, AbilityId, AppliedEffects, Spent, CooldownSeconds, FailReason?, OffensivePower? }`. `AdvanceCooldowns` decrements all non-zero cooldown entries by `elapsed.TotalSeconds`, clamping to 0. Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slices 11-a, 11-b).
+**Interface:** [`IAbilitySystem.cs`](../../Core/Modules/Abilities/Systems/IAbilitySystem.cs) — `Activate` / `IsOffensive` / `Learn` / `Teach` / `GetKnown` / `IsKnown` / `GetCooldownRemaining` / `GetCooldowns` / `AdvanceCooldowns`. See [`../features/abilities/ability-system.md`](../features/abilities/ability-system.md) for the full activation pipeline, cost atomicity rules, and the `resolveOffensiveExternally` branch.
+Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slices 11-a, 11-b).
 
 ### AspectRegistry
 **Purpose:** Hardcoded read-only catalog of `AspectDefinition` records. Born on `DefinitionRegistry<AspectId, AspectDefinition>` (the fourth consumer that anchored the generic extraction). Pure data — no event bus, no persistence. Aspected abilities reference `AspectId` keys validated at startup by `RegistryValidationBootstrap`.
