@@ -1,14 +1,13 @@
 # Flow 16 — Heartbeat tick
 
-> [Back to flows index](README.md)
+> [Back to flows index](README.md). **Trigger:** `PeriodicTimer.WaitForNextTickAsync` in `HeartbeatBackgroundService` (`Heartbeat:IntervalMs`, default 2000 ms).
 
-**Summary.** `HeartbeatBackgroundService` fires a `PeriodicTimer` at `Heartbeat:IntervalMs` (default 2000 ms), increments a monotonic counter, and publishes `HeartbeatTickEvent` to `IEventBus`. No game logic lives here; handlers subscribe independently. `EffectTickHandler` (slice 9-e, p=20), `CombatTickHandler` (slice 9, p=20), `AbilityCooldownTickHandler` (slice 11-a, p=20), and `RegenerationTickHandler` (slice 11-c, p=20) are output-producing subscribers. `OutputFlushTickHandler` (WP-C, p=85) is the final meaningful tick subscriber — it flushes all session buffers accumulated during the tick and appends one prompt per session.
+## Summary
 
-**Trigger.** `PeriodicTimer.WaitForNextTickAsync` returns in `HeartbeatBackgroundService.ExecuteAsync`.
+`HeartbeatBackgroundService` increments a monotonic tick counter, captures the timestamp and elapsed duration, and publishes `HeartbeatTickEvent` to `IEventBus`. No game logic lives in the service itself — all processing is in subscribed handlers. Priority-20 handlers run effect ticks, combat rounds, ability cooldown decrements, and baseline regeneration. `OutputFlushTickHandler` (p=85) runs last among output-producing subscribers, drains all session buffers accumulated during the tick, and appends one prompt per session.
 
 ```mermaid
 sequenceDiagram
-    participant Timer as PeriodicTimer
     participant HBS as HeartbeatBackgroundService
     participant Bus as IEventBus
     participant ETH as EffectTickHandler (p=20)
@@ -16,45 +15,32 @@ sequenceDiagram
     participant ACTH as AbilityCooldownTickHandler (p=20)
     participant RTH as RegenerationTickHandler (p=20)
     participant OFTH as OutputFlushTickHandler (p=85)
-    participant Reg as ISessionBufferRegistry
 
-    Timer->>HBS: WaitForNextTickAsync → true
-    HBS->>HBS: increment _tickId, capture Timestamp, compute Elapsed
     HBS->>Bus: PublishAsync(HeartbeatTickEvent{TickId, Timestamp, Elapsed})
-    Bus->>ETH: HandleAsync → effect tick (see Flow 21)
-    Bus->>CTH: HandleAsync → combat round processing (see Flow 18)
-    Bus->>ACTH: HandleAsync → ability cooldown decrement
-    Bus->>RTH: HandleAsync → baseline resource regeneration sweep
-    Bus->>OFTH: HandleAsync (p=85)
-    OFTH->>Reg: FlushAllPendingAsync()
-    loop per session with HasPending
-        Reg->>Reg: buffer.FlushAsync() → drain + format + send + append prompt
-    end
-    HBS->>HBS: WaitForNextTickAsync (next tick)
+    Bus->>ETH: effect tick (see Flow 21)
+    Bus->>CTH: combat round processing (see Flow 18)
+    Bus->>ACTH: ability cooldown decrement
+    Bus->>RTH: baseline HP/Mana/Stamina/Astra regen sweep
+    Bus->>OFTH: FlushAllPendingAsync → drain buffers + append prompt per session
 ```
 
-**Steps.**
+## Steps
 
-1. `PeriodicTimer.WaitForNextTickAsync(stoppingToken)` returns `true` (or throws `OperationCanceledException` on host shutdown → service exits).
-2. `HeartbeatBackgroundService` increments `_tickId` (starts at 1 on first tick), captures `DateTimeOffset.UtcNow` as `now`, computes `Elapsed = now - _lastTimestamp`, and updates `_lastTimestamp = now`. `_lastTimestamp` is initialized to `DateTimeOffset.UtcNow` before the loop so the first tick's `Elapsed` reflects the actual interval.
-3. Publishes `HeartbeatTickEvent { TickId, Timestamp, Elapsed }` via `IEventBus.PublishAsync`. Any uncaught exception from handlers is caught and logged at `Error`; the loop continues.
-4. Event bus dispatches to all subscribed handlers in priority order:
-   - `EffectTickHandler` (priority 20) runs effect periodic application and expiry (see [Flow 21](flow-21-effect-tick.md)). May write `Combat`-category messages to session buffers.
-   - `CombatTickHandler` (priority 20) runs combat round processing (see [Flow 18](flow-17-kill-mob-combat-initiation.md)). `CombatHandler` writes `PlainMessage`s (category=`System`, policy=`Batched`) to affected session buffers. (`OutputCategory.Combat` is reserved for a future dedicated message type.)
-   - `AbilityCooldownTickHandler` (priority 20) calls `IAbilitySystem.AdvanceCooldowns(@event.Elapsed)` to decrement per-ability cooldown timers (slice 11-a). No output.
-   - `RegenerationTickHandler` (priority 20) calls `IRegenerationSystem.ApplyTickRegen(@event.TickId)` — a no-chain sweep that applies baseline HP/Mana/Stamina/Astra regeneration to all out-of-combat entities (slice 11-c). No output.
-   - `OutputFlushTickHandler` (priority **85** — `HandlerPriority.OutputFlush`) runs last among output-producing subscribers. Calls `ISessionBufferRegistry.FlushAllPendingAsync()`. For each session with `HasPending`: atomically drains the buffer, formats and sends each message, then calls `IPromptSource.GetPrompt` and appends one `PromptMessage`. Players see all that tick's combat/effect messages followed by a single prompt reflecting post-round pools. Future subscribers (mob AI at p=95, persistence at p=90, etc.) slot in at their own priorities.
-5. Control returns to `WaitForNextTickAsync`. `PeriodicTimer` schedules the next tick relative to its period, not relative to when handler execution completed — overruns cause the next tick to fire immediately after the current one completes.
+1. **Tick.** `HeartbeatBackgroundService` increments `_tickId`, captures `DateTimeOffset.UtcNow`, computes `Elapsed`, and publishes `HeartbeatTickEvent`. Uncaught handler exceptions are caught and logged; the loop continues.
+2. **Effect tick.** `EffectTickHandler` (p=20) advances `Timed`/`Periodic` effects and publishes `EffectExpiredEvent` per expiry. See [Flow 21](flow-21-effect-tick.md).
+3. **Combat tick.** `CombatTickHandler` (p=20) runs combat round processing. See [Flow 18](flow-17-kill-mob-combat-initiation.md).
+4. **Cooldowns.** `AbilityCooldownTickHandler` (p=20) decrements per-ability cooldown timers via `IAbilitySystem.AdvanceCooldowns`.
+5. **Regeneration.** `RegenerationTickHandler` (p=20) applies baseline resource regen to all out-of-combat entities via `IRegenerationSystem.ApplyTickRegen`.
+6. **Output flush.** `OutputFlushTickHandler` (p=85) calls `ISessionBufferRegistry.FlushAllPendingAsync`: for each session with pending output, drains the buffer, formats and sends messages, then appends one prompt reflecting post-tick state.
 
-**Overrun.** If handler execution takes longer than `IntervalMs`, `PeriodicTimer` fires the next tick immediately after the current completes (no drift accumulation, but no backpressure either). Acknowledged for Phase 4 hardening.
+**Overrun.** If handler execution exceeds `IntervalMs`, `PeriodicTimer` fires the next tick immediately after completion — no drift accumulation, but no backpressure. Acknowledged for Phase 4 hardening.
 
-**Thread safety.** `ExecuteAsync` runs on a background thread. `IEventBus.PublishAsync` is called from that thread — the same cross-thread pattern used by `PersistenceFlushTimer` and `WorldContentBootstrap`. Single `PeriodicTimer` means no concurrent self-publish. Phase 4 thread-safety review covers the event bus under concurrent background-service access and the session buffer's lock under concurrent enqueue from the heartbeat thread and player read loops.
+## Where to look
 
-**Cross-references.**
-- [`Core/Modules/Time/Events/HeartbeatTickEvent.cs`](../../../Core/Modules/Time/Events/HeartbeatTickEvent.cs)
-- [`Server/HeartbeatBackgroundService.cs`](../../../Server/HeartbeatBackgroundService.cs)
-- [`Core/Handlers/OutputFlushTickHandler.cs`](../../../Core/Handlers/OutputFlushTickHandler.cs) — tick-end flush trigger (WP-C)
-- [`Core/Output/ISessionBufferRegistry.cs`](../../../Core/Output/ISessionBufferRegistry.cs) — registry flushed by `OutputFlushTickHandler`
-- [`Core/Modules/Abilities/Handlers/AbilityCooldownTickHandler.cs`](../../../Core/Modules/Abilities/Handlers/AbilityCooldownTickHandler.cs) — slice 11-a
-- [`Core/Modules/Regeneration/Handlers/RegenerationTickHandler.cs`](../../../Core/Modules/Regeneration/Handlers/RegenerationTickHandler.cs) — slice 11-c
-- [`features/world/world.md`](../../features/world/world.md) — time system (slice 9-b); [`features/output/output.md`](../../features/output/output.md) — output batching + flush
+- [`Server/HeartbeatBackgroundService.cs`](../../../Server/HeartbeatBackgroundService.cs) — tick loop
+- [`Core/Modules/Time/Events/HeartbeatTickEvent.cs`](../../../Core/Modules/Time/Events/HeartbeatTickEvent.cs) — event payload
+- [`Core/Handlers/OutputFlushTickHandler.cs`](../../../Core/Handlers/OutputFlushTickHandler.cs) — tick-end flush
+- [`Core/Output/ISessionBufferRegistry.cs`](../../../Core/Output/ISessionBufferRegistry.cs) — session buffer registry
+- [`Core/Modules/Abilities/Handlers/AbilityCooldownTickHandler.cs`](../../../Core/Modules/Abilities/Handlers/AbilityCooldownTickHandler.cs) — cooldown decrement
+- [`Core/Modules/Regeneration/Handlers/RegenerationTickHandler.cs`](../../../Core/Modules/Regeneration/Handlers/RegenerationTickHandler.cs) — regen sweep
+- [`docs/features/world/world.md`](../../features/world/world.md) — time system · [`docs/features/output/output.md`](../../features/output/output.md) — output batching
