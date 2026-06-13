@@ -11,7 +11,7 @@
 > explicitly not a claim that any of this exists.
 >
 > When a spine graduates into real slices, the durable parts migrate to their permanent
-> homes: cross-cutting design → `architecture/`, per-feature framework → `architecture/subsystems/`,
+> homes: cross-cutting design → `architecture/`, per-feature framework → `features/<feature>/` (feature + system docs),
 > behavior → `implementation-plans/`, what-exists → `reference/`. This document is then trimmed to the
 > overlap map + open questions, or archived. It must never become a second source of truth for
 > a rule that lives in [`../architecture/checklist.md`](../architecture/checklist.md).
@@ -581,7 +581,7 @@ The §6 forks were resolved with the owner (2026-05-30); the slices inherit them
 | **R4 — Attributes** | **Four:** Mind, Body, Spirit, Attunement (governance table in §3 Substrate). The built `Str`/`Dex`/`Con` stub migrates to these. |
 | **R5 — Stacking + Power** | Timed buffs (potion / spell / skill) **and** auras → `HighestWins` keyed on **`Power`**, refreshing on equal-or-stronger re-apply. DoTs / HoTs `Stack` `UniquePerSource`; equipment `Stack`; curses `UniquePerSource`. Per-source defaults, overridable per effect. |
 | **R6 — Permanent growth** | **No `Permanent` effect.** Persistent-but-removable = `UntilRemoved` (`duration = -1`). True base growth (rare-material consumption) is a **direct state-modification action** that rewrites base once and leaves no effect (Spine E). |
-| **R7 — Docs** | Keep `docs/design/` (taxonomy row added). Scoped-system design → `architecture/subsystems/`; complex systems (Effects) get a higher-level design doc; on ship, a use-case **graduates its design into subsystem / architecture docs** and is trimmed to requirements + implementation plan. Retroactive conversion is a backlogged audit. |
+| **R7 — Docs** | Keep `docs/design/` (taxonomy row added). A feature's design lives in `features/<feature>/` (a holistic feature doc + per-system `<system>.md` docs); on ship, an **implementation plan disintegrates** into those living docs + `flows/` + `reference/`, with decisions recorded in `roadmap/completed/`, then is deleted (disintegrate-on-ship, `INV-28`). See [`../architecture/09-documentation.md`](../architecture/09-documentation.md). |
 | **R8 — Aspect representation** (2026-06-06) | Elemental identity/affinity is an optional **normalized aspect composition** (`AspectId → weight`; empty, single = 100, or a blend summing to 100), carried by entities, damage packets, and areas. **Resistance is an independent per-aspect score** (base + effects), decoupled from the composition — aspects are semantic tags beyond damage types. `AspectDefinition` is shaped to carry aspect-unique ability/effect riders later (not built in the foundation slice). Lands in the Aspect & Registry Foundation slice ([`../implementation-plans/aspect-foundation.md`](../features/aspects/aspects.md)). |
 
 ### Power — the one new concept R5 introduced (provisional sub-decisions)

@@ -1,6 +1,6 @@
 # Phase 3 slice 5b — Persistence two-level model (completed)
 
-> Implemented on branch `claude/zealous-darwin-61b4b5` (PR #76). Full feature spec: [`../../implementation-plans/persistence-two-level-model.md`](../../implementation-plans/persistence-two-level-model.md).
+> Implemented on branch `claude/zealous-darwin-61b4b5` (PR #76). Full feature spec: [`../../implementation-plans/persistence-two-level-model.md`](../../architecture/06-persistence.md).
 
 ## Outcome
 

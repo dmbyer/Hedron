@@ -84,7 +84,7 @@ This slice is a pure tooling / authorization slice. No new gameplay verbs, no ne
 ## Related
 
 - [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) — establishes the bootstrap allowlist and `IAdminAuthorizer` seam this slice extends.
-- [`persistence-substrate.md`](persistence-substrate.md) — provides the `[Persistent]` mechanism the new component plugs into.
+- [`persistence-substrate.md`](../architecture/06-persistence.md) — provides the `[Persistent]` mechanism the new component plugs into.
 - `account-character-creation.md` — provides reliable player-name → entity resolution.
 
 For the slice queue and ordering rationale, see [`../roadmap/plan.md`](../roadmap/plan.md).

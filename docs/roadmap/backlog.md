@@ -10,9 +10,9 @@ Multi-session program restructuring the docs into the feature/system taxonomy, c
 
 - [x] **WP-1 — Structure + spec.** `docs/features/` skeleton + README; renamed the use-cases folder to `implementation-plans/`; rewrote `architecture/09-documentation.md` (moved from docs root), `checklist.md` (`INV-28`/`INV-30`), `CLAUDE.md`, `00-overview.md` doc-map, `.claude/README.md`.
 - [x] **WP-2 — Templates + `manage-docs` skill + tooling repoint.** 6 templates in `.claude/skills/manage-docs/templates/`; new `manage-docs` skill; repointed `sync-roadmap` (disintegrate-on-ship), `implementation-planner`, `implement-plan`, `architecture-reviewer`, `architecture-advisor`, `.claude/README`, `add-*`. Agent/command *file names* kept (repoint-only); rename later if desired.
-- [ ] **WP-3…N — Per-feature migration.** One package per feature: write `<feature>.md` + `<system>.md`(s), consolidate flows into one journey, trim reference rows, distribute → verify `roadmap/completed/` → delete shipped plans. Order: effects → combat → character-stats → items → world → mobs → abilities → aspects → accounts → admin-authoring → output → commands → communication.
+- [x] **WP-3…N — Per-feature migration.** All 13 features migrated to `docs/features/<feature>/` (feature + system docs); flows consolidated into feature journeys; reference catalogs trimmed (interface dumps → `.cs` links); every implemented plan disintegrated + deleted with decisions verified in `roadmap/completed/`.
   - [x] **effects** (4.8 exemplar) — `features/effects/effects.md` + `effect-system.md` (← `architecture/effects.md`); flow-21 de-detailed → "Effects journey"; `EffectSystem`/`AbilityEffectContributor` reference interface-dumps trimmed to links; `effect-substrate.md` plan deleted (decisions verified in `completed/slice-9e`).
-  - [x] **manifests** authored — [`docs-refinement-manifests.md`](docs-refinement-manifests.md) (per-feature source→target maps for 4.6).
+  - [x] **manifests** authored + consumed (the transient `docs-refinement-manifests.md` map was deleted at WP-Z once all features had migrated).
   - [x] **combat** (4.6) — `features/combat/` (combat.md + combat-system / death-system / entity-state); flow-17 → Combat journey, flow-20 → Death & respawn journey (18/19/22/23 deleted); reference trimmed; 3 plans deleted.
   - [x] **character-stats** (4.6) — `features/character-stats/` (4 docs; stat-system ← subsystems/stats.md); 4 plans deleted; reference trimmed.
   - [x] **items** (4.6) — `features/items/` (items + item-inventory-system + equipment-system); flow-09 → Items journey, flow-13 → Equipment journey (10/11/14 deleted); 2 plans deleted.
@@ -25,7 +25,7 @@ Multi-session program restructuring the docs into the feature/system taxonomy, c
   - [x] **output** (4.6) — `features/output/` (output + output-framework ← subsystems/output.md + prompt); flow-06 → Output journey; BroadcastSystem/Output-infra dumps trimmed; 2 plans deleted.
   - [x] **commands** (4.6) — `features/commands/` (commands + command-framework ← subsystems/commands.md); flow-03 → Command journey; INV-11 checklist link fixed; 2 plans deleted.
   - [x] **communication** (4.6) — `features/communication/` (communication + chat-system + help-system); no plans/flows; reference trimmed. **All 13 features migrated.**
-- [ ] **WP-Z — Closing sweep.** Delete empty `subsystems/`; `Core/Sessions` reference home; consolidate cross-cutting runtime flows + finalize `flows/README.md`; repo-wide link-integrity pass; final `architecture-reviewer` pass.
+- [x] **WP-Z — Closing sweep.** `subsystems/` removed (all 3 docs migrated into `features/`); `Core/Sessions` reference home added; the 3 implemented infra plans (persistence-substrate, persistence-two-level-model, testing-harness-and-backfill) disintegrated into `06-persistence.md`/`07-testing.md` + their `completed/` records and deleted; transient `docs-refinement-manifests.md` removed; `flows/README.md` finalized (feature journeys retitled). Repo-wide link check clean (only the deliberate `plan.md → shopping.md` "to be authored" placeholder remains). *Optional polish left:* the 5 cross-cutting runtime-infra flows (`flow-01/02/04/05/16`) are kept as detailed traces — de-detailing them to the lighter journey style is a nice-to-have, not required.
 
 ## Phase 4 — Hardening
 
@@ -204,9 +204,9 @@ Promote when the per-command overhead is measurable or when a new feature adds a
 
 The archetype list in [`../reference/archetypes.md`](../reference/archetypes.md) was written against the old component shapes. Re-audit once a few Phase 3 slices have landed real components.
 
-### 🔵 Use-case → subsystem-doc conversion audit (docs lifecycle, 2026-05)
+### ✅ Use-case → feature/system-doc conversion (superseded by the docs-refinement program)
 
-The docs lifecycle changed: a slice now graduates a system's *design* into [`../architecture/subsystems/`](../architecture/subsystems/) (or a higher-level [`../architecture/`](../architecture/) doc for a complex system such as effects), leaving the use-case as a requirements + implementation-plan artifact. See [`../architecture/09-documentation.md`](../architecture/09-documentation.md) ("Use-case lifecycle" → "Design graduates to its durable home"). Existing implemented use-cases predate this split and still carry their design inline. Audit them and convert the durable design into subsystem docs — prioritizing the systems most likely to be extended (stats, combat, items). Two enforcement surfaces still need a matching update to make the new lifecycle binding: the `sync-roadmap` skill's step list, and a checklist clause (extend `INV-28`). Forward slices follow the new split natively; this is the retroactive cleanup.
+**Done.** This audit was the seed of the docs-refinement program above. Every implemented use-case's design was disintegrated into its [`../features/<feature>/`](../features/) feature + system docs (not the old `subsystems/`, which was absorbed into `features/`); the use-case folder became `implementation-plans/` with a disintegrate-on-ship lifecycle; `sync-roadmap` and the checklist (`INV-28`) were updated to make it binding. See [`../architecture/09-documentation.md`](../architecture/09-documentation.md).
 
 ### 🔵 Use-case catalogue audit
 

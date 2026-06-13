@@ -7,7 +7,7 @@ description: Use when adding a new player or admin command (wear, drink, cast, c
 
 A command is the thinnest possible layer: it declares its argument schema and privilege requirements, then delegates to a domain system or publishes an event. It does **not** contain gameplay logic and does **not** call `session.SendLineAsync` directly.
 
-Authoritative rules: [`docs/architecture/subsystems/commands.md`](../../../docs/features/commands/command-framework.md) · layer discipline: [`docs/architecture/01-layers.md`](../../../docs/architecture/01-layers.md) · avoid god commands: [`docs/architecture/04-pitfalls.md`](../../../docs/architecture/04-pitfalls.md).
+Authoritative rules: [`docs/features/commands/command-framework.md`](../../../docs/features/commands/command-framework.md) · layer discipline: [`docs/architecture/01-layers.md`](../../../docs/architecture/01-layers.md) · avoid god commands: [`docs/architecture/04-pitfalls.md`](../../../docs/architecture/04-pitfalls.md).
 
 ## Shape
 
@@ -181,7 +181,7 @@ Some verbs are **not** registered as `ICommand` at all — they are internal ser
 
 **Shared invocation pipeline:** When two or more commands share non-trivial orchestration (e.g. `CastCommand` and `SkillInvocationCommand` both need target resolution + combat entry + `Activate` + event publication), extract the shared logic into an **initiator-tier helper** (e.g. `AbilityInvocationPipeline`). Register it as a singleton concrete type. It is called exclusively by command-tier code and inherits their event-publish permission. All events it publishes must be unconditional consequences of a sequential step — branch-on-state conditional publishing belongs in a handler.
 
-See `docs/architecture/subsystems/commands.md` Phase 3 section for the architectural rationale (command-vs-ability precedence, why registered commands always win).
+See [`docs/features/commands/command-framework.md`](../../../docs/features/commands/command-framework.md) for the architectural rationale (command-vs-ability precedence, why registered commands always win).
 
 See [INV-21](../../../docs/architecture/checklist.md) for the full invariant.
 

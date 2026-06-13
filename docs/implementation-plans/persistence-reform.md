@@ -405,8 +405,8 @@ Infrastructure only. No new admin commands, content file shapes, or `TemplateReg
 
 ## Related
 
-- [`persistence-substrate.md`](persistence-substrate.md) — original JSON file-per-entity model (slice 1)
-- [`persistence-two-level-model.md`](persistence-two-level-model.md) — `PersistentEntity` marker + area-scoped flush (slice 5b); this slice replaces that model
+- [`persistence-substrate.md`](../architecture/06-persistence.md) — original JSON file-per-entity model (slice 1)
+- [`persistence-two-level-model.md`](../architecture/06-persistence.md) — `PersistentEntity` marker + area-scoped flush (slice 5b); this slice replaces that model
 - [`bare-bones-content-spawning.md`](../features/world/world.md) — introduces save-on-change calls in admin commands that Stage B removes
 - [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) — YAML content pipeline; Stage B modifies `WorldContentLoader`
 - [`items-and-inventory.md`](../features/items/items.md) — item entity lifecycle; Stage C modifies pickup/drop flows

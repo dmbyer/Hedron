@@ -232,7 +232,7 @@ No existing flows are modified. Flow 27 follows the same structural shape as Flo
 - [`mobs.md`](../features/mobs/mobs.md) — `MkmobCommand` and `IMobBuilderSystem` are additional reference patterns.
 - [`bare-bones-content-spawning.md`](../features/world/world.md) — `IRoomBuilderSystem` and `IRoomContentWriter` are the direct structural models for `IAreaBuilderSystem` and `IAreaContentWriter`.
 - [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) — `WorldContentLoader`, `TemplateRegistry`, and the `content/` directory layout established here.
-- [`persistence-two-level-model.md`](persistence-two-level-model.md) — INV-22/23 rules that govern why area entities carry no `PersistentEntity`.
+- [`persistence-two-level-model.md`](../architecture/06-persistence.md) — INV-22/23 rules that govern why area entities carry no `PersistentEntity`.
 - [`../reference/systems.md`](../reference/systems.md) — `IRoomBuilderSystem`, `IItemBuilderSystem`, `IMobBuilderSystem` entries are the catalog models for the new `IAreaBuilderSystem` entry.
 - [`../reference/handlers.md`](../reference/handlers.md) — `AdminAuditHandler` entry is extended.
 - [`../architecture/checklist.md`](../architecture/checklist.md) — invariants cited: INV-1, INV-2, INV-5, INV-10, INV-18, INV-19, INV-21, INV-22, INV-23, INV-25.

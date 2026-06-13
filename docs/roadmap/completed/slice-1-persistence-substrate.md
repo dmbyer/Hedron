@@ -1,6 +1,6 @@
 # Phase 3 slice 1 — Persistence substrate (completed)
 
-> Implemented and merged on `master`. The full feature spec lives in [`../../implementation-plans/persistence-substrate.md`](../../implementation-plans/persistence-substrate.md). This file records the as-built state and any deviations from the spec.
+> Implemented and merged on `master`. The full feature spec lives in [`../../implementation-plans/persistence-substrate.md`](../../architecture/06-persistence.md). This file records the as-built state and any deviations from the spec.
 
 ## Outcome
 
