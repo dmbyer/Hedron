@@ -92,7 +92,7 @@ No new events. `PersistenceHandler` is deleted, so its subscriptions disappear w
 
 - [`persistence-substrate.md`](persistence-substrate.md) — slice 1; introduced the dirty-set model this slice replaces.
 - [`bare-bones-content-spawning.md`](../features/world/world.md) — slice 5a; its admin-event `PersistenceHandler` subscriptions move to save-on-change here.
-- [`account-character-creation.md`](account-character-creation.md) — slice 5; its `MarkDirty` call-sites are removed here.
+- [`account-character-creation.md`](../features/accounts/accounts.md) — slice 5; its `MarkDirty` call-sites are removed here.
 - [`../architecture/06-persistence.md`](../architecture/06-persistence.md) — the two-level model this slice implements.
 
 For the slice queue, see [`../roadmap/plan.md`](../roadmap/plan.md).

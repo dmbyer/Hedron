@@ -179,14 +179,7 @@ Detection order (most-specific → least-specific): `Mob` → `Player` → `Room
 **Purpose:** PBKDF2-SHA256 password hashing and verification with no external NuGet dependency.
 **Location:** `Core/Systems/PasswordHasher.cs`
 **Dependencies:** none (`System.Security.Cryptography`).
-```csharp
-public interface IPasswordHasher
-{
-    string Hash(string password);
-    bool Verify(string password, string hash);
-}
-```
-100,000 PBKDF2 iterations, 16-byte random salt, 32-byte key. Stores `Base64(salt + hash)` as a single opaque string. `Verify` uses `CryptographicOperations.FixedTimeEquals` to prevent timing attacks. Implemented (Phase 3 slice 5).
+**Interface:** [`IPasswordHasher.cs`](../../Core/Systems/IPasswordHasher.cs) — `Hash(password)` / `Verify(password, hash)`. 100,000 PBKDF2 iterations, 16-byte random salt, 32-byte key; stores `Base64(salt + hash)` as a single opaque string. `Verify` uses `CryptographicOperations.FixedTimeEquals` to prevent timing attacks. Cryptographic randomness stays on `RandomNumberGenerator` and is **not** routed through `IRandom` — security RNG must never be seedable. Implemented (Phase 3 slice 5).
 
 ### IRandom / SystemRandom
 **Purpose:** Injectable randomness seam — the single source of non-determinism for game logic, so chance-based outcomes can be made deterministic in tests by substituting a fake (INV-26). Systems take `IRandom` by constructor injection instead of reaching for `Random.Shared`. Pure: no events, no persistence.
@@ -213,6 +206,13 @@ public interface IClock
 }
 ```
 `SystemClock` wraps `DateTime.UtcNow`; registered as a DI singleton in `Server/CompositionRoot.cs`. `SpawnSystem` and `AccountSystem` are the primary consumers (respawn scheduling, account/character timestamps). Implemented (testing-harness-and-backfill WP-3).
+
+### ISession / ISessionManager
+**Purpose:** Core-tier session contract. `ISession` is the live-connection abstraction consumed by commands, the dispatcher, the output pipeline, and broadcast — it carries `PlayerEntityId` (0 until bound after login), `TransportKey` (formatter selection), and `SupportsColor`. `ISessionManager` is the registry that tracks all live sessions; `BroadcastSystem` and domain systems use it to address connected players by entity id. Session lifecycle: registered by `TelnetSession` after `LoginFlow` returns, unregistered on disconnect.
+**Location:** [`Core/Sessions/ISession.cs`](../../Core/Sessions/ISession.cs) · [`Core/Sessions/ISessionManager.cs`](../../Core/Sessions/ISessionManager.cs)
+**Dependencies:** none (core tier; no domain or game-concept references).
+Production implementation: `TelnetSession` (implements `ISession`) · `SessionManager` (`Server/Sessions/SessionManager.cs`) registered as a singleton.
+See [`../features/accounts/accounts.md`](../features/accounts/accounts.md) for the full session lifecycle.
 
 ---
 
@@ -265,20 +265,8 @@ Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (
 ### AccountSystem
 **Purpose:** Domain system owning all account and character lifecycle operations: registration, authentication, character creation, character list, and logout recording.
 **Location:** `Core/Modules/Account/Systems/AccountSystem.cs`
-**Dependencies:** `EntityService`, `IPasswordHasher`, `WorldConfiguration`.
-```csharp
-public interface IAccountSystem
-{
-    bool UsernameExists(string username);
-    bool CharacterNameExists(string characterName);
-    Task<uint> CreateAccountAsync(string username, string password, CancellationToken ct = default);
-    Task<AuthResult> AuthenticateAsync(string username, string password, CancellationToken ct = default);
-    Task<uint> CreateCharacterAsync(uint accountEntityId, string characterName, CancellationToken ct = default);
-    IReadOnlyList<CharacterSummary> GetCharacterList(uint accountEntityId);
-    void RecordLogout(uint characterEntityId);
-}
-```
-Maintains lazy in-memory HashSet indices for username and character name uniqueness (populated on first call, updated on every write). `CreateAccountAsync` attaches `AccountComponent` + `PersistentEntity` and returns the entity id — persistence is the caller's (`LoginFlow`) responsibility (INV-5). `CreateCharacterAsync` attaches `CharacterComponent` + `LocationComponent` (set to `StartingRoomEntityId`) + `PersistentEntity`, registers the character on the account, and returns the entity id — `LoginFlow` saves character-first, then account (crash-safety ordering). `RecordLogout` updates `CharacterComponent.LastLoginUtc`; `PlayerSessionHandler` calls `SaveEntityAsync` after `RecordLogout` returns. Extended in slice 8a: `CreateCharacterAsync` also attaches `AttributesComponent { Level=1, Mind=10, Body=10, Spirit=10, Attunement=10 }` and `PoolsComponent { MaxHp=100, CurrentHp=100, MaxMana=50, CurrentMana=50, MaxStamina=50, CurrentStamina=50, MaxAstra=10, CurrentAstra=10 }` to every new character (attribute names updated to Mind/Body/Spirit/Attunement in slice 9-d). Implemented (Phase 3 slices 5, persistence-two-level-model, 8a, 9-d).
+**Dependencies:** `EntityService`, `IPasswordHasher`, `IClock`, `WorldConfiguration`.
+**Interface:** [`IAccountSystem.cs`](../../Core/Modules/Account/Systems/IAccountSystem.cs) — `UsernameExists` / `CharacterNameExists` / `CreateAccountAsync` / `AuthenticateAsync` / `CreateCharacterAsync` / `GetCharacterList` / `RecordLogout`. Pure: returns results; never touches the event bus or persistence (INV-5). `IClock` used for `CreatedAtUtc`/`LastLoginUtc` timestamps (INV-26 seam; see [`../roadmap/backlog.md`](../roadmap/backlog.md) for the testing-harness WP-3 entry). See [`../features/accounts/account-system.md`](../features/accounts/account-system.md) for the full design, entity model, and in-memory index strategy. Implemented (Phase 3 slices 5, persistence-two-level-model, 8a, 9-d, testing-harness).
 
 ### RoomBuilderSystem
 **Purpose:** Runtime room authoring — creates room entities, wires bidirectional exits, and mutates room properties (`Name`, `Description`). All methods return pure results or mutate in-place; event publication is the caller's responsibility, keeping this system reusable by a future in-game editor without a live player session.

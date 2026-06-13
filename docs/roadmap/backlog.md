@@ -20,7 +20,8 @@ Multi-session program restructuring the docs into the feature/system taxonomy, c
   - [x] **mobs** (4.6) — `features/mobs/` (mobs + mob-system); mobs.md plan deleted.
   - [x] **abilities** (4.6, finished by 4.8 after the sub-agent hit a session limit) — `features/abilities/` (abilities + ability-system); flow-24 → Abilities journey (25/26 deleted, broken `.cs` links fixed to real files); 2 plans deleted.
   - [x] **aspects** (4.6) — `features/aspects/` (aspects + aspect-system); aspect-foundation.md plan deleted.
-  - [ ] remaining 5 → sub-agents, sequential (accounts → accounts → admin-authoring → output → commands → communication).
+  - [x] **accounts** (4.6) — `features/accounts/` (accounts + account-system + login-flow); Core/Sessions reference gap closed; flow-07 → Login journey; account plan deleted.
+  - [ ] remaining 4 → sub-agents, sequential (admin-authoring → accounts → admin-authoring → output → commands → communication).
 - [ ] **WP-Z — Closing sweep.** Delete empty `subsystems/`; `Core/Sessions` reference home; consolidate cross-cutting runtime flows + finalize `flows/README.md`; repo-wide link-integrity pass; final `architecture-reviewer` pass.
 
 ## Phase 4 — Hardening

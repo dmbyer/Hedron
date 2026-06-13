@@ -16,7 +16,7 @@
 | 4 | [Persistence flush cycle](flow-04-persistence-flush-cycle.md) | `PersistenceFlushTimer` ticks, or shutdown | Phase 3 slice 1 |
 | 5 | [Content reload](flow-05-content-reload.md) | Privileged session sends `reload` | Phase 3 slice 2 (gate moved to dispatcher in slice 3) |
 | 6 | [Output rendering](flow-06-output-rendering.md) | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4 |
-| 7 | [Login / character flow](flow-07-login-character-flow.md) | TCP client connects, new or returning player | Phase 3 slice 5 |
+| 7 | [Login journey](flow-07-login-character-flow.md) | TCP client connects, new or returning player | Phase 3 slice 5; source: [../../features/accounts/accounts.md](../../features/accounts/accounts.md) |
 | 8 | [Admin room creation (`dig`)](flow-08-admin-room-creation.md) | Privileged session sends `dig <direction> [name]` | Phase 3 slice 5a |
 | 9 | [Items journey (pickup · drop · inventory)](flow-09-item-pickup.md) | Player sends `get`/`drop`/`inventory` | Phase 3 slice 6; updated persistence reform Stage C; source: [../../features/items/items.md](../../features/items/items.md) |
 | 12 | [Admin item creation (`mkitem`)](flow-12-admin-item-creation.md) | Privileged session sends `mkitem [name]` | Phase 3 slice 6 |

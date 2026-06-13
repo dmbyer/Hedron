@@ -72,7 +72,7 @@ Infrastructure slice that gives every future feature a working save/load substra
 ## Related
 
 - [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) — slice 2; blueprint-seeded world loading and the in-game admin substrate.
-- [`account-character-creation.md`](account-character-creation.md) — slice 5; the first real `[Persistent]` user entities.
+- [`account-character-creation.md`](../features/accounts/accounts.md) — slice 5; the first real `[Persistent]` user entities.
 - [`persistence-two-level-model.md`](persistence-two-level-model.md) — slice 5b; replaces this slice's dirty-set flush with the two-level opt-in model.
 
 For the slice queue, see [`../roadmap/plan.md`](../roadmap/plan.md).
