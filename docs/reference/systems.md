@@ -386,17 +386,9 @@ Resolvers implement `IArgumentResolver` and are injected into `CommandArgument` 
 ### AbilityVerbResolver
 
 **Purpose:** Resolves a typed input verb against all known Active Skills of the invoking player. Used by `CommandDispatcher` Phase 3 to detect bare skill invocations (e.g. `kick`, `ki`) that don't match any registered command.
-**Location:** `Core/Modules/Abilities/AbilityVerbResolver.cs`
-**Interface:** `IAbilityVerbResolver` (same file)
+**Location:** [`Core/Modules/Abilities/AbilityVerbResolver.cs`](../../Core/Modules/Abilities/AbilityVerbResolver.cs) · interface `IAbilityVerbResolver` in same file.
 **Dependencies:** `IAbilitySystem`, `IAbilityRegistry`.
-```csharp
-public interface IAbilityVerbResolver
-{
-    bool TryResolve(uint actorEntityId, string verbToken, out string abilityId);
-    IReadOnlyList<string> GetInvocableVerbs(uint actorEntityId);
-}
-```
-Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slice 11-b / WP-2).
+`TryResolve` prefix-matches the verb against the invoker's known Active Skills. `GetInvocableVerbs` returns the full invocable verb list (tab-completion seam). Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slice 11-b / WP-2).
 
 ### KnownSpellResolver
 

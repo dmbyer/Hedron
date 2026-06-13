@@ -1,10 +1,10 @@
 # Commands Reference
 
-Living catalog of every registered command. Commands are the thinnest layer — they declare a schema and delegate to domain systems or events. See [`../architecture/subsystems/commands.md`](../architecture/subsystems/commands.md) for the framework design.
+Living catalog of every registered command. Commands are the thinnest layer — they declare a schema and delegate to domain systems or events. See [`../features/commands/command-framework.md`](../features/commands/command-framework.md) for the framework design.
 
 **Grouping:** by `CommandCategory`. Within each category, alphabetical by primary verb.
 
-**`MatchingMode`** — every command declares `CommandMatchingMode.Partial` (prefix resolution enabled; player commands) or `CommandMatchingMode.Full` (exact match required; admin commands). See `subsystems/commands.md` for the two-phase lookup rules and `IVerbRegistry` for the read-only interface that exposes the command namespace to `HelpCommand` and future tab-completion.
+**`MatchingMode`** — every command declares `CommandMatchingMode.Partial` (prefix resolution enabled; player commands) or `CommandMatchingMode.Full` (exact match required; admin commands). See [`../features/commands/command-framework.md`](../features/commands/command-framework.md) for the three-phase lookup rules and `IVerbRegistry` for the read-only interface that exposes the command namespace to `HelpCommand` and future tab-completion.
 
 ---
 

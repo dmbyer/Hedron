@@ -23,7 +23,8 @@ Multi-session program restructuring the docs into the feature/system taxonomy, c
   - [x] **accounts** (4.6) — `features/accounts/` (accounts + account-system + login-flow); Core/Sessions reference gap closed; flow-07 → Login journey; account plan deleted.
   - [x] **admin-authoring** (4.6) — `features/admin-authoring/` (admin-authoring + admin-commands/content-authoring/content-tooling); flow-08 → Admin authoring journey, flow-29 → Content-tooling journey (12/15/27/28/30 deleted); 3 plans deleted (admin-area-authoring + admin-privilege-elevation kept).
   - [x] **output** (4.6) — `features/output/` (output + output-framework ← subsystems/output.md + prompt); flow-06 → Output journey; BroadcastSystem/Output-infra dumps trimmed; 2 plans deleted.
-  - [ ] remaining 2 → sub-agents, sequential (commands → accounts → admin-authoring → output → commands → communication).
+  - [x] **commands** (4.6) — `features/commands/` (commands + command-framework ← subsystems/commands.md); flow-03 → Command journey; INV-11 checklist link fixed; 2 plans deleted.
+  - [ ] remaining 1 → sub-agent (communication → accounts → admin-authoring → output → commands → communication).
 - [ ] **WP-Z — Closing sweep.** Delete empty `subsystems/`; `Core/Sessions` reference home; consolidate cross-cutting runtime flows + finalize `flows/README.md`; repo-wide link-integrity pass; final `architecture-reviewer` pass.
 
 ## Phase 4 — Hardening
@@ -57,7 +58,7 @@ Acknowledged debt from Phase 3 slice 4 ([`../implementation-plans/output-framewo
 
 ### 🔵 Command-arg log redaction (acknowledged debt from slice 3)
 
-`CommandExecutedEvent.ArgsSummary` ([`../implementation-plans/command-framework.md`](../implementation-plans/command-framework.md)) logs parsed args in plaintext. Slice 3 ships with no redaction — acceptable only because the sole free-text verb is `say` and the logger is local. **Prerequisite for any retained/forwarded log sink.** Proposed fix: a per-command `[NoLogArgs]` / `RedactArgs` declaration the dispatcher honors before building `ArgsSummary`. Lands with whichever slice first adds a non-local logging sink, an auth-bearing verb (`password`, account linking), or `tell`/private channels — whichever comes first.
+`CommandExecutedEvent.ArgsSummary` ([`../implementation-plans/command-framework.md`](../features/commands/commands.md)) logs parsed args in plaintext. Slice 3 ships with no redaction — acceptable only because the sole free-text verb is `say` and the logger is local. **Prerequisite for any retained/forwarded log sink.** Proposed fix: a per-command `[NoLogArgs]` / `RedactArgs` declaration the dispatcher honors before building `ArgsSummary`. Lands with whichever slice first adds a non-local logging sink, an auth-bearing verb (`password`, account linking), or `tell`/private channels — whichever comes first.
 
 ### 🔵 CommandPipeline middleware refactor (deferred smell from slice 3)
 

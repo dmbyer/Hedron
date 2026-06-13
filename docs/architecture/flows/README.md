@@ -12,7 +12,7 @@
 |---|---|---|---|
 | 1 | [Server startup](flow-01-server-startup.md) | `dotnet run --project Server` | Phase 2 (extended in slice 2) |
 | 2 | [Player connection](flow-02-player-connection.md) | TCP client connects on the configured port | Phase 2 |
-| 3 | [Player command lifecycle](flow-03-player-command-lifecycle.md) | Player sends a line of input | Phase 2 (replaced by slice 3 command framework; output leg updated in slice 4; prefix resolution added in slice 3a) |
+| 3 | [Command journey](flow-03-player-command-lifecycle.md) | Player sends a line of input | Phase 2 (replaced by slice 3 command framework; output leg updated in slice 4; prefix resolution added in slice 3a); source: [../../features/commands/commands.md](../../features/commands/commands.md) |
 | 4 | [Persistence flush cycle](flow-04-persistence-flush-cycle.md) | `PersistenceFlushTimer` ticks, or shutdown | Phase 3 slice 1 |
 | 5 | [Content reload](flow-05-content-reload.md) | Privileged session sends `reload` | Phase 3 slice 2 (gate moved to dispatcher in slice 3) |
 | 6 | [Output journey](flow-06-output-rendering.md) | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4; source: [../../features/output/output.md](../../features/output/output.md) |

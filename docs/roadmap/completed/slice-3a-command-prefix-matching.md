@@ -1,6 +1,6 @@
 # Phase 3 slice 3a — Command prefix matching (completed)
 
-> Implemented and merged on `master` (PR #68). The full feature spec lives in [`../../implementation-plans/command-prefix-matching.md`](../../implementation-plans/command-prefix-matching.md). This file records the as-built state and any deviations from the spec.
+> Implemented and merged on `master` (PR #68). The full feature spec lives in [`../../implementation-plans/command-prefix-matching.md`](../../features/commands/commands.md). This file records the as-built state and any deviations from the spec.
 
 ## Outcome
 

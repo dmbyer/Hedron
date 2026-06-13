@@ -44,7 +44,7 @@
 
 **INV-10 — The no-chain variant is the only exception to "publish your outcome."** An initiator whose work is a closed mechanical sweep with no game-rule fan-out (e.g. `PersistenceFlushTimer` → `FlushAsync`) may call a system directly and publish nothing. The moment another concern must react, it becomes an event. Explanation: [01-layers.md](01-layers.md#initiators--entry-points).
 
-**INV-11 — No direct `session.SendLineAsync` from command bodies once the command framework lands (slice 3+).** Output goes through the output writer / typed messages. Until slice 3 merges this is aspirational; after, it is enforced — including dispatcher-internal call sites (e.g. the unknown-command branch). Explanation: [command-framework.md](../implementation-plans/command-framework.md).
+**INV-11 — No direct `session.SendLineAsync` from command bodies once the command framework lands (slice 3+).** Output goes through the output writer / typed messages. Until slice 3 merges this is aspirational; after, it is enforced — including dispatcher-internal call sites (e.g. the unknown-command branch). Explanation: [command-framework.md](../features/commands/command-framework.md).
 
 ## D. One world, templates, identity, persistence
 
