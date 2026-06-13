@@ -1,6 +1,6 @@
 # Phase 3 slice 9-c — Stat computation system (completed)
 
-> Implemented on branch `claude/confident-gates-534273`. Full feature spec: [`../../implementation-plans/stat-system.md`](../../implementation-plans/stat-system.md).
+> Implemented on branch `claude/confident-gates-534273`. Living design: [`../../features/character-stats/stat-system.md`](../../features/character-stats/stat-system.md).
 
 ## Outcome
 

@@ -1,6 +1,6 @@
 # Phase 3 Slice 9-d — Stat & Resource Substrate
 
-**PR:** #99 (code) · #98 (design model + 9-d/9-e specs) · **Spec:** [`../../implementation-plans/stat-resource-substrate.md`](../../implementation-plans/stat-resource-substrate.md) · **Gameplay-model spine:** S1
+**PR:** #99 (code) · #98 (design model + 9-d/9-e specs) · **Living design:** [`../../features/character-stats/stat-system.md`](../../features/character-stats/stat-system.md) · **Gameplay-model spine:** S1
 
 > Ledger backfilled retroactively (the slice merged in #99 without a `done.md`/`completed/` entry at the time).
 

@@ -14,7 +14,8 @@ Multi-session program restructuring the docs into the feature/system taxonomy, c
   - [x] **effects** (4.8 exemplar) — `features/effects/effects.md` + `effect-system.md` (← `architecture/effects.md`); flow-21 de-detailed → "Effects journey"; `EffectSystem`/`AbilityEffectContributor` reference interface-dumps trimmed to links; `effect-substrate.md` plan deleted (decisions verified in `completed/slice-9e`).
   - [x] **manifests** authored — [`docs-refinement-manifests.md`](docs-refinement-manifests.md) (per-feature source→target maps for 4.6).
   - [x] **combat** (4.6) — `features/combat/` (combat.md + combat-system / death-system / entity-state); flow-17 → Combat journey, flow-20 → Death & respawn journey (18/19/22/23 deleted); reference trimmed; 3 plans deleted.
-  - [ ] remaining 11 → 4.6 sub-agents, sequential (character-stats → items → world → mobs → abilities → aspects → accounts → admin-authoring → output → commands → communication).
+  - [x] **character-stats** (4.6) — `features/character-stats/` (4 docs; stat-system ← subsystems/stats.md); 4 plans deleted; reference trimmed.
+  - [ ] remaining 10 → 4.6 sub-agents, sequential (items → world → mobs → abilities → aspects → accounts → admin-authoring → output → commands → communication).
 - [ ] **WP-Z — Closing sweep.** Delete empty `subsystems/`; `Core/Sessions` reference home; consolidate cross-cutting runtime flows + finalize `flows/README.md`; repo-wide link-integrity pass; final `architecture-reviewer` pass.
 
 ## Phase 4 — Hardening
@@ -64,7 +65,7 @@ The combat-flavored ability mechanics 11-b deliberately deferred: **hit/miss/par
 
 ### 🔵 Configurable / richer resource regeneration (deferred from slice 11-c)
 
-Slice 11-c ([`../implementation-plans/resource-regeneration.md`](../implementation-plans/resource-regeneration.md)) ships flat, **hardcoded** out-of-combat regeneration (idle 1/pool/3-ticks; resting ~3×) so ability resource costs are recoverable. Surfacing the rates as configuration — and the richer model (per-area/terrain rates, stat-derived regen, food/effect interaction, a "fully rested" notification) — is a dedicated regeneration use-case that depends on a more robust configuration model (a separate backlog concern). Until then the constants live isolated in `RegenerationSystem` for a cheap later promotion.
+Slice 11-c ([`../implementation-plans/resource-regeneration.md`](../features/character-stats/character-stats.md)) ships flat, **hardcoded** out-of-combat regeneration (idle 1/pool/3-ticks; resting ~3×) so ability resource costs are recoverable. Surfacing the rates as configuration — and the richer model (per-area/terrain rates, stat-derived regen, food/effect interaction, a "fully rested" notification) — is a dedicated regeneration use-case that depends on a more robust configuration model (a separate backlog concern). Until then the constants live isolated in `RegenerationSystem` for a cheap later promotion.
 
 ### 🔵 Tabular output helper — defer until third consumer
 

@@ -100,5 +100,5 @@ None new. This slice introduces no new event types — the prompt observes by re
 
 - [`subsystems/output.md`](../architecture/subsystems/output.md) · [`subsystems/commands.md`](../architecture/subsystems/commands.md)
 - Flows [3](../architecture/flows/flow-03-player-command-lifecycle.md), [6](../architecture/flows/flow-06-output-rendering.md), [16](../architecture/flows/flow-16-heartbeat-tick.md), [18](../architecture/flows/flow-17-kill-mob-combat-initiation.md)
-- [`entity-state-management.md`](../features/combat/combat.md) · [`stat-resource-substrate.md`](stat-resource-substrate.md)
+- [`entity-state-management.md`](../features/combat/combat.md) · [`stat-resource-substrate.md`](../features/character-stats/character-stats.md)
 - [`feature-horizon.md`](../design/feature-horizon.md) §5 (combat verbosity), §10 (social/channels)

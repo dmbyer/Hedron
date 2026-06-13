@@ -176,8 +176,8 @@ This slice **supersedes** the admin `useability` test command with real player i
 - [`command-prefix-matching.md`](command-prefix-matching.md) — slice 3a; `CommandMatchingMode`, two-phase verb lookup, `IVerbRegistry`, `IArgumentResolver`/`GetCandidates` — the prefix/resolver seams skill-verb fallback and `KnownSpellResolver` extend.
 - [`combat.md`](../features/combat/combat.md) — slice 9; `ICombatSystem`/`CombatStateComponent`/`IStatSystem.GetEffectiveDefense`/`CombatStartedEvent` — the combat surfaces this slice composes; discharges its deferred `MobInRoomResolver` extraction.
 - [`effect-substrate.md`](../features/effects/effects.md) — S2; `IEffectSystem.Apply` (non-offensive effects) and the Power computation offensive strikes reuse.
-- [`stat-resource-substrate.md`](stat-resource-substrate.md) — S1;; `ResourceType`/pools costs are spent against.
+- [`stat-resource-substrate.md`](../features/character-stats/character-stats.md) — S1;; `ResourceType`/pools costs are spent against.
 - [`../design/gameplay-model.md`](../design/gameplay-model.md) — Spine B (Ability); "skill = run like a command; spell = `cast <name>`", worked examples.
-- **Next:** [`resource-regeneration.md`](resource-regeneration.md) — **11-c**; resource pool regeneration + `rest` (the third cluster-11 sub-slice).
+- **Next:** [`resource-regeneration.md`](../features/character-stats/character-stats.md) — **11-c**; resource pool regeneration + `rest` (the third cluster-11 sub-slice).
 
 For the slice queue, see [`../roadmap/plan.md`](../roadmap/plan.md).

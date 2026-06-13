@@ -98,7 +98,7 @@ base (primary/pool) or run the derive function (derived) → sum every `StatModi
 is that `ScoreId` → apply aspect adjustments.
 
 This is **partly built already**: `IStatSystem.GetEffectiveAttackPower = strength/2 + weaponBonus`
-([stat-system.md](../implementation-plans/stat-system.md)) is one derived score; `AttributesComponent` holds
+([stat-system.md](../features/character-stats/character-stats.md)) is one derived score; `AttributesComponent` holds
 primaries; `PoolsComponent` holds pools. The model generalizes "one hardcoded derived stat" into
 "any `ScoreId` with a registered derive function." Strength is a *primary*, Damage and Speed are
 *derived*, HP is a *pool* — all addressed by `IStatSystem`, all modifiable by the one
@@ -347,7 +347,7 @@ change), never a new layer of indirection.
 orders, queries, and ticks effects without knowing what any effect *means* (this matches the
 planned [`IEffectTracker`](../reference/systems-planned.md): "Doesn't know what effects *mean* —
 only tracks presence and duration"). `StatModifier` effects are summed at read time by the stat
-pipeline ([`IStatSystem`](../implementation-plans/stat-system.md), already built — extend it to fold effects
+pipeline ([`IStatSystem`](../features/character-stats/character-stats.md), already built — extend it to fold effects
 + aspect scores). `Periodic`/`Trigger` effects are processed on the heartbeat
 ([`IHeartbeatService`](../implementation-plans/time-system.md), already built).
 
@@ -603,7 +603,7 @@ sub-points carry **provisional defaults** — confirm before the Effect slice is
 
 - [`../architecture/02-ecs.md`](../architecture/02-ecs.md) — computed-stats + two-level effect
   persistence this model extends.
-- [`../implementation-plans/stat-system.md`](../implementation-plans/stat-system.md) — the built `IStatSystem` read
+- [`../implementation-plans/stat-system.md`](../features/character-stats/character-stats.md) — the built `IStatSystem` read
   seam that folds in effects + aspect scores.
 - [`../implementation-plans/combat.md`](../features/combat/combat.md) / [`../implementation-plans/time-system.md`](../implementation-plans/time-system.md)
   — built consumers (combat tick, heartbeat) of Aspect + Effect.

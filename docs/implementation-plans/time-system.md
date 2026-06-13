@@ -89,8 +89,8 @@ Respawn timers, buff expiry, shop restocking — all would subscribe to `Heartbe
 
 - [`combat.md`](../features/combat/combat.md) — slice 9 (blocked on this slice); first consumer of `HeartbeatTickEvent`
 - [`entity-state-management.md`](../features/combat/combat.md) — slice 9-a (parallel prerequisite)
-- [`stat-system.md`](stat-system.md) — slice 9-c (parallel prerequisite)
-- [`attributes.md`](attributes.md) — slice 8a; establishes `PoolsComponent` that combat reads
+- [`stat-system.md`](../features/character-stats/character-stats.md) — slice 9-c (parallel prerequisite)
+- [`attributes.md`](../features/character-stats/character-stats.md) — slice 8a; establishes `PoolsComponent` that combat reads
 - [`mobs.md`](mobs.md) — slice 8; mob AI future consumers will subscribe to `HeartbeatTickEvent`
 - [`persistence-substrate.md`](persistence-substrate.md) — `PersistenceFlushTimer` is the existing `PeriodicTimer`-based `BackgroundService` this slice mirrors
 - [`docs/roadmap/backlog.md`](../roadmap/backlog.md) — thread-safety review entry covers the event bus under concurrent ticks

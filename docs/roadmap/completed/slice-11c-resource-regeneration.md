@@ -1,6 +1,6 @@
 # Phase 3 Slice 11-c — Resource Regeneration + `rest`
 
-**PR:** (this branch) · **Spec:** [`../../implementation-plans/resource-regeneration.md`](../../implementation-plans/resource-regeneration.md)
+**Living design:** [`../../features/character-stats/regeneration-system.md`](../../features/character-stats/regeneration-system.md)
 
 ## Outcome
 

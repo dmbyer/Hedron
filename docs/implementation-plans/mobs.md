@@ -99,6 +99,6 @@ This slice is **deliberately narrow**: no combat, no loot, no dialogue, no wande
 - [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) — slice 2; `ITemplateDeserializer` pattern and `WorldContentLoader` extension points.
 - [`persistence-two-level-model.md`](persistence-two-level-model.md) — slice 5b; `[Persistent]` + `PersistentEntity` model that mobs follow.
 - [`output-framework.md`](output-framework.md) — slice 4; `RoomDescriptionMessage` extended here with a `Mobs` field.
-- [`attributes.md`](attributes.md) — slice 8a (follows this slice); extends `MobTemplate` with `Level`, `MaxHp`, and base stats.
+- [`attributes.md`](../features/character-stats/character-stats.md) — slice 8a (follows this slice); extends `MobTemplate` with `Level`, `MaxHp`, and base stats.
 
 For the slice queue, see [`../roadmap/plan.md`](../roadmap/plan.md).

@@ -109,4 +109,4 @@ The seam is **dependency inversion**: a core-owned port `IEffectContributor`, DI
 - [`../../design/gameplay-model.md`](../../design/gameplay-model.md) — Spine C, R5 (stacking/Power), R6 (lifetimes); the upstream design.
 - [`../../reference/systems.md`](../../reference/systems.md) · [`../../reference/components.md`](../../reference/components.md) — `EffectSystem` / `EffectsComponent` catalog rows.
 - [`../../roadmap/completed/slice-9e-effect-substrate.md`](../../roadmap/completed/slice-9e-effect-substrate.md) — the as-built record and decision history.
-- The stat pipeline that folds `GetModifiers` — `IStatSystem` in [`../../reference/systems.md`](../../reference/systems.md) (its system doc lands when `character-stats/` migrates).
+- The stat pipeline that folds `GetModifiers` — [`../character-stats/stat-system.md`](../character-stats/stat-system.md) for the full `IStatSystem` design; [`../../reference/systems.md`](../../reference/systems.md) for the catalog row.

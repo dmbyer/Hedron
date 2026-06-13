@@ -451,44 +451,10 @@ public interface IAdminAuthorizer
 **Layered authorization model.** Bootstrap layer (slice 2): reads `Admin:PrivilegedNames` (string array) from `IConfiguration` and matches against the player's `PlayerComponent.DisplayName`. Persisted layer (deferred — see [`../implementation-plans/admin-privilege-elevation.md`](../implementation-plans/admin-privilege-elevation.md)): an `AdminPrivilegeComponent` (`[Persistent]`) on a player entity also grants admin rights. Settings is the floor — anyone in `Admin:PrivilegedNames` is always admin even without the component. Implemented (Phase 3 slice 2; component layer deferred).
 
 ### AttributeSystem
-**Purpose:** Read/write seam for `AttributesComponent` and `PoolsComponent`. Getters are the surface the combat slice will call; setters serve the admin and initialization paths. Never touches the event bus or persistence (INV-5).
+**Purpose:** Read/write seam for `AttributesComponent` and `PoolsComponent`. Getters are the surface the combat slice and stat system call; setters serve the admin and initialization paths. All setters enforce `[0, max]` clamp invariants (INV-8). Never touches the event bus or persistence (INV-5).
 **Location:** `Core/Modules/Attributes/Systems/AttributeSystem.cs`
 **Dependencies:** `EntityService`.
-```csharp
-public interface IAttributeSystem
-{
-    int GetLevel(uint entityId);
-    int GetMind(uint entityId);
-    int GetBody(uint entityId);
-    int GetSpirit(uint entityId);
-    int GetAttunement(uint entityId);
-    int GetMaxHp(uint entityId);
-    int GetCurrentHp(uint entityId);
-    int GetMaxMana(uint entityId);
-    int GetCurrentMana(uint entityId);
-    int GetMaxStamina(uint entityId);
-    int GetCurrentStamina(uint entityId);
-    int GetMaxAstra(uint entityId);
-    int GetCurrentAstra(uint entityId);
-
-    void SetLevel(uint entityId, int value);
-    void SetMind(uint entityId, int value);
-    void SetBody(uint entityId, int value);
-    void SetSpirit(uint entityId, int value);
-    void SetAttunement(uint entityId, int value);
-    /// Sets MaxHp and clamps CurrentHp to the new MaxHp if it would exceed it (INV-8).
-    void SetMaxHp(uint entityId, int value);
-    /// Sets CurrentHp, clamped to [0, MaxHp]. Game rule enforced here (INV-8). No events, no persistence (INV-5).
-    void SetCurrentHp(uint entityId, int value);
-    void SetMaxMana(uint entityId, int value);
-    void SetCurrentMana(uint entityId, int value);
-    void SetMaxStamina(uint entityId, int value);
-    void SetCurrentStamina(uint entityId, int value);
-    void SetMaxAstra(uint entityId, int value);
-    void SetCurrentAstra(uint entityId, int value);
-}
-```
-All getters return the default value (Level 1, attributes 10, HP/Mana/Stamina 100/50/50, Astra 10) if the entity lacks the relevant component — safe default for pre-hydration edge cases. `SetCurrentHp` is the write seam the combat slice uses to apply damage; callers pass a raw new value and the clamping invariant is enforced here. Replaced `Strength`/`Dexterity`/`Constitution` with `Mind`/`Body`/`Spirit`/`Attunement` in slice 9-d (WP-1). Added Mana/Stamina/Astra pool getters/setters in the same slice. Implemented (Phase 3 slices 8a, 9-c, 9-d).
+**Interface:** [`IAttributeSystem.cs`](../../Core/Modules/Attributes/Systems/IAttributeSystem.cs) — getters/setters for `Level` + four attributes (`Mind`/`Body`/`Spirit`/`Attunement`) + four pools (current + max for HP/Mana/Stamina/Astra). `SetMaxX` clamps `CurrentX` to the new max; `SetCurrentX` clamps to `[0, MaxX]`. All getters return safe defaults when the entity lacks the component. See [`../features/character-stats/attribute-system.md`](../features/character-stats/attribute-system.md) for the full design. Implemented (Phase 3 slices 8a, 9-c, 9-d).
 
 ### EntityStateService
 **Purpose:** Centralized transition-rule enforcement for entity state flags. Attaches and removes `EntityStateComponent`; validates flag combinations against a static transition table; returns structured failure reasons to callers. Never touches the event bus or persistence (INV-5).
@@ -501,24 +467,7 @@ All getters return the default value (Level 1, attributes 10, HP/Mana/Stamina 10
 **Purpose:** Aggregation seam for effective entity stats. Reads base attributes, equipment bonuses, and active effect modifiers to produce ready-to-use values for the combat slice and future consumers. Never publishes events or calls persistence (INV-5). Adding a new modifier source means extending `StatSystem` methods, not changing the interface.
 **Location:** `Core/Modules/Stats/Systems/StatSystem.cs`
 **Dependencies:** `IAttributeSystem`, `EntityService`.
-```csharp
-public interface IStatSystem
-{
-    int GetEffectiveMind(uint entityId);
-    int GetEffectiveBody(uint entityId);
-    int GetEffectiveSpirit(uint entityId);
-    int GetEffectiveAttunement(uint entityId);
-    /// Body / 2 + MainHand item DamageBonus (0 if no weapon or no bonus).
-    int GetEffectiveAttackPower(uint entityId);
-    /// Body / 4. Armor-slot bonus deferred to a future slice.
-    int GetEffectiveDefense(uint entityId);
-    int GetCurrentHp(uint entityId);
-    int GetMaxHp(uint entityId);
-    /// Generic stat getter by ScoreId — expandable seam for future effect/buff consumers.
-    int Get(uint entityId, ScoreId scoreId);
-}
-```
-`GetEffectiveAttackPower` reads `EquipmentComponent.Slots[WornSlot.MainHand]` via `EntityService.TryGet<EquipmentComponent>` (direct dictionary lookup, not a list scan) then reads `ItemDataComponent.DamageBonus` on the equipped item — no `is`/`as` casts (INV-4). `GetEffectiveDefense` returns `Body / 4`; armor-slot contribution is acknowledged future debt. `Get(uint, ScoreId)` is the expandable enum-keyed seam used by effect/ability consumers; it folds `IEffectSystem.GetModifiers(entityId, scoreId)` into the returned value for `StatModifier`-kind effects. Registered in `StatsModule` (`Core/Modules/Stats/StatsModule.cs`) as a singleton. `IStatRegistry` (singleton, `Core/Modules/Stats/StatRegistry.cs`) records pool governance metadata (Mana↔Mind, Stamina↔Body, Astra↔Attunement). Updated `Strength`/`Dexterity`/`Constitution` references to `Mind`/`Body`/`Spirit`/`Attunement` in slice 9-d. Extended in slice 9-e: `Get` folds `IEffectSystem.GetModifiers`. Implemented (Phase 3 slices 9-c, 9-d, 9-e).
+**Interface:** [`IStatSystem.cs`](../../Core/Modules/Stats/Systems/IStatSystem.cs) — typed effective getters for the four attributes + `GetEffectiveAttackPower` / `GetEffectiveDefense` / `GetCurrentHp` / `GetMaxHp` + the generalized `Get(uint entityId, ScoreId score)` seam. `GetEffectiveAttackPower` reads `EquipmentComponent.Slots[WornSlot.MainHand]` via a direct dictionary lookup — no `is`/`as` casts (INV-4). `GetEffectiveDefense` returns `Body / 4`; armor-slot contribution is acknowledged future debt. `Get` folds `IEffectSystem.GetModifiers` for `StatModifier`-kind effects. `IStatRegistry` (singleton, `Core/Modules/Stats/StatRegistry.cs`) records pool governance metadata (Mana↔Mind, Stamina↔Body, Astra↔Attunement). Registered in `StatsModule` as a singleton. See [`../features/character-stats/stat-system.md`](../features/character-stats/stat-system.md) for the full design. Implemented (Phase 3 slices 9-c, 9-d, 9-e).
 
 ### EffectSystem
 **Purpose:** Core system that manages active effects on entities. Applies/removes individual effects or entire categories; returns active effect lists and per-`ScoreId` stat modifier sums; advances time on each tick, collecting expired and periodic-due effects. Never touches the event bus (INV-5).
@@ -668,9 +617,10 @@ On `HeartbeatTickEvent`: for each slot with `RespawnAt <= UtcNow`, calls `ITempl
 ---
 
 ### RegenerationSystem
-**Purpose:** Applies baseline out-of-combat resource regeneration to all entities with a `PoolsComponent` on each heartbeat tick. State-based rate: `InCombat` → suppressed entirely; `Resting` → `+RegenAmount` every tick; idle (neither) → `+RegenAmount` every `IdleIntervalTicks`-th tick (global `tickId % IdleIntervalTicks` cadence — no per-entity timer needed). Writes deltas through `IAttributeSystem`'s clamped pool setters (HP/Mana/Stamina/Astra). Never publishes events or touches persistence (INV-5). Implemented (slice 11-c).
+**Purpose:** Applies baseline out-of-combat resource regeneration to all entities with a `PoolsComponent` on each heartbeat tick. State-based rate: `InCombat` → suppressed entirely; `Resting` → `+RegenAmount` every tick; idle (neither) → `+RegenAmount` every `IdleIntervalTicks`-th tick (global `tickId % IdleIntervalTicks` cadence — no per-entity timer needed). Writes deltas through `IAttributeSystem`'s clamped pool setters (HP/Mana/Stamina/Astra). Never publishes events or touches persistence (INV-5). See [`../features/character-stats/regeneration-system.md`](../features/character-stats/regeneration-system.md) for the full design. Implemented (slice 11-c).
 **Location:** `Core/Modules/Regeneration/Systems/RegenerationSystem.cs`
 **Dependencies:** `EntityService`, `IEntityStateService`, `IAttributeSystem`.
+**Interface:** [`IRegenerationSystem.cs`](../../Core/Modules/Regeneration/Systems/IRegenerationSystem.cs) — `ApplyTickRegen(long tickId)`.
 **Constants (Category-3):** `RegenAmount = 1`, `IdleIntervalTicks = 3`. Promotion to configuration deferred to the dedicated regeneration use-case.
 ### PromptComposerSystem
 **Purpose:** Domain-aware implementation of `IPromptSource`. Reads entity state and resource pools on each buffer flush to build a fresh `PromptMessage` (compute-on-read — no cache, no dirty flag, no `PromptChangedEvent`). Lives in `Core/Modules/Prompt/` rather than `Core/Output/` because it depends on domain types; it is joined to the core buffer through the core-owned `IPromptSource` port (INV-2, INV-24).
