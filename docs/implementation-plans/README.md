@@ -50,7 +50,7 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 
-> **Legacy implemented plans pending disintegration.** The other ~28 `*.md` files in this folder carry `Status: implemented` — they shipped under the *old* trim-and-keep lifecycle and predate disintegrate-on-ship (`INV-28`). They are the migration backlog: the docs-refinement program (WP-3…N, tracked in [`../roadmap/backlog.md`](../roadmap/backlog.md)) distributes each into its `features/` + `flows/` homes, verifies its `roadmap/completed/` record, then deletes it. They are **not** open work — their behavior is already live and catalogued in `reference/`.
+> The legacy `implemented` plans that predated disintegrate-on-ship have all been disintegrated into the living docs ([`../features/`](../features/), [`../architecture/flows/`](../architecture/flows/), [`../reference/`](../reference/)) and removed — see the completed docs-refinement program in [`../roadmap/backlog.md`](../roadmap/backlog.md). This folder now holds only the in-flight plans listed above.
 
 > See [`../roadmap/plan.md`](../roadmap/plan.md#slice-queue) for the full slice queue and current focus.
 

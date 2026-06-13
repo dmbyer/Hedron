@@ -21,7 +21,7 @@ Holistic, **player-facing** documentation — one folder per capability. A featu
 | [`world/`](world/) | World, Movement, Spawn, Time | world-content, movement-system, spawn-system, area-model, time-system |
 | [`mobs/`](mobs/) | Mobs | mob-system |
 | [`accounts/`](accounts/) | Account, Session, `Core/Sessions/` | account-system, login-flow |
-| [`admin-authoring/`](admin-authoring/) | Admin, Authoring | admin-commands, content-authoring |
+| [`admin-authoring/`](admin-authoring/) | Admin, Authoring | admin-commands, content-authoring, content-tooling |
 | [`communication/`](communication/) | Chat, Help | chat-system, help-system |
 | [`output/`](output/) | Prompt, `Core/Output/` | output-framework, prompt |
 | [`commands/`](commands/) | `Core/Commands/` | command-framework |
