@@ -72,7 +72,7 @@ No new events — prefix resolution is a synchronous in-dispatcher decision.
 
 - [`command-framework.md`](command-framework.md) — slice 3; introduced the framework and explicitly deferred verb-prefix matching, which this slice discharges.
 - [`output-framework.md`](output-framework.md) — slice 4; disambiguation messages use its `PlainMessage`/`IOutputWriter` path.
-- [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) — slice 2; established the four admin commands this slice assigns `Full` mode.
+- [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) — slice 2; established the four admin commands this slice assigns `Full` mode.
 - [`../architecture/subsystems/commands.md`](../architecture/subsystems/commands.md) — the command framework design reference (two-phase lookup, `IVerbRegistry`).
 
 For the slice queue, see [`../roadmap/plan.md`](../roadmap/plan.md).

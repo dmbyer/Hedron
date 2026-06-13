@@ -149,7 +149,7 @@ This slice also reconciles the legacy [`ISkillSystem`](../reference/systems-plan
 - [`effect-substrate.md`](../features/effects/effects.md) — S2; provides `IEffectSystem.Apply`/`GetModifiers`/`GetActive`, `EffectLifetime.WhileKnown` (this slice supplies the deferred S4 derivation), and the `IEffectContributor` fold point.
 - [`stat-resource-substrate.md`](../features/character-stats/character-stats.md) — S1; provides `ResourceType`, the `IAttributeSystem` clamped pool setters costs are spent through, and the `ScoreId` effects target
 - [`combat.md`](../features/combat/combat.md) — context only; 11-a does **not** touch combat (targeting/initiation is 11-b and later).
-- [`time-system.md`](time-system.md) — slice 9-b; `HeartbeatTickEvent` drives the cooldown tick.
+- [`time-system.md`](../features/world/world.md) — slice 9-b; `HeartbeatTickEvent` drives the cooldown tick.
 - [`../architecture/effects.md`](../features/effects/effect-system.md) — effect model design; the `WhileKnown` derivation and `IEffectContributor` seam land notes here on ship.
 - **Next:** `ability-invocation.md` (11-b) — player verb invocation, dynamic verb registration into `IVerbRegistry`, `cast`, state-aware/offensive targeting, combat initiation.
 - **Next:** `resource-regeneration.md` (11-c) — resource pool regeneration + `rest`.

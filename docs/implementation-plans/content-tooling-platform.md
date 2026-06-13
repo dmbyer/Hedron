@@ -36,8 +36,8 @@ Content authoring today is command-driven over telnet: each `mk*`/`set*`/`dig` v
 
 ## Related
 
-- [`admin-area-authoring.md`](admin-area-authoring.md) · [`bare-bones-content-spawning.md`](bare-bones-content-spawning.md) — the builder/writer pattern this platform factors and reuses.
-- [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) — `WorldContentLoader`, `TemplateRegistry`, `content/` layout, the `reload` path.
+- [`admin-area-authoring.md`](admin-area-authoring.md) · [`bare-bones-content-spawning.md`](../features/world/world.md) — the builder/writer pattern this platform factors and reuses.
+- [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) — `WorldContentLoader`, `TemplateRegistry`, `content/` layout, the `reload` path.
 - [`../roadmap/backlog.md`](../roadmap/backlog.md) — "Full-featured content editor (transition from command-driven authoring)" (this brief activates its file-authoring portion); "Web / SignalR dual client" (the deferred player-UI foundation); "Thread-safety review" (the deferred live-edit concurrency work).
 - [`../design/feature-horizon.md`](../design/feature-horizon.md) — "Procedural / generated areas" (`[D, E]`), the gameplay generalization of `IContentGenerationSystem`.
 - [`../architecture/checklist.md`](../architecture/checklist.md) — invariants in tension: INV-8, INV-10, INV-12, INV-15, INV-19, INV-23, INV-26.

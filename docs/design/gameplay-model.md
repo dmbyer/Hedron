@@ -349,7 +349,7 @@ planned [`IEffectTracker`](../reference/systems-planned.md): "Doesn't know what 
 only tracks presence and duration"). `StatModifier` effects are summed at read time by the stat
 pipeline ([`IStatSystem`](../features/character-stats/character-stats.md), already built — extend it to fold effects
 + aspect scores). `Periodic`/`Trigger` effects are processed on the heartbeat
-([`IHeartbeatService`](../implementation-plans/time-system.md), already built).
+([`IHeartbeatService`](../features/world/world.md), already built).
 
 ---
 
@@ -605,7 +605,7 @@ sub-points carry **provisional defaults** — confirm before the Effect slice is
   persistence this model extends.
 - [`../implementation-plans/stat-system.md`](../features/character-stats/character-stats.md) — the built `IStatSystem` read
   seam that folds in effects + aspect scores.
-- [`../implementation-plans/combat.md`](../features/combat/combat.md) / [`../implementation-plans/time-system.md`](../implementation-plans/time-system.md)
+- [`../implementation-plans/combat.md`](../features/combat/combat.md) / [`../implementation-plans/time-system.md`](../features/world/world.md)
   — built consumers (combat tick, heartbeat) of Aspect + Effect.
 - [`../reference/systems-planned.md`](../reference/systems-planned.md) — the idealized
   `EffectTracker` / `SkillSystem` / `SpellSystem` / `AdvancementSystem` / `LootSystem` /

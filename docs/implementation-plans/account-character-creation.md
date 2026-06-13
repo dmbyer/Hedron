@@ -81,7 +81,7 @@ This is the first slice that produces real user-facing `[Persistent]` data. It d
 
 - [`persistence-substrate.md`](persistence-substrate.md) — provides `IPersistenceSystem`, `PersistenceBootstrap`, and the `[Persistent]` mechanism.
 - [`persistence-two-level-model.md`](persistence-two-level-model.md) — the current persistence model that supersedes this doc's slice-5 dirty-set references.
-- [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) — `AdminAuthorizer` checks `PlayerComponent.DisplayName` (set from `CharacterComponent.CharacterName` at bind time).
+- [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) — `AdminAuthorizer` checks `PlayerComponent.DisplayName` (set from `CharacterComponent.CharacterName` at bind time).
 - [`command-framework.md`](command-framework.md) — the `whois` admin command (added this slice) is authored against the framework shape.
 - [`admin-privilege-elevation.md`](admin-privilege-elevation.md) — deferred slice; its precondition "a real player-account / display-name resolution path exists" is satisfied here.
 

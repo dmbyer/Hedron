@@ -74,4 +74,4 @@ sequenceDiagram
 **Cross-references.**
 - [`docs/architecture/05-configuration.md`](../05-configuration.md) — startup-relevant config keys
 - [`docs/reference/systems.md`](../../reference/systems.md) — `PersistenceSystem`, `WorldContentLoader`, `TemplateRegistry`
-- [`docs/implementation-plans/persistence-substrate.md`](../../implementation-plans/persistence-substrate.md), [`docs/implementation-plans/world-content-loading-and-admin-substrate.md`](../../implementation-plans/world-content-loading-and-admin-substrate.md) — slice specs
+- [`docs/implementation-plans/persistence-substrate.md`](../../implementation-plans/persistence-substrate.md), [`docs/implementation-plans/world-content-loading-and-admin-substrate.md`](../../features/world/world.md) — slice specs

@@ -10,7 +10,7 @@
 
 ## Description
 
-Adds a persisted, in-game-grantable layer to the admin authorization model. The bootstrap allowlist (`Admin:PrivilegedNames` in `appsettings.json`) introduced by [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) remains the floor — anyone listed there is always admin. This slice introduces an `AdminPrivilegeComponent` that an existing admin can attach to another player via a new `@grant` (or `@promote`) command. The component is `[Persistent]` so the elevation survives restart. Revocation via `@revoke` is symmetric.
+Adds a persisted, in-game-grantable layer to the admin authorization model. The bootstrap allowlist (`Admin:PrivilegedNames` in `appsettings.json`) introduced by [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) remains the floor — anyone listed there is always admin. This slice introduces an `AdminPrivilegeComponent` that an existing admin can attach to another player via a new `@grant` (or `@promote`) command. The component is `[Persistent]` so the elevation survives restart. Revocation via `@revoke` is symmetric.
 
 This slice is a pure tooling / authorization slice. No new gameplay verbs, no new domain rules.
 
@@ -83,7 +83,7 @@ This slice is a pure tooling / authorization slice. No new gameplay verbs, no ne
 
 ## Related
 
-- [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) — establishes the bootstrap allowlist and `IAdminAuthorizer` seam this slice extends.
+- [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) — establishes the bootstrap allowlist and `IAdminAuthorizer` seam this slice extends.
 - [`persistence-substrate.md`](persistence-substrate.md) — provides the `[Persistent]` mechanism the new component plugs into.
 - `account-character-creation.md` — provides reliable player-name → entity resolution.
 

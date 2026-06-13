@@ -1,6 +1,6 @@
 # Phase 3 slice 2 — World content loading + admin substrate (completed)
 
-> Implemented and merged on `master`. The full feature spec lives in [`../../implementation-plans/world-content-loading-and-admin-substrate.md`](../../implementation-plans/world-content-loading-and-admin-substrate.md). This file records the as-built state and any deviations from the spec.
+> Implemented and merged on `master`. The full feature spec lives in [`../../implementation-plans/world-content-loading-and-admin-substrate.md`](../../features/world/world.md). This file records the as-built state and any deviations from the spec.
 
 ## Outcome
 

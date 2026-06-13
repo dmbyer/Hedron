@@ -16,7 +16,8 @@ Multi-session program restructuring the docs into the feature/system taxonomy, c
   - [x] **combat** (4.6) — `features/combat/` (combat.md + combat-system / death-system / entity-state); flow-17 → Combat journey, flow-20 → Death & respawn journey (18/19/22/23 deleted); reference trimmed; 3 plans deleted.
   - [x] **character-stats** (4.6) — `features/character-stats/` (4 docs; stat-system ← subsystems/stats.md); 4 plans deleted; reference trimmed.
   - [x] **items** (4.6) — `features/items/` (items + item-inventory-system + equipment-system); flow-09 → Items journey, flow-13 → Equipment journey (10/11/14 deleted); 2 plans deleted.
-  - [ ] remaining 9 → 4.6 sub-agents, sequential (world → world → mobs → abilities → aspects → accounts → admin-authoring → output → commands → communication).
+  - [x] **world** (4.6) — `features/world/` (world + world-content/movement/area-model/spawn/time-system; added missing MovementSystem ref row); 4 plans deleted; infra flows kept.
+  - [ ] remaining 8 → 4.6 sub-agents, sequential (mobs → world → mobs → abilities → aspects → accounts → admin-authoring → output → commands → communication).
 - [ ] **WP-Z — Closing sweep.** Delete empty `subsystems/`; `Core/Sessions` reference home; consolidate cross-cutting runtime flows + finalize `flows/README.md`; repo-wide link-integrity pass; final `architecture-reviewer` pass.
 
 ## Phase 4 — Hardening

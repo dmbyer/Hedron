@@ -8,7 +8,7 @@
 
 ## Description
 
-Pure-infrastructure slice that closes the command-framework gap surfaced after [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) merged. The slice-2 `ICommand` shape (`ExecuteAsync(ISession, string)`) forced every command author to roll their own argument parsing, privilege gate, and help-text wording, with no `help`/`commands` index.
+Pure-infrastructure slice that closes the command-framework gap surfaced after [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) merged. The slice-2 `ICommand` shape (`ExecuteAsync(ISession, string)`) forced every command author to roll their own argument parsing, privilege gate, and help-text wording, with no `help`/`commands` index.
 
 This slice introduces a first-class **command framework**:
 
@@ -84,7 +84,7 @@ It also lands the **bare-minimum output seam** (`IOutputMessage`, `PlainMessage`
 
 ## Related
 
-- [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) — slice 2; established the four admin commands and the convention-only privilege check this slice replaces.
+- [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) — slice 2; established the four admin commands and the convention-only privilege check this slice replaces.
 - [`output-framework.md`](output-framework.md) — slice 4; consumes the minimal output seam shaped here and replaces the stringify-and-forward writer.
 - [`command-prefix-matching.md`](command-prefix-matching.md) — slice 3a; adds verb-prefix resolution deferred here.
 - [`persistence-substrate.md`](persistence-substrate.md) — slice 1; precedent for a pure-infrastructure slice.

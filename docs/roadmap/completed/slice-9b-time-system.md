@@ -1,6 +1,6 @@
 # Phase 3 slice 9-b — Time system (heartbeat) (completed)
 
-> Implemented on branch `claude/naughty-bouman-f9ca54`. Full feature spec: [`../../implementation-plans/time-system.md`](../../implementation-plans/time-system.md).
+> Implemented on branch `claude/naughty-bouman-f9ca54`. Full feature spec: [`../../implementation-plans/time-system.md`](../../features/world/world.md).
 
 ## Outcome
 

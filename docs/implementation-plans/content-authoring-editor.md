@@ -95,7 +95,7 @@ No events from `IContentDefinitionCatalog` or `IContentValidator` (domain system
 
 - [`content-tooling-platform.md`](content-tooling-platform.md) — the platform brief this track (T2) implements; owns the durable seam rationale and the resolved-decisions intake. The sibling T1 (bulk generation) is the other track over the same catalog/validator seams.
 - [`admin-area-authoring.md`](admin-area-authoring.md) — `IAreaBuilderSystem`/`AreaBuilderSystem` (the fused builder this slice factors the template-half out of) and `IAreaContentWriter` (reused write-half).
-- [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) — `WorldContentLoader`, `ITemplateRegistry`, `IContentSerializer`, the `content/` layout, and the `reload` path the apply action reuses.
-- [`bare-bones-content-spawning.md`](bare-bones-content-spawning.md) — the builder/writer pattern across rooms/items the catalog generalizes.
+- [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) — `WorldContentLoader`, `ITemplateRegistry`, `IContentSerializer`, the `content/` layout, and the `reload` path the apply action reuses.
+- [`bare-bones-content-spawning.md`](../features/world/world.md) — the builder/writer pattern across rooms/items the catalog generalizes.
 - [`../roadmap/backlog.md`](../roadmap/backlog.md) — "Full-featured content editor" (this slice activates its offline-authoring portion); "Web / SignalR dual client" (the deferred player-UI foundation this host seeds); "Thread-safety review" (the deferred live-edit concurrency work); **new:** "Web auth before non-local bind".
 - [`../architecture/checklist.md`](../architecture/checklist.md) — invariants in tension: INV-5, INV-8, INV-12, INV-15, INV-18, INV-19, INV-23, INV-25.

@@ -77,7 +77,7 @@ This slice fires **no new events**. Output rendering is a synchronous transform 
 ## Related
 
 - [`command-framework.md`](command-framework.md) — slice 3; shipped the minimal output seam and owed-stub list this slice discharges.
-- [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) — slice 2; established `IBroadcastSystem` with the single-mode `excludeEntityId` shape this slice generalizes.
+- [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) — slice 2; established `IBroadcastSystem` with the single-mode `excludeEntityId` shape this slice generalizes.
 - [`persistence-substrate.md`](persistence-substrate.md) — slice 1; precedent for a pure-infrastructure slice.
 - [`../architecture/subsystems/output.md`](../architecture/subsystems/output.md) — the output framework design reference (palette, inline-marker syntax, broadcast model).
 

@@ -1,6 +1,6 @@
 # Phase 3 slice 5a — Bare-bones content spawning (completed)
 
-> Implemented on branch `claude/hardcore-hopper-4eac0d`. Full feature spec: [`../../implementation-plans/bare-bones-content-spawning.md`](../../implementation-plans/bare-bones-content-spawning.md).
+> Implemented on branch `claude/hardcore-hopper-4eac0d`. Full feature spec: [`../../implementation-plans/bare-bones-content-spawning.md`](../../features/world/world.md).
 
 ## Outcome
 

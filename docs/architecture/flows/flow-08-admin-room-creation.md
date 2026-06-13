@@ -59,4 +59,4 @@ sequenceDiagram
 - [`Core/Modules/Admin/Commands/DigCommand.cs`](../../../Core/Modules/Admin/Commands/DigCommand.cs), [`Core/Modules/Admin/Systems/RoomBuilderSystem.cs`](../../../Core/Modules/Admin/Systems/RoomBuilderSystem.cs)
 - [`Core/Modules/Admin/Events/RoomCreatedByAdminEvent.cs`](../../../Core/Modules/Admin/Events/RoomCreatedByAdminEvent.cs)
 - [`Core/Modules/Admin/Handlers/AdminAuditHandler.cs`](../../../Core/Modules/Admin/Handlers/AdminAuditHandler.cs)
-- [`docs/implementation-plans/bare-bones-content-spawning.md`](../../implementation-plans/bare-bones-content-spawning.md)
+- [`docs/implementation-plans/bare-bones-content-spawning.md`](../../features/world/world.md)

@@ -1,6 +1,6 @@
 # Phase 3 — Area Model + Room–Area Membership
 
-**PR:** (this branch) · **Spec:** [`../../implementation-plans/area-model.md`](../../implementation-plans/area-model.md)
+**PR:** (this branch) · **Spec:** [`../../implementation-plans/area-model.md`](../../features/world/world.md)
 
 ## Outcome
 

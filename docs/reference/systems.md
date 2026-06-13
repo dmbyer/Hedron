@@ -222,71 +222,33 @@ public interface IClock
 **Purpose:** Scans the configured content directory, registers authored YAML templates with `ITemplateRegistry`, and fresh-spawns room/area/item/mob entities on every startup. Wraps `LoadAndSpawnAsync` in a hosted-service shell (`Server/WorldContentBootstrap`) to enforce startup ordering after `PersistenceBootstrap`.
 **Location:** `Core/Modules/World/Systems/WorldContentLoader.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`, `IContentSerializer`, `WorldConfiguration`, `IConfiguration`, `ILogger`.
-```csharp
-public interface IWorldContentLoader
-{
-    Task LoadAndSpawnAsync(CancellationToken ct = default);
-    Task<ContentReloadResult> ReloadAsync(CancellationToken ct = default);
-}
-
-public readonly record struct ContentReloadResult(
-    int TemplatesLoaded, int TemplatesUnchanged, int TemplatesRemoved);
-```
-Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). No `PersistentEntity` is added to any world-content entity (rooms, areas, items, mobs) — the YAML file is the sole durable state. `SpawnMissingEntities` skips blueprints already represented by a live entity (correct for `@reload`; no-op at cold start). Both `LocationComponent` fields (`RoomEntityId` + `RoomBlueprintId`) are set when placing items and mobs. `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Implemented (Phase 3 slices 2, persistence-reform-stage-b, 8).
+**Interface:** [`IWorldContentLoader.cs`](../../Core/Modules/World/Systems/IWorldContentLoader.cs) — `LoadAndSpawnAsync` / `ReloadAsync(→ ContentReloadResult)`. Pure: returns results; never touches the event bus (INV-5); callers publish `ContentReloadedEvent`.
+Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). No `PersistentEntity` is added to any world-content entity — the YAML file is the sole durable state. `SpawnMissingEntities` skips blueprints already represented by a live entity. `ReloadAsync` is **additive only**. See [`../features/world/world-content.md`](../features/world/world-content.md) for the full startup-phase sequence and content file shape. Implemented (Phase 3 slices 2, persistence-reform-stage-b, 8).
 
 ### AreaSystem
 **Purpose:** Domain system for area–room membership queries and mutation. Provides `GetRoomsInArea`, `GetAreaForRoom`, and `AssignRoomToArea`. All operations are pure ECS mutations; no event publication (INV-5). `AssignRoomToArea` sets `RoomComponent.AreaEntityId` on the live entity and mirrors `areaBlueprintId` to `RoomTemplate.AreaId` in the template registry so the assignment survives `@reload`.
 **Location:** `Core/Modules/World/Systems/AreaSystem.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`.
-```csharp
-public interface IAreaSystem
-{
-    IReadOnlyList<uint> GetRoomsInArea(uint areaEntityId);
-    uint? GetAreaForRoom(uint roomEntityId);
-    void AssignRoomToArea(uint roomEntityId, uint areaEntityId, string areaBlueprintId);
-}
-```
-Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RoomBuilderSystem` (when creating a room with an area) and `DigCommand` (inheriting the source room's area). Implemented (Phase 3, area-model WP-1).
+**Interface:** [`IAreaSystem.cs`](../../Core/Modules/World/Systems/IAreaSystem.cs) — `GetRoomsInArea` / `GetAreaForRoom` / `AssignRoomToArea`. Pure ECS mutations; no event bus (INV-5). See [`../features/world/area-model.md`](../features/world/area-model.md) for the bidirectional membership model, persistence rules ([INV-23](../architecture/checklist.md)), and area aspect affinities design.
+Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RoomBuilderSystem` and `DigCommand`. Implemented (Phase 3, area-model WP-1).
 
 ### IAreaContentWriter
 **Purpose:** Serializes an `AreaTemplate` to YAML at `{contentDirectory}/areas/{blueprintId}.yaml` using an atomic write (tmp → rename). Symmetric write path for `AreaTemplateDeserializer`. Called by admin commands that create area blueprint definitions.
 **Location:** `Core/Modules/World/Systems/IAreaContentWriter.cs` (interface) · `Core/Modules/World/Systems/AreaContentWriter.cs` (implementation)
 **Dependencies:** `IConfiguration`.
-```csharp
-public interface IAreaContentWriter
-{
-    Task WriteAsync(AreaTemplate template, CancellationToken ct = default);
-}
-```
-Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `MkareaCommand` after `IAreaBuilderSystem.CreateArea` returns (INV-5: the system never calls persistence). Implemented (Phase 3 admin-area-authoring WP-1).
+**Interface:** [`IAreaContentWriter.cs`](../../Core/Modules/World/Systems/IAreaContentWriter.cs) — `WriteAsync(AreaTemplate, CancellationToken)`. Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `MkareaCommand` after `IAreaBuilderSystem.CreateArea` returns (INV-5: the system never calls persistence). Implemented (Phase 3 admin-area-authoring WP-1).
 
 ### IContentValidator
-**Purpose:** On-demand content validator, factored out of `RegistryValidationBootstrap` so the same referential-integrity rules run in two call modes. `ValidateRegistry(startingAbilityIds)` is the whole-registry sweep (ability→effect/aspect cross-refs, aspect-composition normalization, starting-ability cross-refs, live area-entity affinity normalization) used by the boot bootstrap. `Validate(IEntityTemplate)` is the single in-memory definition check (area aspect-composition normalization) used by the authoring editor per edit and the bulk generator pre-write. Returns a structured `ValidationReport` and **never throws** (INV-5) — the host decides fail-fast policy. Domain-tier: reads the ability/aspect/effect registries (domain→domain, INV-1).
+**Purpose:** On-demand content validator, factored out of `RegistryValidationBootstrap` so the same referential-integrity rules run in two call modes. `ValidateRegistry` is the whole-registry sweep (ability→effect/aspect cross-refs, aspect-composition normalization, starting-ability cross-refs, live area-entity affinity normalization) used at boot. `Validate(IEntityTemplate)` is the single in-memory definition check used by the authoring editor per edit and the bulk generator pre-write. Returns a structured `ValidationReport` and **never throws** (INV-5) — the host decides fail-fast policy.
 **Location:** `Core/Modules/World/Systems/IContentValidator.cs` (interface) · `ContentValidator.cs` (implementation) · `ValidationReport.cs`
 **Dependencies:** `IAbilityRegistry`, `IEffectRegistry`, `IAspectRegistry`, `EntityService`.
-```csharp
-public interface IContentValidator
-{
-    ValidationReport ValidateRegistry(IReadOnlyCollection<string> startingAbilityIds);
-    ValidationReport Validate(IEntityTemplate template);
-}
-```
-Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RegistryValidationBootstrap` (boot) and `IContentDefinitionCatalog.SaveAsync` (per-edit). Implemented (Phase 3 content-tooling WP-1, shared prerequisite for both tracks).
+**Interface:** [`IContentValidator.cs`](../../Core/Modules/World/Systems/IContentValidator.cs) — `ValidateRegistry(startingAbilityIds)` / `Validate(IEntityTemplate)`. Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RegistryValidationBootstrap` (boot) and `IContentDefinitionCatalog.SaveAsync` (per-edit). Implemented (Phase 3 content-tooling WP-1).
 
 ### IContentDefinitionCatalog (Authoring module)
-**Purpose:** The shared content-definition layer both content-tooling tracks call — the offline Blazor editor and the headless bulk generator. Reads/lists/loads/creates/validates/writes the YAML content-definition families (area, room, item, mob) over the existing per-kind content writers + serializer + `IContentValidator`. Dispatches per-kind specifics (which writer, which template) internally by `ContentKind`. **Writes YAML only** — never creates a live entity, adds `PersistentEntity`, or calls `SaveEntityAsync` (INV-12/22/23); applying content to the live world is a separate `reload` step. `SaveAsync` validates before writing and refuses to write an invalid definition. `CreateNew` mints an ad-hoc blueprint id (via `AdhocBlueprintId`) without touching the registry or the world.
-**Location:** `Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs` (interface) · `ContentDefinitionCatalog.cs` (implementation); DTOs `ContentDefinition`/`ContentSummary`/`ContentWriteResult`/`ContentKind` and helper `AdhocBlueprintId` under `Core/Modules/Authoring/`.
-**Dependencies:** `IContentSerializer`, `IContentValidator`, `ITemplateRegistry`, `IAreaContentWriter`, `IRoomContentWriter`, `IItemContentWriter`, `IMobContentWriter`, `IOptions<WorldOptions>`, `ILogger`.
-```csharp
-public interface IContentDefinitionCatalog
-{
-    IReadOnlyList<ContentSummary> List(ContentKind kind);
-    ContentDefinition? Load(ContentKind kind, string blueprintId);
-    Task<ContentWriteResult> SaveAsync(ContentDefinition definition, CancellationToken ct = default);
-    ContentDefinition CreateNew(ContentKind kind, string name);
-}
-```
-Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling WP-1). The Blazor host (WP-2) and the bulk-generation system are thin callers.
+**Purpose:** The shared content-definition layer both content-tooling tracks call — the offline Blazor editor and the headless bulk generator. Reads/lists/loads/creates/validates/writes the YAML content-definition families (area, room, item, mob). **Writes YAML only** — never creates a live entity, adds `PersistentEntity`, or calls `SaveEntityAsync` ([INV-12](../architecture/checklist.md)/[INV-23](../architecture/checklist.md)); applying content to the live world is a separate `reload` step. `SaveAsync` validates before writing. `CreateNew` mints an ad-hoc blueprint id without touching the registry or the world.
+**Location:** `Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs` (interface) · `ContentDefinitionCatalog.cs` (implementation).
+**Dependencies:** `IContentSerializer`, `IContentValidator`, `ITemplateRegistry`, per-kind content writers, `IOptions<WorldOptions>`, `ILogger`.
+**Interface:** [`IContentDefinitionCatalog.cs`](../../Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs) — `List` / `Load` / `SaveAsync` / `CreateNew`. Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling WP-1). The Blazor host (WP-2) and the bulk-generation system are thin callers.
 
 ### IContentGenerationSystem (Authoring module)
 **Purpose:** Headless bulk content generator (content-tooling track T1). Composes the four existing per-kind content writers + `*Template` types to emit a connected, walkable swath of world-content YAML from a `GenerationProfile` (area count, rooms-per-area range, level range, mob/item density, aspect mix, scaling curve, seed, blueprint prefix). Each area's rooms are wired into an east/west chain and consecutive areas are joined up/down, so the generated world is one reachable graph (Resolved Decision 3). All randomness flows through a per-run `SeededRandom` constructed from `profile.Seed`, and blueprint ids are derived deterministically from `prefix + a per-kind counter` (never `Guid`), so a fixed-seed run is byte-reproducible within a runtime image (INV-26). **Writes YAML only** — creates no live entities, registers nothing in `TemplateRegistry`, never calls persistence (INV-12/22/23). **Returns a `GenerationResult`; never publishes** (INV-5); validation is the caller's (run-mode's) concern.
@@ -351,6 +313,12 @@ public readonly record struct AreaCreationResult(
     AreaTemplate Template);
 ```
 `CreateArea` generates a unique blueprint id (`area.adhoc.<8-char-base36>`), creates the entity, attaches `AreaComponent` + `BlueprintComponent` (no `PersistentEntity`), and registers a minimal `AreaTemplate` (empty description, RespawnRate=0, Pvp=false). The `MkareaCommand` initiator writes YAML after this method returns (INV-5). Implemented (Phase 3 admin-area-authoring WP-2).
+
+### MovementSystem
+**Purpose:** Domain system that resolves a direction to a room exit, validates the move, and updates `LocationComponent`. Returns `MoveResult`; never publishes events or calls persistence (INV-5). `MoveCommand` is the Initiator that calls it and publishes `PlayerMovedEvent`.
+**Location:** `Core/Modules/Movement/Systems/MovementSystem.cs`
+**Dependencies:** `EntityService`.
+**Interface:** [`IMovementSystem.cs`](../../Core/Modules/Movement/Systems/IMovementSystem.cs) — `TryMove(playerEntityId, direction) → MoveResult`. See [`../features/world/movement-system.md`](../features/world/movement-system.md) for the move-resolution steps and extension points. Implemented (Phase 3 slice 2+).
 
 ### ItemSystem
 **Purpose:** Query and mutation operations on item entities — finds items in a room or inventory by entity id, prefix-matches a token against item names and keywords, and moves items between ground and inventory. Mutation methods are pure ECS mutations; no event publication, no persistence calls.
@@ -563,20 +531,10 @@ Registered as a singleton in `CombatModule`. **Not yet wired to any command argu
 ---
 
 ### SpawnSystem
-**Purpose:** Tracks spawn slot occupancy for world-content entities (mobs, world-spawn items) and schedules respawns. Self-initializes from the live entity graph on `WorldContentReadyEvent`; reacts to `MobDiedEvent` and `ItemPickedUpEvent` to mark slots vacant; respawns on `HeartbeatTickEvent`. No events published; no persistence (INV-5, INV-8). Implemented (persistence reform Stage C).
+**Purpose:** Tracks spawn slot occupancy for world-content entities (mobs, world-spawn items) and schedules respawns. Self-initializes from the live entity graph on `WorldContentReadyEvent`; reacts to `MobDiedEvent` and `ItemPickedUpEvent` to mark slots vacant; respawns on `HeartbeatTickEvent`. No events published; no persistence (INV-5, INV-8).
 **Location:** `Core/Modules/Spawn/Systems/SpawnSystem.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<SpawnSystem>`.
-**Subscribes to:** `WorldContentReadyEvent` (priority 80), `MobDiedEvent` (priority 20), `ItemPickedUpEvent` (priority 20), `HeartbeatTickEvent` (priority 95).
-
-Internal state:
-- `_slots: Dictionary<(roomEntityId, blueprintId), SlotState>` — slot registry; keyed by the owning room entity and the mob/item blueprint ID.
-- `_entityToSlot: Dictionary<entityId, (roomEntityId, blueprintId)>` — reverse map for O(1) vacancy marking on death/pickup events.
-
-On `WorldContentReadyEvent`: iterates all entities with `SpawnConfigComponent`; for each spawn rule, finds any live entity in that room with the matching blueprint ID and registers it in the tracker. Slots with no live entity get `RespawnAt = now + delay` for immediate respawn on the first heartbeat.
-
-On `MobDiedEvent` / `ItemPickedUpEvent`: removes the entity from the reverse map, sets `SlotState.LiveEntityId = null` and `SlotState.RespawnAt = now + RespawnDelaySeconds`.
-
-On `HeartbeatTickEvent`: for each slot with `RespawnAt <= UtcNow`, calls `ITemplateRegistry.Spawn(blueprintId)`, attaches `LocationComponent`, and updates the tracker.
+**Interface:** [`ISpawnSystem.cs`](../../Core/Modules/Spawn/Systems/ISpawnSystem.cs) — currently empty (all coordination via event subscriptions). See [`../features/world/spawn-system.md`](../features/world/spawn-system.md) for the slot model, event subscription table, and respawn execution. Implemented (persistence reform Stage C).
 
 ---
 
@@ -617,5 +575,5 @@ Initiators drive the tick loop or startup; they are not "systems" in the domain-
 **Location:** `Server/HeartbeatBackgroundService.cs` (service) · `Core/Modules/Time/Events/HeartbeatTickEvent.cs` (event) · `Core/Modules/Time/TimeModule.cs` (DI module)
 **Dependencies:** `IEventBus`, `IConfiguration`, `ILogger<HeartbeatBackgroundService>`.
 **Configuration:** `Heartbeat:IntervalMs` (Category 1 operational key, default 2000). `TickId` starts at 1; `TickId = 0` is an unambiguous "no tick has fired" sentinel.
-**Startup ordering:** Registered last in the hosted-service queue (after `TelnetServer`) so the first tick cannot land before the world is fully seeded. `PeriodicTimer` does not drift on handler overrun — if a tick's handlers exceed the interval, the next tick fires immediately after completion.
+**Startup ordering:** Registered last in the hosted-service queue (after `TelnetServer`) so the first tick cannot land before the world is fully seeded. `PeriodicTimer` does not drift on handler overrun. See [`../features/world/time-system.md`](../features/world/time-system.md) for the full tick loop design, handler priority table, and thread-safety acknowledgment.
 Implemented (Phase 3 slice 9-b).

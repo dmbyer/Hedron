@@ -86,8 +86,8 @@ A developer needs to assemble large swaths of areas/rooms/items/mobs to deeply t
 
 - [`content-tooling-platform.md`](content-tooling-platform.md) — the architecture-advisor platform brief this slice (T1) extends; owns the shared seam rationale, family disposition, and resolved decisions. The Blazor authoring track (T2) and the shared `IContentValidator` live there.
 - [`admin-area-authoring.md`](admin-area-authoring.md) — `IAreaBuilderSystem` + `IAreaContentWriter`; the builder/writer pattern this slice composes (the *writer* half).
-- [`bare-bones-content-spawning.md`](bare-bones-content-spawning.md) — `IRoomBuilderSystem` / `IRoomContentWriter` patterns.
-- [`world-content-loading-and-admin-substrate.md`](world-content-loading-and-admin-substrate.md) — `WorldContentLoader`, `TemplateRegistry`, the `reload` path that applies generated content to a live world (out of scope here).
+- [`bare-bones-content-spawning.md`](../features/world/world.md) — `IRoomBuilderSystem` / `IRoomContentWriter` patterns.
+- [`world-content-loading-and-admin-substrate.md`](../features/world/world.md) — `WorldContentLoader`, `TemplateRegistry`, the `reload` path that applies generated content to a live world (out of scope here).
 - [`../design/feature-horizon.md`](../design/feature-horizon.md) — "Procedural / generated areas" (`[D, E]`), the gameplay generalization of `IContentGenerationSystem`.
 - [`../architecture/checklist.md`](../architecture/checklist.md) — invariants cited: INV-5, INV-8, INV-10, INV-12, INV-15, INV-18, INV-19, INV-23, INV-25, INV-26.
 
