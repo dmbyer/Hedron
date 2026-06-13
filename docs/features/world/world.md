@@ -43,7 +43,7 @@ The room-to-area relationship uses a **bidirectional via component field + scan*
 - [Content reload (flow-05)](../../architecture/flows/flow-05-content-reload.md) — `reload` re-scans content and seeds missing entities. Cross-cutting infra; world links it.
 - [Heartbeat tick (flow-16)](../../architecture/flows/flow-16-heartbeat-tick.md) — the tick loop that drives combat, effects, spawn, and regen. Cross-cutting infra; world links it.
 - [Admin room creation (flow-08)](../../architecture/flows/flow-08-admin-room-creation.md) — `dig` + `set` runtime room authoring.
-- [Admin area creation (flow-27)](../../architecture/flows/flow-27-admin-area-creation.md) — `mkarea` runtime area authoring.
+- [Admin authoring journey (flow-08)](../../architecture/flows/flow-08-admin-room-creation.md) — `dig`/`mkarea`/`mkitem`/`mkmob`/`set`/`list` builder verbs.
 
 ## Related
 

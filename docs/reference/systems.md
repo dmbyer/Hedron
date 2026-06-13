@@ -248,7 +248,7 @@ Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RoomBuil
 **Purpose:** The shared content-definition layer both content-tooling tracks call — the offline Blazor editor and the headless bulk generator. Reads/lists/loads/creates/validates/writes the YAML content-definition families (area, room, item, mob). **Writes YAML only** — never creates a live entity, adds `PersistentEntity`, or calls `SaveEntityAsync` ([INV-12](../architecture/checklist.md)/[INV-23](../architecture/checklist.md)); applying content to the live world is a separate `reload` step. `SaveAsync` validates before writing. `CreateNew` mints an ad-hoc blueprint id without touching the registry or the world.
 **Location:** `Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs` (interface) · `ContentDefinitionCatalog.cs` (implementation).
 **Dependencies:** `IContentSerializer`, `IContentValidator`, `ITemplateRegistry`, per-kind content writers, `IOptions<WorldOptions>`, `ILogger`.
-**Interface:** [`IContentDefinitionCatalog.cs`](../../Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs) — `List` / `Load` / `SaveAsync` / `CreateNew`. Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling WP-1). The Blazor host (WP-2) and the bulk-generation system are thin callers.
+**Interface:** [`IContentDefinitionCatalog.cs`](../../Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs) — `List` / `Load` / `SaveAsync` / `CreateNew`. Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling WP-1). The Blazor host (WP-2) and the bulk-generation system are thin callers. See [`../features/admin-authoring/content-tooling.md`](../features/admin-authoring/content-tooling.md) for the full design.
 
 ### IContentGenerationSystem (Authoring module)
 **Purpose:** Headless bulk content generator (content-tooling track T1). Composes the four existing per-kind content writers + `*Template` types to emit a connected, walkable swath of world-content YAML from a `GenerationProfile` (area count, rooms-per-area range, level range, mob/item density, aspect mix, scaling curve, seed, blueprint prefix). Each area's rooms are wired into an east/west chain and consecutive areas are joined up/down, so the generated world is one reachable graph (Resolved Decision 3). All randomness flows through a per-run `SeededRandom` constructed from `profile.Seed`, and blueprint ids are derived deterministically from `prefix + a per-kind counter` (never `Guid`), so a fixed-seed run is byte-reproducible within a runtime image (INV-26). **Writes YAML only** — creates no live entities, registers nothing in `TemplateRegistry`, never calls persistence (INV-12/22/23). **Returns a `GenerationResult`; never publishes** (INV-5); validation is the caller's (run-mode's) concern.
@@ -260,7 +260,7 @@ public interface IContentGenerationSystem
     Task<GenerationResult> GenerateAsync(GenerationProfile profile, CancellationToken ct = default);
 }
 ```
-Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling bulk-content-generation slice, WP-1). The headless `generate` run-mode in `Server` (WP-2) is the v1 caller; it composes DI without gameplay hosted services, loads a profile YAML, runs one `GenerateAsync`, validates each emitted definition via `IContentValidator.Validate` (single-definition mode), prints a summary, and exits 0/non-zero. See Flow 29.
+Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling bulk-content-generation slice, WP-1). The headless `generate` run-mode in `Server` (WP-2) is the v1 caller; it composes DI without gameplay hosted services, loads a profile YAML, runs one `GenerateAsync`, validates each emitted definition via `IContentValidator.Validate` (single-definition mode), prints a summary, and exits 0/non-zero. See [`../features/admin-authoring/content-tooling.md`](../features/admin-authoring/content-tooling.md) and [Flow 29](../architecture/flows/flow-29-bulk-content-generation.md).
 
 ### AccountSystem
 **Purpose:** Domain system owning all account and character lifecycle operations: registration, authentication, character creation, character list, and logout recording.
@@ -272,35 +272,13 @@ Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (
 **Purpose:** Runtime room authoring — creates room entities, wires bidirectional exits, and mutates room properties (`Name`, `Description`). All methods return pure results or mutate in-place; event publication is the caller's responsibility, keeping this system reusable by a future in-game editor without a live player session.
 **Location:** `Core/Modules/Admin/Systems/RoomBuilderSystem.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`, `IAreaSystem`, `ILogger<RoomBuilderSystem>`.
-```csharp
-public interface IRoomBuilderSystem
-{
-    RoomCreationResult CreateRoom(string name, string description = "", string areaId = "");
-    void LinkExits(uint sourceRoomId, Direction direction, uint targetRoomId, bool bidirectional);
-    void SetRoomName(uint roomId, string name);
-    void SetRoomDescription(uint roomId, string description);
-}
-
-public readonly record struct RoomCreationResult(uint RoomEntityId, string BlueprintId);
-```
-`CreateRoom` generates a unique blueprint id (`room.adhoc.<8-char-base36>`), creates the entity, attaches `RoomComponent` + `BlueprintComponent` (no `PersistentEntity`), and registers a `RoomTemplate`. When `areaId` is non-empty it sets `RoomTemplate.AreaId` and calls `IAreaSystem.AssignRoomToArea` to set `RoomComponent.AreaEntityId` immediately. `LinkExits` updates both `RoomComponent.Exits` and the in-memory `RoomTemplate` exit maps for same-session `reload` consistency. The `DigCommand` initiator writes YAML for both rooms after this method returns (INV-5: systems do not call persistence). Implemented (Phase 3 slices 5a, persistence-two-level-model, area-model WP-1).
+**Interface:** [`IRoomBuilderSystem.cs`](../../Core/Modules/Admin/Systems/IRoomBuilderSystem.cs) — `CreateRoom` / `LinkExits` / `SetRoomName` / `SetRoomDescription`. `CreateRoom` generates a unique blueprint id (`room.adhoc.<8-char-base36>`), creates the entity, attaches `RoomComponent` + `BlueprintComponent` (no `PersistentEntity`), and registers a `RoomTemplate`. When `areaId` is non-empty it sets `RoomTemplate.AreaId` and calls `IAreaSystem.AssignRoomToArea` immediately. `LinkExits` updates both `RoomComponent.Exits` and the in-memory `RoomTemplate` exit maps for same-session `reload` consistency. The `DigCommand` initiator writes YAML for both rooms after this method returns (INV-5). See [`../features/admin-authoring/admin-commands.md`](../features/admin-authoring/admin-commands.md) for the builder-verb pattern. Implemented (Phase 3 slices 5a, persistence-two-level-model, area-model WP-1).
 
 ### AreaBuilderSystem
 **Purpose:** Runtime area authoring — creates ad-hoc area entities. Mirrors `IRoomBuilderSystem`: all methods mutate ECS state only; event publication and YAML writing remain in the command (INV-5). No `IAreaSystem` or `IEventBus` dependency.
 **Location:** `Core/Modules/Admin/Systems/AreaBuilderSystem.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<AreaBuilderSystem>`.
-```csharp
-public interface IAreaBuilderSystem
-{
-    AreaCreationResult CreateArea(string name);
-}
-
-public readonly record struct AreaCreationResult(
-    uint AreaEntityId,
-    string BlueprintId,
-    AreaTemplate Template);
-```
-`CreateArea` generates a unique blueprint id (`area.adhoc.<8-char-base36>`), creates the entity, attaches `AreaComponent` + `BlueprintComponent` (no `PersistentEntity`), and registers a minimal `AreaTemplate` (empty description, RespawnRate=0, Pvp=false). The `MkareaCommand` initiator writes YAML after this method returns (INV-5). Implemented (Phase 3 admin-area-authoring WP-2).
+**Interface:** [`IAreaBuilderSystem.cs`](../../Core/Modules/Admin/Systems/IAreaBuilderSystem.cs) — `CreateArea(string name) → AreaCreationResult`. Generates a unique blueprint id (`area.adhoc.<8-char-base36>`), creates the entity, attaches `AreaComponent` + `BlueprintComponent` (no `PersistentEntity`), and registers a minimal `AreaTemplate`. The `MkareaCommand` initiator writes YAML after this method returns (INV-5). See [`../features/admin-authoring/admin-commands.md`](../features/admin-authoring/admin-commands.md). Implemented (Phase 3 admin-area-authoring WP-2).
 
 ### MovementSystem
 **Purpose:** Domain system that resolves a direction to a room exit, validates the move, and updates `LocationComponent`. Returns `MoveResult`; never publishes events or calls persistence (INV-5). `MoveCommand` is the Initiator that calls it and publishes `PlayerMovedEvent`.
@@ -342,14 +320,7 @@ public readonly record struct AreaCreationResult(
 **Purpose:** Policy seam for admin command authorization. Each admin `ICommand.Execute` calls `IsPrivileged` as its first line; non-privileged sessions get a single rejection line and the command body short-circuits.
 **Location:** `Core/Modules/Admin/Systems/AdminAuthorizer.cs`
 **Dependencies:** `EntityService`, `IConfiguration`.
-```csharp
-public interface IAdminAuthorizer
-{
-    bool IsPrivileged(ISession session);
-    bool IsPrivileged(uint playerEntityId);
-}
-```
-**Layered authorization model.** Bootstrap layer (slice 2): reads `Admin:PrivilegedNames` (string array) from `IConfiguration` and matches against the player's `PlayerComponent.DisplayName`. Persisted layer (deferred — see [`../implementation-plans/admin-privilege-elevation.md`](../implementation-plans/admin-privilege-elevation.md)): an `AdminPrivilegeComponent` (`[Persistent]`) on a player entity also grants admin rights. Settings is the floor — anyone in `Admin:PrivilegedNames` is always admin even without the component. Implemented (Phase 3 slice 2; component layer deferred).
+**Interface:** [`IAdminAuthorizer.cs`](../../Core/Modules/Admin/Systems/IAdminAuthorizer.cs) — `IsPrivileged(ISession)` / `IsPrivileged(uint playerEntityId)`. **Layered authorization model:** bootstrap layer reads `Admin:PrivilegedNames` from `IConfiguration` and matches against `PlayerComponent.DisplayName`; persisted layer (deferred — see [`../implementation-plans/admin-privilege-elevation.md`](../implementation-plans/admin-privilege-elevation.md)) adds `AdminPrivilegeComponent` (`[Persistent]`). Settings is the floor — always admin if in the list, even without the component. See [`../features/admin-authoring/admin-commands.md`](../features/admin-authoring/admin-commands.md) for the privilege gate pattern. Implemented (Phase 3 slice 2; component layer deferred).
 
 ### AttributeSystem
 **Purpose:** Read/write seam for `AttributesComponent` and `PoolsComponent`. Getters are the surface the combat slice and stat system call; setters serve the admin and initialization paths. All setters enforce `[0, max]` clamp invariants (INV-8). Never touches the event bus or persistence (INV-5).

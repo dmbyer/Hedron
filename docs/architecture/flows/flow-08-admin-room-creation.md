@@ -1,62 +1,54 @@
-# Flow 8 — Admin room creation (`dig`)
+# Admin Authoring Journey (dig · mkitem · mkmob · mkarea · list)
 
 > [Back to flows index](README.md)
 
-**Summary.** A privileged session sends `dig <direction> [name]`. `DigCommand` checks for an existing exit, delegates entity creation and exit wiring to `IRoomBuilderSystem`, publishes `RoomCreatedByAdminEvent` (caught by `AdminAuditHandler`), writes YAML files for both rooms (the YAML is the room's sole durable state — no `SaveEntityAsync`), then publishes `PlayerMovedEvent` to auto-move the admin into the new room via the existing `PlayerMovedHandler`. Room entities carry no `PersistentEntity`; they are fresh-spawned from YAML on each restart.
+**Source:** [`../../features/admin-authoring/admin-authoring.md`](../../features/admin-authoring/admin-authoring.md)
 
-**Trigger.** Privileged session sends `dig <direction> [name]`.
+**Summary.** A privileged session issues a builder verb. `CommandDispatcher` routes through the privilege gate (`IAdminAuthorizer.IsPrivileged`); the command calls the appropriate builder system (pure result), writes YAML via an `I*ContentWriter`, publishes a past-tense `*ByAdminEvent`, and in some cases calls `IPersistenceSystem.SaveEntityAsync` (admin boundary-save for persistent entities such as items and mobs). `AdminAuditHandler` (priority 80) logs every `*ByAdminEvent`. `dig` additionally publishes `PlayerMovedEvent` to auto-move the admin into the new room.
+
+**Trigger.** Privileged session sends a builder verb: `dig <direction> [name]`, `mkitem [name]`, `mkmob [name]`, `mkarea [name]`, `set <property> <value>`, `setitem`/`setmob`/`setarea`, `list <area|room>`, or `reload`.
 
 ```mermaid
 sequenceDiagram
     participant Sess as TelnetSession
-    participant CD as CommandDispatcher
-    participant Auth as IAuthorizationChecker
-    participant Cmd as DigCommand
-    participant AS as IAreaSystem
-    participant RBS as IRoomBuilderSystem
+    participant Auth as IAdminAuthorizer
+    participant Cmd as Builder command
+    participant Sys as Builder system
+    participant W as I*ContentWriter
     participant PSys as IPersistenceSystem
     participant Bus as IEventBus
     participant Audit as AdminAuditHandler
-    participant PMH as PlayerMovedHandler
 
-    Sess->>CD: "dig north Garden"
-    CD->>Auth: IsSatisfied(AdminRequirement, session)
+    Sess->>Auth: IsPrivileged(session)
     alt unauthorized
-        CD->>Sess: rejection PlainMessage
+        Auth-->>Sess: rejection PlainMessage
     else authorized
-        CD->>Cmd: ExecuteAsync(CommandContext)
-        Cmd->>Cmd: check Exits[North] on current room
-        alt exit exists
-            Cmd->>Sess: error PlainMessage
-        else no exit
-            Cmd->>AS: GetAreaForRoom(sourceRoomId)
-            AS-->>Cmd: areaEntityId? (null if unassigned)
-            Note over Cmd: if area found, read area BlueprintComponent.BlueprintId → areaId
-            Cmd->>RBS: CreateRoom("Garden", areaId: areaId)
-            RBS-->>Cmd: RoomCreationResult(newRoomId, "room.adhoc.a1b2c3")
-            Cmd->>RBS: LinkExits(sourceId, North, newRoomId, true)
-            Cmd->>Bus: Publish(RoomCreatedByAdminEvent)
-            Bus->>Audit: HandleAsync (priority 80) → structured log
-            Note over Cmd: Write YAML for new room + source room (YAML is sole durable state)
-            Cmd->>Bus: Publish(PlayerMovedEvent)
-            Bus->>PMH: HandleAsync → departure broadcast + arrival broadcast + look
-            Cmd->>Sess: confirmation PlainMessage
-        end
+        Sess->>Cmd: ExecuteAsync(CommandContext)
+        Cmd->>Sys: Create*/Set* (pure result)
+        Sys-->>Cmd: CreationResult / void
+        Cmd->>W: WriteAsync(template) [world-content verbs]
+        Cmd->>PSys: SaveEntityAsync(entityId) [item/mob boundary-save]
+        Cmd->>Bus: Publish(*ByAdminEvent)
+        Bus->>Audit: HandleAsync (priority 80) → structured log
+        Cmd->>Sess: confirmation PlainMessage
     end
 ```
 
 **Steps.**
 
-1. `CommandDispatcher` routes `dig` to `DigCommand` after the privilege gate (`AdminRequirement` via `IAuthorizationChecker`).
-2. `DigCommand.ExecuteAsync` reads `LocationComponent.RoomEntityId` and checks `RoomComponent.Exits` for the requested direction. If an exit already exists, writes a `PlainMessage` error and returns.
-3. `DigCommand` resolves the source room's area: calls `IAreaSystem.GetAreaForRoom(sourceRoomId)` and, if the room belongs to an area, reads the area's `BlueprintComponent.BlueprintId`. Calls `IRoomBuilderSystem.CreateRoom(name, areaId: areaId)` — allocates an entity, attaches `RoomComponent` + `BlueprintComponent` (no `PersistentEntity`), registers a `RoomTemplate` (with `AreaId` set when the source room has one), and calls `IAreaSystem.AssignRoomToArea` to set `RoomComponent.AreaEntityId` immediately. If the source room had no area, `areaId` is empty and the new room is unassigned. Returns `RoomCreationResult(newRoomId, blueprintId)`.
-4. Calls `IRoomBuilderSystem.LinkExits(sourceId, direction, newRoomId, bidirectional: true)` — sets `Exits` on both room entities and mirrors to both in-memory `RoomTemplate` exit maps.
-5. Sets admin's `LocationComponent.RoomEntityId = newRoomId` and `RoomBlueprintId = result.BlueprintId`. Publishes `RoomCreatedByAdminEvent`. `AdminAuditHandler` (priority 80) logs one structured entry. `DigCommand` writes YAML for both rooms — the YAML file is the room's sole durable state. When the source room belonged to an area, the written YAML for the new room includes `areaId` so the assignment survives `@reload`. No `SaveEntityAsync` is called; rooms have no `PersistentEntity`.
-6. Publishes `PlayerMovedEvent(adminId, sourceId, newRoomId, direction)`. `PlayerMovedHandler` fires: departure broadcast to the source room (excluding the admin), arrival broadcast to the new room, `look` sent to the admin.
-7. Writes a confirmation `PlainMessage` (e.g. `"Room 'Garden' (room.adhoc.a1b2c3) created to the north."`).
+1. `CommandDispatcher` routes the verb; each admin command calls `IAdminAuthorizer.IsPrivileged(session)` as its first line. Non-privileged sessions receive a rejection and return immediately.
+2. The command calls the appropriate builder system (`IRoomBuilderSystem`, `IAreaBuilderSystem`, `IItemBuilderSystem`, or `IMobBuilderSystem`). Builder systems return results and never publish events or call persistence (INV-5).
+3. For world-content entities (rooms, areas): the command writes YAML via the matching `I*ContentWriter` (atomic tmp → rename). YAML is the sole durable state — no `PersistentEntity`, no `SaveEntityAsync` (INV-23).
+4. For persistent entities (items, mobs): the command calls `IPersistenceSystem.SaveEntityAsync` immediately after the builder system returns — the admin boundary-save pattern (INV-22). No YAML writer is called for items (item durability is via persistence, not YAML).
+5. The command publishes a past-tense `*ByAdminEvent`. `AdminAuditHandler` (priority 80) logs one structured entry.
+6. `dig` additionally publishes `PlayerMovedEvent(adminId, sourceId, newRoomId, direction)`. `PlayerMovedHandler` fires departure broadcast + arrival broadcast + look.
+7. The command writes a confirmation `PlainMessage` showing the blueprint id.
+
+**`list` is read-only.** `ListCommand` scans `EntityService.GetAllComponents<T>()` directly, publishes no events, and calls no builder system (INV-10).
+
+**`reload` is additive.** `ReloadCommand` calls `IWorldContentLoader.ReloadAsync`, seeds missing blueprints without mutating existing live entities, and publishes `ContentReloadedEvent`.
 
 **Cross-references.**
-- [`Core/Modules/Admin/Commands/DigCommand.cs`](../../../Core/Modules/Admin/Commands/DigCommand.cs), [`Core/Modules/Admin/Systems/RoomBuilderSystem.cs`](../../../Core/Modules/Admin/Systems/RoomBuilderSystem.cs)
-- [`Core/Modules/Admin/Events/RoomCreatedByAdminEvent.cs`](../../../Core/Modules/Admin/Events/RoomCreatedByAdminEvent.cs)
-- [`Core/Modules/Admin/Handlers/AdminAuditHandler.cs`](../../../Core/Modules/Admin/Handlers/AdminAuditHandler.cs)
-- [`docs/implementation-plans/bare-bones-content-spawning.md`](../../features/world/world.md)
+- [`Core/Modules/Admin/`](../../../Core/Modules/Admin/) — `DigCommand`, `SetCommand`, `SetAreaCommand`, `MkareaCommand`, `ListCommand`, `ReloadCommand`, `RoomBuilderSystem`, `AreaBuilderSystem`, `AdminAuthorizer`, `AdminAuditHandler`.
+- [`Core/Modules/Items/Commands/MkitemCommand.cs`](../../../Core/Modules/Items/Commands/MkitemCommand.cs) · [`Core/Modules/Mobs/Commands/MkMobCommand.cs`](../../../Core/Modules/Mobs/Commands/MkMobCommand.cs)
+- [`../../features/admin-authoring/admin-commands.md`](../../features/admin-authoring/admin-commands.md) — full builder verb table and privilege gate design.
