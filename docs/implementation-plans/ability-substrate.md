@@ -148,7 +148,7 @@ This slice also reconciles the legacy [`ISkillSystem`](../reference/systems-plan
 - [`../design/gameplay-model.md`](../design/gameplay-model.md) — Spine B (Ability); the design this implements (note: `Costs` list + HP cost edit is already in the model).
 - [`effect-substrate.md`](../features/effects/effects.md) — S2; provides `IEffectSystem.Apply`/`GetModifiers`/`GetActive`, `EffectLifetime.WhileKnown` (this slice supplies the deferred S4 derivation), and the `IEffectContributor` fold point.
 - [`stat-resource-substrate.md`](stat-resource-substrate.md) — S1; provides `ResourceType`, the `IAttributeSystem` clamped pool setters costs are spent through, and the `ScoreId` effects target
-- [`combat.md`](combat.md) — context only; 11-a does **not** touch combat (targeting/initiation is 11-b and later).
+- [`combat.md`](../features/combat/combat.md) — context only; 11-a does **not** touch combat (targeting/initiation is 11-b and later).
 - [`time-system.md`](time-system.md) — slice 9-b; `HeartbeatTickEvent` drives the cooldown tick.
 - [`../architecture/effects.md`](../features/effects/effect-system.md) — effect model design; the `WhileKnown` derivation and `IEffectContributor` seam land notes here on ship.
 - **Next:** `ability-invocation.md` (11-b) — player verb invocation, dynamic verb registration into `IVerbRegistry`, `cast`, state-aware/offensive targeting, combat initiation.

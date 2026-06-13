@@ -47,7 +47,7 @@ The mechanic is a **closed sweep with no downstream chain**: regeneration publis
 - `stand` (alias `wake`, no privilege, `Partial`) — calls `IEntityStateService.ExitState(invokerEntityId, Resting)`; writes "You stand up." and publishes `EntityStateChangedEvent`. A no-op (already standing) writes "You are already standing."
 - **Rest breaks on action.** Two mechanisms ensure rest does not persist through activity:
   - **Movement** — the existing movement command exits `Resting` before moving (guard + "You stop resting and stand up." line + `EntityStateChangedEvent`). Movement does not call `TryEnterState`, so the auto-exit rule below does not fire; this explicit hook is required.
-  - **Combat entry** — entering `InCombat` clears `Resting` via the `EntityStateService` auto-exit rule (see [entity-state-management.md](entity-state-management.md) rule table amendment). `TryEnterState(InCombat, …)` applies `ExitState(Resting)` before setting the flag, regardless of which call site initiates combat. No explicit `ExitState(Resting)` call is needed in `KillCommand`, `AbilityInvocationPipeline`, or any future combat-initiating path — the invariant is centrally enforced.
+  - **Combat entry** — entering `InCombat` clears `Resting` via the `EntityStateService` auto-exit rule (see [entity-state-management.md](../features/combat/combat.md) rule table amendment). `TryEnterState(InCombat, …)` applies `ExitState(Resting)` before setting the flag, regardless of which call site initiates combat. No explicit `ExitState(Resting)` call is needed in `KillCommand`, `AbilityInvocationPipeline`, or any future combat-initiating path — the invariant is centrally enforced.
 
 **Inspection & authoring (INV-18)**
 - **Inspection** is the existing `score` command (slice 9-d): a player watches pools climb over time, faster while resting. No new inspection surface is needed — regeneration's observable state *is* the pool values `score` already renders.
@@ -105,8 +105,8 @@ The mechanic is a **closed sweep with no downstream chain**: regeneration publis
 
 - [`stat-resource-substrate.md`](stat-resource-substrate.md) — **9-d**; `PoolsComponent`, `ResourceType`, the `IAttributeSystem` clamped pool setters regeneration writes through.
 - [`time-system.md`](time-system.md) — **9-b**; `HeartbeatTickEvent` (`TickId`) drives the regeneration sweep.
-- [`entity-state-management.md`](entity-state-management.md) — **9-a**; the `Resting` flag, `IEntityStateService`, `EntityStateChangedEvent`, and the `Resting`↔`InCombat` transition rule this slice is the first to consume.
-- [`combat.md`](combat.md) — **9**; `InCombat` suppresses regeneration; the combat-entry break hook; the periodic-flush precedent for pool mutations.
+- [`entity-state-management.md`](../features/combat/combat.md) — **9-a**; the `Resting` flag, `IEntityStateService`, `EntityStateChangedEvent`, and the `Resting`↔`InCombat` transition rule this slice is the first to consume.
+- [`combat.md`](../features/combat/combat.md) — **9**; `InCombat` suppresses regeneration; the combat-entry break hook; the periodic-flush precedent for pool mutations.
 - [`ability-substrate.md`](ability-substrate.md) / [`ability-invocation.md`](ability-invocation.md) — **11-a/11-b**; the ability resource costs this slice makes recoverable (the motivating consumer, though regeneration does not depend on them).
 - [`../design/gameplay-model.md`](../design/gameplay-model.md) — §3 Substrate (pools).
 

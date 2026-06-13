@@ -87,8 +87,8 @@ Respawn timers, buff expiry, shop restocking — all would subscribe to `Heartbe
 
 ## Related
 
-- [`combat.md`](combat.md) — slice 9 (blocked on this slice); first consumer of `HeartbeatTickEvent`
-- [`entity-state-management.md`](entity-state-management.md) — slice 9-a (parallel prerequisite)
+- [`combat.md`](../features/combat/combat.md) — slice 9 (blocked on this slice); first consumer of `HeartbeatTickEvent`
+- [`entity-state-management.md`](../features/combat/combat.md) — slice 9-a (parallel prerequisite)
 - [`stat-system.md`](stat-system.md) — slice 9-c (parallel prerequisite)
 - [`attributes.md`](attributes.md) — slice 8a; establishes `PoolsComponent` that combat reads
 - [`mobs.md`](mobs.md) — slice 8; mob AI future consumers will subscribe to `HeartbeatTickEvent`

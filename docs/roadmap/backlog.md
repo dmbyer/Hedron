@@ -12,7 +12,9 @@ Multi-session program restructuring the docs into the feature/system taxonomy, c
 - [x] **WP-2 — Templates + `manage-docs` skill + tooling repoint.** 6 templates in `.claude/skills/manage-docs/templates/`; new `manage-docs` skill; repointed `sync-roadmap` (disintegrate-on-ship), `implementation-planner`, `implement-plan`, `architecture-reviewer`, `architecture-advisor`, `.claude/README`, `add-*`. Agent/command *file names* kept (repoint-only); rename later if desired.
 - [ ] **WP-3…N — Per-feature migration.** One package per feature: write `<feature>.md` + `<system>.md`(s), consolidate flows into one journey, trim reference rows, distribute → verify `roadmap/completed/` → delete shipped plans. Order: effects → combat → character-stats → items → world → mobs → abilities → aspects → accounts → admin-authoring → output → commands → communication.
   - [x] **effects** (4.8 exemplar) — `features/effects/effects.md` + `effect-system.md` (← `architecture/effects.md`); flow-21 de-detailed → "Effects journey"; `EffectSystem`/`AbilityEffectContributor` reference interface-dumps trimmed to links; `effect-substrate.md` plan deleted (decisions verified in `completed/slice-9e`).
-  - [ ] remaining 12 → per-feature manifests authored next, executed by 4.6 sub-agents.
+  - [x] **manifests** authored — [`docs-refinement-manifests.md`](docs-refinement-manifests.md) (per-feature source→target maps for 4.6).
+  - [x] **combat** (4.6) — `features/combat/` (combat.md + combat-system / death-system / entity-state); flow-17 → Combat journey, flow-20 → Death & respawn journey (18/19/22/23 deleted); reference trimmed; 3 plans deleted.
+  - [ ] remaining 11 → 4.6 sub-agents, sequential (character-stats → items → world → mobs → abilities → aspects → accounts → admin-authoring → output → commands → communication).
 - [ ] **WP-Z — Closing sweep.** Delete empty `subsystems/`; `Core/Sessions` reference home; consolidate cross-cutting runtime flows + finalize `flows/README.md`; repo-wide link-integrity pass; final `architecture-reviewer` pass.
 
 ## Phase 4 — Hardening
@@ -128,7 +130,7 @@ Follow-up from the death-and-respawn slice (slice 10), where INV-22 was reworded
 
 **New `save` command (admin).** An admin-gated command that forces an immediate persistence write, with arguments selecting scope: a specific player and/or the world. Player save → `SaveEntityAsync(playerEntityId)` (admin boundary save, paired with an audit event). "World" save → a full flush (`FlushAllAsync`) and/or YAML write of authored content (exact scope to be designed). Admin-gated; audited.
 
-**New `quit` command (player).** A player command that force-saves the player (session-end boundary save) and then disconnects gracefully. Today a raw disconnect is already force-saved by `PlayerSessionHandler`; `quit` makes the player-initiated graceful exit explicit. **Cross-ref:** when this lands it should be flagged `UsableWhileIncapacitated = true` so an incapacitated/dying player can still quit — the death-and-respawn slice ([`../implementation-plans/death-and-respawn.md`](../implementation-plans/death-and-respawn.md)) deliberately omitted `quit` from its allowlist because no `quit` command existed yet.
+**New `quit` command (player).** A player command that force-saves the player (session-end boundary save) and then disconnects gracefully. Today a raw disconnect is already force-saved by `PlayerSessionHandler`; `quit` makes the player-initiated graceful exit explicit. **Cross-ref:** when this lands it should be flagged `UsableWhileIncapacitated = true` so an incapacitated/dying player can still quit — the death-and-respawn slice ([`../implementation-plans/death-and-respawn.md`](../features/combat/combat.md)) deliberately omitted `quit` from its allowlist because no `quit` command existed yet.
 
 ### 🔵 Mob death / respawn approach (INV-21)
 

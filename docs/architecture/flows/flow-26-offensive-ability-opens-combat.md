@@ -51,7 +51,7 @@ sequenceDiagram
 
 **Cross-references.**
 - [Flow 17](flow-17-kill-mob-combat-initiation.md) — `kill` opens combat without any opening strike
-- [Flow 18](flow-18-combat-round-pulse.md) — heartbeat tick drives subsequent melee rounds after combat is open
+- [Flow 18](flow-17-kill-mob-combat-initiation.md) — heartbeat tick drives subsequent melee rounds after combat is open
 - [Flow 24](flow-24-ability-activation.md) — `Activate` chain detail and `resolveOffensiveExternally` branch
 - [Flow 25](flow-25-skill-verb-invocation.md) — same pipeline, actor already in combat (skips step 3)
 - [`Core/Modules/Abilities/Commands/AbilityInvocationPipeline.cs`](../../../../Core/Modules/Abilities/Commands/AbilityInvocationPipeline.cs)

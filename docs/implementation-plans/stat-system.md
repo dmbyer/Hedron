@@ -111,7 +111,7 @@ No new events. `IStatSystem` and `IAttributeSystem.SetCurrentHp` never publish e
 - [`attributes.md`](attributes.md) — slice 8a; `IAttributeSystem`, `AttributesComponent`, `PoolsComponent` are extended here with `SetCurrentHp`.
 - [`equipment.md`](equipment.md) — slice 7; `IEquipmentSystem`, `EquipmentComponent`, `WornSlot.MainHand` are read by `StatSystem`.
 - [`items-and-inventory.md`](items-and-inventory.md) — slice 6; `ItemDataComponent` is extended with `DamageBonus`; `IItemBuilderSystem`, `IItemContentWriter`, `SetItemCommand` are extended.
-- [`combat.md`](combat.md) — slice 9; primary consumer of `IStatSystem.GetEffectiveAttackPower`, `GetEffectiveDefense`, `GetCurrentHp`, and `IAttributeSystem.SetCurrentHp`.
+- [`combat.md`](../features/combat/combat.md) — slice 9; primary consumer of `IStatSystem.GetEffectiveAttackPower`, `GetEffectiveDefense`, `GetCurrentHp`, and `IAttributeSystem.SetCurrentHp`.
 - [`persistence-two-level-model.md`](persistence-two-level-model.md) — slice 5b; `[Persistent]` on `ItemDataComponent` ensures `DamageBonus` survives restart automatically.
 - [`output-framework.md`](output-framework.md) — slice 4; `SetItemCommand` writes `PlainMessage` confirmation via `IOutputWriter`.
 - [`command-framework.md`](command-framework.md) — slice 3; `SetItemCommand` extends an existing `ICommand` registration.

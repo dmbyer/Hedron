@@ -166,7 +166,7 @@ Settled with the owner (2026-05-30):
 - [`../design/gameplay-model.md`](../design/gameplay-model.md) — S1 design (§3 Substrate, R3, R4); this doc implements its substrate.
 - [`attributes.md`](attributes.md) — slice 8a; the components/system this slice migrates.
 - [`stat-system.md`](stat-system.md) — slice 9-c; `IStatSystem` generalized here.
-- [`combat.md`](combat.md) — slice 9; consumes Body via the seam (WP-2).
+- [`combat.md`](../features/combat/combat.md) — slice 9; consumes Body via the seam (WP-2).
 - [`mobs.md`](mobs.md) — slice 8; `setmob`/builder/writer/template extended (WP-3).
 - [`account-character-creation.md`](account-character-creation.md) — slice 5; creation defaults (WP-2).
 - [`persistence-two-level-model.md`](persistence-two-level-model.md) — slice 5b; the field-migration consideration.

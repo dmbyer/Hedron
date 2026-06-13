@@ -1,6 +1,6 @@
 # Phase 3 Slice 10 — Death and Respawn
 
-**PR:** #102 (code) · #101 (spec + INV-22 boundary-save categories) · **Spec:** [`../../implementation-plans/death-and-respawn.md`](../../implementation-plans/death-and-respawn.md)
+**PR:** #102 (code) · #101 (spec + INV-22 boundary-save categories) · **Spec:** [`../../implementation-plans/death-and-respawn.md`](../../features/combat/combat.md)
 
 > Ledger backfilled retroactively (merged in #102 without a `done.md`/`completed/` entry at the time).
 

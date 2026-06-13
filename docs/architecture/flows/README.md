@@ -26,13 +26,9 @@
 | 14 | [`remove <item>`](flow-14-remove-item.md) | Player sends `remove <item>` | Phase 3 slice 7 |
 | 15 | [Admin mob creation (`mkmob`)](flow-15-admin-mob-creation.md) | Privileged session sends `mkmob [name]` | Phase 3 slice 8 |
 | 16 | [Heartbeat tick](flow-16-heartbeat-tick.md) | `PeriodicTimer` fires in `HeartbeatBackgroundService` | Phase 3 slice 9-b |
-| 17 | [`kill <mob>` — combat initiation](flow-17-kill-mob-combat-initiation.md) | Player sends `kill <mob>` | Phase 3 slice 9 |
-| 18 | [Combat round pulse](flow-18-combat-round-pulse.md) | `HeartbeatTickEvent` dispatched to `CombatTickHandler` | Phase 3 slice 9 |
-| 19 | [`flee` — combat exit](flow-19-flee-combat-exit.md) | Player sends `flee` | Phase 3 slice 9 |
-| 20 | [Mob death and respawn](flow-20-mob-death-respawn.md) | Mob HP reaches zero; `SpawnSystem` schedules and executes respawn | Persistence reform Stage C |
+| 17 | [Combat journey (initiation · round pulse · flee)](flow-17-kill-mob-combat-initiation.md) | Player sends `kill <mob>`; heartbeat drives rounds; `flee` exits | Phase 3 slice 9; source: [../../features/combat/combat.md](../../features/combat/combat.md) |
+| 20 | [Death & respawn journey (mob death · incapacitation · bleed-out · player death/respawn)](flow-20-mob-death-respawn.md) | Mob or player HP reaches zero | Phase 3 slices 9, 10; source: [../../features/combat/combat.md](../../features/combat/combat.md) |
 | 21 | [Effects journey (apply · tick · expire)](flow-21-effect-tick.md) | An effect is applied, then ticked/expired on `HeartbeatTickEvent` | [effects](../../features/effects/effects.md) feature |
-| 22 | [Player incapacitation and bleed-out](flow-22-incapacitation-bleedout.md) | Player HP crosses zero; `DeathTickHandler` bleeds out per tick | Phase 3 slice 10 |
-| 23 | [Player death and respawn](flow-23-player-death-respawn.md) | HP reaches `Death:HpFloor`; `PlayerDeathHandler` triggers full respawn | Phase 3 slice 10 |
 | 24 | [Ability activation](flow-24-ability-activation.md) | Admin sends `useability` (11-a); player sends `cast`/skill verb (11-b) | Phase 3 slice 11-a (extended 11-b) |
 | 25 | [Skill bare-verb invocation](flow-25-skill-verb-invocation.md) | Player types a skill id/prefix (e.g. `kick`, `ki`) | Phase 3 slice 11-b |
 | 26 | [Offensive ability opens combat](flow-26-offensive-ability-opens-combat.md) | Player casts offensive spell or uses skill against a new target | Phase 3 slice 11-b |

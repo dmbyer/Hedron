@@ -605,7 +605,7 @@ sub-points carry **provisional defaults** — confirm before the Effect slice is
   persistence this model extends.
 - [`../implementation-plans/stat-system.md`](../implementation-plans/stat-system.md) — the built `IStatSystem` read
   seam that folds in effects + aspect scores.
-- [`../implementation-plans/combat.md`](../implementation-plans/combat.md) / [`../implementation-plans/time-system.md`](../implementation-plans/time-system.md)
+- [`../implementation-plans/combat.md`](../features/combat/combat.md) / [`../implementation-plans/time-system.md`](../implementation-plans/time-system.md)
   — built consumers (combat tick, heartbeat) of Aspect + Effect.
 - [`../reference/systems-planned.md`](../reference/systems-planned.md) — the idealized
   `EffectTracker` / `SkillSystem` / `SpellSystem` / `AdvancementSystem` / `LootSystem` /

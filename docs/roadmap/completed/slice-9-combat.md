@@ -1,6 +1,6 @@
 # Phase 3 slice 9 — Combat (completed)
 
-> Implemented on branch `claude/heuristic-blackwell-2b63c2`. Full feature spec: [`../../implementation-plans/combat.md`](../../implementation-plans/combat.md).
+> Implemented on branch `claude/heuristic-blackwell-2b63c2`. Full feature spec: [`../../implementation-plans/combat.md`](../../features/combat/combat.md).
 
 ## Outcome
 

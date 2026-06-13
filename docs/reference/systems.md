@@ -494,16 +494,8 @@ All getters return the default value (Level 1, attributes 10, HP/Mana/Stamina 10
 **Purpose:** Centralized transition-rule enforcement for entity state flags. Attaches and removes `EntityStateComponent`; validates flag combinations against a static transition table; returns structured failure reasons to callers. Never touches the event bus or persistence (INV-5).
 **Location:** `Core/Modules/EntityState/Systems/EntityStateService.cs`
 **Dependencies:** `EntityService`.
-```csharp
-public interface IEntityStateService
-{
-    bool TryEnterState(uint entityId, EntityStateFlags state, out string? failReason);
-    void ExitState(uint entityId, EntityStateFlags state);
-    bool IsInState(uint entityId, EntityStateFlags state);
-    EntityStateFlags GetStates(uint entityId);
-}
-```
-`TryEnterState` reads current `ActiveStates` (or `None` if the component is absent), evaluates the static transition-rule table, on success attaches or OR-assigns the flag, and returns `true`. On a blocked transition it returns `false` with a caller-displayable `failReason`. `ExitState` AND-NOT clears the flag and removes the component when `ActiveStates == None` — always a no-op when the entity has no component. `IsInState` delegates to `GetStates`. Callers (commands, handlers) publish `EntityStateChangedEvent` after mutating state; the service never calls `IEventBus` (INV-5). Implemented (Phase 3 slice 9-a).
+**Interface:** [`IEntityStateService.cs`](../../Core/Modules/EntityState/Systems/IEntityStateService.cs) — `TryEnterState` / `ExitState` / `IsInState` / `GetStates`.
+`TryEnterState` evaluates the static transition-rule table; on success attaches or OR-assigns the flag. On a blocked transition returns `false` with a caller-displayable `failReason`. `ExitState` AND-NOT clears the flag and removes the component when `ActiveStates == None`. Callers publish `EntityStateChangedEvent` after mutating state; the service never calls `IEventBus` (INV-5). See [`../features/combat/entity-state.md`](../features/combat/entity-state.md) for the transition-rule table and design rationale. Implemented (Phase 3 slice 9-a).
 
 ### StatSystem
 **Purpose:** Aggregation seam for effective entity stats. Reads base attributes, equipment bonuses, and active effect modifiers to produce ready-to-use values for the combat slice and future consumers. Never publishes events or calls persistence (INV-5). Adding a new modifier source means extending `StatSystem` methods, not changing the interface.
@@ -547,51 +539,15 @@ Registered entries: `empower` (Body +5, Buff, 30s, HighestWins), `weaken` (Body 
 **Purpose:** Domain system for combat resolution. Handles target lookup, combat state attachment/removal, round resolution, and ability-powered strikes. Pure: no events, no persistence (INV-5, INV-8). Computes attack resolution via `IStatSystem`; applies aspect resolution via `IAspectSystem.Resolve`; mutates HP via `IAttributeSystem.SetCurrentHp`; returns structured `CombatRoundResult` to callers.
 **Location:** `Core/Modules/Combat/Systems/CombatSystem.cs`
 **Dependencies:** `EntityService`, `IStatSystem`, `IAttributeSystem`, `IAspectSystem`.
-```csharp
-public interface ICombatSystem
-{
-    bool TryFindTargetInRoom(uint roomEntityId, string token, out uint mobEntityId);
-    void StartCombat(uint attackerEntityId, uint defenderEntityId);
-    void EndCombat(uint attackerEntityId, uint defenderEntityId);
-    CombatRoundResult ExecuteRound(uint attackerEntityId, uint defenderEntityId);
-    CombatRoundResult ResolveAbilityStrike(
-        uint attackerEntityId, uint defenderEntityId, int basePower,
-        AspectComposition? composition = null);
-}
-
-public readonly record struct CombatRoundResult(
-    uint AttackerEntityId,
-    uint DefenderEntityId,
-    int DamageDealt,
-    bool AttackerHit,
-    CombatRoundOutcome Outcome,
-    AspectComposition? AspectComposition = null);  // point-in-time capture (INV-6)
-
-public enum CombatRoundOutcome { Hit, Miss, MobDied, PlayerIncapacitated }
-```
-`TryFindTargetInRoom` prefix-matches `token` against `MobDataComponent.Name` and `Keywords`. `StartCombat`/`EndCombat` add/remove `CombatStateComponent`. `ExecuteRound`: hit check; raw damage; composition source = `IAspectSystem.Affinity(attacker)` (entity identity, empty = untyped); `IAspectSystem.Resolve` applies affinity boost + resist; `SetCurrentHp`. `ResolveAbilityStrike` skips hit/miss; composition source = the ability's `Aspect` field passed by caller (`AbilityInvocationPipeline`). `CombatRoundResult.AspectComposition` is null when the composition was empty (null = untyped, matching `CombatEndedEvent.DefenderName` INV-6 pattern). Implemented (Phase 3 slices 9, 11-a; aspect-resolved 11-d).
+**Interface:** [`ICombatSystem.cs`](../../Core/Modules/Combat/Systems/ICombatSystem.cs) — `TryFindTargetInRoom` / `StartCombat` / `EndCombat` / `ExecuteRound` / `ResolveAbilityStrike`.
+`TryFindTargetInRoom` prefix-matches against `MobDataComponent.Name` and `Keywords`. `StartCombat`/`EndCombat` add/remove `CombatStateComponent`. `ExecuteRound` resolves hit, raw damage, and aspect composition; `ResolveAbilityStrike` skips hit/miss for ability strikes. `CombatRoundResult.AspectComposition` is null for untyped damage (point-in-time capture, INV-6). See [`../features/combat/combat-system.md`](../features/combat/combat-system.md) for the round formula and design notes. Implemented (Phase 3 slices 9, 11-a; aspect-resolved 11-d).
 
 ### DeathSystem
 **Purpose:** Domain system owning the HP-threshold evaluation, respawn mutation, and respawn-location management for the player death lifecycle. Pure: never touches the event bus or persistence (INV-5, INV-8). Callers (handlers, initiators) read the returned `DeathTransition` and publish the appropriate events.
 **Location:** `Core/Modules/Death/Systems/DeathSystem.cs` (implementation) · `Core/Modules/Death/Systems/IDeathSystem.cs` (interface)
 **Dependencies:** `EntityService`, `IEntityStateService`, `IAttributeSystem`, `IEffectSystem`, `ITemplateRegistry`, `WorldConfiguration`, `IConfiguration`, `ILogger<DeathSystem>`.
-```csharp
-public interface IDeathSystem
-{
-    /// <summary>Evaluates HP-threshold crossings after an HP mutation. Returns BecameIncapacitated,
-    /// Died, or None.</summary>
-    DeathTransition OnHpChanged(uint entityId, int previousHp, int newHp);
-
-    /// <summary>Exits Incapacitated state, relocates to respawn room, strips impermanent effects,
-    /// and restores all pools to Death:RespawnPoolPercent of their maxima.</summary>
-    void Respawn(uint entityId);
-
-    /// <summary>Validates the blueprint exists and sets RespawnComponent.RoomBlueprintId.
-    /// Returns false + failReason when the blueprint is not found.</summary>
-    bool SetRespawn(uint entityId, string roomBlueprintId, out string? failReason);
-}
-```
-`OnHpChanged` only applies to entities with `CharacterComponent` — mobs never enter the death pipeline. Configuration: `Death:HpFloor` (default `-10`), `Death:RespawnPoolPercent` (default `0.25`). Registered via `AddDeathModule()`. Implemented (Phase 3 slice 10).
+**Interface:** [`IDeathSystem.cs`](../../Core/Modules/Death/Systems/IDeathSystem.cs) — `OnHpChanged` / `Respawn` / `SetRespawn`.
+`OnHpChanged` evaluates HP-threshold crossings and returns `DeathTransition` (`None` / `BecameIncapacitated` / `Died`); only applies to entities with `CharacterComponent`. `Respawn` exits Incapacitated state, relocates to respawn room, strips impermanent effects, restores pools. Configuration: `Death:HpFloor` (default `-10`), `Death:RespawnPoolPercent` (default `0.25`). See [`../features/combat/death-system.md`](../features/combat/death-system.md) for the full lifecycle and design rationale. Registered via `AddDeathModule()`. Implemented (Phase 3 slice 10).
 
 ### AbilitySystem
 **Purpose:** Domain system managing the full ability lifecycle for players and mobs. Handles learn/teach, multi-cost atomic activation (resolve ability → entity state/cooldown/cost checks → spend costs → apply effects → set cooldown), per-ability cooldown tracking, and batch cooldown advancement on each heartbeat tick.

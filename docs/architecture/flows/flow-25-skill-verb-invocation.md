@@ -47,7 +47,7 @@ sequenceDiagram
 
 **Cross-references.**
 - [Flow 17](flow-17-kill-mob-combat-initiation.md) — `kill <mob>` opens combat, no opening strike
-- [Flow 18](flow-18-combat-round-pulse.md) — heartbeat tick drives subsequent rounds
+- [Flow 18](flow-17-kill-mob-combat-initiation.md) — heartbeat tick drives subsequent rounds
 - [Flow 24](flow-24-ability-activation.md) — `Activate` chain detail
 - [Flow 26](flow-26-offensive-ability-opens-combat.md) — offensive ability that opens combat
 - [`Core/Modules/Abilities/Commands/SkillInvocationCommand.cs`](../../../../Core/Modules/Abilities/Commands/SkillInvocationCommand.cs)
