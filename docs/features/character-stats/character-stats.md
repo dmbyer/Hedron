@@ -50,10 +50,10 @@ Pool maxima are base values set directly by character creation, mob templates, a
 
 | Score | Formula | Note |
 |---|---|---|
-| `AttackPower` | `Body / 2 + MainHand.DamageBonus` | weapon slot optional; 0 if no weapon |
-| `Defense` | `Body / 4` | interim; dedicated evasion/armor score lands later |
+| `AttackPower` | `Body / 2` base + worn-gear `AttackPower` bonuses | weapon bonuses fold in via the equipment effect contributor |
+| `Defense` | `Body / 4` base + worn-gear `Defense` bonuses | armor folds in via the contributor; dedicated evasion/armor score lands later |
 
-These are computed by `IStatSystem.GetEffectiveAttackPower` / `GetEffectiveDefense` and are visible in the `score` output.
+The base values come from `IStatSystem.GetEffectiveAttackPower` / `GetEffectiveDefense`; the gear-inclusive values (used by combat and the `score` output) come from `IStatSystem.Get(AttackPower|Defense)`, which folds the worn-gear bonuses authored as `ItemDataComponent.StatBonuses`.
 
 ## Regeneration
 

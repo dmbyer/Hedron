@@ -4,6 +4,7 @@ using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Items.Systems;
 using Hedron.Core.Modules.Items.Templates;
+using Hedron.Core.Modules.Stats;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -388,40 +389,94 @@ namespace Hedron.Tests.Authoring
             sys.SetItemSlots(99999u, new[] { WornSlot.Feet });
         }
 
-        // ── SetItemDamageBonus ───────────────────────────────────────────────────
+        // ── SetItemStatBonus / ClearItemStatBonuses (T-U6) ───────────────────────
 
         [Fact]
-        public void SetItemDamageBonus_updates_ItemDataComponent_on_live_entity()
+        public void SetItemStatBonus_updates_ItemDataComponent_and_template()
+        {
+            var (sys, ecs, registry) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateItem("Broadsword", roomId);
+
+            sys.SetItemStatBonus(result.ItemEntityId, ScoreId.AttackPower, 5);
+
+            var item = ecs.Get<ItemDataComponent>(result.ItemEntityId);
+            Assert.Equal(new EquipmentStatBonus(ScoreId.AttackPower, 5), Assert.Single(item.StatBonuses));
+
+            registry.TryGet(result.BlueprintId, out var template);
+            var itemTemplate = Assert.IsType<ItemTemplate>(template);
+            Assert.Equal(new EquipmentStatBonus(ScoreId.AttackPower, 5), Assert.Single(itemTemplate.StatBonuses));
+        }
+
+        [Fact]
+        public void SetItemStatBonus_replaces_existing_row_for_same_score()
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
             var result = sys.CreateItem("Broadsword", roomId);
 
-            sys.SetItemDamageBonus(result.ItemEntityId, 5);
+            sys.SetItemStatBonus(result.ItemEntityId, ScoreId.AttackPower, 5);
+            sys.SetItemStatBonus(result.ItemEntityId, ScoreId.AttackPower, 9);
 
             var item = ecs.Get<ItemDataComponent>(result.ItemEntityId);
-            Assert.Equal(5, item.DamageBonus);
+            Assert.Equal(new EquipmentStatBonus(ScoreId.AttackPower, 9), Assert.Single(item.StatBonuses));
         }
 
         [Fact]
-        public void SetItemDamageBonus_updates_template_in_registry()
+        public void SetItemStatBonus_keeps_distinct_scores_as_separate_rows()
+        {
+            var (sys, ecs, _) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateItem("Plate Mail", roomId);
+
+            sys.SetItemStatBonus(result.ItemEntityId, ScoreId.Defense, 4);
+            sys.SetItemStatBonus(result.ItemEntityId, ScoreId.AttackPower, 2);
+
+            var item = ecs.Get<ItemDataComponent>(result.ItemEntityId);
+            Assert.Equal(2, item.StatBonuses.Count);
+            Assert.Contains(new EquipmentStatBonus(ScoreId.Defense, 4), item.StatBonuses);
+            Assert.Contains(new EquipmentStatBonus(ScoreId.AttackPower, 2), item.StatBonuses);
+        }
+
+        [Fact]
+        public void SetItemStatBonus_with_zero_magnitude_removes_the_row()
+        {
+            var (sys, ecs, _) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateItem("Broadsword", roomId);
+
+            sys.SetItemStatBonus(result.ItemEntityId, ScoreId.AttackPower, 5);
+            sys.SetItemStatBonus(result.ItemEntityId, ScoreId.AttackPower, 0);
+
+            var item = ecs.Get<ItemDataComponent>(result.ItemEntityId);
+            Assert.Empty(item.StatBonuses);
+        }
+
+        [Fact]
+        public void ClearItemStatBonuses_empties_component_and_template()
         {
             var (sys, ecs, registry) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateItem("Battleaxe", roomId);
+            var result = sys.CreateItem("Plate Mail", roomId);
 
-            sys.SetItemDamageBonus(result.ItemEntityId, 8);
+            sys.SetItemStatBonus(result.ItemEntityId, ScoreId.Defense, 4);
+            sys.SetItemStatBonus(result.ItemEntityId, ScoreId.AttackPower, 2);
+            sys.ClearItemStatBonuses(result.ItemEntityId);
+
+            var item = ecs.Get<ItemDataComponent>(result.ItemEntityId);
+            Assert.Empty(item.StatBonuses);
 
             registry.TryGet(result.BlueprintId, out var template);
             var itemTemplate = Assert.IsType<ItemTemplate>(template);
-            Assert.Equal(8, itemTemplate.DamageBonus);
+            Assert.Empty(itemTemplate.StatBonuses);
         }
 
         [Fact]
-        public void SetItemDamageBonus_is_noop_for_unknown_entity()
+        public void SetItemStatBonus_is_noop_for_unknown_entity()
         {
             var (sys, _, _) = Build();
-            sys.SetItemDamageBonus(99999u, 10);
+            sys.SetItemStatBonus(99999u, ScoreId.AttackPower, 10);
+            sys.ClearItemStatBonuses(99999u);
         }
 
         // ── INV-5: ItemBuilderSystem does not hold IEventBus ─────────────────────

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Hedron.Core;
 using Hedron.Core.Modules.Items.Templates;
+using Hedron.Core.Modules.Stats;
 
 namespace Hedron.Core.Modules.Items.Systems
 {
@@ -17,7 +18,15 @@ namespace Hedron.Core.Modules.Items.Systems
         void SetItemKeywords(uint itemEntityId, IReadOnlyList<string> keywords);
         void SetItemType(uint itemEntityId, ItemType itemType);
         void SetItemSlots(uint itemEntityId, IReadOnlyList<WornSlot> slots);
-        void SetItemDamageBonus(uint itemEntityId, int value);
+
+        /// <summary>
+        /// Add-or-replace the worn-stat bonus for <paramref name="score"/> on the item (and its
+        /// template). A <paramref name="magnitude"/> of 0 removes the row.
+        /// </summary>
+        void SetItemStatBonus(uint itemEntityId, ScoreId score, int magnitude);
+
+        /// <summary>Remove all worn-stat bonuses from the item (and its template).</summary>
+        void ClearItemStatBonuses(uint itemEntityId);
     }
 
     /// <summary>Result of <see cref="IItemBuilderSystem.CreateItem"/>.</summary>

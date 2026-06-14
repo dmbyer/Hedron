@@ -20,7 +20,12 @@ namespace Hedron.Core.ECS.Components
         /// </summary>
         public List<WornSlot>? WornSlots { get; set; }
 
-        /// <summary>Flat bonus added to the wielder's effective attack power when equipped in MainHand. Default 0.</summary>
-        public int DamageBonus { get; set; }
+        /// <summary>
+        /// Stat contributions applied while this item is worn, each a signed magnitude against a
+        /// <see cref="Hedron.Core.Modules.Stats.ScoreId"/>. Derived on read as WhileEquipped
+        /// StatModifiers by <c>EquipmentEffectContributor</c> — never written to an effect store.
+        /// Empty means the item contributes no stats.
+        /// </summary>
+        public List<EquipmentStatBonus> StatBonuses { get; set; } = new();
     }
 }

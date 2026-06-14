@@ -1,8 +1,11 @@
 using System;
 using System.Threading.Tasks;
+using Hedron.Core;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Account.Components;
+using Hedron.Core.Modules.Items;
+using Hedron.Core.Modules.Stats;
 using Hedron.Tests.Harness;
 using Xunit;
 
@@ -355,6 +358,77 @@ namespace Hedron.Tests.Persistence
             Assert.Equal("77", loc.RoomBlueprintId);
             // RoomEntityId is [JsonIgnore] — runtime-only, must be 0 (default) after reload.
             Assert.Equal(0u, loc.RoomEntityId);
+        }
+
+        // ── Test 9 (T-P1): equipped player + gear bonuses round-trip; nothing WhileEquipped is stored ──
+
+        /// <summary>
+        /// A persistent player wearing a weapon and armor round-trips its <c>EquipmentComponent.Slots</c>
+        /// and each player-owned item's <c>ItemDataComponent.StatBonuses</c>. The synthetic
+        /// <c>WhileEquipped</c> effects the contributor derives are NEVER stored — no
+        /// <c>EffectsComponent</c> is written for them (derived-on-read). After reload the gear bonuses
+        /// re-derive from the persisted sources, so the contributor reproduces the same modifiers.
+        /// </summary>
+        [Fact]
+        public async Task Equipped_player_gear_bonuses_round_trip_and_are_not_stored_as_effects()
+        {
+            using var harness = new PersistenceTestHarness();
+            var ecs = harness.EntityService;
+
+            // Player-owned weapon and armor are persistent entities carrying their authored bonuses.
+            var weapon = ecs.CreateEntity();
+            ecs.AddComponent(weapon.Id, new ItemDataComponent
+            {
+                Name = "broadsword",
+                StatBonuses = { new EquipmentStatBonus(ScoreId.AttackPower, 6) },
+            });
+            ecs.AddComponent(weapon.Id, new PersistentEntity());
+
+            var armor = ecs.CreateEntity();
+            ecs.AddComponent(armor.Id, new ItemDataComponent
+            {
+                Name = "breastplate",
+                StatBonuses = { new EquipmentStatBonus(ScoreId.Defense, 4) },
+            });
+            ecs.AddComponent(armor.Id, new PersistentEntity());
+
+            var player = new EntityBuilder(ecs)
+                .AsPlayer().WithAttributes(body: 10)
+                .With(new EquipmentComponent
+                {
+                    Slots = { [WornSlot.MainHand] = weapon.Id, [WornSlot.Chest] = armor.Id },
+                })
+                .Build();
+            ecs.AddComponent(player, new PersistentEntity());
+
+            await harness.SaveAsync(weapon.Id);
+            await harness.SaveAsync(armor.Id);
+            await harness.SaveAsync(player);
+
+            var fresh = await harness.ReloadIntoFreshWorld();
+
+            // Equipment slot mapping survived on the player.
+            Assert.True(fresh.HasComponent<EquipmentComponent>(player));
+            var slots = fresh.Get<EquipmentComponent>(player).Slots;
+            Assert.Equal(weapon.Id, slots[WornSlot.MainHand]);
+            Assert.Equal(armor.Id, slots[WornSlot.Chest]);
+
+            // Each item's authored bonuses survived.
+            Assert.Equal(
+                new EquipmentStatBonus(ScoreId.AttackPower, 6),
+                Assert.Single(fresh.Get<ItemDataComponent>(weapon.Id).StatBonuses));
+            Assert.Equal(
+                new EquipmentStatBonus(ScoreId.Defense, 4),
+                Assert.Single(fresh.Get<ItemDataComponent>(armor.Id).StatBonuses));
+
+            // Nothing WhileEquipped was materialized: the player has no stored EffectsComponent.
+            Assert.False(fresh.HasComponent<EffectsComponent>(player),
+                "Worn-gear modifiers are derived-on-read — none may be written to EffectsComponent.");
+
+            // The bonuses re-derive from the persisted sources after restart.
+            var contributor = new EquipmentEffectContributor(fresh);
+            Assert.Equal(6, contributor.GetModifiers(player, ScoreId.AttackPower));
+            Assert.Equal(4, contributor.GetModifiers(player, ScoreId.Defense));
         }
     }
 }

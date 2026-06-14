@@ -89,9 +89,13 @@ Deferred from slice 5a (bare-bones content spawning). Remaining capabilities:
 
 (Room-to-area membership — `RoomComponent.AreaEntityId`, `IAreaSystem`, `setarea`/`area` commands, aspect-affinity YAML, and `RegistryValidationBootstrap` area sweep — landed in the area-model WP-2 slice.)
 
-### 🔵 Equipment slot expansion
+### ✅ Equipment slot expansion — shipped (wearable-equipment-expansion)
 
-Additional worn slots deferred from slice 7 (`equipment.md`): `Legs`, `Hands`, `Neck`, `Ring` (and potentially `Waist`, `Wrist`, `Shoulders`). Adding them is a pure `WornSlot` enum + YAML extension. Revisit when the combat slice (9) needs resistance slots, or when content authoring requires them.
+Resolved. The wearable-equipment-expansion slice added 9 `WornSlot` values — `Legs`, `Hands`, `Arms`, `Waist`, `Neck`, `Finger`, `Finger2`, `Wrist`, `Wrist2` (doubled rings/wrists are distinct enum values; no model change) — alongside the worn-gear stat-contribution seam. Further slots remain a pure enum + YAML extension if content ever needs them.
+
+### 🔵 In-game item-definition inspector (`defs item` / `iteminfo`)
+
+`DefsCommand` inspects only the registry families (aspect/ability/effect/score); items are `TemplateRegistry` templates with no telnet read-back of authored fields (`StatBonuses`, `WornSlots`, `DamageBonus` before it). Today an item's authored bonuses are inspected via the Blazor content editor + the `setitem` confirmation echo. A dedicated in-game inspector — either a `defs item <blueprintId>` family or an `iteminfo` admin command dumping `ItemDataComponent`/`ItemTemplate` fields — is a small, self-contained follow-up. Surfaced during wearable-equipment-expansion (the parity bar was the Blazor editor, which the slice updated to the new `StatBonuses` rows). Revisit when builders need at-the-keyboard item inspection without the web editor.
 
 ### 🔵 Subtype-based argument matching ("get sword" = any sword)
 

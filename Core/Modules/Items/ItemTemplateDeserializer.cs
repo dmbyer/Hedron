@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Items.Templates;
+using Hedron.Core.Modules.Stats;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
@@ -67,7 +69,19 @@ namespace Hedron.Core.Modules.Items
                 }
             }
 
-            template.DamageBonus = dto.DamageBonus;
+            if (dto.StatBonuses is { Count: > 0 })
+            {
+                foreach (var bonus in dto.StatBonuses)
+                {
+                    if (!string.IsNullOrWhiteSpace(bonus.TargetScore) &&
+                        Enum.TryParse<ScoreId>(bonus.TargetScore, ignoreCase: true, out var score))
+                        template.StatBonuses.Add(new EquipmentStatBonus(score, bonus.Magnitude));
+                    else
+                        _logger.LogWarning(
+                            "Item '{Id}': unknown statBonus score '{Score}' — skipping.",
+                            dto.BlueprintId, bonus.TargetScore);
+                }
+            }
 
             return template;
         }
@@ -81,7 +95,13 @@ namespace Hedron.Core.Modules.Items
             public string? ItemType { get; set; }
             public List<string>? WornSlots { get; set; }
             public string? SpawnRoomId { get; set; }
-            public int DamageBonus { get; set; }
+            public List<StatBonusDto>? StatBonuses { get; set; }
+        }
+
+        private sealed class StatBonusDto
+        {
+            public string? TargetScore { get; set; }
+            public int Magnitude { get; set; }
         }
     }
 }

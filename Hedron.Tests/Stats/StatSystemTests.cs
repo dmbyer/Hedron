@@ -72,7 +72,7 @@ namespace Hedron.Tests.Stats
             var noEffects = new EffectSystem(ecs, Array.Empty<IEffectContributor>());
             var deathOpts = Options.Create(new DeathOptions { HpFloor = -10 });
             var attributes = new AttributeSystem(ecs, noEffects, deathOpts);
-            var stats = new StatSystem(attributes, ecs, noEffects);
+            var stats = new StatSystem(attributes, noEffects);
             return (stats, attributes, ecs);
         }
 
@@ -90,7 +90,7 @@ namespace Hedron.Tests.Stats
             var deathOpts = Options.Create(new DeathOptions { HpFloor = -10 });
             var attributes = new AttributeSystem(ecs, noEffects, deathOpts);
             var fakeEffects = new FakeEffectSystem();
-            var stats = new StatSystem(attributes, ecs, fakeEffects);
+            var stats = new StatSystem(attributes, fakeEffects);
             return (stats, attributes, ecs, fakeEffects);
         }
 
@@ -126,81 +126,10 @@ namespace Hedron.Tests.Stats
             Assert.Equal(0, stats.GetEffectiveAttackPower(attacker));
         }
 
-        // ── GetEffectiveAttackPower — adds MainHand DamageBonus ─────────────────
-
-        /// <summary>
-        /// Equipping a weapon with a <c>DamageBonus</c> adds that bonus on top of Body/2.
-        /// </summary>
-        [Fact]
-        public void GetEffectiveAttackPower_adds_MainHand_DamageBonus()
-        {
-            var (stats, _, ecs) = BuildReal();
-
-            // Create a weapon item entity with DamageBonus = 5.
-            var weapon = ecs.CreateEntity();
-            ecs.AddComponent(weapon.Id, new ItemDataComponent { DamageBonus = 5 });
-
-            // Player with Body=10, wielding the weapon.
-            var attacker = new EntityBuilder(ecs)
-                .AsPlayer()
-                .WithAttributes(body: 10)
-                .Wielding(weapon.Id)
-                .Build();
-
-            // Expected: 10/2 + 5 = 10.
-            Assert.Equal(10, stats.GetEffectiveAttackPower(attacker));
-        }
-
-        [Fact]
-        public void GetEffectiveAttackPower_with_zero_DamageBonus_weapon_equals_base()
-        {
-            var (stats, _, ecs) = BuildReal();
-
-            var weapon = ecs.CreateEntity();
-            ecs.AddComponent(weapon.Id, new ItemDataComponent { DamageBonus = 0 });
-
-            var attacker = new EntityBuilder(ecs)
-                .AsPlayer()
-                .WithAttributes(body: 10)
-                .Wielding(weapon.Id)
-                .Build();
-
-            // 10/2 + 0 = 5; same as unarmed.
-            Assert.Equal(5, stats.GetEffectiveAttackPower(attacker));
-        }
-
-        [Fact]
-        public void GetEffectiveAttackPower_unarmed_equals_attack_with_zero_bonus_weapon()
-        {
-            var (stats, _, ecs) = BuildReal();
-
-            // Build two attackers with the same Body; one unarmed, one with a 0-bonus weapon.
-            var unarmed = new EntityBuilder(ecs).AsPlayer().WithAttributes(body: 10).Build();
-
-            var weapon = ecs.CreateEntity();
-            ecs.AddComponent(weapon.Id, new ItemDataComponent { DamageBonus = 0 });
-            var armed = new EntityBuilder(ecs).AsPlayer().WithAttributes(body: 10).Wielding(weapon.Id).Build();
-
-            Assert.Equal(stats.GetEffectiveAttackPower(unarmed), stats.GetEffectiveAttackPower(armed));
-        }
-
-        [Fact]
-        public void GetEffectiveAttackPower_large_DamageBonus_is_added_correctly()
-        {
-            var (stats, _, ecs) = BuildReal();
-
-            var weapon = ecs.CreateEntity();
-            ecs.AddComponent(weapon.Id, new ItemDataComponent { DamageBonus = 20 });
-
-            var attacker = new EntityBuilder(ecs)
-                .AsPlayer()
-                .WithAttributes(body: 8)
-                .Wielding(weapon.Id)
-                .Build();
-
-            // 8/2 + 20 = 24.
-            Assert.Equal(24, stats.GetEffectiveAttackPower(attacker));
-        }
+        // NOTE: weapon DamageBonus was migrated to the WhileEquipped effect contributor
+        // (EquipmentEffectContributor). GetEffectiveAttackPower is now base-only (Body/2); the
+        // gear-inclusive value rides Get(ScoreId.AttackPower). End-to-end equipment→stat coverage
+        // lives in EquipmentEffectContributorTests (the contributor unit + the Get fold).
 
         // ── GetEffectiveDefense — Body/4 ─────────────────────────────────────────
 
@@ -296,33 +225,8 @@ namespace Hedron.Tests.Stats
             Assert.Equal(12, stats.Get(player, ScoreId.Mind));
         }
 
-        // ── Equipment + effect modifiers both included ───────────────────────────
-
-        /// <summary>
-        /// Attack power must include BOTH the MainHand DamageBonus from equipment AND
-        /// any active <see cref="ScoreId.AttackPower"/> modifier from the effect system.
-        /// </summary>
-        [Fact]
-        public void Get_AttackPower_includes_both_equipment_bonus_and_effect_modifier()
-        {
-            var (stats, _, ecs, fakeEffects) = BuildWithFakeEffects();
-
-            // Weapon with DamageBonus = 4.
-            var weapon = ecs.CreateEntity();
-            ecs.AddComponent(weapon.Id, new ItemDataComponent { DamageBonus = 4 });
-
-            // Player: Body=10, wielding weapon, +3 AttackPower from active effect.
-            var player = new EntityBuilder(ecs)
-                .AsPlayer()
-                .WithAttributes(body: 10)
-                .Wielding(weapon.Id)
-                .Build();
-
-            fakeEffects.SetModifier(player, ScoreId.AttackPower, 3);
-
-            // Expected: Body/2 (5) + DamageBonus (4) + effect modifier (3) = 12.
-            Assert.Equal(12, stats.Get(player, ScoreId.AttackPower));
-        }
+        // (Equipment-bonus + effect-modifier combination is proven end-to-end in
+        // EquipmentEffectContributorTests, where the real contributor folds gear into GetModifiers.)
 
         // ── Active StatModifier effect increases targeted stat score ─────────────
 

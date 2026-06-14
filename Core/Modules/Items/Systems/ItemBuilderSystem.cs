@@ -4,6 +4,7 @@ using Hedron.Core;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Items.Templates;
+using Hedron.Core.Modules.Stats;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging;
 
@@ -116,12 +117,29 @@ namespace Hedron.Core.Modules.Items.Systems
             }
         }
 
-        public void SetItemDamageBonus(uint itemEntityId, int value)
+        public void SetItemStatBonus(uint itemEntityId, ScoreId score, int magnitude)
         {
             if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-                item.DamageBonus = value;
+                ApplyStatBonus(item.StatBonuses, score, magnitude);
             var tpl = TryGetTemplate(itemEntityId);
-            if (tpl is not null) tpl.DamageBonus = value;
+            if (tpl is not null) ApplyStatBonus(tpl.StatBonuses, score, magnitude);
+        }
+
+        public void ClearItemStatBonuses(uint itemEntityId)
+        {
+            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
+                item.StatBonuses.Clear();
+            var tpl = TryGetTemplate(itemEntityId);
+            if (tpl is not null) tpl.StatBonuses.Clear();
+        }
+
+        // Keep one row per ScoreId: drop any existing row for this score, then add the new one
+        // unless magnitude is 0 (which means "remove the bonus").
+        private static void ApplyStatBonus(List<EquipmentStatBonus> bonuses, ScoreId score, int magnitude)
+        {
+            bonuses.RemoveAll(b => b.TargetScore == score);
+            if (magnitude != 0)
+                bonuses.Add(new EquipmentStatBonus(score, magnitude));
         }
 
         private ItemTemplate? TryGetTemplate(uint itemEntityId)

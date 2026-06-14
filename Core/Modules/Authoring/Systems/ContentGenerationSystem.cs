@@ -9,6 +9,7 @@ using Hedron.Core.Modules.Items.Systems;
 using Hedron.Core.Modules.Items.Templates;
 using Hedron.Core.Modules.Mobs.Systems;
 using Hedron.Core.Modules.Mobs.Templates;
+using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.World.Systems;
 using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
@@ -193,7 +194,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
                 Keywords = new List<string> { "generated", "item" },
                 ItemType = ItemType.Misc,
                 SpawnRoomBlueprintId = room.BlueprintId,
-                DamageBonus = rng.Next(0, 5),
+                StatBonuses = new List<EquipmentStatBonus> { new(ScoreId.AttackPower, rng.Next(0, 5)) },
             };
         }
 

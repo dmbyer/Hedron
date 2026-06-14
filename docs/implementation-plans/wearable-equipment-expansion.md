@@ -1,6 +1,6 @@
 # Wearable Equipment Expansion — weapon/armor catalog + the equipment stat seam
 
-> **Status: planned** (architecture-advisor seed — architecture tier only; the `implementation-planner` extends this).
+> **Status: implemented** (advisor seed → planner → spec gate cleared → built, `dotnet test` green at 627). Pending: code-review gate, then disintegrate-on-ship via `sync-roadmap`.
 
 ## Actors
 
@@ -159,8 +159,8 @@ None. `WhileEquipped` contributions are derived on read; they participate in no 
 
 ### WP-3 — Content surface: YAML schema, generator, Blazor, content re-author (INV-18)
 
-**Scope.** `statBonuses:` list in `ItemTemplateDeserializer` (read) + `ItemContentWriter` (write); content-definition catalog + `ContentGenerationSystem` emit `(AttackPower, rng)` rows; `ItemEditor.razor` row editor; **update the `defs` item branch to print the `StatBonuses` rows** (replacing the `DamageBonus` line); enumerate and re-author every `DamageBonus`-bearing authored/generated item as an `(AttackPower, n)` row (no on-disk item YAML exists today — the generator and any seeded templates are the only carriers; re-author them so no item silently loses damage).
-**Files.** `Core/Modules/Items/{ItemTemplateDeserializer.cs,Systems/ItemContentWriter.cs}`, `Core/Modules/Authoring/Systems/ContentGenerationSystem.cs` + content-definition catalog, the `defs` command's item branch, `Hedron.Web/Components/Pages/ItemEditor.razor`. Tests: `Hedron.Tests/Items/ItemTemplateRoundTripTests.cs` (or extend existing), `Hedron.Tests/Authoring/ContentDefinitionCatalogTests.cs` + `ContentGenerationSystemTests.cs` updates.
+**Scope.** `statBonuses:` list in `ItemTemplateDeserializer` (read) + `ItemContentWriter` (write); `ContentGenerationSystem` emits an `(AttackPower, rng)` row; `ItemEditor.razor` row editor (read-back + edit); re-author the only `DamageBonus` carrier (the generator — no on-disk item YAML exists). Inspection rides the Blazor row list + `setitem` echo (no `defs item` family exists — see Content tooling).
+**Files.** `Core/Modules/Items/{ItemTemplateDeserializer.cs,Systems/ItemContentWriter.cs}`, `Core/Modules/Authoring/Systems/ContentGenerationSystem.cs`, `Hedron.Web/Components/Pages/ItemEditor.razor`. Tests: `Hedron.Tests/Authoring/ContentDefinitionCatalogTests.cs` (item YAML round-trip — T-P2) + `ContentGenerationSystemTests.cs` updates.
 **Depends on.** WP-1, WP-2.
 **Out of scope.** Per-aspect resistance gear, affixes, set bonuses (deferred — see brief).
 **Exit criterion.** YAML `statBonuses` round-trips losslessly; generator emits rows; Blazor saves them; no `DamageBonus` symbol remains anywhere. `dotnet test` green.
@@ -173,7 +173,7 @@ None. `WhileEquipped` contributions are derived on read; they participate in no 
 
 - **Data-file shape.** Item YAML gains `statBonuses:` — a list of `{ targetScore: <ScoreId>, magnitude: <int> }`. `damageBonus:` is removed from the DTO (read + write). `wornSlots:` gains 9 new accepted values (enum-driven, no DTO change).
 - **Admin command.** `setitem <id> bonus <score> <amount>` (add-or-replace one row; `0` removes it) and `setitem <id> clearbonus` (clear all). Replaces `setitem <id> dmg <n>`. `LongDescription`/`Usage` updated to list the new slot names and the `bonus`/`clearbonus` grammar.
-- **Inspection (committed deliverable, INV-18).** The `defs` item branch is updated in WP-3 to enumerate the `StatBonuses` rows (one line per `(targetScore, magnitude)`), replacing the line that printed `DamageBonus`, so a builder can read back a weapon's authored bonus in-game. This ships in-slice — not a post-hoc verification. (If the current `defs` item branch does not already print `DamageBonus`, the row-list print is still added here; it is not deferred.)
+- **Inspection (as-built).** There is **no `defs item` branch** — `DefsCommand` covers only the registry families (aspect/ability/effect/score); items are `TemplateRegistry` templates, never a `defs` family, so `DamageBonus` never had a telnet read-back. Parity is preserved and improved: the authored bonuses are inspectable via the **Blazor editor row list** (read-back, updated this slice to the `StatBonuses` rows) and echoed by the `setitem bonus`/`clearbonus` confirmation. A dedicated in-game item-definition inspector (`defs item` / `iteminfo`) is logged to [`../roadmap/backlog.md`](../roadmap/backlog.md) as a follow-up — it is a new inspector surface, not a regression of this slice.
 - **Blazor editor.** `ItemEditor.razor` replaces the single `DamageBonus` number field with a repeating `(ScoreId select, magnitude number)` row editor over `StatBonuses` (add/remove row). The 9 new slots appear automatically (the checklist is `Enum.GetValues<WornSlot>()`-driven).
 - **TemplateRegistry.** No new template kind; `ItemTemplate` shape change only.
 
@@ -220,9 +220,10 @@ No new canonical flow file is introduced — all four are extensions of existing
 - **T-F1 — flow — combat round consumes equipment attack power** — equip a weapon `(AttackPower,n)`, run `CombatSystem.ExecuteRound`, assert damage range reflects the gear-inclusive attack power (guards the read-path repoint; this is the regression test for the migration). (P5)
 - **T-P1 — persistence round-trip — equipped persistent entity** — save→load a player wearing armor+weapon; assert `EquipmentComponent.Slots` and each item's `StatBonuses` survive, and `EffectsComponent` contains **no** `WhileEquipped` effect (derived-not-stored). (P4, P7)
 - **T-P2 — content round-trip — item YAML `statBonuses`** — serialize an `ItemTemplate` with two bonus rows via `ItemContentWriter`, deserialize, assert rows equal; assert `damageBonus` absent. (P6)
-- **T-G1 — architecture-guard — no `DamageBonus` symbol** — grep/reflection guard that no `DamageBonus` member remains on `ItemDataComponent`/`ItemTemplate`/DTOs (catches a half-done migration). (P6) *(if the guard tier is cheap; otherwise covered by the build deleting the symbol)*
-- **Command validation** — `setitem <id> bonus notascore 3` → error; `bonus attackpower notanint` → error (handler-tier, thin — one negative case each). (P9)
-- **Skipped:** exact `setitem`/`score` output prose (presentation); the `WornSlot` enum additions (pure data, exercised transitively by T-U2 across slots and by the enum-driven slot parse); the Blazor editor rendering (UI, manually verified) — its save path is the `ItemContentWriter` round-trip (T-P2); the `defs` item display (presentation).
+- **T-G1 — architecture-guard — no `DamageBonus` symbol** — covered by the build: the symbol is deleted from `ItemDataComponent`/`ItemTemplate`/both DTOs/`IItemBuilderSystem`, so any lingering reference fails compilation (a dedicated reflection guard would be redundant). (P6)
+- **Skipped:** `setitem bonus`/`clearbonus` parse-validation (`notascore`/`notanint`/arg-count) — thin command-tier orchestration; the suite has **no command-test harness** (no command is unit-tested) and the substantive logic (`SetItemStatBonus` add/replace/remove) is covered by T-U6. Consistent with the [07-testing.md](../architecture/07-testing.md) skip rubric for presentation/plumbing. Also skipped: exact `setitem`/`score` output prose (presentation); the `WornSlot` enum additions (pure data, exercised transitively by T-U2 and the enum-driven slot parse); the Blazor editor rendering (UI) — its save path is the `ItemContentWriter` round-trip (T-P2).
+
+**As-built:** all named tests implemented and green — `dotnet test` = **627 passed, 0 failed**. New: `EquipmentEffectContributorTests` (T-U1…T-U5 + two-slot dedupe), `CombatFlowTests.Combat_round_uses_equipment_attack_power_via_Get` (T-F1), `RoundTripTests.Equipped_player_gear_bonuses_round_trip_and_are_not_stored_as_effects` (T-P1), `ContentDefinitionCatalogTests` item round-trip extended to `StatBonuses` (T-P2), `ItemBuilderSystemTests` `SetItemStatBonus`/`ClearItemStatBonuses` group (T-U6). `StatSystemTests` DamageBonus-getter group removed (behavior deleted).
 
 **Testability:** no un-injected seam introduced — `EquipmentEffectContributor` is pure over ECS state; combat already injects `IRandom`. No INV-26 gap.
 

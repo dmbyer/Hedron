@@ -1,7 +1,9 @@
 @page "/item/new"
 @page "/item/{BlueprintId}"
 @using Hedron.Core
+@using Hedron.Core.ECS.Components
 @using Hedron.Core.Modules.Items.Templates
+@using Hedron.Core.Modules.Stats
 @inject IContentDefinitionCatalog Catalog
 @inject NavigationManager Nav
 
@@ -38,11 +40,29 @@ else if (_template is not null)
                 }
             </select>
         </div>
-        <div class="field">
-            <label>Damage bonus</label>
-            <input type="number" @bind="_template.DamageBonus" />
-        </div>
     </div>
+
+    <fieldset class="stat-bonuses">
+        <legend>Worn stat bonuses</legend>
+        <p class="hint">Applied while the item is worn (derived on read). A negative magnitude is allowed for cursed gear.</p>
+        @for (var i = 0; i < _template.StatBonuses.Count; i++)
+        {
+            var index = i;
+            <div class="field-row stat-bonus-row">
+                <select value="@_template.StatBonuses[index].TargetScore"
+                        @onchange="e => SetBonusScore(index, e.Value?.ToString())">
+                    @foreach (var score in AllScoreIds)
+                    {
+                        <option value="@score">@score</option>
+                    }
+                </select>
+                <input type="number" value="@_template.StatBonuses[index].Magnitude"
+                       @onchange="e => SetBonusMagnitude(index, e.Value?.ToString())" />
+                <button type="button" @onclick="() => RemoveBonus(index)">Remove</button>
+            </div>
+        }
+        <button type="button" @onclick="AddBonus">Add bonus</button>
+    </fieldset>
 
     <div class="field">
         <label>Spawn room blueprint id <span class="hint-inline">(blank = no spawn location)</span></label>
@@ -101,6 +121,7 @@ else if (_template is not null)
 
     private static readonly ItemType[] AllItemTypes = Enum.GetValues<ItemType>();
     private static readonly WornSlot[] AllWornSlots = Enum.GetValues<WornSlot>();
+    private static readonly ScoreId[] AllScoreIds = Enum.GetValues<ScoreId>();
 
     private ItemTemplate? _template;
     private bool _notFound;
@@ -148,6 +169,31 @@ else if (_template is not null)
         {
             _template.WornSlots.Remove(slot);
         }
+    }
+
+    private void AddBonus()
+    {
+        _template?.StatBonuses.Add(new EquipmentStatBonus(ScoreId.AttackPower, 0));
+    }
+
+    private void RemoveBonus(int index)
+    {
+        if (_template is null || index < 0 || index >= _template.StatBonuses.Count) return;
+        _template.StatBonuses.RemoveAt(index);
+    }
+
+    private void SetBonusScore(int index, string? raw)
+    {
+        if (_template is null || index < 0 || index >= _template.StatBonuses.Count) return;
+        if (Enum.TryParse<ScoreId>(raw, out var score))
+            _template.StatBonuses[index] = _template.StatBonuses[index] with { TargetScore = score };
+    }
+
+    private void SetBonusMagnitude(int index, string? raw)
+    {
+        if (_template is null || index < 0 || index >= _template.StatBonuses.Count) return;
+        if (int.TryParse(raw, out var magnitude))
+            _template.StatBonuses[index] = _template.StatBonuses[index] with { Magnitude = magnitude };
     }
 
     private async Task Save()

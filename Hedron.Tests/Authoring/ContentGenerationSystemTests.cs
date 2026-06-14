@@ -125,12 +125,15 @@ namespace Hedron.Tests.Authoring
                 first.Mobs.Written.Select(m => (m.BlueprintId, m.Level, m.MaxHp, m.SpawnRoomBlueprintId)),
                 second.Mobs.Written.Select(m => (m.BlueprintId, m.Level, m.MaxHp, m.SpawnRoomBlueprintId)));
             Assert.Equal(
-                first.Items.Written.Select(i => (i.BlueprintId, i.DamageBonus, i.SpawnRoomBlueprintId)),
-                second.Items.Written.Select(i => (i.BlueprintId, i.DamageBonus, i.SpawnRoomBlueprintId)));
+                first.Items.Written.Select(i => (i.BlueprintId, StatBonusKey(i), i.SpawnRoomBlueprintId)),
+                second.Items.Written.Select(i => (i.BlueprintId, StatBonusKey(i), i.SpawnRoomBlueprintId)));
             Assert.Equal(
                 first.Areas.Written.Select(AspectKey),
                 second.Areas.Written.Select(AspectKey));
         }
+
+        private static string StatBonusKey(ItemTemplate item) =>
+            string.Join(",", item.StatBonuses.Select(b => $"{b.TargetScore}:{b.Magnitude}"));
 
         private static string AspectKey(AreaTemplate area) =>
             area.AspectAffinities is { Count: > 0 }

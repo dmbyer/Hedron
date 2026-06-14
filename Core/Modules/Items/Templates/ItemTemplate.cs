@@ -28,8 +28,8 @@ namespace Hedron.Core.Modules.Items.Templates
         /// <summary>Blueprint id of the room this item spawns in. Empty means no spawn location.</summary>
         public string SpawnRoomBlueprintId { get; set; } = string.Empty;
 
-        /// <summary>Flat bonus added to the wielder's effective attack power when equipped in MainHand. Default 0.</summary>
-        public int DamageBonus { get; set; }
+        /// <summary>Stat contributions applied while this item is worn (WhileEquipped StatModifiers, derived on read). Empty = none.</summary>
+        public List<EquipmentStatBonus> StatBonuses { get; set; } = new();
 
         public ItemTemplate(string blueprintId)
         {
@@ -45,7 +45,7 @@ namespace Hedron.Core.Modules.Items.Templates
                 Keywords = new List<string>(Keywords),
                 ItemType = ItemType,
                 WornSlots = WornSlots.Count > 0 ? new List<WornSlot>(WornSlots) : null,
-                DamageBonus = DamageBonus,
+                StatBonuses = new List<EquipmentStatBonus>(StatBonuses),
             });
         }
     }

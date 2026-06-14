@@ -14,13 +14,13 @@ An item entity carries:
 
 | Component | Purpose |
 |---|---|
-| `ItemDataComponent` | `Name`, `Description`, `Keywords`, `ItemType`, `WornSlots?`, `DamageBonus` — all `[Persistent]` |
+| `ItemDataComponent` | `Name`, `Description`, `Keywords`, `ItemType`, `WornSlots?`, `StatBonuses` (`List<EquipmentStatBonus>`) — all `[Persistent]` |
 | `LocationComponent` | Set when on the ground; absent when in inventory |
 | `InventoryComponent` (on holder) | `ItemEntityIds` — the item id list on the character or mob |
 | `BlueprintComponent` | Cleared at pickup (`MoveToInventory`) per INV-21 |
 | `PersistentEntity` | Added at pickup (`ItemContextHandler`), removed at drop |
 
-`ItemType` enum (`None`, `Weapon`, `Armor`, `Consumable`, `Container`, `Misc`) is data only; slot validation reads `WornSlots`, not `ItemType`. `DamageBonus` is a flat attack bonus applied when the item is equipped in `MainHand`; `IStatSystem.GetEffectiveAttackPower` reads it.
+`ItemType` enum (`None`, `Weapon`, `Armor`, `Consumable`, `Container`, `Misc`) is data only; slot validation reads `WornSlots`, not `ItemType`. `StatBonuses` is a list of `EquipmentStatBonus(ScoreId, int)` rows — the worn-gear stat contributions folded into `IStatSystem.Get` by `EquipmentEffectContributor` while the item is equipped (see [`equipment-system.md`](equipment-system.md#worn-gear-stat-contributions)).
 
 ### Room vs inventory
 
@@ -51,7 +51,7 @@ An item entity carries:
 
 `IItemBuilderSystem.CreateItem(name, roomEntityId)` mints an ad-hoc item (`item.adhoc.<shortid>` blueprint id), attaches all required components including `PersistentEntity` and `LocationComponent`, and registers an `ItemTemplate`. `MkitemCommand` calls `SaveEntityAsync` after this returns (INV-5: the system never calls persistence).
 
-`SetItemSlots` updates both `ItemDataComponent.WornSlots` and the in-memory `ItemTemplate.WornSlots` so the slot assignment survives `@reload`. `SetItemDamageBonus` mirrors the same pattern for `DamageBonus`.
+`SetItemSlots` updates both `ItemDataComponent.WornSlots` and the in-memory `ItemTemplate.WornSlots` so the slot assignment survives `@reload`. `SetItemStatBonus` (add-or-replace one `(ScoreId, magnitude)` row; magnitude 0 removes it) and `ClearItemStatBonuses` mirror the same dual-write pattern for `StatBonuses`.
 
 `SetitemCommand` with `slot` property writes the updated template to YAML via `IItemContentWriter.WriteAsync` (system returns result; command writes disk — INV-5).
 
@@ -60,7 +60,7 @@ An item entity carries:
 The seam self-documents in code — describe behaviour here, not signatures:
 
 - [`IItemSystem.cs`](../../../Core/Modules/Items/Systems/IItemSystem.cs) — `GetItemsInRoom` / `GetItemsInInventory` / `TryFindItemInRoom` / `TryFindItemInInventory` / `MoveToInventory` / `DropToRoom`. Pure: returns results, never touches the bus or persistence.
-- [`IItemBuilderSystem.cs`](../../../Core/Modules/Items/Systems/IItemBuilderSystem.cs) — `CreateItem`, `SetItemName`, `SetItemDescription`, `SetItemKeywords`, `SetItemType`, `SetItemSlots`, `SetItemDamageBonus`. Returns `ItemCreationResult`; never touches the bus or persistence.
+- [`IItemBuilderSystem.cs`](../../../Core/Modules/Items/Systems/IItemBuilderSystem.cs) — `CreateItem`, `SetItemName`, `SetItemDescription`, `SetItemKeywords`, `SetItemType`, `SetItemSlots`, `SetItemStatBonus`, `ClearItemStatBonuses`. Returns `ItemCreationResult`; never touches the bus or persistence.
 - [`ItemDataComponent.cs`](../../../Core/ECS/Components/ItemDataComponent.cs) · [`InventoryComponent.cs`](../../../Core/ECS/Components/InventoryComponent.cs) — the `[Persistent]` data stores.
 
 ## Considerations

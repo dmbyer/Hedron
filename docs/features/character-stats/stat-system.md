@@ -25,10 +25,10 @@
 
 | Score | Formula | Note |
 |---|---|---|
-| `AttackPower` | `Body / 2 + MainHand.DamageBonus` | weapon slot optional; 0 if no weapon |
-| `Defense` | `Body / 4` | interim; dedicated evasion/armor score lands with combat-depth/aspect slices |
+| `AttackPower` | `Body / 2` base; worn-gear `AttackPower` bonuses fold in via `Get` | base-only getter; weapon bonus rides the contributor (below) |
+| `Defense` | `Body / 4` base; worn-gear `Defense` bonuses fold in via `Get` | interim base; dedicated evasion/armor score lands with combat-depth/aspect slices |
 
-Typed getters (`GetEffectiveBody`, etc.) are thin wrappers over `Get(entityId, ScoreId)`. `GetEffectiveAttackPower` reads `EquipmentComponent.Slots[WornSlot.MainHand]` via `EntityService.TryGet<EquipmentComponent>` (direct dictionary lookup, not a list scan) — no `is`/`as` casts (INV-4).
+Typed getters (`GetEffectiveBody`, etc.) are thin wrappers over `Get(entityId, ScoreId)`. `GetEffectiveAttackPower` (`Body / 2`) and `GetEffectiveDefense` (`Body / 4`) are **base-only** — they do *not* read equipment. Worn-gear bonuses are authored as `ItemDataComponent.StatBonuses` and folded into `Get(AttackPower)` / `Get(Defense)` by [`EquipmentEffectContributor`](../items/equipment-system.md) through the [effect contributor seam](../effects/effect-system.md#the-contributor-seam) (INV-24) — so callers that need the gear-inclusive value read `Get`, never the bare getter. (The combat round was repointed to `Get` for exactly this reason.)
 
 ### The effect modifier fold (S2 hook)
 
@@ -77,8 +77,8 @@ The seam self-documents in code — describe behaviour here, not signatures:
 
 ## Extensibility
 
-- **New modifier sources** extend `StatSystem.Get` via `IEffectContributor` (the INV-24 seam) — see the [effect-system contributor seam](../effects/effect-system.md#the-contributor-seam).
-- **Armor defense contribution** extends `GetEffectiveDefense` inline when equipment slots carry defense ratings — interface unchanged.
+- **New modifier sources** extend `StatSystem.Get` via `IEffectContributor` (the INV-24 seam) — see the [effect-system contributor seam](../effects/effect-system.md#the-contributor-seam). Worn equipment is one such source (`EquipmentEffectContributor`, wearable-equipment-expansion).
+- **Worn-gear attack/defense contributions** land through that same contributor seam — authored as `ItemDataComponent.StatBonuses` and folded by `Get(AttackPower|Defense)`, **not** read inline by the typed getters (which stay base-only).
 - **Pools-as-derived-scores** (from governing attributes) extend `Get` for max-pool `ScoreId`s — the `IStatRegistry` governance metadata is already in place.
 - **Progression / Ascension (S6/S8)** advances scores via `IAttributeSystem` setters; `StatSystem` reads the updated base transparently.
 
