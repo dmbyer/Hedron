@@ -1,6 +1,6 @@
 # Phase 3 slice 9-b — Time system (heartbeat) (completed)
 
-> Implemented on branch `claude/naughty-bouman-f9ca54`. Full feature spec: [`../../use-cases/time-system.md`](../../use-cases/time-system.md).
+> Implemented on branch `claude/naughty-bouman-f9ca54`. Full feature spec: [`../../implementation-plans/time-system.md`](../../features/world/world.md).
 
 ## Outcome
 
@@ -17,14 +17,14 @@ The game now has a shared clock. `HeartbeatBackgroundService` runs a `PeriodicTi
 | `appsettings.json` — `Heartbeat:IntervalMs: 2000` | `Server/appsettings.json` |
 | `docs/architecture/flows/README.md` — Flow 16 (Heartbeat tick) added to index and body; Flow 1 (Server startup) mermaid and step list updated to include `HeartbeatBackgroundService` as the last hosted service | `docs/architecture/flows/README.md` |
 | `docs/reference/systems.md` — new "Background Services / Initiators" section with `HeartbeatBackgroundService` entry | `docs/reference/systems.md` |
-| `docs/use-cases/README.md` — `time-system.md` status updated to `implemented` | `docs/use-cases/README.md` |
+| `docs/implementation-plans/README.md` — `time-system.md` status updated to `implemented` | `docs/implementation-plans/README.md` |
 
 ## Spec-review provenance
 
 **Spec-mode gate:** Passed before implementation (use-case doc authored as part of slice 9 planning batch).
 
 **Code-mode gate:** Run before merge. Two blocking findings resolved:
-1. **INV-D2** — `time-system.md` in-flight sections not trimmed; `docs/use-cases/README.md` index showed `planned`. Fixed: use-case doc trimmed to durable spec; index updated to `implemented`.
+1. **INV-28** — `time-system.md` in-flight sections not trimmed; `docs/implementation-plans/README.md` index showed `planned`. Fixed: use-case doc trimmed to durable spec; index updated to `implemented`.
 2. **INV-16** — `HeartbeatBackgroundService` missing from `docs/reference/systems.md`. Fixed: added a new "Background Services / Initiators" section with the entry.
 
 One non-blocking finding noted: `.claude/skills/add-event/SKILL.md` example uses `: IGameEvent` instead of `: IEvent`. Spawned as a follow-up task; not blocking this slice.

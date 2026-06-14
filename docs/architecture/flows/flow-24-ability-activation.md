@@ -1,57 +1,143 @@
-# Flow 24 — Ability activation
+# Flow 24 — Abilities journey
 
-> [Back to flows index](README.md)
+> [Back to flows index](README.md) · Source: [../../features/abilities/abilities.md](../../features/abilities/abilities.md)
 
-**Summary.** An initiator (admin `useability`, player `cast`, or a bare skill verb) invokes an ability. `IAbilitySystem.Activate` runs the full activation pipeline — entity state / cooldown / cost checks → spend costs → apply effects → set cooldown — then returns a structured result. The initiator publishes `AbilityActivatedEvent` and one `EffectAppliedEvent` per applied effect.
+Three related paths, sharing the same core activation pipeline:
 
-**Trigger.** Admin sends `useability <abilityId> [target]` (slice 11-a). Player sends `cast <spell> [target]` via `CastCommand` or a bare skill verb routed to `SkillInvocationCommand` (slice 11-b). Both player paths delegate to `AbilityInvocationPipeline`, which calls `Activate` with `resolveOffensiveExternally: true` and then calls `ICombatSystem.ResolveAbilityStrike` for offensive abilities (see [Flow 25](flow-25-skill-verb-invocation.md) and [Flow 26](flow-26-offensive-ability-opens-combat.md)).
+- **A. Activation** (admin `useability` or any path): `IAbilitySystem.Activate` runs entity-state / cooldown / cost checks → spend costs → apply effects → set cooldown → return result.
+- **B. Bare-verb skill invocation** (player in combat): `CommandDispatcher` Phase 3 falls through to `IAbilityVerbResolver`; on a unique Active Skill match routes to `SkillInvocationCommand` → `AbilityInvocationPipeline`.
+- **C. Offensive ability opens combat**: an offensive ability resolves a target the actor is not yet fighting — pipeline enters combat first, then activates and routes damage through `ICombatSystem.ResolveAbilityStrike`.
+
+---
+
+## A. Activation pipeline
+
+**Trigger.** Admin sends `useability <abilityId> [target]`, or either player invocation path calls `IAbilitySystem.Activate`.
 
 ```mermaid
 sequenceDiagram
-    participant UAC as UseAbilityCommand
+    participant Cmd as UseAbilityCommand
     participant AS as IAbilitySystem
     participant ATTR as IAttributeSystem
     participant ES as IEffectSystem
     participant Bus as IEventBus
 
-    UAC->>AS: Activate(actor, abilityId, target?)
-    note over AS: 1. ability exists check<br/>2. actor knows it check<br/>3. Active activation check<br/>4. entity state check (not Incapacitated)<br/>5. cooldown ready check<br/>6. all costs affordable check (atomic)
+    Cmd->>AS: Activate(actor, abilityId, target?)
+    note over AS: 1. ability exists · 2. actor knows it<br/>3. Active activation · 4. entity state ok<br/>5. cooldown ready · 6. all costs affordable (atomic)
     AS->>ATTR: SetCurrentX per ResourceCost (spend)
-    AS->>ES: Apply(resolvedTarget, effectDef, actor) per effect id
-    AS-->>UAC: AbilityActivationResult{Activated, AppliedEffects, Spent, CooldownSeconds}
-    UAC->>Bus: PublishAsync(AbilityActivatedEvent)
-    UAC->>Bus: PublishAsync(EffectAppliedEvent) per applied effect
+    AS->>ES: Apply(target, effectDef, actor) per effect id
+    AS-->>Cmd: AbilityActivationResult{Activated, AppliedEffects, Spent, CooldownSeconds}
+    Cmd->>Bus: PublishAsync(AbilityActivatedEvent)
+    Cmd->>Bus: PublishAsync(EffectAppliedEvent) per applied effect
 ```
 
 **Steps.**
 
-1. `UseAbilityCommand` receives input. It resolves the actor as the invoker's entity id, and the optional target as a character name or raw entity id (defaults to actor when omitted).
-2. Calls `IAbilitySystem.Activate(actorEntityId, abilityId, targetEntityId?)`.
-3. `AbilitySystem` validates in order:
-   - Ability exists in `IAbilityRegistry`. Fails with `UnknownAbility`.
-   - Actor's `AbilitiesComponent.Known` contains the ability id. Fails with `NotKnown`.
-   - Definition's `Activation == Active`. Fails with `NotActivatable` for `Passive` or `Triggered`.
-   - `IEntityStateService.IsInState(actor, Incapacitated)` is false. Fails with `StateBlocked`.
-   - `AbilitiesComponent.CooldownRemaining[abilityId] == 0`. Fails with `OnCooldown`.
-   - All `ResourceCost` entries are affordable (checked atomically before any spend). Fails with `InsufficientResources`.
-4. On all checks passing:
-   - Spends each cost via the appropriate `IAttributeSystem.SetCurrentX` setter (e.g. `SetCurrentStamina`, `SetCurrentMana`).
-   - Sets `AbilitiesComponent.CooldownRemaining[abilityId] = definition.CooldownSeconds`.
-   - For each effect id in `definition.Effects`, calls `IEffectSystem.Apply(resolvedTarget, effectDef, actor)`. `EffectSystem.Apply` returns the `Effect` record without storing it or mutating any pool for `Instant`-kind effects. `AbilitySystem` then calls `ApplyInstantMagnitude(resolvedTarget, effect.Params.TargetScore, effect.Power)` which routes to the appropriate `IAttributeSystem.SetCurrentX` setter — the pool mutation happens in `AbilitySystem`, not in `EffectSystem`.
-5. Returns `AbilityActivationResult { Outcome = Activated, AbilityId, AppliedEffects, Spent, CooldownSeconds }`. On any validation failure, returns the appropriate non-`Activated` outcome with a `FailReason` string.
-6. `UseAbilityCommand` checks `Outcome`. On non-`Activated`: writes the `FailReason` to output and returns. On `Activated`: publishes `AbilityActivatedEvent(actor, abilityId, targetEntityId?)` and one `EffectAppliedEvent(target, effect)` for each non-null effect in `AppliedEffects`.
+1. Command resolves actor and optional target entity ids.
+2. Calls `IAbilitySystem.Activate`.
+3. `AbilitySystem` validates in order: ability exists → actor knows it → `Active` activation → not Incapacitated → cooldown ready → all costs affordable (atomic, no partial spend).
+4. On success: spends each cost via `IAttributeSystem.SetCurrentX`; sets `CooldownRemaining[abilityId]`; calls `IEffectSystem.Apply` per effect id.
+5. Returns `AbilityActivationResult`. On failure, returns the failing outcome + `FailReason`.
+6. Command publishes `AbilityActivatedEvent` and one `EffectAppliedEvent` per applied effect. No domain logic in the command (INV-5, INV-8, INV-9).
 
-**Why no `UseAbilityCommand` domain logic.** All validation, resource spending, cooldown mutation, and effect application happen inside `AbilitySystem`. The command is strictly an initiator — it resolves entities, calls the system, and publishes the past-tense events (INV-5, INV-8, INV-9).
+---
 
-**The `resolveOffensiveExternally` branch.** When `CastCommand` or `SkillInvocationCommand` invokes `Activate`, it passes `resolveOffensiveExternally: true` for offensive abilities. `AbilitySystem` skips raw HP deduction for the offensive damage effect and instead returns its raw magnitude as `AbilityActivationResult.OffensivePower`. The caller (`AbilityInvocationPipeline`) reads the ability's `Aspect` composition from `AbilityDefinition.Aspect` (an `AspectComposition?`) and passes it to `ICombatSystem.ResolveAbilityStrike`, which applies aspect affinity + resistance alongside defense mitigation — this is the same hit resolution as melee rounds, now aspect-typed. The resolved `AspectComposition` is carried in `AbilityStrikeResolvedEvent` as a point-in-time capture (INV-6). `UseAbilityCommand` (admin path) does not pass `resolveOffensiveExternally` and receives unmitigated, untyped damage.
+## B. Bare-verb skill invocation (player, in combat)
 
-**Cross-references.**
+**Trigger.** Player types a skill id or prefix (e.g. `kick`, `ki`) while in combat. No registered command matches.
+
+```mermaid
+sequenceDiagram
+    participant D as CommandDispatcher
+    participant VR as IAbilityVerbResolver
+    participant SIC as SkillInvocationCommand
+    participant P as AbilityInvocationPipeline
+    participant AS as IAbilitySystem
+    participant CS as ICombatSystem
+    participant Bus as IEventBus
+
+    D->>VR: TryResolve("kick", actorId)
+    VR-->>D: true, abilityId="kick"
+    D->>SIC: InvokeAsync(session, actorId, "kick", tail, output)
+    SIC->>P: InvokeAsync(actorId, "kick", def, tail, output, context)
+    note over P: in-combat → CombatStateComponent.OpponentEntityId
+    P->>AS: Activate(actorId, "kick", goblinId, resolveOffensiveExternally:true)
+    AS-->>P: Activated, OffensivePower=15
+    P->>Bus: AbilityActivatedEvent(actor, "kick", goblin)
+    P->>CS: ResolveAbilityStrike(actor, goblin, 15)
+    CS-->>P: CombatRoundResult{damage=12, ...}
+    P->>Bus: AbilityStrikeResolvedEvent(actor, goblin, room, result, "kick", "goblin")
+```
+
+**Steps.**
+
+1. `CommandDispatcher` — Phase 1 (exact) and Phase 2 (prefix) miss.
+2. Phase 3: calls `IAbilityVerbResolver.TryResolve("kick", actorId)` → unique hit.
+3. Dispatcher routes to `SkillInvocationCommand`, which delegates to `AbilityInvocationPipeline`.
+4. Pipeline: actor is `InCombat`, no explicit token → `CombatStateComponent.OpponentEntityId`. Already fighting — no combat-entry step.
+5. Calls `Activate(actorId, "kick", goblinId, resolveOffensiveExternally: true)` — spends Stamina, sets cooldown, skips raw damage effect, returns `OffensivePower`.
+6. Publishes `AbilityActivatedEvent`. `AbilityInvocationHandler` (p=80) writes room narrative.
+7. Calls `ICombatSystem.ResolveAbilityStrike(actorId, goblinId, OffensivePower)` — defense-mitigated HP deduction.
+8. Publishes `AbilityStrikeResolvedEvent`. `AbilityStrikeHandler` publishes `CombatRoundEvent` (damage narrative) and, if `Outcome` is terminal, `CombatEndedEvent` (reuses slice-10 death path).
+
+**Why bare skill verbs are not `ICommand`.** Phase 3 is dispatcher-internal routing — the verb is a skill id, not a global command. Abilities are per-actor; making them discoverable via `help`/`commands` would imply they are global verbs. `skills` is the discovery surface.
+
+---
+
+## C. Offensive ability opens combat
+
+**Trigger.** Player uses `cast <offensive-spell> <mob>` or a skill verb with an explicit target while not in combat.
+
+```mermaid
+sequenceDiagram
+    participant Cmd as CastCommand / SkillInvocationCommand
+    participant P as AbilityInvocationPipeline
+    participant ESS as IEntityStateService
+    participant CS as ICombatSystem
+    participant AS as IAbilitySystem
+    participant Bus as IEventBus
+
+    Cmd->>P: InvokeAsync(actorId, abilityId, def, "goblin", output, context)
+    note over P: MobInRoomResolver resolves goblinId
+    P->>ESS: IsInState(actorId, InCombat) → false
+    P->>ESS: TryEnterState(actorId, InCombat)
+    P->>ESS: TryEnterState(goblinId, InCombat)
+    P->>CS: StartCombat(actorId, goblinId)
+    P->>Bus: CombatStartedEvent(actor, goblin, room)
+    P->>AS: Activate(actorId, abilityId, goblinId, resolveOffensiveExternally:true)
+    AS-->>P: Activated, OffensivePower=N
+    P->>Bus: AbilityActivatedEvent(actor, abilityId, goblin)
+    P->>CS: ResolveAbilityStrike(actor, goblin, N)
+    CS-->>P: CombatRoundResult
+    P->>Bus: AbilityStrikeResolvedEvent(actor, goblin, room, result, abilityId, "goblin")
+```
+
+**Steps.**
+
+1. `CastCommand` / `SkillInvocationCommand` delegates to `AbilityInvocationPipeline`.
+2. Explicit target token → `MobInRoomResolver` (or `ICombatSystem.TryFindTargetInRoom`) resolves the mob. No match → "You don't see that here."
+3. `IAbilitySystem.IsOffensive(abilityId)` → true + actor not `InCombat` → combat-entry path:
+   - `TryEnterState(actorId, InCombat)` — blocked → write `failReason`, abort (no cost spent, INV-5).
+   - `TryEnterState(goblinId, InCombat)` — mobs never reject; logs warning if they do.
+   - `ICombatSystem.StartCombat(actorId, goblinId)` — attaches `CombatStateComponent`.
+   - Publish `CombatStartedEvent` → `CombatHandler` renders "You attack goblin!".
+4. `Activate(actorId, abilityId, goblinId, resolveOffensiveExternally: true)` — validates, spends costs, skips raw damage effect, returns `OffensivePower`.
+5. Publish `AbilityActivatedEvent`.
+6. `ResolveAbilityStrike(actorId, goblinId, OffensivePower)` — defense-mitigated damage applied.
+7. Publish `AbilityStrikeResolvedEvent`. `AbilityStrikeHandler` publishes `CombatRoundEvent` + conditional `CombatEndedEvent` (reuses slice-10 death path). Subsequent heartbeat ticks drive standard melee via `CombatTickHandler`.
+
+**Invariants.** Combat entry happens before `Activate` — if the actor's `TryEnterState` fails, the pipeline aborts without spending costs or setting a cooldown.
+
+---
+
+## Cross-references
+
 - [`Core/Modules/Abilities/Systems/AbilitySystem.cs`](../../../Core/Modules/Abilities/Systems/AbilitySystem.cs)
-- [`Core/Modules/Abilities/Commands/UseAbilityCommand.cs`](../../../Core/Modules/Abilities/Commands/UseAbilityCommand.cs)
 - [`Core/Modules/Abilities/Commands/AbilityInvocationPipeline.cs`](../../../Core/Modules/Abilities/Commands/AbilityInvocationPipeline.cs)
 - [`Core/Modules/Abilities/Commands/CastCommand.cs`](../../../Core/Modules/Abilities/Commands/CastCommand.cs)
-- [`docs/use-cases/ability-substrate.md`](../../use-cases/ability-substrate.md)
+- [`Core/Modules/Abilities/Commands/SkillInvocationCommand.cs`](../../../Core/Modules/Abilities/Commands/SkillInvocationCommand.cs)
+- [`Core/Modules/Abilities/Commands/UseAbilityCommand.cs`](../../../Core/Modules/Abilities/Commands/UseAbilityCommand.cs)
+- [`Core/Modules/Abilities/AbilityVerbResolver.cs`](../../../Core/Modules/Abilities/AbilityVerbResolver.cs)
 - [Flow 16](flow-16-heartbeat-tick.md) — heartbeat trigger (for `AbilityCooldownTickHandler`)
+- [Flow 17](flow-17-kill-mob-combat-initiation.md) — `kill` opens combat without an opening strike
 - [Flow 21](flow-21-effect-tick.md) — effect tick (downstream consumer of applied effects)
-- [Flow 25](flow-25-skill-verb-invocation.md) — player skill bare-verb invocation (in combat)
-- [Flow 26](flow-26-offensive-ability-opens-combat.md) — offensive ability opens combat

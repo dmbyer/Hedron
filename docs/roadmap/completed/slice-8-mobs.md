@@ -1,6 +1,6 @@
 # Phase 3 slice 8 — Mobs: basic entity model and spawn (completed)
 
-> Implemented on branch `claude/blissful-hawking-13a992`. Full feature spec: [`../../use-cases/mobs.md`](../../use-cases/mobs.md).
+> Implemented on branch `claude/blissful-hawking-13a992`. Feature doc: [`../../features/mobs/mobs.md`](../../features/mobs/mobs.md).
 
 ## Outcome
 

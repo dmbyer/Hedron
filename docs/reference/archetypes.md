@@ -1,6 +1,6 @@
 # Archetypes Reference
 
-> **Implementation status.** `EntityArchetype`, `IArchetypeRegistry`, `ArchetypeRegistry`, and `ArchetypeDefinition` are **implemented** (Phase 3 slice 9). The registry currently covers five archetypes (Mob, Player, Room, Area, StaticItem); the remaining rows in the table below are the intended target composition. Re-audit and add registry definitions as slices land (tracked in [`../roadmap/backlog.md`](../roadmap/backlog.md)). Why implemented and planned are separated: [`../documentation-architecture.md`](../documentation-architecture.md).
+> **Implementation status.** `EntityArchetype`, `IArchetypeRegistry`, `ArchetypeRegistry`, and `ArchetypeDefinition` are **implemented** (Phase 3 slice 9). The registry currently covers five archetypes (Mob, Player, Room, Area, StaticItem); the remaining rows in the table below are the intended target composition. Re-audit and add registry definitions as slices land (tracked in [`../roadmap/backlog.md`](../roadmap/backlog.md)). Why implemented and planned are separated: [`../architecture/09-documentation.md`](../architecture/09-documentation.md).
 
 Catalog of every intended entity archetype. **Update this file whenever an archetype is added, removed, or its required/optional components change.**
 

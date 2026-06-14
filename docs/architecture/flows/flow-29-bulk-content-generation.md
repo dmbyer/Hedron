@@ -1,14 +1,16 @@
-# Flow 29 — Headless Bulk Content Generation (`generate` run-mode)
+# Content-Tooling Journey (bulk generate · offline edit)
+
+> [Back to flows index](README.md)
+
+**Source:** [`../../features/admin-authoring/admin-authoring.md`](../../features/admin-authoring/admin-authoring.md)
+
+**Summary.** Two offline authoring paths share the same content-definition layer. (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline Blazor editor** (`Hedron.Web`) browses/loads/edits/saves definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`. Neither path mutates the live world directly (INV-12/23).
+
+---
+
+## A — `generate` run-mode (headless CLI)
 
 **Trigger:** `dotnet run --project Server -- generate --profile <path> [--seed N]`
-**Actor:** Developer (headless CLI)
-**Modules:** `Server/` (run-mode shell), `Core/Modules/Authoring/` (`IContentGenerationSystem`), reuses `World`/`Items`/`Mobs` writers + `IContentValidator`
-
-## Summary
-
-A pure offline sweep that composes the engine's DI, generates a connected swath of world-content YAML from a generation profile, validates each emitted definition, prints a summary, and exits. It is a **no-chain Initiator (INV-10)**: it starts no telnet listener or heartbeat, spawns no world entities, and publishes nothing. This is the first headless one-shot run-mode flow; it shares no call chain with Flow 1 (server startup).
-
-## Sequence
 
 ```mermaid
 sequenceDiagram
@@ -19,37 +21,75 @@ sequenceDiagram
     participant V as IContentValidator
 
     CLI->>RM: Matches(args) → RunAsync(args, config)
-    RM->>RM: parse --profile/--seed, load + deserialize profile YAML
-    RM->>RM: services.Register(config) (no gameplay hosted services)
+    RM->>RM: parse --profile/--seed; deserialize GenerationProfile
+    RM->>RM: CompositionRoot.Register (no gameplay hosted services)
     RM->>Gen: GenerateAsync(profile)
-    Gen->>Gen: seed SeededRandom(profile.Seed); compose areas→rooms (exits)→mobs/items
-    Gen->>W: WriteAsync(template) per area/room/mob/item (YAML, atomic tmp→rename)
-    Gen-->>RM: GenerationResult (counts + blueprint ids)
-    RM->>V: Validate(template) per emitted definition (single-definition, in-memory)
+    Gen->>Gen: seed SeededRandom(profile.Seed); compose areas→rooms→mobs/items
+    Gen->>W: WriteAsync(template) per kind (atomic tmp→rename)
+    Gen-->>RM: GenerationResult
+    RM->>V: Validate(template) per emitted definition
     V-->>RM: ValidationReport
-    RM->>CLI: print summary; return 0 (clean) / non-zero (validation/load failure)
+    RM->>CLI: print summary; return 0 / non-zero
 ```
 
-## Steps
+**Steps.**
+1. `Program.Main` detects the `generate` token and branches before building the listener host. `--profile` is required; missing → exit 2.
+2. `GenerationRunMode` deserializes the profile YAML into `GenerationProfile`. Invalid file/values → exit 2.
+3. DI is composed via `CompositionRoot.Register` without `AddGameplayHostedServices` — no telnet, no heartbeat, no world-content entity spawn (INV-12/23).
+4. `IContentGenerationSystem.GenerateAsync(profile)` seeds `SeededRandom(profile.Seed)`, composes connected area/room/mob/item graphs (rooms wired east/west per area; areas joined up/down), calls each `I*ContentWriter.WriteAsync` atomically. Blueprint ids are `prefix + per-kind counter`, never `Guid` (INV-26). Returns `GenerationResult`; never publishes (INV-5).
+5. The run-mode validates each emitted definition via `IContentValidator.Validate` (single-definition, in-memory — no live entities).
+6. Prints counts + first 10 blueprint ids + validation result; returns `0` (clean) or non-zero (validation/write failure).
 
-1. **Run-mode dispatch.** `Program.Main` calls `GenerationRunMode.Matches(args)`; on the `generate` token it branches **before** building the listener host. `--profile <path>` is required (missing ⇒ usage error, exit 2); `--seed N` overrides the profile's seed.
-2. **Load profile.** `GenerationRunMode.LoadProfile` deserializes the profile YAML (camelCase, same convention as content files) into a `GenerationProfile`. A missing file or unknown aspect/scaling value fails fast with a clear message and exit 2.
-3. **Compose DI only.** `services.Register(configuration)` composes the engine (pure DI). **`AddGameplayHostedServices` is not called** — no `TelnetServer`, `HeartbeatBackgroundService`, `PersistenceFlushTimer`, or world-content spawn. The Ability/Effect/Aspect/Stat definition registries self-populate at construction, so the validator's cross-ref checks work with no bootstrap (Resolved Decision 4). No `EntityService` world entities are spawned (INV-12/INV-23).
-4. **Generate (deterministic).** `IContentGenerationSystem.GenerateAsync(profile)` seeds a `SeededRandom` from `profile.Seed`, composes `AreaTemplate` + child `RoomTemplate`s (rooms wired into an east/west chain, consecutive areas joined up/down — a walkable graph, Resolved Decision 3), and places `MobTemplate`s/`ItemTemplate`s per density, scaled by the curve and level range. Blueprint ids are `prefix + per-kind counter` (e.g. `gen.area.0001`), never `Guid` (INV-26). The system returns a `GenerationResult`; it never publishes (INV-5).
-5. **Write YAML.** The system calls each matching `I*ContentWriter.WriteAsync`, emitting files under `content/areas|rooms|mobs|items/` via the writers' existing atomic tmp→rename path. No live-world mutation (INV-12/INV-23).
-6. **Validate.** The run-mode re-reads each emitted file, deserializes it through its existing deserializer, and runs `IContentValidator.Validate(template)` (the single-definition, in-memory call mode — no live entities). Failures accumulate.
-7. **Report + exit.** The run-mode prints the summary (counts + first 10 blueprint ids + validation result) to stdout and returns `0` (clean) or `1` (validation/write failure) / `2` (arg/profile-load failure). No events published; no listener or heartbeat ever starts (INV-10).
+---
+
+## B — Offline Blazor editor (`Hedron.Web`)
+
+**Trigger:** Designer opens the loopback Blazor app.
+
+```mermaid
+sequenceDiagram
+    participant UI as Blazor component
+    participant Cat as IContentDefinitionCatalog
+    participant Val as IContentValidator
+    participant W as I*ContentWriter
+    participant WCL as IWorldContentLoader
+
+    UI->>Cat: List(kind) / Load(kind, id) / CreateNew(kind, name)
+    Cat-->>UI: ContentSummary[] / ContentDefinition
+    Note over UI: designer edits working copy (no catalog call)
+    UI->>Cat: SaveAsync(definition)
+    Cat->>Val: Validate(template)
+    alt invalid
+        Cat-->>UI: ContentWriteResult.Failed(errors)
+    else valid
+        Cat->>W: WriteAsync(template) (atomic tmp→rename)
+        Cat-->>UI: ContentWriteResult.Ok
+    end
+    UI->>WCL: ReloadAsync()  (see Flow 5)
+    WCL-->>UI: ContentReloadResult
+```
+
+**Steps.**
+1. Page calls `IContentDefinitionCatalog.List(kind)` and renders the definition table.
+2. Page calls `Load(kind, blueprintId)` or `CreateNew(kind, name)`. No live entity created.
+3. Designer edits form fields; form holds a working copy (no catalog call yet).
+4. On save: `SaveAsync(definition)` validates, then writes YAML via `I*ContentWriter`. The live world is untouched. Invalid definitions block the write and return structured errors.
+5. "Apply to live": page calls `IWorldContentLoader.ReloadAsync()` — [Flow 5](flow-05-content-reload.md). Counts rendered. No live entities mutated.
+
+The `Hedron.Web` host runs `AddContentBootstrapHostedServices` only (content load + registry validation; no telnet/heartbeat/persistence). Loopback-only for v1.
+
+---
 
 ## Invariants
 
-- INV-5: `ContentGenerationSystem` returns a `GenerationResult`; it never touches the event bus.
-- INV-8: generation *logic* lives in the Core system; arg parsing, DI composition, validation policy, and the exit code live in the `Server` run-mode (thin Initiator).
-- INV-10: no-chain Initiator — composes, runs one operation, writes files, exits; publishes nothing, starts no heartbeat/listener.
-- INV-12 / INV-23: no live entities, no `PersistentEntity`, no SQLite — YAML world-content only.
-- INV-26: all randomness flows through a per-run `SeededRandom`; blueprint ids are counter-derived, not `Guid`; no wall clock is read. A fixed-seed run is byte-reproducible within a runtime image.
+- INV-5: `IContentGenerationSystem` and `IContentDefinitionCatalog` return results; they never touch the event bus.
+- INV-8: no authoring logic in the run-mode CLI or Blazor components — everything lives in the Core systems.
+- INV-10: the `generate` run-mode is a no-chain Initiator: composes, runs one operation, writes files, exits; publishes nothing.
+- INV-12 / INV-23: YAML only — no `EntityService.CreateEntity`, no `PersistentEntity`, no SQLite in either path.
+- INV-26: all randomness in `ContentGenerationSystem` flows through `SeededRandom`; blueprint ids are counter-derived; no wall clock read. Fixed-seed run is byte-reproducible.
 
 ## Cross-references
 
-- Systems: `IContentGenerationSystem` ([`../../reference/systems.md`](../../reference/systems.md)), `IContentValidator`, the four `I*ContentWriter`s.
-- Use case: [`../../use-cases/bulk-content-generation.md`](../../use-cases/bulk-content-generation.md).
-- Related flows: [Flow 27 — admin area creation](flow-27-admin-area-creation.md) (the writer half this composes).
+- Systems: [`../../reference/systems.md`](../../reference/systems.md) — `IContentGenerationSystem`, `IContentDefinitionCatalog`, `IContentValidator`, the four `I*ContentWriter`s.
+- Feature: [`../../features/admin-authoring/content-tooling.md`](../../features/admin-authoring/content-tooling.md) · [`../../features/admin-authoring/content-authoring.md`](../../features/admin-authoring/content-authoring.md).
+- Related flow: [Flow 5 — content reload](flow-05-content-reload.md) (the apply leg the Blazor editor reuses).

@@ -1,10 +1,10 @@
 # Commands Reference
 
-Living catalog of every registered command. Commands are the thinnest layer — they declare a schema and delegate to domain systems or events. See [`../architecture/subsystems/commands.md`](../architecture/subsystems/commands.md) for the framework design.
+Living catalog of every registered command. Commands are the thinnest layer — they declare a schema and delegate to domain systems or events. See [`../features/commands/command-framework.md`](../features/commands/command-framework.md) for the framework design.
 
 **Grouping:** by `CommandCategory`. Within each category, alphabetical by primary verb.
 
-**`MatchingMode`** — every command declares `CommandMatchingMode.Partial` (prefix resolution enabled; player commands) or `CommandMatchingMode.Full` (exact match required; admin commands). See `subsystems/commands.md` for the two-phase lookup rules and `IVerbRegistry` for the read-only interface that exposes the command namespace to `HelpCommand` and future tab-completion.
+**`MatchingMode`** — every command declares `CommandMatchingMode.Partial` (prefix resolution enabled; player commands) or `CommandMatchingMode.Full` (exact match required; admin commands). See [`../features/commands/command-framework.md`](../features/commands/command-framework.md) for the three-phase lookup rules and `IVerbRegistry` for the read-only interface that exposes the command namespace to `HelpCommand` and future tab-completion.
 
 ---
 
@@ -79,8 +79,8 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 **Aliases:** none  
 **MatchingMode:** `Partial`  
-**Location:** `Core/Modules/Help/Commands/CommandsCommand.cs`  
-**Description:** Prints a category-grouped one-line index of all commands visible to the caller. Same visibility filtering as `help` (admin commands hidden when their `RequiredPrivileges` are unsatisfied).  
+**Location:** [`Core/Modules/Help/Commands/CommandsCommand.cs`](../../Core/Modules/Help/Commands/CommandsCommand.cs)  
+**Description:** Prints a category-grouped one-line index of all commands visible to the caller. Same visibility filtering as `help` (admin commands hidden when their `RequiredPrivileges` are unsatisfied). See [`../features/communication/help-system.md`](../features/communication/help-system.md).  
 **Usage:** `commands`  
 **Schema:** no arguments  
 **Events:** none  
@@ -106,7 +106,7 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Aliases:** none  
 **MatchingMode:** `Partial`  
 **Location:** `Core/Modules/Items/Commands/DropCommand.cs`  
-**Description:** Drops a named item from the player's inventory to the ground in the current room. Argument is resolved via `ItemInInventoryResolver` (prefix-matched against carried item names and keywords). On no match: "You aren't carrying that." `IItemSystem.DropToRoom` mutates ECS state (removes from `InventoryComponent`, attaches `LocationComponent`); the player entity is saved immediately; the item entity is **not** saved (dropped items vanish on restart by design — see the items-and-inventory use-case spec). Broadcasts drop messages to the room via `ItemInteractionHandler`.  
+**Description:** Drops a named item from the player's inventory to the ground in the current room. Argument is resolved via `ItemInInventoryResolver` (prefix-matched against carried item names and keywords). On no match: "You aren't carrying that." `IItemSystem.DropToRoom` mutates ECS state; the player entity is saved immediately; the item entity is **not** saved (drop-and-vanish policy — see [`../features/items/item-inventory-system.md`](../features/items/item-inventory-system.md)). Broadcasts drop messages to the room via `ItemInteractionHandler`.  
 **Usage:** `drop <item>`  
 **Schema:** `Token string "item"` (required, `ItemInInventoryResolver`)  
 **Dependencies:** `IItemSystem`, `EntityService`, `IEventBus`, `IPersistenceSystem`, `ItemInInventoryResolver`  
@@ -170,8 +170,8 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 **Aliases:** `?`  
 **MatchingMode:** `Partial`  
-**Location:** `Core/Modules/Help/Commands/HelpCommand.cs`  
-**Description:** With no argument, lists all commands visible to the caller grouped by category. With a verb argument, shows `LongDescription` and `Usage` for that command.  
+**Location:** [`Core/Modules/Help/Commands/HelpCommand.cs`](../../Core/Modules/Help/Commands/HelpCommand.cs)  
+**Description:** With no argument, lists all commands visible to the caller grouped by category. With a verb argument, shows `LongDescription` and `Usage` for that command; falls through to `IAbilityRegistry` when no command matches. Special topics `skills`/`spells`/`abilities` append a global ability catalog. See [`../features/communication/help-system.md`](../features/communication/help-system.md) for the full lookup design.  
 **Usage:** `help [<verb>]`  
 **Schema:** optional `Token string "verb"`  
 **Events:** none  
@@ -275,8 +275,8 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 **Aliases:** none  
 **MatchingMode:** `Partial`  
-**Location:** `Core/Modules/Chat/Commands/SayCommand.cs`  
-**Description:** Broadcasts a message to all players in the current room.  
+**Location:** [`Core/Modules/Chat/Commands/SayCommand.cs`](../../Core/Modules/Chat/Commands/SayCommand.cs)  
+**Description:** Broadcasts a message to all players in the current room. See [`../features/communication/chat-system.md`](../features/communication/chat-system.md) for the pipeline design.  
 **Usage:** `say <message>`  
 **Schema:** `RestOfLine string "message"` (required)  
 **Events:** `PlayerSaidEvent`

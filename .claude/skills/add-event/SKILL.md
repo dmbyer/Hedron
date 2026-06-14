@@ -36,7 +36,7 @@ Rule: "enrich" means capture **state at publish time that subscribers can't reco
 4. The **publishing Initiator or Handler** (not a service/system) calls `eventBus.Publish(new XEvent(...))`. Initiators (commands, scheduled ticks) publish when the event is a direct consequence of their action; Handlers publish when the event is a downstream reaction to a prior event.
 5. Register subscribers with priorities in each subscribing feature's `AddXModule(IServiceCollection)` extension (e.g. `Core/Modules/<Feature>/<Feature>Module.cs`).
 6. Add the event to [docs/architecture/03-events.md](../../../docs/architecture/03-events.md) under its category (combat, movement, inventory, etc.).
-7. If a use case now produces this event, update its "Events fired" section in `docs/use-cases/<relevant>.md`.
+7. If a use case now produces this event, update its "Events fired" section in `docs/implementation-plans/<relevant>.md`.
 
 ## Common mistakes
 

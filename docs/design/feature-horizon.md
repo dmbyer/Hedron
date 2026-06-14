@@ -4,7 +4,7 @@
 > This is a wide, deliberately granular catalog of features common and uncommon in MUDs, plus
 > some signature ideas specific to Hedron's themes. It exists to **feed the roadmap** — items
 > here graduate into [`../roadmap/plan.md`](../roadmap/plan.md) slices and
-> [`../use-cases/`](../use-cases/) docs through the normal per-slice loop. Nothing here is
+> [`../implementation-plans/`](../implementation-plans/) docs through the normal per-slice loop. Nothing here is
 > designed to spec depth; each entry is a few sentences plus a rough read on cost, payoff, and
 > how well it survives a text / light-web interface.
 >
@@ -1133,7 +1133,7 @@ This catalog is a **menu, not a plan**. To turn an entry into work:
 2. Note which **spine** it instances (A–F). Most of §4–§14 are *instances of existing primitives*, not
    new systems — that is the whole point of [`gameplay-model.md`](gameplay-model.md). A new entry that
    needs a genuinely new primitive is the rare, reviewed exception.
-3. Run the `new-use-case` skill / `use-case-planner` to produce a use-case doc, then the normal
+3. Run the `new-plan` skill / `implementation-planner` to produce a use-case doc, then the normal
    per-slice loop (spec gate → implement → code gate → sync-roadmap).
 
 ### Natural clustering (suggested reading, not a commitment)
@@ -1180,4 +1180,4 @@ client is where they shine."
 - [`../roadmap/backlog.md`](../roadmap/backlog.md) — deferred work already tracked (don't re-brainstorm it).
 - [`../reference/components-planned.md`](../reference/components-planned.md) /
   [`../reference/systems-planned.md`](../reference/systems-planned.md) — idealized APIs for unbuilt pieces.
-- [`../use-cases/README.md`](../use-cases/README.md) — the per-slice behavior-spec format these graduate into.
+- [`../implementation-plans/README.md`](../implementation-plans/README.md) — the per-slice behavior-spec format these graduate into.

@@ -1,6 +1,6 @@
 # Phase 3 slice 5a — Bare-bones content spawning (completed)
 
-> Implemented on branch `claude/hardcore-hopper-4eac0d`. Full feature spec: [`../../use-cases/bare-bones-content-spawning.md`](../../use-cases/bare-bones-content-spawning.md).
+> Implemented on branch `claude/hardcore-hopper-4eac0d`. Full feature spec: [`../../implementation-plans/bare-bones-content-spawning.md`](../../features/world/world.md).
 
 ## Outcome
 
@@ -26,7 +26,7 @@ The slice-2 `dig <direction> <targetRoomBlueprintId>` command is replaced by `di
 | `docs/reference/components.md` — `RoomComponent` Persisted? updated to `yes` | — |
 | `docs/reference/commands.md` — `dig` entry replaced; `set` entry added | — |
 | `docs/reference/handlers.md` — `AdminAuditHandler` and `PersistenceHandler` subscription lists updated | — |
-| `docs/use-cases/README.md` — slice 5 and 5a index rows added | — |
+| `docs/implementation-plans/README.md` — slice 5 and 5a index rows added | — |
 | `.claude/skills/add-command/SKILL.md` — "What NOT to do" bullet updated to reflect INV-8 nuance on unconditional multi-event publication | — |
 
 ## Spec-review provenance

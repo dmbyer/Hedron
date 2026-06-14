@@ -1,6 +1,6 @@
 # Phase 3 slice 5 — Account / character creation (completed)
 
-> Implemented on branch `claude/quizzical-mestorf-0a3d47`. Full feature spec: [`../../use-cases/account-character-creation.md`](../../use-cases/account-character-creation.md).
+> Implemented on branch `claude/quizzical-mestorf-0a3d47`. Full feature spec: [`../../implementation-plans/account-character-creation.md`](../../features/accounts/accounts.md).
 
 ## Outcome
 
@@ -58,6 +58,9 @@ Round 4: APPROVE — all blocking findings resolved.
 - **Lazy in-memory indices.** `AccountSystem` maintains `HashSet<string>` indices for usernames and character names. They're populated on first call by scanning `EntityService`, then updated on every write. Safe because all entities are hydrated before connections are accepted.
 - **`LocationComponent` persistence scope.** Promoting `LocationComponent` to `[Persistent]` only affects entities with a `CharacterComponent` (accounts and rooms do not have `LocationComponent`). Existing room entity shapes are unchanged.
 - **`CommandDispatcher` guard.** `if (session.PlayerEntityId == 0) return;` is defense-in-depth; the login flow runs before `SessionManager.Register` so the session can't be targeted by commands before binding. Belt-and-suspenders in case a future refactor reorders the startup sequence.
+- **Password hashing — PBKDF2 over BCrypt.** `IPasswordHasher` uses PBKDF2-SHA256 (100,000 iterations, 16-byte salt, 32-byte key, `Base64(salt+hash)`) with `FixedTimeEquals` for timing-safe verification. BCrypt was the alternative; PBKDF2 was chosen for dependency minimalism — no external NuGet required (`System.Security.Cryptography` only).
+- **Character name uniqueness is global** (not per-account), simplifying admin lookups (`whois <name>`, future `@teleport <name>`).
+- **Max failed login attempts: 3, then disconnect.** No server-side lockout this slice (acknowledged debt).
 
 ## Deviations from the use-case doc
 

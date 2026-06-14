@@ -1,11 +1,11 @@
 ---
 name: sync-roadmap
-description: Use after a slice merges (or before a PR is created) to keep plan.md, done.md, and completed/ in sync with the implemented state. Run on any PR that completes a use-case slice.
+description: Use after a slice merges (or before a PR is created) to keep plan.md, done.md, and completed/ in sync with the implemented state, and to disintegrate the slice's implementation plan into the living docs. Run on any PR that completes a slice.
 ---
 
 # Sync Roadmap Docs
 
-Run this skill whenever a slice is complete — either as the final step of `implement-use-case` or standalone on any PR that closes out a use-case doc.
+Run this skill whenever a slice is complete — either as the final step of `implement-plan` or standalone on any PR that closes out an implementation plan. It does two jobs: advance the roadmap ledger, and **disintegrate the plan on ship** (`INV-28`). For the doc-placement rules and templates it relies on, see the [`manage-docs`](../manage-docs/SKILL.md) skill.
 
 ## What to update
 
@@ -20,54 +20,58 @@ Run this skill whenever a slice is complete — either as the final step of `imp
 - Advance the *next* slice's status to `🟢 next`.
 
 **Current focus section**:
-- Replace the description with the next slice. Name the use-case doc, state what the slice unlocks, and note any immediate prerequisites.
+- Replace the description with the next slice. Name its implementation plan, state what the slice unlocks, and note any immediate prerequisites.
 
 ### 2. `docs/roadmap/done.md`
 
-Add one row per completed slice (at the bottom of the table):
+Add one row per completed slice (at the bottom of the table). The plan is deleted on ship, so the row points at the living docs, not a spec file:
 
 ```
-| **Phase 3 slice N — <Name>** | One-sentence outcome covering key surfaces shipped. | [`completed/<slug>.md`](completed/<slug>.md) · spec: [`use-cases/<slug>.md`](../use-cases/<slug>.md) |
+| **Phase 3 slice N — <Name>** | One-sentence outcome covering key surfaces shipped. | [`completed/<slug>.md`](completed/<slug>.md) · feature: [`features/<feature>/<feature>.md`](../features/<feature>/<feature>.md) |
 ```
 
 Keep it to one sentence — detail belongs in the `completed/` file.
 
-### 3. `docs/roadmap/completed/<slug>.md` (new file)
+### 3. `docs/roadmap/completed/<slug>.md` — the single historical artifact
 
-Create a new file following the established format. Use an existing file (e.g. [`slice-2-world-content-and-admin-substrate.md`](../completed/slice-2-world-content-and-admin-substrate.md)) as the template. Required sections:
+Create it from `templates/completed-record.md` (in the [`manage-docs`](../manage-docs/templates/completed-record.md) skill). This file is where the plan's history and decisions live after the plan is deleted, so it must be **complete before deletion**. Required sections:
 
 | Section | Content |
 |---|---|
-| Header + preamble | PR number, link to the use-case doc |
-| **Outcome** | 2–3 sentence plain-English summary of what changed |
+| Header + preamble | Branch/PR, date, link to the live [`features/`](../../../docs/features/) doc (NOT to the deleted plan) |
+| **Outcome** | 2–3 sentence plain-English summary of what shipped |
+| **Behavior digest** | The plan's durable Pre/Postconditions + Main-flow summary (the as-specified snapshot) |
 | **Shipped pieces** | Table of every new/changed surface with its location |
-| **Tests shipped** | The tests added for this slice (tier + target) per the use-case Test plan; note any on-touch backfill of previously-untested systems. Confirm `dotnet test` is green (INV-25). |
-| **Spec-review provenance** | Architecture-reviewer findings and how they were resolved |
-| **Notable design points** | Non-obvious decisions; deferred items explicitly named |
-| **Deviations from the use-case doc** | Any delta between spec and as-built; `None` if clean |
-| **Follow-ups unlocked** | What the next slices can now build on |
+| **Tests shipped** | Tests added (tier + target) per the plan's Test plan; note on-touch backfill; confirm `dotnet test` green (INV-25) |
+| **Decisions** | Non-obvious design rationale — absorbs the plan's Design Notes; deferred items named. The durable home for shipped-slice "why" |
+| **Deviations / Follow-ups** | Delta between plan and as-built (`None` if clean); what later slices can build on; debt parked in `backlog.md` |
 
-Pull the shipped pieces from:
-- The use-case doc's "Systems / Handlers Involved" section
-- The PR diff (`git show <hash> --stat` for the file list)
-- The use-case doc's "Postconditions" for things that were changed but not new files
+Pull the content from the implementation plan (before deleting it) and the PR diff (`git show <hash> --stat`).
 
-### 4. Trim the use-case doc to its durable spec (trim-on-ship)
+### 4. Disintegrate the plan, then delete it (`INV-28`)
 
-Confirm `**Status:** implemented` at the top, then **trim** the doc to its durable behavior spec — keep **Status, Actors, Module, Description, Preconditions, Postconditions, Main flow, Events fired, Design notes, Related**; delete the in-flight-only sections (Architecture brief, Systems/handlers involved, Content tooling impact, Test plan / Verification, Cross-cutting surfaces stressed, Flows introduced or modified, Reference catalog updates, Open questions). The Postconditions remain the durable coverage contract; the shipped tests are now authoritative in `Hedron.Tests`. Design notes stay — they hold non-obvious rationale not captured in code (including the seam rationale the `architecture-advisor` recorded there). That detail is now authoritative in code, `docs/architecture/flows/README.md`, and the `docs/reference/` catalogs — keeping a second copy in the use-case doc is exactly the drift this prevents. See [`../../../docs/documentation-architecture.md`](../../../docs/documentation-architecture.md) (`INV-D2`).
+The implementation plan is transient. Distribute its durable content into the living docs, then remove the file — there is **no trimmed spec left behind**:
+
+1. **Behavior / orchestration →** the [`features/<feature>/`](../../../docs/features/) feature doc and its `<system>.md` design docs (create or update via the `manage-docs` templates).
+2. **Runtime path →** the feature's [`flows/`](../../../docs/architecture/flows/) journey (create/extend; keep it at systems+events granularity).
+3. **Catalog diffs →** the [`reference/`](../../../docs/reference/) catalogs (`INV-16`; trim interface dumps to links).
+4. **Decisions / as-built →** the `completed/<slug>.md` record above — **verify it captures the slice's decisions before deleting** (enrich if anything is missing).
+5. **Delete** `docs/implementation-plans/<slug>.md` (`git rm`). Repoint any inbound links to the new `features/` / `flows/` homes, and run the link check (see `manage-docs`).
+
+A small quick-fix that warranted no plan simply updates the living docs directly — no completed-record needed.
 
 ## Checklist
 
 - [ ] `plan.md` phase summary updated
 - [ ] `plan.md` slice queue status changed to ✅ done; next slice advanced to 🟢 next
 - [ ] `plan.md` current focus section updated
-- [ ] `done.md` row added
-- [ ] `completed/<slug>.md` created (including **Tests shipped**)
-- [ ] `dotnet test` green and the use-case's Test-plan tests are present (INV-25) — "ship green" = build green **and** tests green
-- [ ] Use-case doc status is `implemented` **and** trimmed to its durable spec (trim-on-ship, `INV-D2`)
+- [ ] `done.md` row added (points at `completed/` + the live feature doc)
+- [ ] `completed/<slug>.md` created from the template, **including Behavior digest, Tests shipped, and Decisions**
+- [ ] `dotnet test` green and the plan's Test-plan tests are present (INV-25) — "ship green" = build green **and** tests green
+- [ ] Plan content distributed to `features/` / `flows/` / `reference/`; decisions verified in `completed/`; **plan deleted** (`INV-28`); inbound links repointed; link check clean
 
 ## When in doubt
 
-- Don't guess at shipped pieces — read the PR diff or the use-case doc's postconditions.
+- Don't guess at shipped pieces — read the PR diff or the plan's postconditions before deleting it.
 - If a slice was split or renamed mid-implementation, record the *as-shipped* state, not the original plan. Note the delta in "Deviations".
-- If the slice introduced a new architectural rule or changed a reference catalog (`systems.md`, `handlers.md`, `components.md`), those updates belong in the PR itself, not here — this skill only covers the roadmap ledger.
+- Reference-catalog and flow updates are part of the disintegration (step 4 of section 4) — they ship in the same PR, driven by the `manage-docs` rules.

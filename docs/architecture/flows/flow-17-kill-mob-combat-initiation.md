@@ -1,52 +1,68 @@
-# Flow 17 — `kill <mob>` — combat initiation
+# Combat journey (initiation · round pulse · flee)
 
-> [Back to flows index](README.md)
+> [Back to flows index](README.md). **Trigger:** Player sends `kill <target>`, then `HeartbeatTickEvent` drives rounds; player sends `flee` to exit.
 
-**Summary.** Player sends `kill <mob>`. `KillCommand` guards against already-in-combat, prefix-matches the token against mobs in the current room via `ICombatSystem.TryFindTargetInRoom`, transitions both entities to `InCombat` via `IEntityStateService`, attaches `CombatStateComponent` on both via `ICombatSystem.StartCombat`, and publishes `CombatStartedEvent`. `CombatHandler` broadcasts the attack announcement to the room.
+## Summary
 
-**Trigger.** Player sends `kill <target>` (or alias `k`).
+`KillCommand` validates state, prefix-matches the target mob in the room via `ICombatSystem`, transitions both entities to `InCombat` via `IEntityStateService`, attaches `CombatStateComponent`, and publishes `CombatStartedEvent`. Each heartbeat tick, `CombatTickHandler` (priority 20) snapshots all `CombatStateComponent` entities, deduplicates into unique pairs (lower entity id = attacker), and calls `ICombatSystem.ExecuteRound` per pair. Results route to `CombatRoundEvent` for output; terminal outcomes (mob death, player incapacitation) publish `CombatEndedEvent` and branch to the [death & respawn journey](flow-20-mob-death-respawn.md). `flee` calls `ICombatSystem.EndCombat` + `IEntityStateService.ExitState` on both participants and publishes `CombatEndedEvent(PlayerFled)`.
 
 ```mermaid
 sequenceDiagram
-    participant Client
-    participant Cmd as KillCommand
+    participant Cmd as KillCommand / FleeCommand
     participant ESS as IEntityStateService
     participant CS as ICombatSystem
+    participant CTH as CombatTickHandler (p=20)
     participant Bus as IEventBus
     participant CH as CombatHandler (p=20)
+    participant MDH as CombatMobDeathHandler (p=80)
 
-    Client->>Cmd: ExecuteAsync(CommandContext)
-    Cmd->>ESS: IsInState(playerEntityId, InCombat)
-    alt already in combat
-        Cmd->>Client: "You are already fighting!"
-    else not in combat
-        Cmd->>CS: TryFindTargetInRoom(roomId, token) → mobEntityId
-        alt no match
-            Cmd->>Client: "You don't see that here."
-        else match
-            Cmd->>ESS: TryEnterState(playerEntityId, InCombat)
-            Cmd->>ESS: TryEnterState(mobEntityId, InCombat)
-            Cmd->>CS: StartCombat(playerEntityId, mobEntityId)
-            Cmd->>Bus: PublishAsync(CombatStartedEvent)
-            Bus->>CH: HandleAsync → "You attack X!" + broadcast to room
+    Cmd->>ESS: IsInState(player, InCombat) [guard]
+    Cmd->>CS: TryFindTargetInRoom → mobEntityId
+    Cmd->>ESS: TryEnterState(player, InCombat)
+    Cmd->>ESS: TryEnterState(mob, InCombat)
+    Cmd->>CS: StartCombat(player, mob)
+    Cmd->>Bus: PublishAsync(CombatStartedEvent)
+    Bus->>CH: HandleAsync → "You attack X!" + room broadcast
+
+    loop HeartbeatTickEvent each tick
+        CTH->>CS: ExecuteRound(attacker, defender) → CombatRoundResult
+        CTH->>Bus: PublishAsync(CombatRoundEvent)
+        Bus->>CH: HandleAsync → hit/miss narrative + HP status
+        alt MobDied
+            CTH->>CS: EndCombat
+            CTH->>Bus: PublishAsync(CombatEndedEvent MobDied)
+            Bus->>CH: HandleAsync (p=20) → "You have slain X!"
+            Bus->>MDH: HandleAsync (p=80) → ExitState + MobDiedEvent + DestroyEntity
+        else PlayerIncapacitated
+            CTH->>CS: EndCombat + ExitState on both
+            CTH->>Bus: PublishAsync(CombatEndedEvent PlayerIncapacitated)
+            CTH->>Bus: PublishAsync(PlayerIncapacitatedEvent) → death journey
         end
     end
+
+    Note over Cmd: flee path
+    Cmd->>ESS: IsInState(player, InCombat) [guard]
+    Cmd->>CS: EndCombat(player, mob)
+    Cmd->>ESS: ExitState(player, InCombat) + ExitState(mob, InCombat)
+    Cmd->>Bus: PublishAsync(CombatEndedEvent PlayerFled)
+    Bus->>CH: HandleAsync → "You flee!" + room broadcast
 ```
 
-**Steps.**
+## Steps
 
-1. `CommandDispatcher` routes `kill` (or prefix `k`) to `KillCommand`.
-2. **In-combat guard.** Calls `IEntityStateService.IsInState(playerEntityId, EntityStateFlags.InCombat)`. If true, writes `"You are already fighting!"` and returns.
-3. **Target resolution.** Reads `LocationComponent.RoomEntityId`. Calls `ICombatSystem.TryFindTargetInRoom(roomId, token)` — prefix-matches against `MobDataComponent.Name` and `MobDataComponent.Keywords` for entities in the room. On no match: `"You don't see that here."` and return.
-4. **State transition — player.** Calls `IEntityStateService.TryEnterState(playerEntityId, InCombat, out failReason)`. On failure (blocked by transition rule, e.g. `Incapacitated`): writes `failReason` and returns.
-5. **State transition — mob.** Calls `IEntityStateService.TryEnterState(mobEntityId, InCombat, out _)`. Failure is a warn-log and no-op (mobs have no session to write to).
-6. **Combat metadata.** Calls `ICombatSystem.StartCombat(playerEntityId, mobEntityId)` — attaches `CombatStateComponent { OpponentEntityId }` to both entities.
-7. Publishes `CombatStartedEvent(AttackerEntityId, DefenderEntityId, RoomEntityId)`.
-8. `CombatHandler` (priority 20) handles `CombatStartedEvent`: writes `"You attack <mob>!"` to attacker; broadcasts `"<PlayerName> attacks <mob>!"` to other room occupants.
+1. **Initiation.** `KillCommand` guards `IsInState(InCombat)`, prefix-matches the target via `ICombatSystem.TryFindTargetInRoom`, calls `TryEnterState(InCombat)` on both entities, calls `ICombatSystem.StartCombat` to attach `CombatStateComponent { OpponentEntityId }` on both, and publishes `CombatStartedEvent`.
 
-**Cross-references.**
-- [`Core/Modules/Combat/Commands/KillCommand.cs`](../../../Core/Modules/Combat/Commands/KillCommand.cs)
+2. **Round pulse.** On each `HeartbeatTickEvent`, `CombatTickHandler` snapshots all `CombatStateComponent` entities. For each pair with `entityId < opponentEntityId`: calls `ICombatSystem.ExecuteRound` (hit check + aspect-resolved damage) and publishes `CombatRoundEvent`. `CombatHandler` broadcasts the hit/miss narrative and the per-round HP status to the player.
+
+3. **Mob death.** When `CombatRoundResult.Outcome == MobDied`: `CombatTickHandler` captures `MobDataComponent.Name` (before destruction), calls `EndCombat`, publishes `CombatEndedEvent(MobDied, DefenderName)`. `CombatHandler` (p=20) broadcasts the kill narrative. `CombatMobDeathHandler` (p=80) exits the attacker's `InCombat` state, publishes `MobDiedEvent` (with `KillerEntityId`), then calls `EntityService.DestroyEntity`. See also the [death & respawn journey](flow-20-mob-death-respawn.md) for the respawn side.
+
+4. **Player incapacitation.** When `CombatRoundResult.Outcome == PlayerIncapacitated`: `CombatTickHandler` calls `EndCombat` + `ExitState(InCombat)` on both, publishes `CombatEndedEvent(PlayerIncapacitated)`, then calls `IDeathSystem.OnHpChanged` and publishes `PlayerIncapacitatedEvent` to open the bleed-out lifecycle. See the [death & respawn journey](flow-20-mob-death-respawn.md).
+
+5. **Flee.** `FleeCommand` guards `IsInState(InCombat)`, reads `CombatStateComponent.OpponentEntityId`, calls `ICombatSystem.EndCombat` + `IEntityStateService.ExitState` on both, publishes `CombatEndedEvent(PlayerFled)`. `flee` always succeeds — no fail roll.
+
+## Where to look
+
+- [`Core/Modules/Combat/Commands/KillCommand.cs`](../../../Core/Modules/Combat/Commands/KillCommand.cs) · [`Core/Modules/Combat/Commands/FleeCommand.cs`](../../../Core/Modules/Combat/Commands/FleeCommand.cs)
+- [`Core/Modules/Combat/Handlers/CombatTickHandler.cs`](../../../Core/Modules/Combat/Handlers/CombatTickHandler.cs) · [`Core/Modules/Combat/Handlers/CombatHandler.cs`](../../../Core/Modules/Combat/Handlers/CombatHandler.cs)
 - [`Core/Modules/Combat/Systems/CombatSystem.cs`](../../../Core/Modules/Combat/Systems/CombatSystem.cs)
-- [`Core/Modules/Combat/Handlers/CombatHandler.cs`](../../../Core/Modules/Combat/Handlers/CombatHandler.cs)
-- [`Core/Modules/Combat/Events/CombatStartedEvent.cs`](../../../Core/Modules/Combat/Events/CombatStartedEvent.cs)
-- [`docs/use-cases/combat.md`](../../use-cases/combat.md) — slice 9 spec
+- [`../../features/combat/combat.md`](../../features/combat/combat.md) — the feature; [`../../features/combat/combat-system.md`](../../features/combat/combat-system.md) for round internals.

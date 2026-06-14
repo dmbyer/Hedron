@@ -11,7 +11,7 @@ Hedron uses a two-level persistence model backed by SQLite. The questions "shoul
 | **World content** | Rooms, areas, mobs, world-spawn items | No | None | Always fresh-spawned from YAML/templates; no SQLite rows |
 | **Persistent entities** | Players, accounts, player-owned items, crops, items in persistent containers | Yes | All `[Persistent]`-tagged components | Loaded fully from SQLite; `CharacterHydrationHandler` resolves `RoomBlueprintId` → `RoomEntityId` after world content loads |
 
-**Cross-domain stable reference:** `LocationComponent` carries `RoomBlueprintId` (`string?`, `[Persistent]`) as the cross-restart room reference and `RoomEntityId` (`uint`, NOT `[Persistent]`) as the runtime entity ID resolved on startup. See Stage B in the [persistence-reform use case](../../use-cases/persistence-reform.md) for full details.
+**Cross-domain stable reference:** `LocationComponent` carries `RoomBlueprintId` (`string?`, `[Persistent]`) as the cross-restart room reference and `RoomEntityId` (`uint`, NOT `[Persistent]`) as the runtime entity ID resolved on startup. See Stage B in the [persistence-reform plan](../implementation-plans/persistence-reform.md) for full details.
 
 ---
 

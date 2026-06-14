@@ -12,34 +12,20 @@
 |---|---|---|---|
 | 1 | [Server startup](flow-01-server-startup.md) | `dotnet run --project Server` | Phase 2 (extended in slice 2) |
 | 2 | [Player connection](flow-02-player-connection.md) | TCP client connects on the configured port | Phase 2 |
-| 3 | [Player command lifecycle](flow-03-player-command-lifecycle.md) | Player sends a line of input | Phase 2 (replaced by slice 3 command framework; output leg updated in slice 4; prefix resolution added in slice 3a) |
+| 3 | [Command journey](flow-03-player-command-lifecycle.md) | Player sends a line of input | Phase 2 (replaced by slice 3 command framework; output leg updated in slice 4; prefix resolution added in slice 3a); source: [../../features/commands/commands.md](../../features/commands/commands.md) |
 | 4 | [Persistence flush cycle](flow-04-persistence-flush-cycle.md) | `PersistenceFlushTimer` ticks, or shutdown | Phase 3 slice 1 |
 | 5 | [Content reload](flow-05-content-reload.md) | Privileged session sends `reload` | Phase 3 slice 2 (gate moved to dispatcher in slice 3) |
-| 6 | [Output rendering](flow-06-output-rendering.md) | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4 |
-| 7 | [Login / character flow](flow-07-login-character-flow.md) | TCP client connects, new or returning player | Phase 3 slice 5 |
-| 8 | [Admin room creation (`dig`)](flow-08-admin-room-creation.md) | Privileged session sends `dig <direction> [name]` | Phase 3 slice 5a |
-| 9 | [Item pickup (`get`)](flow-09-item-pickup.md) | Player sends `get <item>` | Phase 3 slice 6; updated persistence reform Stage C |
-| 10 | [Item drop (`drop`)](flow-10-item-drop.md) | Player sends `drop <item>` | Phase 3 slice 6; updated persistence reform Stage C |
-| 11 | [Inventory display (`inventory`)](flow-11-inventory-display.md) | Player sends `inventory` / `inv` / `i` | Phase 3 slice 6 |
-| 12 | [Admin item creation (`mkitem`)](flow-12-admin-item-creation.md) | Privileged session sends `mkitem [name]` | Phase 3 slice 6 |
-| 13 | [`wear <item>`](flow-13-wear-item.md) | Player sends `wear <item>` | Phase 3 slice 7 |
-| 14 | [`remove <item>`](flow-14-remove-item.md) | Player sends `remove <item>` | Phase 3 slice 7 |
-| 15 | [Admin mob creation (`mkmob`)](flow-15-admin-mob-creation.md) | Privileged session sends `mkmob [name]` | Phase 3 slice 8 |
+| 6 | [Output journey](flow-06-output-rendering.md) | A command/system writes a typed `IOutputMessage` | Phase 3 slice 4; source: [../../features/output/output.md](../../features/output/output.md) |
+| 7 | [Login journey](flow-07-login-character-flow.md) | TCP client connects, new or returning player | Phase 3 slice 5; source: [../../features/accounts/accounts.md](../../features/accounts/accounts.md) |
+| 8 | [Admin authoring journey (dig · mkitem · mkmob · mkarea · list)](flow-08-admin-room-creation.md) | Privileged session issues a builder verb | Phase 3 slices 5a, 6, 8, admin-area-authoring; source: [../../features/admin-authoring/admin-authoring.md](../../features/admin-authoring/admin-authoring.md) |
+| 9 | [Items journey (pickup · drop · inventory)](flow-09-item-pickup.md) | Player sends `get`/`drop`/`inventory` | Phase 3 slice 6; updated persistence reform Stage C; source: [../../features/items/items.md](../../features/items/items.md) |
+| 13 | [Equipment journey (wear · remove)](flow-13-wear-item.md) | Player sends `wear`/`remove` | Phase 3 slice 7; source: [../../features/items/items.md](../../features/items/items.md) |
 | 16 | [Heartbeat tick](flow-16-heartbeat-tick.md) | `PeriodicTimer` fires in `HeartbeatBackgroundService` | Phase 3 slice 9-b |
-| 17 | [`kill <mob>` — combat initiation](flow-17-kill-mob-combat-initiation.md) | Player sends `kill <mob>` | Phase 3 slice 9 |
-| 18 | [Combat round pulse](flow-18-combat-round-pulse.md) | `HeartbeatTickEvent` dispatched to `CombatTickHandler` | Phase 3 slice 9 |
-| 19 | [`flee` — combat exit](flow-19-flee-combat-exit.md) | Player sends `flee` | Phase 3 slice 9 |
-| 20 | [Mob death and respawn](flow-20-mob-death-respawn.md) | Mob HP reaches zero; `SpawnSystem` schedules and executes respawn | Persistence reform Stage C |
-| 21 | [Effect tick](flow-21-effect-tick.md) | `HeartbeatTickEvent` dispatched to `EffectTickHandler` | Phase 3 slice 9-e |
-| 22 | [Player incapacitation and bleed-out](flow-22-incapacitation-bleedout.md) | Player HP crosses zero; `DeathTickHandler` bleeds out per tick | Phase 3 slice 10 |
-| 23 | [Player death and respawn](flow-23-player-death-respawn.md) | HP reaches `Death:HpFloor`; `PlayerDeathHandler` triggers full respawn | Phase 3 slice 10 |
-| 24 | [Ability activation](flow-24-ability-activation.md) | Admin sends `useability` (11-a); player sends `cast`/skill verb (11-b) | Phase 3 slice 11-a (extended 11-b) |
-| 25 | [Skill bare-verb invocation](flow-25-skill-verb-invocation.md) | Player types a skill id/prefix (e.g. `kick`, `ki`) | Phase 3 slice 11-b |
-| 26 | [Offensive ability opens combat](flow-26-offensive-ability-opens-combat.md) | Player casts offensive spell or uses skill against a new target | Phase 3 slice 11-b |
-| 27 | [Admin area creation](flow-27-admin-area-creation.md) | `mkarea [name]` creates an area entity and writes content/areas/<id>.yaml | [flow-27-admin-area-creation.md](flow-27-admin-area-creation.md) |
-| 28 | [Admin entity list](flow-28-admin-entity-list.md) | `list <area\|room>` prints a tabular view of all entities of a given type | [flow-28-admin-entity-list.md](flow-28-admin-entity-list.md) |
-| 29 | [Headless bulk content generation](flow-29-bulk-content-generation.md) | `dotnet run --project Server -- generate --profile <path> [--seed N]` | [flow-29-bulk-content-generation.md](flow-29-bulk-content-generation.md) |
-| 30 | [Offline content edit → save → apply](flow-30-offline-content-edit.md) | Designer edits/creates an area or room in the loopback `Hedron.Web` Blazor editor | content-authoring-editor (WP-2) |
+| 17 | [Combat journey (initiation · round pulse · flee)](flow-17-kill-mob-combat-initiation.md) | Player sends `kill <mob>`; heartbeat drives rounds; `flee` exits | Phase 3 slice 9; source: [../../features/combat/combat.md](../../features/combat/combat.md) |
+| 20 | [Death & respawn journey (mob death · incapacitation · bleed-out · player death/respawn)](flow-20-mob-death-respawn.md) | Mob or player HP reaches zero | Phase 3 slices 9, 10; source: [../../features/combat/combat.md](../../features/combat/combat.md) |
+| 21 | [Effects journey (apply · tick · expire)](flow-21-effect-tick.md) | An effect is applied, then ticked/expired on `HeartbeatTickEvent` | [effects](../../features/effects/effects.md) feature |
+| 24 | [Abilities journey (activation · bare-verb skill invocation · offensive-opens-combat)](flow-24-ability-activation.md) | Admin sends `useability`; player sends `cast`/skill verb; offensive ability opens combat | Phase 3 slices 11-a, 11-b; source: [../../features/abilities/abilities.md](../../features/abilities/abilities.md) |
+| 29 | [Content-tooling journey (bulk generate · offline edit)](flow-29-bulk-content-generation.md) | `dotnet run --project Server -- generate --profile <path>` or designer edits in `Hedron.Web` | content-tooling platform (T1, T2); source: [../../features/admin-authoring/admin-authoring.md](../../features/admin-authoring/admin-authoring.md) |
 
 Flows that don't yet exist (mob wander tick, etc.) get added by the slice that introduces them.
 
@@ -57,4 +43,4 @@ When a slice introduces a recurring runtime call chain (combat round, player dea
 
 Then add a row to the index table above.
 
-The use-case-planner agent surfaces flow additions as part of its workflow; the architecture-reviewer agent verifies the doc matches the diff. Drift between code and this file is a merge gate.
+The implementation-planner agent surfaces flow additions as part of its workflow; the architecture-reviewer agent verifies the doc matches the diff. Drift between code and this file is a merge gate.

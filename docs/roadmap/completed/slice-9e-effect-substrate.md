@@ -1,6 +1,6 @@
 # Phase 3 Slice 9-e — Effect Substrate
 
-**PR:** #100 · **Spec:** [`../../use-cases/effect-substrate.md`](../../use-cases/effect-substrate.md) · **Design:** [`../../architecture/effects.md`](../../architecture/effects.md) · **Gameplay-model spine:** S2
+**PR:** #100 · **Now documented in:** [`features/effects/effects.md`](../../features/effects/effects.md) (feature) · [`features/effects/effect-system.md`](../../features/effects/effect-system.md) (design) · **Gameplay-model spine:** S2
 
 > Ledger backfilled retroactively (merged in #100 without a `done.md`/`completed/` entry at the time).
 

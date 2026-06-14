@@ -2,7 +2,7 @@
 
 Living catalog of the event handlers **implemented** in Hedron. Handlers are grouped by **cohesion**, not breadth — related events that share context live together.
 
-> Idealized handlers for features not yet built live in [`handlers-planned.md`](handlers-planned.md) — design intent only; do not assume they exist. Why implemented and planned are separated: [`../documentation-architecture.md`](../documentation-architecture.md).
+> Idealized handlers for features not yet built live in [`handlers-planned.md`](handlers-planned.md) — design intent only; do not assume they exist. Why implemented and planned are separated: [`../architecture/09-documentation.md`](../architecture/09-documentation.md).
 
 ## Grouping criteria
 

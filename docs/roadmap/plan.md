@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Purpose.** Holds the end-goal, the strategic posture, and a pointer to whatever slice is currently in flight. Detail about *completed* work lives in [`done.md`](done.md) and [`completed/`](completed/); detail about *deferred* work lives in [`backlog.md`](backlog.md). Detail about each *upcoming* slice lives in its use-case doc under [`../use-cases/`](../use-cases/).
+> **Purpose.** Holds the end-goal, the strategic posture, and a pointer to whatever slice is currently in flight. Detail about *completed* work lives in [`done.md`](done.md) and [`completed/`](completed/); detail about *deferred* work lives in [`backlog.md`](backlog.md). Detail about each *upcoming* slice lives in its use-case doc under [`../implementation-plans/`](../implementation-plans/).
 
 ## End goal
 
@@ -9,7 +9,7 @@ A production-grade C# MUD engine on .NET 8 with:
 - A single live-world ECS, per-component persistence, and an event-driven 4-layer architecture (handlers → domain systems → core systems → components).
 - Telnet (and eventually web) clients with the same `ISession` contract.
 - Authored content driven by data files plus in-game admin commands; designers iterate without redeploys.
-- A vertical-slice delivery cadence where each gameplay scenario in [`../use-cases/`](../use-cases/) ships behind a use-case spec, an architecture review, and content tooling sufficient to author and exercise the feature.
+- A vertical-slice delivery cadence where each gameplay scenario in [`../implementation-plans/`](../implementation-plans/) ships behind a use-case spec, an architecture review, and content tooling sufficient to author and exercise the feature.
 
 ## Posture
 
@@ -19,7 +19,7 @@ The target is defined by:
 
 - [`../architecture/00-overview.md`](../architecture/00-overview.md) through [`../architecture/05-configuration.md`](../architecture/05-configuration.md) — 4-layer model, ECS, events, pitfalls, configuration strategy
 - [`../reference/`](../reference/) — catalogs of components, systems, handlers, archetypes
-- [`../use-cases/`](../use-cases/) — designer scenarios, one per gameplay slice
+- [`../implementation-plans/`](../implementation-plans/) — designer scenarios, one per gameplay slice
 
 ## Phase summary
 
@@ -27,14 +27,14 @@ The target is defined by:
 |---|---|---|
 | **1 — Strip** | ✅ complete | [`completed/phase-1-strip.md`](completed/phase-1-strip.md) |
 | **2 — Foundation / MVP** | ✅ complete | [`completed/phase-2-mvp.md`](completed/phase-2-mvp.md) |
-| **3 — Vertical slices** | 🟡 in progress (slices 1–11-d + output-batching + area-model + content-tooling platform done; **next: slice 12 — Shopping**) | per-slice docs in [`../use-cases/`](../use-cases/); see [Slice queue](#slice-queue) |
+| **3 — Vertical slices** | 🟡 in progress (slices 1–11-d + output-batching + area-model + content-tooling platform done; **next: slice 12 — Shopping**) | per-slice docs in [`../implementation-plans/`](../implementation-plans/); see [Slice queue](#slice-queue) |
 | **4 — Hardening** | 🟡 testing complete (`Hedron.Tests` + 566 tests + CI live; Wave 2 backfill done); remaining: perf, thread-safety | CI green; see [`backlog.md`](backlog.md); testing strategy in [`../architecture/07-testing.md`](../architecture/07-testing.md) |
 
 For the per-slice ledger of completed work, read [`done.md`](done.md).
 
 ## Current focus
 
-**Phase 3 slice 12 — Shopping.** The area model slice is complete: `RoomComponent.AreaEntityId` is linked at startup by `WorldContentLoader.LinkRoomAreas`; `IAreaSystem` provides `GetRoomsInArea`/`GetAreaForRoom`/`AssignRoomToArea`; `AreaTemplate` now carries optional `AspectAffinities`; `RegistryValidationBootstrap` validates area aspect compositions at boot; `area`/`setarea` admin commands are live; `@dig` inherits the source room's area. The **content-tooling platform** also landed since (advisor-initiated, off the numbered queue): a shared content-definition layer (`IContentDefinitionCatalog`) + callable `IContentValidator` factored from the boot bootstrap, split hosted-service registration, a headless `generate` bulk-generation run-mode, and an in-process Blazor authoring editor (`Hedron.Web`) over all four content kinds — see [`../use-cases/content-tooling-platform.md`](../use-cases/content-tooling-platform.md). The next *numbered* slice is **Shopping** ([`../use-cases/shopping.md`](../use-cases/shopping.md) — to be authored) — economy mechanics enabling players to buy/sell items from vendor NPCs. This slice builds on the items + inventory substrate (slice 6) and the mob model (slice 8); no ability or combat dependency.
+**Phase 3 slice 12 — Shopping.** The area model slice is complete: `RoomComponent.AreaEntityId` is linked at startup by `WorldContentLoader.LinkRoomAreas`; `IAreaSystem` provides `GetRoomsInArea`/`GetAreaForRoom`/`AssignRoomToArea`; `AreaTemplate` now carries optional `AspectAffinities`; `RegistryValidationBootstrap` validates area aspect compositions at boot; `area`/`setarea` admin commands are live; `@dig` inherits the source room's area. The **content-tooling platform** also landed since (advisor-initiated, off the numbered queue): a shared content-definition layer (`IContentDefinitionCatalog`) + callable `IContentValidator` factored from the boot bootstrap, split hosted-service registration, a headless `generate` bulk-generation run-mode, and an in-process Blazor authoring editor (`Hedron.Web`) over all four content kinds — see [`../implementation-plans/content-tooling-platform.md`](../features/admin-authoring/admin-authoring.md). The next *numbered* slice is **Shopping** ([`../implementation-plans/shopping.md`](../implementation-plans/shopping.md) — to be authored) — economy mechanics enabling players to buy/sell items from vendor NPCs. This slice builds on the items + inventory substrate (slice 6) and the mob model (slice 8); no ability or combat dependency.
 
 The per-slice spec is the single source of truth for "what is being built right now" — this file deliberately does not duplicate it.
 
@@ -42,12 +42,12 @@ The per-slice spec is the single source of truth for "what is being built right 
 
 Each slice runs this loop. There are **two** `architecture-reviewer` gates — one before code exists, one before merge. The spec gate exists because spec-level violations (a plan that directs a layer to break an invariant, or preserves a latent one) are invisible to a code-only reviewer until implementation is already built on the flaw — the failure that produced the slice-3 command-tier rework.
 
-1. Pick the next use-case file from [`../use-cases/`](../use-cases/), or author a new one.
+1. Pick the next use-case file from [`../implementation-plans/`](../implementation-plans/), or author a new one.
    - For a net-new feature or a non-trivial change, **frame it first with the `architecture-advisor` skill (`/advise`)** — an interactive principal-architect intake that locates the architectural seams, weighs the feature against existing and planned work ([gameplay-model spines](../design/gameplay-model.md), [feature-horizon](../design/feature-horizon.md), [backlog](backlog.md)), and seeds the use-case doc with a forward-looking architectural brief *before* the planner goes deep. This is the cheapest point to catch a seam-in-the-wrong-place or a missed generalization — the failure class the HP-threshold example surfaced. Skip only for a small, well-understood slice.
-2. Plan via the `use-case-planner` agent — extends the advisor's seed (if present) into the component / system / handler / event list and file plan, folds the architectural brief's seam decisions into **Design notes**, and fills the use-case doc's **Cross-cutting surfaces stressed**, **Test plan / Verification** (INV-25), and **Flows introduced or modified** sections.
+2. Plan via the `implementation-planner` agent — extends the advisor's seed (if present) into the component / system / handler / event list and file plan, folds the architectural brief's seam decisions into **Design notes**, and fills the use-case doc's **Cross-cutting surfaces stressed**, **Test plan / Verification** (INV-25), and **Flows introduced or modified** sections.
 3. Resolve open questions with the user.
 4. **Spec-review gate** — `architecture-reviewer` in **spec mode** against the use-case doc. Blocking findings are fixed *in the doc* before any code is written. The gate also checks the **Test plan** is honest given the Postconditions (a postcondition asserting player-invisible state with no test is a finding — INV-25). Re-run until the verdict is clean.
-5. Implement (`implement-use-case`) against the corrected spec — **including the tests named in the Test plan**; `dotnet test` must be green (INV-25). A previously-untested system this slice touches gains tests too (on-touch ratchet).
+5. Implement (`implement-plan`) against the corrected spec — **including the tests named in the Test plan**; `dotnet test` must be green (INV-25). A previously-untested system this slice touches gains tests too (on-touch ratchet).
 6. **Code-review gate** — `architecture-reviewer` in **code mode** against the diff, before merge. It also confirms the Test-plan tests are present and `dotnet test` is green (INV-25), and greps systems for ambient nondeterminism (INV-26).
 7. **Sync roadmap** (`sync-roadmap` skill) — update [`done.md`](done.md), add `completed/<slice>.md`, and advance the slice queue in this file. Run before the PR merges.
 8. Ship green — build **and** `dotnet test` green.
@@ -109,7 +109,7 @@ Tracked in [`backlog.md`](backlog.md) until promoted into a dated slice.
 
 ## Ground rules
 
-Architectural invariants (layering, ECS, events, persistence, …) are the `INV` list in [`../architecture/checklist.md`](../architecture/checklist.md); CLAUDE.md carries their day-to-day summary. This roadmap does not restate them — one rule, one home (see [`../documentation-architecture.md`](../documentation-architecture.md)).
+Architectural invariants (layering, ECS, events, persistence, …) are the `INV` list in [`../architecture/checklist.md`](../architecture/checklist.md); CLAUDE.md carries their day-to-day summary. This roadmap does not restate them — one rule, one home (see [`../architecture/09-documentation.md`](../architecture/09-documentation.md)).
 
 What this roadmap *owns* are the **slice-delivery obligations** — process rules the checklist enforces but explains here:
 
@@ -132,4 +132,4 @@ The per-slice delivery loop is the [Phase 3 ground rules](#phase-3-ground-rules)
 - **What's next?** → "Current focus" above, then the linked use-case doc
 - **What's deferred?** → [`backlog.md`](backlog.md)
 - **What's the target architecture?** → [`../architecture/`](../architecture/)
-- **How do I plan/implement/review a slice?** → `architecture-advisor`, `new-use-case`, `use-case-planner`, `implement-use-case`, `architecture-reviewer` under [`../../.claude/`](../../.claude/)
+- **How do I plan/implement/review a slice?** → `architecture-advisor`, `new-plan`, `implementation-planner`, `implement-plan`, `architecture-reviewer` under [`../../.claude/`](../../.claude/)

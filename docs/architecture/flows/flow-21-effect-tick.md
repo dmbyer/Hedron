@@ -1,63 +1,37 @@
-# Flow 21 — Effect tick (periodic application + expiry)
+# Effects journey — apply · tick · expire
 
-> [Back to flows index](README.md)
+> [Back to flows index](README.md). **Trigger:** an effect is applied (by `affect`, an ability, or an item), then advanced each `HeartbeatTickEvent`.
 
-**Summary.** `EffectTickHandler` subscribes to `HeartbeatTickEvent` at priority 20. On each tick it calls `IEffectSystem.AdvanceTick`, which advances elapsed time on all `Timed` effects, collects `Periodic` applications due this tick, and removes just-expired effects. The handler then applies each periodic magnitude to the relevant pool via `IAttributeSystem` (in `Phase` order — HoT before DoT) and publishes `EffectExpiredEvent` for every effect that expired. For `HpCurrent` applications, the handler additionally calls `IDeathSystem.OnHpChanged` so a DoT that drives HP to 0 enters the incapacitation lifecycle.
+## Summary
 
-**Trigger.** `HeartbeatTickEvent` dispatched by `HeartbeatBackgroundService` (see [Flow 16](flow-16-heartbeat-tick.md)). `EffectTickHandler` fires before `CombatTickHandler` (both priority 20; effects are processed before the combat round so updated pool values are available immediately).
+An effect enters through `EffectSystem.Apply` (or the modifier seam, for `StatModifier` kinds): power is computed from the source's base stats, the stacking policy resolves, and a standalone effect is stored in `EffectsComponent`. `StatModifier` effects need no tick — `IStatSystem.Get` folds `EffectSystem.GetModifiers` on every read, so consumers see the change transparently. `Timed` and `Periodic` effects advance on the heartbeat: `EffectTickHandler` (priority 20, before combat) calls `EffectSystem.AdvanceTick`, which returns the periodic applications due this tick and the just-expired effects, both ordered by `Phase` (heal-before-damage). The handler writes each periodic magnitude through `IAttributeSystem`, routes `HpCurrent` writes through `IDeathSystem.OnHpChanged` (a DoT can open incapacitation, see the [death & respawn journey](flow-20-mob-death-respawn.md)), and publishes `EffectExpiredEvent` per expiry. Persistence is lifetime-filtered — only `UntilRemoved` effects survive a restart.
 
 ```mermaid
 sequenceDiagram
+    participant Src as Initiator (affect / ability / item)
+    participant ES as EffectSystem (core)
     participant ETH as EffectTickHandler (p=20)
-    participant ES as IEffectSystem
     participant AS as IAttributeSystem
-    participant DS as IDeathSystem
     participant Bus as IEventBus
 
-    ETH->>ES: AdvanceTick(elapsed) → EffectTickResult
-    note over ES: advance Elapsed on Timed effects;<br/>collect Periodic apps + expired;<br/>remove expired from EffectsComponent
-    loop per PeriodicApplication (Phase order)
-        alt TargetScore == HpCurrent
-            ETH->>AS: hpBefore = GetCurrentHp(entityId)
-            ETH->>AS: SetCurrentHp(entityId, hpBefore + magnitude)
-            ETH->>AS: hpAfter = GetCurrentHp(entityId)
-            ETH->>DS: OnHpChanged(entityId, hpBefore, hpAfter)
-            opt result == BecameIncapacitated
-                ETH->>Bus: PublishAsync(PlayerIncapacitatedEvent)
-            end
-        else other pool
-            ETH->>AS: SetCurrentX(entityId, current + magnitude)
-        end
-    end
-    loop per expired effect
-        ETH->>Bus: PublishAsync(EffectExpiredEvent{TargetId, EffectId})
+    Src->>ES: Apply(target, definition, source)
+    note over ES: compute Power (source base stats),<br/>resolve StackPolicy, store in EffectsComponent
+    loop each HeartbeatTickEvent
+        ETH->>ES: AdvanceTick(elapsed) → due Periodic apps + expired (Phase-ordered)
+        ETH->>AS: apply each periodic magnitude (HoT before DoT)
+        ETH->>Bus: PublishAsync(EffectExpiredEvent) per expiry
     end
 ```
 
-**Steps.**
+## Steps
 
-1. `HeartbeatBackgroundService` publishes `HeartbeatTickEvent`; `EffectTickHandler` (priority 20) handles it before `CombatTickHandler`.
-2. Calls `IEffectSystem.AdvanceTick(@event.Elapsed)`. Inside the core system:
-   - Iterates all entities with `EffectsComponent` (back-to-front to allow safe `RemoveAt`).
-   - For each `Timed` effect: increments `Elapsed` by the tick's elapsed seconds using `with { Elapsed = newElapsed }` (record mutation).
-   - Collects any `Timed` effects where `Elapsed >= Duration` as expired; removes them from the component list.
-   - Collects any `Periodic` effects as due applications (fire once per tick).
-   - Sorts both lists by `Phase` (ascending: `Early` < `Normal` < `Late`).
-   - Returns `EffectTickResult { DueApplications, Expired }`.
-3. **Periodic application.** For each `PeriodicApplication` in `DueApplications` (Phase order):
-   - If `TargetScore == HpCurrent`: reads `hpBefore`, calls `IAttributeSystem.SetCurrentHp(entityId, hpBefore + magnitude)`, reads `hpAfter`, then calls `IDeathSystem.OnHpChanged(entityId, hpBefore, hpAfter)`. If the result is `BecameIncapacitated`, publishes `PlayerIncapacitatedEvent(entityId, roomEntityId)`.
-   - All other pool scores: calls `IAttributeSystem.SetCurrentX(entityId, current + magnitude)` directly. `IAttributeSystem` clamps to `[0, MaxX]` automatically. `StatModifier` periodic effects targeting non-pool scores are a no-op here — their contribution is read via `IEffectSystem.GetModifiers` at query time.
-4. **Expiry notification.** For each `(entityId, effect)` in `Expired`, publishes `EffectExpiredEvent { TargetId = entityId, EffectId = effect.EffectId }`. A player-facing "effect fades" broadcast is deferred to a future notification slice.
+1. **Apply.** `EffectSystem.Apply` computes `Power` from the source's *base* stats (acyclic — never via `IStatSystem`), applies the `StackPolicy` (`HighestWins` keeps the stronger, etc.), and stores the effect — or, for `Instant`, returns the one-shot result without storing.
+2. **Transparent read.** For `StatModifier` effects, `IStatSystem.Get` sums `EffectSystem.GetModifiers` over base + equipment, so combat / `score` / any consumer reflect the buff with no call-site change.
+3. **Tick.** Each heartbeat, `EffectTickHandler` calls `AdvanceTick`; the system advances `Timed` elapsed, collects due `Periodic` applications and expiries, and returns both `Phase`-ordered. The handler writes magnitudes via `IAttributeSystem` (heal phase before damage phase) and publishes `EffectExpiredEvent` per expiry.
+4. **Persist.** On flush, only `UntilRemoved` effects are written (the lifetime-filtering JSON converter); `Timed` effects are intentionally dropped on restart; source-bound effects re-derive from their sources.
 
-**Phase ordering.** `EffectPhase.Early` (e.g. `regen` HoT) fires before `EffectPhase.Late` (e.g. `poison` DoT) within a single tick. This ensures a heal-before-damage ordering when both apply on the same tick, preventing an entity from dying to DoT before a HoT that could save it.
+## Where to look
 
-**Persistence.** `EffectsComponent` is `[Persistent]`; `EffectsComponentJsonConverter` writes only `UntilRemoved` entries. `Timed` effects that expire mid-session were never written; `UntilRemoved` effects persist across restarts and resume ticking (they have no expiry timer — they are removed only by explicit `RemoveByCategory` or `Remove` calls).
-
-**Cross-references.**
-- [`Core/Modules/Effects/Handlers/EffectTickHandler.cs`](../../../Core/Modules/Effects/Handlers/EffectTickHandler.cs)
-- [`Core/Modules/Effects/Systems/EffectSystem.cs`](../../../Core/Modules/Effects/Systems/EffectSystem.cs)
-- [`Core/Modules/Effects/Events/EffectExpiredEvent.cs`](../../../Core/Modules/Effects/Events/EffectExpiredEvent.cs)
-- [`Core/ECS/Components/EffectsComponent.cs`](../../../Core/ECS/Components/EffectsComponent.cs)
-- [`docs/architecture/effects.md`](../effects.md) — effect model design (kinds, lifetimes, stacking, phases)
-- [`docs/use-cases/effect-substrate.md`](../../use-cases/effect-substrate.md) — slice 9-e spec
-- [Flow 16](flow-16-heartbeat-tick.md) — heartbeat trigger
+- [`EffectSystem.cs`](../../../Core/Modules/Effects/Systems/EffectSystem.cs) · [`EffectTickHandler.cs`](../../../Core/Modules/Effects/Handlers/EffectTickHandler.cs) — the system and its tick orchestrator.
+- [`effect-system.md`](../../features/effects/effect-system.md) — the model (kinds, lifetimes, stacking, power, phase, the contributor seam).
+- [Flow 16](flow-16-heartbeat-tick.md) — the heartbeat that drives the tick.

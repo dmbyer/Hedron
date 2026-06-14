@@ -47,7 +47,7 @@ Defaults live in `appsettings.json`. Overrides live in environment variables or 
 
 Rationale: Content is authored by designers, not operators. It doesn't belong in appsettings.json (wrong audience, wrong diff noise, wrong access model). It is versioned alongside code, live-reloadable via `@reload`, and has a schema independent of the C# type system. `TemplateRegistry.Spawn` is the bridge between these files and live entities.
 
-**Format: YAML via `YamlDotNet`.** Resolved by Phase 3 slice 2 ([`../use-cases/world-content-loading-and-admin-substrate.md`](../use-cases/world-content-loading-and-admin-substrate.md)). Persistence component snapshots use `System.Text.Json` on a separate code path — content authoring (designer-write, comment-friendly) and runtime persistence (round-trip-fidelity, machine-write) coexist by design and do not share serializer code.
+**Format: YAML via `YamlDotNet`.** Resolved by Phase 3 slice 2 ([`../implementation-plans/world-content-loading-and-admin-substrate.md`](../features/world/world.md)). Persistence component snapshots use `System.Text.Json` on a separate code path — content authoring (designer-write, comment-friendly) and runtime persistence (round-trip-fidelity, machine-write) coexist by design and do not share serializer code.
 
 The cross-cutting `IContentSerializer` (in `Core/Systems/`) is a thin kind-dispatcher; per-module `ITemplateDeserializer` implementations live next to the templates they translate (e.g. `RoomTemplateDeserializer` in the World module). Adding a new templated archetype in a future slice means registering a new deserializer in the owning module — not editing the cross-cutting serializer.
 
@@ -116,7 +116,7 @@ These questions are **recorded but not resolved**. Resolution belongs in the pha
 
 ### ~~OD-1 — Content data file format~~ (resolved by Phase 3 slice 2)
 
-**Resolved: YAML via `YamlDotNet`.** Phase 3 slice 2 picked YAML for designer-friendliness (comments, less punctuation, indentation-driven structure). Persistence (slice 1) keeps `System.Text.Json` for component snapshots — different audience, different change cadence, no shared serializer code. See Category 2 above and the slice 2 use-case ([`../use-cases/world-content-loading-and-admin-substrate.md`](../use-cases/world-content-loading-and-admin-substrate.md)) for the implementation shape (`IContentSerializer` + per-module `ITemplateDeserializer`).
+**Resolved: YAML via `YamlDotNet`.** Phase 3 slice 2 picked YAML for designer-friendliness (comments, less punctuation, indentation-driven structure). Persistence (slice 1) keeps `System.Text.Json` for component snapshots — different audience, different change cadence, no shared serializer code. See Category 2 above and the slice 2 use-case ([`../implementation-plans/world-content-loading-and-admin-substrate.md`](../features/world/world.md)) for the implementation shape (`IContentSerializer` + per-module `ITemplateDeserializer`).
 
 ### OD-2 — Balance constant promotion threshold (Phase 3 slices 8–12)
 

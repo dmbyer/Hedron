@@ -1,6 +1,6 @@
 # Phase 3 slice 3 — Command framework (completed)
 
-> Implemented and merged on `master` (PR #67). The full feature spec lives in [`../../use-cases/command-framework.md`](../../use-cases/command-framework.md). This file records the as-built state and any deviations from the spec.
+> Implemented and merged on `master` (PR #67). The full feature spec lives in [`../../implementation-plans/command-framework.md`](../../features/commands/commands.md). This file records the as-built state and any deviations from the spec.
 
 ## Outcome
 

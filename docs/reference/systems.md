@@ -2,7 +2,7 @@
 
 Living catalog of the systems **implemented** in Hedron (core and domain). Update this file whenever a system is added, removed, or renamed.
 
-> Idealized designs for systems not yet built live in [`systems-planned.md`](systems-planned.md) — design intent only; do not assume anything there exists. Why implemented and planned are separated: [`../documentation-architecture.md`](../documentation-architecture.md).
+> Idealized designs for systems not yet built live in [`systems-planned.md`](systems-planned.md) — design intent only; do not assume anything there exists. Why implemented and planned are separated: [`../architecture/09-documentation.md`](../architecture/09-documentation.md).
 
 ---
 
@@ -40,44 +40,17 @@ public abstract class DefinitionRegistry<TKey, TDef> : IRegistry<TKey, TDef> { .
 
 ### BroadcastSystem
 **Purpose:** Deliver typed `IOutputMessage` output to rooms, every session, or a single player. Each recipient's message is rendered by their transport's `IOutputFormatter` via `IOutputWriterFactory`, so callers never construct raw strings.
-**Location:** `Core/Systems/BroadcastSystem.cs`
+**Location:** [`Core/Systems/BroadcastSystem.cs`](../../Core/Systems/BroadcastSystem.cs) · interface [`Core/Systems/IBroadcastSystem.cs`](../../Core/Systems/IBroadcastSystem.cs)
 **Dependencies:** `EntityService`, `ISessionManager`, `IOutputWriterFactory`.
-**Note:** Classified as output infrastructure rather than a pure-computation core system; it does I/O (calls `IOutputWriter` per recipient) as the designated multi-recipient fan-out seam. Extended in slice 8: `SendRoomDescriptionAsync` populates `RoomDescriptionMessage.Mobs` with `MobDataComponent.Name` for each entity in the room carrying `MobDataComponent`.
-```csharp
-public interface IBroadcastSystem
-{
-    Task SendToRoomAsync(uint roomEntityId, IOutputMessage message, Func<uint, bool>? audienceFilter = null);
-    Task SendToAllAsync(IOutputMessage message);
-    Task SendRoomDescriptionAsync(uint playerEntityId, uint roomEntityId);
-}
-```
+**Note:** Classified as output infrastructure rather than a pure-computation core system; it does I/O (calls `IOutputWriter` per recipient) as the designated multi-recipient fan-out seam. Extended in slice 8: `SendRoomDescriptionAsync` populates `RoomDescriptionMessage.Mobs` with `MobDataComponent.Name` for each entity in the room carrying `MobDataComponent`. Channel mode (global chat, newbie channel) is acknowledged backlog debt — needs channel-membership state. See [`../features/output/output-framework.md#broadcast-model`](../features/output/output-framework.md#broadcast-model) for the full broadcast design; see [`../features/communication/chat-system.md`](../features/communication/chat-system.md) for how the `say` command uses this seam.
 Implemented (Phase 2, rewritten in Phase 3 slice 4).
 
 ### Output Infrastructure (IOutputFormatter, IOutputFormatterRegistry, IOutputWriterFactory)
 **Purpose:** Formatter pipeline that converts typed `IOutputMessage` shapes to transport-encoded strings before writing to sessions.
-**Location:** `Core/Output/`
+**Location:** [`Core/Output/`](../../Core/Output/) — `IOutputFormatter.cs`, `IOutputFormatterRegistry.cs`, `IOutputWriter.cs`, `IOutputWriterFactory.cs`, `TelnetOutputFormatter.cs`, `OutputFormatterRegistry.cs`
 **Dependencies:** `ISession` (for `TransportKey` and `SupportsColor`).
 
-```csharp
-// One implementation per transport.
-public interface IOutputFormatter
-{
-    string TransportKey { get; }    // "telnet", future "signalr"
-    string Format(IOutputMessage message, ISession session);
-}
-
-// Selects the right formatter by session.TransportKey.
-public interface IOutputFormatterRegistry
-{
-    IOutputFormatter Resolve(ISession session);
-}
-
-// Single-session output seam consumed by commands and broadcast.
-public interface IOutputWriter  { Task WriteAsync(IOutputMessage message); }
-public interface IOutputWriterFactory { IOutputWriter Create(ISession session); }
-```
-
-`TelnetOutputFormatter` (`TransportKey = "telnet"`) applies the four-role ANSI palette (system/error/room-name/direction) and parses `<role>text</role>` inline markers. Strips all color when `session.SupportsColor == false`. See [`../architecture/subsystems/output.md`](../architecture/subsystems/output.md) for the full design including the color palette table and inline marker syntax.
+`IOutputFormatter` has one implementation per transport (`TransportKey` string). `IOutputFormatterRegistry` resolves the right formatter by `session.TransportKey`, falling back to the first registered if no exact match. `IOutputWriter` is the single-session output seam; `IOutputWriterFactory` creates one per request. `TelnetOutputFormatter` (`TransportKey = "telnet"`) applies the four-role ANSI palette (system/error/room-name/direction) and parses `<role>text</role>` inline markers. Strips all color when `session.SupportsColor == false`. See [`../features/output/output-framework.md`](../features/output/output-framework.md) for the full design including the palette table, inline marker syntax, and transport extension points.
 
 Implemented (Phase 3 slice 4).
 
@@ -179,14 +152,7 @@ Detection order (most-specific → least-specific): `Mob` → `Player` → `Room
 **Purpose:** PBKDF2-SHA256 password hashing and verification with no external NuGet dependency.
 **Location:** `Core/Systems/PasswordHasher.cs`
 **Dependencies:** none (`System.Security.Cryptography`).
-```csharp
-public interface IPasswordHasher
-{
-    string Hash(string password);
-    bool Verify(string password, string hash);
-}
-```
-100,000 PBKDF2 iterations, 16-byte random salt, 32-byte key. Stores `Base64(salt + hash)` as a single opaque string. `Verify` uses `CryptographicOperations.FixedTimeEquals` to prevent timing attacks. Implemented (Phase 3 slice 5).
+**Interface:** [`IPasswordHasher.cs`](../../Core/Systems/IPasswordHasher.cs) — `Hash(password)` / `Verify(password, hash)`. 100,000 PBKDF2 iterations, 16-byte random salt, 32-byte key; stores `Base64(salt + hash)` as a single opaque string. `Verify` uses `CryptographicOperations.FixedTimeEquals` to prevent timing attacks. Cryptographic randomness stays on `RandomNumberGenerator` and is **not** routed through `IRandom` — security RNG must never be seedable. Implemented (Phase 3 slice 5).
 
 ### IRandom / SystemRandom
 **Purpose:** Injectable randomness seam — the single source of non-determinism for game logic, so chance-based outcomes can be made deterministic in tests by substituting a fake (INV-26). Systems take `IRandom` by constructor injection instead of reaching for `Random.Shared`. Pure: no events, no persistence.
@@ -214,6 +180,13 @@ public interface IClock
 ```
 `SystemClock` wraps `DateTime.UtcNow`; registered as a DI singleton in `Server/CompositionRoot.cs`. `SpawnSystem` and `AccountSystem` are the primary consumers (respawn scheduling, account/character timestamps). Implemented (testing-harness-and-backfill WP-3).
 
+### ISession / ISessionManager
+**Purpose:** Core-tier session contract. `ISession` is the live-connection abstraction consumed by commands, the dispatcher, the output pipeline, and broadcast — it carries `PlayerEntityId` (0 until bound after login), `TransportKey` (formatter selection), and `SupportsColor`. `ISessionManager` is the registry that tracks all live sessions; `BroadcastSystem` and domain systems use it to address connected players by entity id. Session lifecycle: registered by `TelnetSession` after `LoginFlow` returns, unregistered on disconnect.
+**Location:** [`Core/Sessions/ISession.cs`](../../Core/Sessions/ISession.cs) · [`Core/Sessions/ISessionManager.cs`](../../Core/Sessions/ISessionManager.cs)
+**Dependencies:** none (core tier; no domain or game-concept references).
+Production implementation: `TelnetSession` (implements `ISession`) · `SessionManager` (`Server/Sessions/SessionManager.cs`) registered as a singleton.
+See [`../features/accounts/accounts.md`](../features/accounts/accounts.md) for the full session lifecycle.
+
 ---
 
 ## Domain / feature Systems
@@ -222,71 +195,33 @@ public interface IClock
 **Purpose:** Scans the configured content directory, registers authored YAML templates with `ITemplateRegistry`, and fresh-spawns room/area/item/mob entities on every startup. Wraps `LoadAndSpawnAsync` in a hosted-service shell (`Server/WorldContentBootstrap`) to enforce startup ordering after `PersistenceBootstrap`.
 **Location:** `Core/Modules/World/Systems/WorldContentLoader.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`, `IContentSerializer`, `WorldConfiguration`, `IConfiguration`, `ILogger`.
-```csharp
-public interface IWorldContentLoader
-{
-    Task LoadAndSpawnAsync(CancellationToken ct = default);
-    Task<ContentReloadResult> ReloadAsync(CancellationToken ct = default);
-}
-
-public readonly record struct ContentReloadResult(
-    int TemplatesLoaded, int TemplatesUnchanged, int TemplatesRemoved);
-```
-Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). No `PersistentEntity` is added to any world-content entity (rooms, areas, items, mobs) — the YAML file is the sole durable state. `SpawnMissingEntities` skips blueprints already represented by a live entity (correct for `@reload`; no-op at cold start). Both `LocationComponent` fields (`RoomEntityId` + `RoomBlueprintId`) are set when placing items and mobs. `ReloadAsync` is **additive only**: refreshes the template registry and seeds missing entities; existing live entities are not mutated. Implemented (Phase 3 slices 2, persistence-reform-stage-b, 8).
+**Interface:** [`IWorldContentLoader.cs`](../../Core/Modules/World/Systems/IWorldContentLoader.cs) — `LoadAndSpawnAsync` / `ReloadAsync(→ ContentReloadResult)`. Pure: returns results; never touches the event bus (INV-5); callers publish `ContentReloadedEvent`.
+Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). No `PersistentEntity` is added to any world-content entity — the YAML file is the sole durable state. `SpawnMissingEntities` skips blueprints already represented by a live entity. `ReloadAsync` is **additive only**. See [`../features/world/world-content.md`](../features/world/world-content.md) for the full startup-phase sequence and content file shape. Implemented (Phase 3 slices 2, persistence-reform-stage-b, 8).
 
 ### AreaSystem
 **Purpose:** Domain system for area–room membership queries and mutation. Provides `GetRoomsInArea`, `GetAreaForRoom`, and `AssignRoomToArea`. All operations are pure ECS mutations; no event publication (INV-5). `AssignRoomToArea` sets `RoomComponent.AreaEntityId` on the live entity and mirrors `areaBlueprintId` to `RoomTemplate.AreaId` in the template registry so the assignment survives `@reload`.
 **Location:** `Core/Modules/World/Systems/AreaSystem.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`.
-```csharp
-public interface IAreaSystem
-{
-    IReadOnlyList<uint> GetRoomsInArea(uint areaEntityId);
-    uint? GetAreaForRoom(uint roomEntityId);
-    void AssignRoomToArea(uint roomEntityId, uint areaEntityId, string areaBlueprintId);
-}
-```
-Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RoomBuilderSystem` (when creating a room with an area) and `DigCommand` (inheriting the source room's area). Implemented (Phase 3, area-model WP-1).
+**Interface:** [`IAreaSystem.cs`](../../Core/Modules/World/Systems/IAreaSystem.cs) — `GetRoomsInArea` / `GetAreaForRoom` / `AssignRoomToArea`. Pure ECS mutations; no event bus (INV-5). See [`../features/world/area-model.md`](../features/world/area-model.md) for the bidirectional membership model, persistence rules ([INV-23](../architecture/checklist.md)), and area aspect affinities design.
+Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RoomBuilderSystem` and `DigCommand`. Implemented (Phase 3, area-model WP-1).
 
 ### IAreaContentWriter
 **Purpose:** Serializes an `AreaTemplate` to YAML at `{contentDirectory}/areas/{blueprintId}.yaml` using an atomic write (tmp → rename). Symmetric write path for `AreaTemplateDeserializer`. Called by admin commands that create area blueprint definitions.
 **Location:** `Core/Modules/World/Systems/IAreaContentWriter.cs` (interface) · `Core/Modules/World/Systems/AreaContentWriter.cs` (implementation)
 **Dependencies:** `IConfiguration`.
-```csharp
-public interface IAreaContentWriter
-{
-    Task WriteAsync(AreaTemplate template, CancellationToken ct = default);
-}
-```
-Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `MkareaCommand` after `IAreaBuilderSystem.CreateArea` returns (INV-5: the system never calls persistence). Implemented (Phase 3 admin-area-authoring WP-1).
+**Interface:** [`IAreaContentWriter.cs`](../../Core/Modules/World/Systems/IAreaContentWriter.cs) — `WriteAsync(AreaTemplate, CancellationToken)`. Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `MkareaCommand` after `IAreaBuilderSystem.CreateArea` returns (INV-5: the system never calls persistence). Implemented (Phase 3 admin-area-authoring WP-1).
 
 ### IContentValidator
-**Purpose:** On-demand content validator, factored out of `RegistryValidationBootstrap` so the same referential-integrity rules run in two call modes. `ValidateRegistry(startingAbilityIds)` is the whole-registry sweep (ability→effect/aspect cross-refs, aspect-composition normalization, starting-ability cross-refs, live area-entity affinity normalization) used by the boot bootstrap. `Validate(IEntityTemplate)` is the single in-memory definition check (area aspect-composition normalization) used by the authoring editor per edit and the bulk generator pre-write. Returns a structured `ValidationReport` and **never throws** (INV-5) — the host decides fail-fast policy. Domain-tier: reads the ability/aspect/effect registries (domain→domain, INV-1).
+**Purpose:** On-demand content validator, factored out of `RegistryValidationBootstrap` so the same referential-integrity rules run in two call modes. `ValidateRegistry` is the whole-registry sweep (ability→effect/aspect cross-refs, aspect-composition normalization, starting-ability cross-refs, live area-entity affinity normalization) used at boot. `Validate(IEntityTemplate)` is the single in-memory definition check used by the authoring editor per edit and the bulk generator pre-write. Returns a structured `ValidationReport` and **never throws** (INV-5) — the host decides fail-fast policy.
 **Location:** `Core/Modules/World/Systems/IContentValidator.cs` (interface) · `ContentValidator.cs` (implementation) · `ValidationReport.cs`
 **Dependencies:** `IAbilityRegistry`, `IEffectRegistry`, `IAspectRegistry`, `EntityService`.
-```csharp
-public interface IContentValidator
-{
-    ValidationReport ValidateRegistry(IReadOnlyCollection<string> startingAbilityIds);
-    ValidationReport Validate(IEntityTemplate template);
-}
-```
-Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RegistryValidationBootstrap` (boot) and `IContentDefinitionCatalog.SaveAsync` (per-edit). Implemented (Phase 3 content-tooling WP-1, shared prerequisite for both tracks).
+**Interface:** [`IContentValidator.cs`](../../Core/Modules/World/Systems/IContentValidator.cs) — `ValidateRegistry(startingAbilityIds)` / `Validate(IEntityTemplate)`. Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RegistryValidationBootstrap` (boot) and `IContentDefinitionCatalog.SaveAsync` (per-edit). Implemented (Phase 3 content-tooling WP-1).
 
 ### IContentDefinitionCatalog (Authoring module)
-**Purpose:** The shared content-definition layer both content-tooling tracks call — the offline Blazor editor and the headless bulk generator. Reads/lists/loads/creates/validates/writes the YAML content-definition families (area, room, item, mob) over the existing per-kind content writers + serializer + `IContentValidator`. Dispatches per-kind specifics (which writer, which template) internally by `ContentKind`. **Writes YAML only** — never creates a live entity, adds `PersistentEntity`, or calls `SaveEntityAsync` (INV-12/22/23); applying content to the live world is a separate `reload` step. `SaveAsync` validates before writing and refuses to write an invalid definition. `CreateNew` mints an ad-hoc blueprint id (via `AdhocBlueprintId`) without touching the registry or the world.
-**Location:** `Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs` (interface) · `ContentDefinitionCatalog.cs` (implementation); DTOs `ContentDefinition`/`ContentSummary`/`ContentWriteResult`/`ContentKind` and helper `AdhocBlueprintId` under `Core/Modules/Authoring/`.
-**Dependencies:** `IContentSerializer`, `IContentValidator`, `ITemplateRegistry`, `IAreaContentWriter`, `IRoomContentWriter`, `IItemContentWriter`, `IMobContentWriter`, `IOptions<WorldOptions>`, `ILogger`.
-```csharp
-public interface IContentDefinitionCatalog
-{
-    IReadOnlyList<ContentSummary> List(ContentKind kind);
-    ContentDefinition? Load(ContentKind kind, string blueprintId);
-    Task<ContentWriteResult> SaveAsync(ContentDefinition definition, CancellationToken ct = default);
-    ContentDefinition CreateNew(ContentKind kind, string name);
-}
-```
-Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling WP-1). The Blazor host (WP-2) and the bulk-generation system are thin callers.
+**Purpose:** The shared content-definition layer both content-tooling tracks call — the offline Blazor editor and the headless bulk generator. Reads/lists/loads/creates/validates/writes the YAML content-definition families (area, room, item, mob). **Writes YAML only** — never creates a live entity, adds `PersistentEntity`, or calls `SaveEntityAsync` ([INV-12](../architecture/checklist.md)/[INV-23](../architecture/checklist.md)); applying content to the live world is a separate `reload` step. `SaveAsync` validates before writing. `CreateNew` mints an ad-hoc blueprint id without touching the registry or the world.
+**Location:** `Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs` (interface) · `ContentDefinitionCatalog.cs` (implementation).
+**Dependencies:** `IContentSerializer`, `IContentValidator`, `ITemplateRegistry`, per-kind content writers, `IOptions<WorldOptions>`, `ILogger`.
+**Interface:** [`IContentDefinitionCatalog.cs`](../../Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs) — `List` / `Load` / `SaveAsync` / `CreateNew`. Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling WP-1). The Blazor host (WP-2) and the bulk-generation system are thin callers. See [`../features/admin-authoring/content-tooling.md`](../features/admin-authoring/content-tooling.md) for the full design.
 
 ### IContentGenerationSystem (Authoring module)
 **Purpose:** Headless bulk content generator (content-tooling track T1). Composes the four existing per-kind content writers + `*Template` types to emit a connected, walkable swath of world-content YAML from a `GenerationProfile` (area count, rooms-per-area range, level range, mob/item density, aspect mix, scaling curve, seed, blueprint prefix). Each area's rooms are wired into an east/west chain and consecutive areas are joined up/down, so the generated world is one reachable graph (Resolved Decision 3). All randomness flows through a per-run `SeededRandom` constructed from `profile.Seed`, and blueprint ids are derived deterministically from `prefix + a per-kind counter` (never `Guid`), so a fixed-seed run is byte-reproducible within a runtime image (INV-26). **Writes YAML only** — creates no live entities, registers nothing in `TemplateRegistry`, never calls persistence (INV-12/22/23). **Returns a `GenerationResult`; never publishes** (INV-5); validation is the caller's (run-mode's) concern.
@@ -298,251 +233,91 @@ public interface IContentGenerationSystem
     Task<GenerationResult> GenerateAsync(GenerationProfile profile, CancellationToken ct = default);
 }
 ```
-Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling bulk-content-generation slice, WP-1). The headless `generate` run-mode in `Server` (WP-2) is the v1 caller; it composes DI without gameplay hosted services, loads a profile YAML, runs one `GenerateAsync`, validates each emitted definition via `IContentValidator.Validate` (single-definition mode), prints a summary, and exits 0/non-zero. See Flow 29.
+Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling bulk-content-generation slice, WP-1). The headless `generate` run-mode in `Server` (WP-2) is the v1 caller; it composes DI without gameplay hosted services, loads a profile YAML, runs one `GenerateAsync`, validates each emitted definition via `IContentValidator.Validate` (single-definition mode), prints a summary, and exits 0/non-zero. See [`../features/admin-authoring/content-tooling.md`](../features/admin-authoring/content-tooling.md) and [Flow 29](../architecture/flows/flow-29-bulk-content-generation.md).
 
 ### AccountSystem
 **Purpose:** Domain system owning all account and character lifecycle operations: registration, authentication, character creation, character list, and logout recording.
 **Location:** `Core/Modules/Account/Systems/AccountSystem.cs`
-**Dependencies:** `EntityService`, `IPasswordHasher`, `WorldConfiguration`.
-```csharp
-public interface IAccountSystem
-{
-    bool UsernameExists(string username);
-    bool CharacterNameExists(string characterName);
-    Task<uint> CreateAccountAsync(string username, string password, CancellationToken ct = default);
-    Task<AuthResult> AuthenticateAsync(string username, string password, CancellationToken ct = default);
-    Task<uint> CreateCharacterAsync(uint accountEntityId, string characterName, CancellationToken ct = default);
-    IReadOnlyList<CharacterSummary> GetCharacterList(uint accountEntityId);
-    void RecordLogout(uint characterEntityId);
-}
-```
-Maintains lazy in-memory HashSet indices for username and character name uniqueness (populated on first call, updated on every write). `CreateAccountAsync` attaches `AccountComponent` + `PersistentEntity` and returns the entity id — persistence is the caller's (`LoginFlow`) responsibility (INV-5). `CreateCharacterAsync` attaches `CharacterComponent` + `LocationComponent` (set to `StartingRoomEntityId`) + `PersistentEntity`, registers the character on the account, and returns the entity id — `LoginFlow` saves character-first, then account (crash-safety ordering). `RecordLogout` updates `CharacterComponent.LastLoginUtc`; `PlayerSessionHandler` calls `SaveEntityAsync` after `RecordLogout` returns. Extended in slice 8a: `CreateCharacterAsync` also attaches `AttributesComponent { Level=1, Mind=10, Body=10, Spirit=10, Attunement=10 }` and `PoolsComponent { MaxHp=100, CurrentHp=100, MaxMana=50, CurrentMana=50, MaxStamina=50, CurrentStamina=50, MaxAstra=10, CurrentAstra=10 }` to every new character (attribute names updated to Mind/Body/Spirit/Attunement in slice 9-d). Implemented (Phase 3 slices 5, persistence-two-level-model, 8a, 9-d).
+**Dependencies:** `EntityService`, `IPasswordHasher`, `IClock`, `WorldConfiguration`.
+**Interface:** [`IAccountSystem.cs`](../../Core/Modules/Account/Systems/IAccountSystem.cs) — `UsernameExists` / `CharacterNameExists` / `CreateAccountAsync` / `AuthenticateAsync` / `CreateCharacterAsync` / `GetCharacterList` / `RecordLogout`. Pure: returns results; never touches the event bus or persistence (INV-5). `IClock` used for `CreatedAtUtc`/`LastLoginUtc` timestamps (INV-26 seam; see [`../roadmap/backlog.md`](../roadmap/backlog.md) for the testing-harness WP-3 entry). See [`../features/accounts/account-system.md`](../features/accounts/account-system.md) for the full design, entity model, and in-memory index strategy. Implemented (Phase 3 slices 5, persistence-two-level-model, 8a, 9-d, testing-harness).
 
 ### RoomBuilderSystem
 **Purpose:** Runtime room authoring — creates room entities, wires bidirectional exits, and mutates room properties (`Name`, `Description`). All methods return pure results or mutate in-place; event publication is the caller's responsibility, keeping this system reusable by a future in-game editor without a live player session.
 **Location:** `Core/Modules/Admin/Systems/RoomBuilderSystem.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`, `IAreaSystem`, `ILogger<RoomBuilderSystem>`.
-```csharp
-public interface IRoomBuilderSystem
-{
-    RoomCreationResult CreateRoom(string name, string description = "", string areaId = "");
-    void LinkExits(uint sourceRoomId, Direction direction, uint targetRoomId, bool bidirectional);
-    void SetRoomName(uint roomId, string name);
-    void SetRoomDescription(uint roomId, string description);
-}
-
-public readonly record struct RoomCreationResult(uint RoomEntityId, string BlueprintId);
-```
-`CreateRoom` generates a unique blueprint id (`room.adhoc.<8-char-base36>`), creates the entity, attaches `RoomComponent` + `BlueprintComponent` (no `PersistentEntity`), and registers a `RoomTemplate`. When `areaId` is non-empty it sets `RoomTemplate.AreaId` and calls `IAreaSystem.AssignRoomToArea` to set `RoomComponent.AreaEntityId` immediately. `LinkExits` updates both `RoomComponent.Exits` and the in-memory `RoomTemplate` exit maps for same-session `reload` consistency. The `DigCommand` initiator writes YAML for both rooms after this method returns (INV-5: systems do not call persistence). Implemented (Phase 3 slices 5a, persistence-two-level-model, area-model WP-1).
+**Interface:** [`IRoomBuilderSystem.cs`](../../Core/Modules/Admin/Systems/IRoomBuilderSystem.cs) — `CreateRoom` / `LinkExits` / `SetRoomName` / `SetRoomDescription`. `CreateRoom` generates a unique blueprint id (`room.adhoc.<8-char-base36>`), creates the entity, attaches `RoomComponent` + `BlueprintComponent` (no `PersistentEntity`), and registers a `RoomTemplate`. When `areaId` is non-empty it sets `RoomTemplate.AreaId` and calls `IAreaSystem.AssignRoomToArea` immediately. `LinkExits` updates both `RoomComponent.Exits` and the in-memory `RoomTemplate` exit maps for same-session `reload` consistency. The `DigCommand` initiator writes YAML for both rooms after this method returns (INV-5). See [`../features/admin-authoring/admin-commands.md`](../features/admin-authoring/admin-commands.md) for the builder-verb pattern. Implemented (Phase 3 slices 5a, persistence-two-level-model, area-model WP-1).
 
 ### AreaBuilderSystem
 **Purpose:** Runtime area authoring — creates ad-hoc area entities. Mirrors `IRoomBuilderSystem`: all methods mutate ECS state only; event publication and YAML writing remain in the command (INV-5). No `IAreaSystem` or `IEventBus` dependency.
 **Location:** `Core/Modules/Admin/Systems/AreaBuilderSystem.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<AreaBuilderSystem>`.
-```csharp
-public interface IAreaBuilderSystem
-{
-    AreaCreationResult CreateArea(string name);
-}
+**Interface:** [`IAreaBuilderSystem.cs`](../../Core/Modules/Admin/Systems/IAreaBuilderSystem.cs) — `CreateArea(string name) → AreaCreationResult`. Generates a unique blueprint id (`area.adhoc.<8-char-base36>`), creates the entity, attaches `AreaComponent` + `BlueprintComponent` (no `PersistentEntity`), and registers a minimal `AreaTemplate`. The `MkareaCommand` initiator writes YAML after this method returns (INV-5). See [`../features/admin-authoring/admin-commands.md`](../features/admin-authoring/admin-commands.md). Implemented (Phase 3 admin-area-authoring WP-2).
 
-public readonly record struct AreaCreationResult(
-    uint AreaEntityId,
-    string BlueprintId,
-    AreaTemplate Template);
-```
-`CreateArea` generates a unique blueprint id (`area.adhoc.<8-char-base36>`), creates the entity, attaches `AreaComponent` + `BlueprintComponent` (no `PersistentEntity`), and registers a minimal `AreaTemplate` (empty description, RespawnRate=0, Pvp=false). The `MkareaCommand` initiator writes YAML after this method returns (INV-5). Implemented (Phase 3 admin-area-authoring WP-2).
+### MovementSystem
+**Purpose:** Domain system that resolves a direction to a room exit, validates the move, and updates `LocationComponent`. Returns `MoveResult`; never publishes events or calls persistence (INV-5). `MoveCommand` is the Initiator that calls it and publishes `PlayerMovedEvent`.
+**Location:** `Core/Modules/Movement/Systems/MovementSystem.cs`
+**Dependencies:** `EntityService`.
+**Interface:** [`IMovementSystem.cs`](../../Core/Modules/Movement/Systems/IMovementSystem.cs) — `TryMove(playerEntityId, direction) → MoveResult`. See [`../features/world/movement-system.md`](../features/world/movement-system.md) for the move-resolution steps and extension points. Implemented (Phase 3 slice 2+).
 
 ### ItemSystem
 **Purpose:** Query and mutation operations on item entities — finds items in a room or inventory by entity id, prefix-matches a token against item names and keywords, and moves items between ground and inventory. Mutation methods are pure ECS mutations; no event publication, no persistence calls.
 **Location:** `Core/Modules/Items/Systems/ItemSystem.cs`
 **Dependencies:** `EntityService`.
-```csharp
-public interface IItemSystem
-{
-    IReadOnlyList<uint> GetItemsInRoom(uint roomEntityId);
-    IReadOnlyList<uint> GetItemsInInventory(uint holderEntityId);
-    bool TryFindItemInRoom(uint roomEntityId, string token, out uint itemEntityId);
-    bool TryFindItemInInventory(uint holderEntityId, string token, out uint itemEntityId);
-    void MoveToInventory(uint itemEntityId, uint holderEntityId);
-    void DropToRoom(uint itemEntityId, uint holderEntityId, uint roomEntityId);
-}
-```
-`GetItemsInRoom` iterates all `ItemDataComponent` entities and returns those whose `LocationComponent.RoomEntityId` matches. `GetItemsInInventory` reads `InventoryComponent.ItemEntityIds` from the holder. `TryFindItemInRoom` / `TryFindItemInInventory` do a linear prefix-match against `ItemDataComponent.Name` and each keyword, returning the first match. `MoveToInventory` removes `LocationComponent` from the item and appends its id to the holder's `InventoryComponent`; no-ops if the item has no `LocationComponent` (race condition: already picked up). `DropToRoom` removes the item id from `InventoryComponent` and attaches a `LocationComponent` pointing to the given room. Implemented (Phase 3 slice 6).
+**Interface:** [`IItemSystem.cs`](../../Core/Modules/Items/Systems/IItemSystem.cs) — `GetItemsInRoom` / `GetItemsInInventory` / `TryFindItemInRoom` / `TryFindItemInInventory` / `MoveToInventory` / `DropToRoom`. See [`../features/items/item-inventory-system.md`](../features/items/item-inventory-system.md) for the location model, persistence lifecycle, and resolver design. Implemented (Phase 3 slice 6).
 
 ### ItemBuilderSystem
-**Purpose:** Runtime item authoring — creates ad-hoc item entities and mutates item properties (`Name`, `Description`, `Keywords`, `ItemType`, `WornSlots`). Mirrors `IRoomBuilderSystem`: all methods mutate ECS state only; event publication and persistence calls remain in the command (INV-5). Reusable by a future in-game editor without a live player session.
+**Purpose:** Runtime item authoring — creates ad-hoc item entities and mutates item properties (`Name`, `Description`, `Keywords`, `ItemType`, `WornSlots`, `DamageBonus`). Mirrors `IRoomBuilderSystem`: all methods mutate ECS state only; event publication and persistence calls remain in the command (INV-5).
 **Location:** `Core/Modules/Items/Systems/ItemBuilderSystem.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<ItemBuilderSystem>`.
-```csharp
-public interface IItemBuilderSystem
-{
-    ItemCreationResult CreateItem(string name, uint roomEntityId);
-    void SetItemName(uint itemEntityId, string name);
-    void SetItemDescription(uint itemEntityId, string description);
-    void SetItemKeywords(uint itemEntityId, IReadOnlyList<string> keywords);
-    void SetItemType(uint itemEntityId, ItemType itemType);
-    void SetItemSlots(uint itemEntityId, IReadOnlyList<WornSlot> slots);
-    void SetItemDamageBonus(uint itemEntityId, int value);
-}
-
-public readonly record struct ItemCreationResult(uint ItemEntityId, string BlueprintId, ItemTemplate Template);
-```
-`CreateItem` generates a unique blueprint id (`item.adhoc.<8-char-base36>`), creates the entity, attaches `ItemDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `ItemTemplate`. The `MkitemCommand` initiator calls `SaveEntityAsync` after this method returns (INV-5). `SetItemSlots` updates both `ItemDataComponent.WornSlots` and `ItemTemplate.WornSlots` in the registry. `SetItemDamageBonus` updates both `ItemDataComponent.DamageBonus` and `ItemTemplate.DamageBonus`; called by `SetitemCommand` for the `dmg` property. Implemented (Phase 3 slices 6, 7, 9-c).
+**Interface:** [`IItemBuilderSystem.cs`](../../Core/Modules/Items/Systems/IItemBuilderSystem.cs) — `CreateItem` / `SetItemName` / `SetItemDescription` / `SetItemKeywords` / `SetItemType` / `SetItemSlots` / `SetItemDamageBonus`. Returns `ItemCreationResult(ItemEntityId, BlueprintId, Template)`; never calls persistence or events. `SetItemSlots` mirrors changes to both `ItemDataComponent` and `ItemTemplate` so the assignment survives `@reload`. See [`../features/items/item-inventory-system.md`](../features/items/item-inventory-system.md) for the authoring flow. Implemented (Phase 3 slices 6, 7, 9-c).
 
 ### EquipmentSystem
 **Purpose:** Query and mutation operations on character equipment slots — finds equipped items, prefix-matches tokens against worn item names/keywords, equips items from inventory into their declared slots (with implicit displacement of existing occupants), and removes items from slots back to inventory. All methods are pure ECS mutations; no event publication, no persistence calls.
 **Location:** `Core/Modules/Items/Systems/EquipmentSystem.cs`
 **Dependencies:** `EntityService`.
-```csharp
-public interface IEquipmentSystem
-{
-    IReadOnlyList<WornSlot> GetWornSlots(uint itemEntityId);
-    IReadOnlyList<uint> GetEquippedItems(uint characterEntityId);
-    bool TryFindEquippedItem(uint characterEntityId, string token, out uint itemEntityId);
-    void EquipItem(uint characterEntityId, uint itemEntityId);
-    void RemoveItem(uint characterEntityId, uint itemEntityId);
-    void RemoveFromSlot(uint characterEntityId, WornSlot slot);
-}
-```
-`EquipItem` internally performs the implicit-remove pass: for each slot declared on the item, if the slot is occupied it calls `RemoveFromSlot` to silently return the displaced item to inventory before placing the new item. `WearCommand` calls only `EquipItem` — never a loop over slots. Implemented (Phase 3 slice 7).
+**Interface:** [`IEquipmentSystem.cs`](../../Core/Modules/Items/Systems/IEquipmentSystem.cs) — `GetWornSlots` / `GetEquippedItems` / `TryFindEquippedItem` / `EquipItem` / `RemoveItem` / `RemoveFromSlot`. `EquipItem` owns the implicit-remove loop: for each slot declared on the item, displaces the existing occupant (silently, no event) before placing the new item. `WearCommand` calls only `EquipItem` — never a loop over slots (INV-8). See [`../features/items/equipment-system.md`](../features/items/equipment-system.md) for the slot model and design notes. Implemented (Phase 3 slice 7).
 
 ### MobBuilderSystem
 **Purpose:** Runtime mob authoring — creates ad-hoc mob entities and mutates mob properties (`Name`, `Description`, `Keywords`, `MobType`). Mirrors `IItemBuilderSystem`: all methods mutate ECS state only; event publication and persistence calls remain in the command (INV-5).
 **Location:** `Core/Modules/Mobs/Systems/MobBuilderSystem.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<MobBuilderSystem>`.
-```csharp
-public interface IMobBuilderSystem
-{
-    MobCreationResult CreateMob(string name, uint roomEntityId);
-    void SetMobName(uint mobEntityId, string name);
-    void SetMobDescription(uint mobEntityId, string description);
-    void SetMobKeywords(uint mobEntityId, IReadOnlyList<string> keywords);
-    void SetMobType(uint mobEntityId, MobType mobType);
-    void SetAttribute(uint mobEntityId, MobTemplate template, string property, int value);
-}
-
-public readonly record struct MobCreationResult(uint MobEntityId, string BlueprintId, MobTemplate Template);
-```
-`CreateMob` generates a unique blueprint id (`mob.adhoc.<8-char-base36>`), creates the entity, attaches `MobDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `MobTemplate`. Implemented (Phase 3 slice 8). Extended in slice 8a: `SetAttribute(mobEntityId, template, property, value)` mutates `AttributesComponent`/`PoolsComponent` on the live entity and updates the template. Valid properties: `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra`. Enforces `CurrentX ≤ MaxX` clamp on pool max changes (INV-8). Does not call persistence or events (INV-5). Updated `str`/`dex`/`con` to `mind`/`body`/`spirit`/`attunement` in slice 9-d.
+**Interface:** [`IMobBuilderSystem.cs`](../../Core/Modules/Mobs/Systems/IMobBuilderSystem.cs) — `CreateMob` / `SetMobName` / `SetMobDescription` / `SetMobKeywords` / `SetMobType` / `SetAttribute`. `CreateMob` generates a unique blueprint id (`mob.adhoc.<8-char-base36>`), creates the entity, attaches `MobDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent { RoomEntityId }`, and registers a minimal `MobTemplate`. Slice 8-a added `SetAttribute` for `AttributesComponent`/`PoolsComponent` mutations; enforces `CurrentX ≤ MaxX` clamp (INV-8). See [`../features/mobs/mob-system.md`](../features/mobs/mob-system.md) for the full builder model and YAML shape. Implemented (Phase 3 slices 8, 8-a, 9-d).
 
 ### MobContentWriter
 **Purpose:** Serializes a `MobTemplate` to YAML at `{contentDirectory}/mobs/{blueprintId}.yaml` using an atomic write (tmp → rename). Mirrors `IItemContentWriter`.
 **Location:** `Core/Modules/Mobs/Systems/MobContentWriter.cs`
 **Dependencies:** `IConfiguration`.
-```csharp
-public interface IMobContentWriter
-{
-    Task WriteAsync(MobTemplate template, CancellationToken ct = default);
-}
-```
-YAML DTO fields: `blueprintId`, `name`, `description`, `keywords`, `type` (string enum value), `spawnRoomBlueprintId`. Implemented (Phase 3 slice 8). Extended in slice 8a: DTO includes `level`, `maxHp`, and attribute fields. Updated in slice 9-d: attribute fields are now `mind`, `body`, `spirit`, `attunement`; added `maxMana`, `maxStamina`, `maxAstra` pool fields.
+**Interface:** [`IMobContentWriter.cs`](../../Core/Modules/Mobs/Systems/IMobContentWriter.cs) — `WriteAsync(MobTemplate, CancellationToken)`. YAML DTO: `blueprintId`, `name`, `description`, `keywords`, `type`, `spawnRoomBlueprintId`; extended in slice 8-a with `level`, `maxHp`, attributes; updated in slice 9-d to `mind`/`body`/`spirit`/`attunement` + pool fields. See [`../features/mobs/mob-system.md`](../features/mobs/mob-system.md) for the full YAML shape. Implemented (Phase 3 slices 8, 8-a, 9-d).
 
 ### AdminAuthorizer
 **Purpose:** Policy seam for admin command authorization. Each admin `ICommand.Execute` calls `IsPrivileged` as its first line; non-privileged sessions get a single rejection line and the command body short-circuits.
 **Location:** `Core/Modules/Admin/Systems/AdminAuthorizer.cs`
 **Dependencies:** `EntityService`, `IConfiguration`.
-```csharp
-public interface IAdminAuthorizer
-{
-    bool IsPrivileged(ISession session);
-    bool IsPrivileged(uint playerEntityId);
-}
-```
-**Layered authorization model.** Bootstrap layer (slice 2): reads `Admin:PrivilegedNames` (string array) from `IConfiguration` and matches against the player's `PlayerComponent.DisplayName`. Persisted layer (deferred — see [`../use-cases/admin-privilege-elevation.md`](../use-cases/admin-privilege-elevation.md)): an `AdminPrivilegeComponent` (`[Persistent]`) on a player entity also grants admin rights. Settings is the floor — anyone in `Admin:PrivilegedNames` is always admin even without the component. Implemented (Phase 3 slice 2; component layer deferred).
+**Interface:** [`IAdminAuthorizer.cs`](../../Core/Modules/Admin/Systems/IAdminAuthorizer.cs) — `IsPrivileged(ISession)` / `IsPrivileged(uint playerEntityId)`. **Layered authorization model:** bootstrap layer reads `Admin:PrivilegedNames` from `IConfiguration` and matches against `PlayerComponent.DisplayName`; persisted layer (deferred — see [`../implementation-plans/admin-privilege-elevation.md`](../implementation-plans/admin-privilege-elevation.md)) adds `AdminPrivilegeComponent` (`[Persistent]`). Settings is the floor — always admin if in the list, even without the component. See [`../features/admin-authoring/admin-commands.md`](../features/admin-authoring/admin-commands.md) for the privilege gate pattern. Implemented (Phase 3 slice 2; component layer deferred).
 
 ### AttributeSystem
-**Purpose:** Read/write seam for `AttributesComponent` and `PoolsComponent`. Getters are the surface the combat slice will call; setters serve the admin and initialization paths. Never touches the event bus or persistence (INV-5).
+**Purpose:** Read/write seam for `AttributesComponent` and `PoolsComponent`. Getters are the surface the combat slice and stat system call; setters serve the admin and initialization paths. All setters enforce `[0, max]` clamp invariants (INV-8). Never touches the event bus or persistence (INV-5).
 **Location:** `Core/Modules/Attributes/Systems/AttributeSystem.cs`
 **Dependencies:** `EntityService`.
-```csharp
-public interface IAttributeSystem
-{
-    int GetLevel(uint entityId);
-    int GetMind(uint entityId);
-    int GetBody(uint entityId);
-    int GetSpirit(uint entityId);
-    int GetAttunement(uint entityId);
-    int GetMaxHp(uint entityId);
-    int GetCurrentHp(uint entityId);
-    int GetMaxMana(uint entityId);
-    int GetCurrentMana(uint entityId);
-    int GetMaxStamina(uint entityId);
-    int GetCurrentStamina(uint entityId);
-    int GetMaxAstra(uint entityId);
-    int GetCurrentAstra(uint entityId);
-
-    void SetLevel(uint entityId, int value);
-    void SetMind(uint entityId, int value);
-    void SetBody(uint entityId, int value);
-    void SetSpirit(uint entityId, int value);
-    void SetAttunement(uint entityId, int value);
-    /// Sets MaxHp and clamps CurrentHp to the new MaxHp if it would exceed it (INV-8).
-    void SetMaxHp(uint entityId, int value);
-    /// Sets CurrentHp, clamped to [0, MaxHp]. Game rule enforced here (INV-8). No events, no persistence (INV-5).
-    void SetCurrentHp(uint entityId, int value);
-    void SetMaxMana(uint entityId, int value);
-    void SetCurrentMana(uint entityId, int value);
-    void SetMaxStamina(uint entityId, int value);
-    void SetCurrentStamina(uint entityId, int value);
-    void SetMaxAstra(uint entityId, int value);
-    void SetCurrentAstra(uint entityId, int value);
-}
-```
-All getters return the default value (Level 1, attributes 10, HP/Mana/Stamina 100/50/50, Astra 10) if the entity lacks the relevant component — safe default for pre-hydration edge cases. `SetCurrentHp` is the write seam the combat slice uses to apply damage; callers pass a raw new value and the clamping invariant is enforced here. Replaced `Strength`/`Dexterity`/`Constitution` with `Mind`/`Body`/`Spirit`/`Attunement` in slice 9-d (WP-1). Added Mana/Stamina/Astra pool getters/setters in the same slice. Implemented (Phase 3 slices 8a, 9-c, 9-d).
+**Interface:** [`IAttributeSystem.cs`](../../Core/Modules/Attributes/Systems/IAttributeSystem.cs) — getters/setters for `Level` + four attributes (`Mind`/`Body`/`Spirit`/`Attunement`) + four pools (current + max for HP/Mana/Stamina/Astra). `SetMaxX` clamps `CurrentX` to the new max; `SetCurrentX` clamps to `[0, MaxX]`. All getters return safe defaults when the entity lacks the component. See [`../features/character-stats/attribute-system.md`](../features/character-stats/attribute-system.md) for the full design. Implemented (Phase 3 slices 8a, 9-c, 9-d).
 
 ### EntityStateService
 **Purpose:** Centralized transition-rule enforcement for entity state flags. Attaches and removes `EntityStateComponent`; validates flag combinations against a static transition table; returns structured failure reasons to callers. Never touches the event bus or persistence (INV-5).
 **Location:** `Core/Modules/EntityState/Systems/EntityStateService.cs`
 **Dependencies:** `EntityService`.
-```csharp
-public interface IEntityStateService
-{
-    bool TryEnterState(uint entityId, EntityStateFlags state, out string? failReason);
-    void ExitState(uint entityId, EntityStateFlags state);
-    bool IsInState(uint entityId, EntityStateFlags state);
-    EntityStateFlags GetStates(uint entityId);
-}
-```
-`TryEnterState` reads current `ActiveStates` (or `None` if the component is absent), evaluates the static transition-rule table, on success attaches or OR-assigns the flag, and returns `true`. On a blocked transition it returns `false` with a caller-displayable `failReason`. `ExitState` AND-NOT clears the flag and removes the component when `ActiveStates == None` — always a no-op when the entity has no component. `IsInState` delegates to `GetStates`. Callers (commands, handlers) publish `EntityStateChangedEvent` after mutating state; the service never calls `IEventBus` (INV-5). Implemented (Phase 3 slice 9-a).
+**Interface:** [`IEntityStateService.cs`](../../Core/Modules/EntityState/Systems/IEntityStateService.cs) — `TryEnterState` / `ExitState` / `IsInState` / `GetStates`.
+`TryEnterState` evaluates the static transition-rule table; on success attaches or OR-assigns the flag. On a blocked transition returns `false` with a caller-displayable `failReason`. `ExitState` AND-NOT clears the flag and removes the component when `ActiveStates == None`. Callers publish `EntityStateChangedEvent` after mutating state; the service never calls `IEventBus` (INV-5). See [`../features/combat/entity-state.md`](../features/combat/entity-state.md) for the transition-rule table and design rationale. Implemented (Phase 3 slice 9-a).
 
 ### StatSystem
 **Purpose:** Aggregation seam for effective entity stats. Reads base attributes, equipment bonuses, and active effect modifiers to produce ready-to-use values for the combat slice and future consumers. Never publishes events or calls persistence (INV-5). Adding a new modifier source means extending `StatSystem` methods, not changing the interface.
 **Location:** `Core/Modules/Stats/Systems/StatSystem.cs`
 **Dependencies:** `IAttributeSystem`, `EntityService`.
-```csharp
-public interface IStatSystem
-{
-    int GetEffectiveMind(uint entityId);
-    int GetEffectiveBody(uint entityId);
-    int GetEffectiveSpirit(uint entityId);
-    int GetEffectiveAttunement(uint entityId);
-    /// Body / 2 + MainHand item DamageBonus (0 if no weapon or no bonus).
-    int GetEffectiveAttackPower(uint entityId);
-    /// Body / 4. Armor-slot bonus deferred to a future slice.
-    int GetEffectiveDefense(uint entityId);
-    int GetCurrentHp(uint entityId);
-    int GetMaxHp(uint entityId);
-    /// Generic stat getter by ScoreId — expandable seam for future effect/buff consumers.
-    int Get(uint entityId, ScoreId scoreId);
-}
-```
-`GetEffectiveAttackPower` reads `EquipmentComponent.Slots[WornSlot.MainHand]` via `EntityService.TryGet<EquipmentComponent>` (direct dictionary lookup, not a list scan) then reads `ItemDataComponent.DamageBonus` on the equipped item — no `is`/`as` casts (INV-4). `GetEffectiveDefense` returns `Body / 4`; armor-slot contribution is acknowledged future debt. `Get(uint, ScoreId)` is the expandable enum-keyed seam used by effect/ability consumers; it folds `IEffectSystem.GetModifiers(entityId, scoreId)` into the returned value for `StatModifier`-kind effects. Registered in `StatsModule` (`Core/Modules/Stats/StatsModule.cs`) as a singleton. `IStatRegistry` (singleton, `Core/Modules/Stats/StatRegistry.cs`) records pool governance metadata (Mana↔Mind, Stamina↔Body, Astra↔Attunement). Updated `Strength`/`Dexterity`/`Constitution` references to `Mind`/`Body`/`Spirit`/`Attunement` in slice 9-d. Extended in slice 9-e: `Get` folds `IEffectSystem.GetModifiers`. Implemented (Phase 3 slices 9-c, 9-d, 9-e).
+**Interface:** [`IStatSystem.cs`](../../Core/Modules/Stats/Systems/IStatSystem.cs) — typed effective getters for the four attributes + `GetEffectiveAttackPower` / `GetEffectiveDefense` / `GetCurrentHp` / `GetMaxHp` + the generalized `Get(uint entityId, ScoreId score)` seam. `GetEffectiveAttackPower` reads `EquipmentComponent.Slots[WornSlot.MainHand]` via a direct dictionary lookup — no `is`/`as` casts (INV-4). `GetEffectiveDefense` returns `Body / 4`; armor-slot contribution is acknowledged future debt. `Get` folds `IEffectSystem.GetModifiers` for `StatModifier`-kind effects. `IStatRegistry` (singleton, `Core/Modules/Stats/StatRegistry.cs`) records pool governance metadata (Mana↔Mind, Stamina↔Body, Astra↔Attunement). Registered in `StatsModule` as a singleton. See [`../features/character-stats/stat-system.md`](../features/character-stats/stat-system.md) for the full design. Implemented (Phase 3 slices 9-c, 9-d, 9-e).
 
 ### EffectSystem
 **Purpose:** Core system that manages active effects on entities. Applies/removes individual effects or entire categories; returns active effect lists and per-`ScoreId` stat modifier sums; advances time on each tick, collecting expired and periodic-due effects. Never touches the event bus (INV-5).
-**Location:** `Core/Modules/Effects/Systems/EffectSystem.cs` (implementation) · `Core/Modules/Effects/Systems/IEffectSystem.cs` (interface)
+**Location:** `Core/Modules/Effects/Systems/EffectSystem.cs` · interface [`IEffectSystem.cs`](../../Core/Modules/Effects/Systems/IEffectSystem.cs) (`Apply` / `Remove` / `RemoveByCategory` / `GetActive` / `GetModifiers` / `AdvanceTick`).
 **Dependencies:** `EntityService`.
-```csharp
-public interface IEffectSystem
-{
-    Effect? Apply(uint targetEntityId, EffectDefinition definition, uint sourceEntityId);
-    void Remove(uint entityId, string effectId);
-    void RemoveByCategory(uint entityId, EffectCategory category);
-    IReadOnlyList<Effect> GetActive(uint entityId);
-    int GetModifiers(uint entityId, ScoreId scoreId);
-    EffectTickResult AdvanceTick(TimeSpan elapsed);
-}
-```
 `Apply` returns `null` when `StackPolicy.HighestWins` blocks application (existing effect has equal or greater power). `AdvanceTick` advances elapsed time on timed effects, removes expired ones, and returns `EffectTickResult { DueApplications, Expired }` sorted by `EffectPhase` (Early → Normal → Late). Injects `IEnumerable<IEffectContributor>`; `GetModifiers`/`GetActive` sum stored effects **plus** all registered contributors (INV-24 seam, slice 11-a). Registered via `AddEffectsModule()`. Implemented (Phase 3 slices 9-e, 11-a).
 
 ### EffectRegistry
@@ -558,98 +333,34 @@ Registered entries: `empower` (Body +5, Buff, 30s, HighestWins), `weaken` (Body 
 **Purpose:** Domain system for combat resolution. Handles target lookup, combat state attachment/removal, round resolution, and ability-powered strikes. Pure: no events, no persistence (INV-5, INV-8). Computes attack resolution via `IStatSystem`; applies aspect resolution via `IAspectSystem.Resolve`; mutates HP via `IAttributeSystem.SetCurrentHp`; returns structured `CombatRoundResult` to callers.
 **Location:** `Core/Modules/Combat/Systems/CombatSystem.cs`
 **Dependencies:** `EntityService`, `IStatSystem`, `IAttributeSystem`, `IAspectSystem`.
-```csharp
-public interface ICombatSystem
-{
-    bool TryFindTargetInRoom(uint roomEntityId, string token, out uint mobEntityId);
-    void StartCombat(uint attackerEntityId, uint defenderEntityId);
-    void EndCombat(uint attackerEntityId, uint defenderEntityId);
-    CombatRoundResult ExecuteRound(uint attackerEntityId, uint defenderEntityId);
-    CombatRoundResult ResolveAbilityStrike(
-        uint attackerEntityId, uint defenderEntityId, int basePower,
-        AspectComposition? composition = null);
-}
-
-public readonly record struct CombatRoundResult(
-    uint AttackerEntityId,
-    uint DefenderEntityId,
-    int DamageDealt,
-    bool AttackerHit,
-    CombatRoundOutcome Outcome,
-    AspectComposition? AspectComposition = null);  // point-in-time capture (INV-6)
-
-public enum CombatRoundOutcome { Hit, Miss, MobDied, PlayerIncapacitated }
-```
-`TryFindTargetInRoom` prefix-matches `token` against `MobDataComponent.Name` and `Keywords`. `StartCombat`/`EndCombat` add/remove `CombatStateComponent`. `ExecuteRound`: hit check; raw damage; composition source = `IAspectSystem.Affinity(attacker)` (entity identity, empty = untyped); `IAspectSystem.Resolve` applies affinity boost + resist; `SetCurrentHp`. `ResolveAbilityStrike` skips hit/miss; composition source = the ability's `Aspect` field passed by caller (`AbilityInvocationPipeline`). `CombatRoundResult.AspectComposition` is null when the composition was empty (null = untyped, matching `CombatEndedEvent.DefenderName` INV-6 pattern). Implemented (Phase 3 slices 9, 11-a; aspect-resolved 11-d).
+**Interface:** [`ICombatSystem.cs`](../../Core/Modules/Combat/Systems/ICombatSystem.cs) — `TryFindTargetInRoom` / `StartCombat` / `EndCombat` / `ExecuteRound` / `ResolveAbilityStrike`.
+`TryFindTargetInRoom` prefix-matches against `MobDataComponent.Name` and `Keywords`. `StartCombat`/`EndCombat` add/remove `CombatStateComponent`. `ExecuteRound` resolves hit, raw damage, and aspect composition; `ResolveAbilityStrike` skips hit/miss for ability strikes. `CombatRoundResult.AspectComposition` is null for untyped damage (point-in-time capture, INV-6). See [`../features/combat/combat-system.md`](../features/combat/combat-system.md) for the round formula and design notes. Implemented (Phase 3 slices 9, 11-a; aspect-resolved 11-d).
 
 ### DeathSystem
 **Purpose:** Domain system owning the HP-threshold evaluation, respawn mutation, and respawn-location management for the player death lifecycle. Pure: never touches the event bus or persistence (INV-5, INV-8). Callers (handlers, initiators) read the returned `DeathTransition` and publish the appropriate events.
 **Location:** `Core/Modules/Death/Systems/DeathSystem.cs` (implementation) · `Core/Modules/Death/Systems/IDeathSystem.cs` (interface)
 **Dependencies:** `EntityService`, `IEntityStateService`, `IAttributeSystem`, `IEffectSystem`, `ITemplateRegistry`, `WorldConfiguration`, `IConfiguration`, `ILogger<DeathSystem>`.
-```csharp
-public interface IDeathSystem
-{
-    /// <summary>Evaluates HP-threshold crossings after an HP mutation. Returns BecameIncapacitated,
-    /// Died, or None.</summary>
-    DeathTransition OnHpChanged(uint entityId, int previousHp, int newHp);
-
-    /// <summary>Exits Incapacitated state, relocates to respawn room, strips impermanent effects,
-    /// and restores all pools to Death:RespawnPoolPercent of their maxima.</summary>
-    void Respawn(uint entityId);
-
-    /// <summary>Validates the blueprint exists and sets RespawnComponent.RoomBlueprintId.
-    /// Returns false + failReason when the blueprint is not found.</summary>
-    bool SetRespawn(uint entityId, string roomBlueprintId, out string? failReason);
-}
-```
-`OnHpChanged` only applies to entities with `CharacterComponent` — mobs never enter the death pipeline. Configuration: `Death:HpFloor` (default `-10`), `Death:RespawnPoolPercent` (default `0.25`). Registered via `AddDeathModule()`. Implemented (Phase 3 slice 10).
+**Interface:** [`IDeathSystem.cs`](../../Core/Modules/Death/Systems/IDeathSystem.cs) — `OnHpChanged` / `Respawn` / `SetRespawn`.
+`OnHpChanged` evaluates HP-threshold crossings and returns `DeathTransition` (`None` / `BecameIncapacitated` / `Died`); only applies to entities with `CharacterComponent`. `Respawn` exits Incapacitated state, relocates to respawn room, strips impermanent effects, restores pools. Configuration: `Death:HpFloor` (default `-10`), `Death:RespawnPoolPercent` (default `0.25`). See [`../features/combat/death-system.md`](../features/combat/death-system.md) for the full lifecycle and design rationale. Registered via `AddDeathModule()`. Implemented (Phase 3 slice 10).
 
 ### AbilitySystem
-**Purpose:** Domain system managing the full ability lifecycle for players and mobs. Handles learn/teach, multi-cost atomic activation (resolve ability → entity state/cooldown/cost checks → spend costs → apply effects → set cooldown), per-ability cooldown tracking, and batch cooldown advancement on each heartbeat tick.
-**Location:** `Core/Modules/Abilities/Systems/AbilitySystem.cs` (implementation) · `Core/Modules/Abilities/Systems/IAbilitySystem.cs` (interface)
+**Purpose:** Domain system managing the full ability lifecycle for players and mobs. Handles learn/teach, multi-cost atomic activation (entity-state/cooldown/cost checks → spend costs → apply effects via `IEffectSystem` → set cooldown → return result), per-ability cooldown tracking, and batch cooldown advancement on each heartbeat tick. Pure: returns results, never touches the event bus or persistence (INV-5).
+**Location:** `Core/Modules/Abilities/Systems/AbilitySystem.cs` (implementation)
 **Dependencies:** `EntityService`, `IAbilityRegistry`, `IEffectSystem`, `IAttributeSystem`, `IEntityStateService`.
-```csharp
-public interface IAbilitySystem
-{
-    AbilityActivationResult Activate(uint actorEntityId, string abilityId,
-        uint? targetEntityId = null, bool resolveOffensiveExternally = false);
-    bool IsOffensive(string abilityId);
-    bool Learn(uint entityId, string abilityId);
-    bool Teach(uint teacherEntityId, uint studentEntityId, string abilityId);
-    IReadOnlyList<string> GetKnown(uint entityId);
-    bool IsKnown(uint entityId, string abilityId);
-    float GetCooldownRemaining(uint entityId, string abilityId);
-    IReadOnlyList<(string AbilityId, float CooldownRemaining)> GetCooldowns(uint entityId);
-    void AdvanceCooldowns(TimeSpan elapsed);
-}
-```
-`Activate` validates in order: ability exists → actor knows it → `Active` activation → entity state ok (not Incapacitated) → cooldown ready → all costs affordable (atomic check before any spend). On success: spends each cost via `IAttributeSystem`, sets `AbilitiesComponent.CooldownRemaining[abilityId] = CooldownSeconds`, and calls `IEffectSystem.Apply` per effect id. When `resolveOffensiveExternally = true`, any offensive damage effect (Instant/Periodic, `TargetScore == HpCurrent`, `BaseMagnitude < 0`) is skipped by `IEffectSystem` and its raw magnitude is returned as `AbilityActivationResult.OffensivePower` instead — the caller (`AbilityInvocationPipeline`) applies it via `ICombatSystem.ResolveAbilityStrike` with defense mitigation. `IsOffensive` returns `true` if the ability has `Targeting.Target` and at least one offensive damage effect. Returns `AbilityActivationResult { Outcome, AbilityId, AppliedEffects, Spent, CooldownSeconds, FailReason?, OffensivePower? }`. `AdvanceCooldowns` decrements all non-zero cooldown entries by `elapsed.TotalSeconds`, clamping to 0. Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slices 11-a, 11-b).
+**Interface:** [`IAbilitySystem.cs`](../../Core/Modules/Abilities/Systems/IAbilitySystem.cs) — `Activate` / `IsOffensive` / `Learn` / `Teach` / `GetKnown` / `IsKnown` / `GetCooldownRemaining` / `GetCooldowns` / `AdvanceCooldowns`. See [`../features/abilities/ability-system.md`](../features/abilities/ability-system.md) for the full activation pipeline, cost atomicity rules, and the `resolveOffensiveExternally` branch.
+Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slices 11-a, 11-b).
 
 ### AspectRegistry
 **Purpose:** Hardcoded read-only catalog of `AspectDefinition` records. Born on `DefinitionRegistry<AspectId, AspectDefinition>` (the fourth consumer that anchored the generic extraction). Pure data — no event bus, no persistence. Aspected abilities reference `AspectId` keys validated at startup by `RegistryValidationBootstrap`.
-**Location:** `Core/Modules/Aspects/AspectRegistry.cs` (implementation · interface `IAspectRegistry` in same file)
+**Location:** [`Core/Modules/Aspects/AspectRegistry.cs`](../../Core/Modules/Aspects/AspectRegistry.cs) (implementation · interface `IAspectRegistry : IRegistry<AspectId, AspectDefinition>` in same file)
 **Dependencies:** none.
-```csharp
-public interface IAspectRegistry : IRegistry<AspectId, AspectDefinition> { }
-```
-Starter vocabulary: `Fire`, `Ice`, `Lightning` (Elemental); `Nature` (Primal); `Void`, `Light` (Arcane). Registered via `AddAspectsModule()`. Implemented (Phase 3 slice 11-d).
+Starter vocabulary: `Fire`, `Ice`, `Lightning` (Elemental); `Nature` (Primal); `Void`, `Light` (Arcane). Registered via `AddAspectsModule()`. See [`../features/aspects/aspect-system.md`](../features/aspects/aspect-system.md) for the registry key-type rationale and startup validation. Implemented (Phase 3 slice 11-d).
 
 ### AspectSystem / IAspectSystem
 **Purpose:** Core system: generic aspect math with no game-semantic branching (no FireSystem, no per-aspect switch). Three responsibilities: `Resolve` (apply affinity boost + independent resist); `Affinity` (entity's outgoing composition); `Resist` (entity's effective resistance to one aspect, compute-on-read INV-24). Pure: no events, no persistence, no game rules (INV-2, INV-5).
-**Location:** `Core/Modules/Aspects/Systems/AspectSystem.cs` · `Core/Modules/Aspects/Systems/IAspectSystem.cs`
+**Location:** [`Core/Modules/Aspects/Systems/IAspectSystem.cs`](../../Core/Modules/Aspects/Systems/IAspectSystem.cs) (interface) · [`AspectSystem.cs`](../../Core/Modules/Aspects/Systems/AspectSystem.cs) (implementation)
 **Dependencies:** `EntityService`.
-```csharp
-public interface IAspectSystem
-{
-    // Formula per aspect A: portion = magnitude * weight/100;
-    // boosted = portion * (1 + attackerAffinityWeight_A / 100);
-    // resisted = boosted * (1 - resist_A / 100). Sum across all aspects, clamp to [0, int.Max].
-    int Resolve(int magnitude, AspectComposition composition, uint attackerEntityId, uint defenderEntityId);
-    AspectComposition Affinity(uint entityId);
-    int Resist(uint entityId, AspectId aspect);   // [0, 100]; 100 = full immunity
-}
-```
-Registered via `AddAspectsModule()`. Composed by `CombatSystem` (WP-3): called in both `ExecuteRound` (melee affinity) and `ResolveAbilityStrike` (ability `Aspect` field). Implemented (Phase 3 slice 11-d).
+Registered via `AddAspectsModule()`. Composed by `CombatSystem`: called in both `ExecuteRound` (melee affinity) and `ResolveAbilityStrike` (ability `Aspect` field). See [`../features/aspects/aspect-system.md`](../features/aspects/aspect-system.md) for the resolution formula, affinity/resistance model, and design rationale. Implemented (Phase 3 slice 11-d).
 
 ### AbilityRegistry
 **Purpose:** Hardcoded read-only catalog of `AbilityDefinition` records. Pure data — no event bus, no persistence. Now a `DefinitionRegistry<string, AbilityDefinition>` subclass (WP-1 retrofit). Promotion to a data file is a future content concern.
@@ -662,16 +373,8 @@ Starter set: `toughness` (Skill/Passive/Self — `toughness_passive` effect), `k
 
 ### AbilityEffectContributor
 **Purpose:** Implements the `IEffectContributor` seam (INV-24). Derives `WhileKnown` passive ability effects into `EffectSystem.GetModifiers`/`GetActive` at read time. Each tick of `GetModifiers`, this contributor returns the stat modifiers implied by any `Passive` abilities the entity knows and that have `WhileKnown` effects in `IEffectRegistry`. No domain types are referenced from core; the adapter owns the translation.
-**Location:** `Core/Modules/Abilities/AbilityEffectContributor.cs`
+**Location:** `Core/Modules/Abilities/AbilityEffectContributor.cs` · implements the core port [`IEffectContributor.cs`](../../Core/Modules/Effects/Systems/IEffectContributor.cs) (`GetModifiers` / `GetActive`).
 **Dependencies:** `EntityService`, `IAbilityRegistry`, `IEffectRegistry`.
-```csharp
-// Implements: Core/Modules/Effects/Systems/IEffectContributor.cs
-public interface IEffectContributor
-{
-    int GetModifiers(uint entityId, ScoreId scoreId);
-    IEnumerable<Effect> GetActive(uint entityId);
-}
-```
 Registered via `AddAbilitiesModule()` as `IEffectContributor` (DI-collected by `EffectSystem`). Implemented (Phase 3 slice 11-a).
 
 ---
@@ -683,17 +386,9 @@ Resolvers implement `IArgumentResolver` and are injected into `CommandArgument` 
 ### AbilityVerbResolver
 
 **Purpose:** Resolves a typed input verb against all known Active Skills of the invoking player. Used by `CommandDispatcher` Phase 3 to detect bare skill invocations (e.g. `kick`, `ki`) that don't match any registered command.
-**Location:** `Core/Modules/Abilities/AbilityVerbResolver.cs`
-**Interface:** `IAbilityVerbResolver` (same file)
+**Location:** [`Core/Modules/Abilities/AbilityVerbResolver.cs`](../../Core/Modules/Abilities/AbilityVerbResolver.cs) · interface `IAbilityVerbResolver` in same file.
 **Dependencies:** `IAbilitySystem`, `IAbilityRegistry`.
-```csharp
-public interface IAbilityVerbResolver
-{
-    bool TryResolve(uint actorEntityId, string verbToken, out string abilityId);
-    IReadOnlyList<string> GetInvocableVerbs(uint actorEntityId);
-}
-```
-Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slice 11-b / WP-2).
+`TryResolve` prefix-matches the verb against the invoker's known Active Skills. `GetInvocableVerbs` returns the full invocable verb list (tab-completion seam). Registered via `AddAbilitiesModule()`. Implemented (Phase 3 slice 11-b / WP-2).
 
 ### KnownSpellResolver
 
@@ -713,27 +408,18 @@ Registered as a singleton in `CombatModule`. **Not yet wired to any command argu
 ---
 
 ### SpawnSystem
-**Purpose:** Tracks spawn slot occupancy for world-content entities (mobs, world-spawn items) and schedules respawns. Self-initializes from the live entity graph on `WorldContentReadyEvent`; reacts to `MobDiedEvent` and `ItemPickedUpEvent` to mark slots vacant; respawns on `HeartbeatTickEvent`. No events published; no persistence (INV-5, INV-8). Implemented (persistence reform Stage C).
+**Purpose:** Tracks spawn slot occupancy for world-content entities (mobs, world-spawn items) and schedules respawns. Self-initializes from the live entity graph on `WorldContentReadyEvent`; reacts to `MobDiedEvent` and `ItemPickedUpEvent` to mark slots vacant; respawns on `HeartbeatTickEvent`. No events published; no persistence (INV-5, INV-8).
 **Location:** `Core/Modules/Spawn/Systems/SpawnSystem.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`, `ILogger<SpawnSystem>`.
-**Subscribes to:** `WorldContentReadyEvent` (priority 80), `MobDiedEvent` (priority 20), `ItemPickedUpEvent` (priority 20), `HeartbeatTickEvent` (priority 95).
-
-Internal state:
-- `_slots: Dictionary<(roomEntityId, blueprintId), SlotState>` — slot registry; keyed by the owning room entity and the mob/item blueprint ID.
-- `_entityToSlot: Dictionary<entityId, (roomEntityId, blueprintId)>` — reverse map for O(1) vacancy marking on death/pickup events.
-
-On `WorldContentReadyEvent`: iterates all entities with `SpawnConfigComponent`; for each spawn rule, finds any live entity in that room with the matching blueprint ID and registers it in the tracker. Slots with no live entity get `RespawnAt = now + delay` for immediate respawn on the first heartbeat.
-
-On `MobDiedEvent` / `ItemPickedUpEvent`: removes the entity from the reverse map, sets `SlotState.LiveEntityId = null` and `SlotState.RespawnAt = now + RespawnDelaySeconds`.
-
-On `HeartbeatTickEvent`: for each slot with `RespawnAt <= UtcNow`, calls `ITemplateRegistry.Spawn(blueprintId)`, attaches `LocationComponent`, and updates the tracker.
+**Interface:** [`ISpawnSystem.cs`](../../Core/Modules/Spawn/Systems/ISpawnSystem.cs) — currently empty (all coordination via event subscriptions). See [`../features/world/spawn-system.md`](../features/world/spawn-system.md) for the slot model, event subscription table, and respawn execution. Implemented (persistence reform Stage C).
 
 ---
 
 ### RegenerationSystem
-**Purpose:** Applies baseline out-of-combat resource regeneration to all entities with a `PoolsComponent` on each heartbeat tick. State-based rate: `InCombat` → suppressed entirely; `Resting` → `+RegenAmount` every tick; idle (neither) → `+RegenAmount` every `IdleIntervalTicks`-th tick (global `tickId % IdleIntervalTicks` cadence — no per-entity timer needed). Writes deltas through `IAttributeSystem`'s clamped pool setters (HP/Mana/Stamina/Astra). Never publishes events or touches persistence (INV-5). Implemented (slice 11-c).
+**Purpose:** Applies baseline out-of-combat resource regeneration to all entities with a `PoolsComponent` on each heartbeat tick. State-based rate: `InCombat` → suppressed entirely; `Resting` → `+RegenAmount` every tick; idle (neither) → `+RegenAmount` every `IdleIntervalTicks`-th tick (global `tickId % IdleIntervalTicks` cadence — no per-entity timer needed). Writes deltas through `IAttributeSystem`'s clamped pool setters (HP/Mana/Stamina/Astra). Never publishes events or touches persistence (INV-5). See [`../features/character-stats/regeneration-system.md`](../features/character-stats/regeneration-system.md) for the full design. Implemented (slice 11-c).
 **Location:** `Core/Modules/Regeneration/Systems/RegenerationSystem.cs`
 **Dependencies:** `EntityService`, `IEntityStateService`, `IAttributeSystem`.
+**Interface:** [`IRegenerationSystem.cs`](../../Core/Modules/Regeneration/Systems/IRegenerationSystem.cs) — `ApplyTickRegen(long tickId)`.
 **Constants (Category-3):** `RegenAmount = 1`, `IdleIntervalTicks = 3`. Promotion to configuration deferred to the dedicated regeneration use-case.
 ### PromptComposerSystem
 **Purpose:** Domain-aware implementation of `IPromptSource`. Reads entity state and resource pools on each buffer flush to build a fresh `PromptMessage` (compute-on-read — no cache, no dirty flag, no `PromptChangedEvent`). Lives in `Core/Modules/Prompt/` rather than `Core/Output/` because it depends on domain types; it is joined to the core buffer through the core-owned `IPromptSource` port (INV-2, INV-24).
@@ -766,5 +452,5 @@ Initiators drive the tick loop or startup; they are not "systems" in the domain-
 **Location:** `Server/HeartbeatBackgroundService.cs` (service) · `Core/Modules/Time/Events/HeartbeatTickEvent.cs` (event) · `Core/Modules/Time/TimeModule.cs` (DI module)
 **Dependencies:** `IEventBus`, `IConfiguration`, `ILogger<HeartbeatBackgroundService>`.
 **Configuration:** `Heartbeat:IntervalMs` (Category 1 operational key, default 2000). `TickId` starts at 1; `TickId = 0` is an unambiguous "no tick has fired" sentinel.
-**Startup ordering:** Registered last in the hosted-service queue (after `TelnetServer`) so the first tick cannot land before the world is fully seeded. `PeriodicTimer` does not drift on handler overrun — if a tick's handlers exceed the interval, the next tick fires immediately after completion.
+**Startup ordering:** Registered last in the hosted-service queue (after `TelnetServer`) so the first tick cannot land before the world is fully seeded. `PeriodicTimer` does not drift on handler overrun. See [`../features/world/time-system.md`](../features/world/time-system.md) for the full tick loop design, handler priority table, and thread-safety acknowledgment.
 Implemented (Phase 3 slice 9-b).

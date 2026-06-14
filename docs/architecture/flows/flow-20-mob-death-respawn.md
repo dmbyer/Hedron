@@ -1,60 +1,83 @@
-# Flow 20 — Mob death and respawn
+# Death & respawn journey (mob death · incapacitation · bleed-out · player death/respawn)
 
-> [Back to flows index](README.md)
+> [Back to flows index](README.md). **Trigger:** Mob HP reaches zero (combat round); or player HP crosses zero (combat round or DoT tick).
 
-**Summary.** A mob's HP reaches 0. `CombatTickHandler` determines the outcome and publishes `CombatEndedEvent(Outcome=MobDied)`. `CombatHandler` broadcasts the death narrative. `CombatMobDeathHandler` clears the attacker's combat state, publishes `MobDiedEvent` while the entity is still live, then destroys the mob entity. `SpawnSystem` observes `MobDiedEvent` to mark the slot vacant and set a respawn timer. On a later `HeartbeatTickEvent`, `SpawnSystem` spawns a fresh entity from the template and places it in the room.
+## Summary
 
-**Trigger.** Mob HP reaches zero during a combat round.
+Two terminal outcomes from the [combat journey](flow-17-kill-mob-combat-initiation.md) branch here. **Mob death:** `CombatMobDeathHandler` publishes `MobDiedEvent` (while the entity is still live), then destroys the entity; `SpawnSystem` observes `MobDiedEvent` to mark the slot vacant and schedules a respawn on a future heartbeat. **Player incapacitation:** `PlayerIncapacitatedEvent` opens a bleed-out loop — `DeathTickHandler` bleeds the player by `Death:BleedPerTick` per heartbeat tick, narrated by `DeathNarrationHandler` (priority 80). When HP reaches `Death:HpFloor` (default −10), `PlayerDeathHandler` calls `IDeathSystem.Respawn`: exits Incapacitated state, relocates to the stored respawn room, strips impermanent effects, restores all four pools to 25% of max.
 
 ```mermaid
 sequenceDiagram
-    participant HB as HeartbeatBackgroundService
+    participant CTH as CombatTickHandler / EffectTickHandler
     participant Bus as IEventBus
-    participant CTH as CombatTickHandler (Domain 20)
-    participant CH as CombatHandler (Domain 20)
-    participant CMDH as CombatMobDeathHandler (Notification 80)
-    participant SS as SpawnSystem (Domain 20)
+    participant CH as CombatHandler (p=20)
+    participant MDH as CombatMobDeathHandler (p=80)
+    participant SS as SpawnSystem
     participant ES as EntityService
+    participant DTH as DeathTickHandler (p=20)
+    participant DS as IDeathSystem
+    participant PDH as PlayerDeathHandler (p=20)
+    participant DNH as DeathNarrationHandler (p=80)
 
-    HB->>Bus: Publish(HeartbeatTickEvent)
-    Bus->>CTH: HandleAsync — resolve combat rounds
-    CTH->>Bus: Publish(CombatEndedEvent{Outcome=MobDied})
-    Bus->>CH: HandleAsync — broadcast "The wolf dies!"
-    Bus->>CMDH: HandleAsync
-    CMDH->>CMDH: ExitState(attacker, InCombat)
-    CMDH->>Bus: Publish(MobDiedEvent{MobEntityId, BlueprintId})
-    Bus->>SS: HandleAsync(MobDiedEvent) — mark slot vacant; RespawnAt = now + delay
-    CMDH->>ES: DestroyEntity(mobEntityId)
+    Note over CTH,MDH: Mob death path
+    CTH->>Bus: PublishAsync(CombatEndedEvent MobDied)
+    Bus->>CH: HandleAsync → "You have slain X!"
+    Bus->>MDH: HandleAsync
+    MDH->>Bus: PublishAsync(MobDiedEvent{KillerEntityId})
+    Bus->>SS: HandleAsync → mark slot vacant, schedule respawn
+    MDH->>ES: DestroyEntity(mobEntityId)
 
-    Note over HB,SS: ... RespawnDelaySeconds later ...
+    Note over DTH,DNH: Player incapacitation + bleed-out
+    Bus->>DNH: HandleAsync(PlayerIncapacitatedEvent p=80) → "You collapse..."
+    loop HeartbeatTickEvent while Incapacitated
+        DTH->>DS: OnHpChanged(entityId, prev, new) after SetCurrentHp
+        alt hpAfter > HpFloor → still incapacitated
+            DTH->>Bus: PublishAsync(PlayerBleedingEvent)
+            Bus->>DNH: HandleAsync → bleed status to player + room
+        else hpAfter <= HpFloor → Died
+            DTH->>Bus: PublishAsync(PlayerDiedEvent)
+            Bus->>DNH: HandleAsync(PlayerDiedEvent p=80) → "You have died."
+            Bus->>PDH: HandleAsync(PlayerDiedEvent p=20)
+            PDH->>DS: Respawn(entityId)
+            PDH->>Bus: PublishAsync(PlayerRespawnedEvent)
+            Bus->>DNH: HandleAsync(PlayerRespawnedEvent p=80) → room description
+        end
+    end
 
-    HB->>Bus: Publish(HeartbeatTickEvent)
-    Bus->>SS: HandleAsync(HeartbeatTickEvent) — slot due
-    SS->>SS: TryRespawn — Spawn(blueprintId), AddComponent(LocationComponent)
-    SS->>SS: Register new entityId in SpawnTracker
+    Note over SS: ... RespawnDelay later
+    SS->>SS: TryRespawn → Spawn(blueprintId) + LocationComponent
 ```
 
-**Steps.**
+## Steps
 
-1. `HeartbeatBackgroundService` fires on each tick; `CombatTickHandler` resolves pending combat rounds. A round where the mob's HP reaches 0 publishes `CombatEndedEvent { Outcome = MobDied }`.
-2. **Death narrative.** `CombatHandler` (priority 20) broadcasts `"The <mob> dies!"` to the room.
-3. **Death finalization.** `CombatMobDeathHandler` (priority 80):
-   a. Calls `IEntityStateService.ExitState(attacker, InCombat)`.
-   b. Looks up `BlueprintComponent` on the mob entity.
-   c. Publishes `MobDiedEvent { MobEntityId, BlueprintId }`. All `MobDiedEvent` handlers complete before step (d).
-   d. Calls `EntityService.DestroyEntity(mobEntityId)` — removes all components; fires `OnPersistentEntityDestroying` (no-op since mobs are not persistent).
-4. **Slot vacancy.** `SpawnSystem.HandleAsync(MobDiedEvent)` (priority 20): looks up the reverse map for `MobEntityId`. If found, sets `SlotState.LiveEntityId = null` and `SlotState.RespawnAt = UtcNow + RespawnDelaySeconds`. Removes from the reverse map.
-5. **Respawn tick.** On a subsequent `HeartbeatTickEvent`, `SpawnSystem` (priority Ai) scans all slots with `RespawnAt <= UtcNow`. For each due slot:
-   a. Calls `TemplateRegistry.Spawn(blueprintId)` to create a fresh entity.
-   b. Attaches `LocationComponent { RoomEntityId, RoomBlueprintId }` using the slot's room entity.
-   c. Registers the new entity ID in the slot tracker.
-   d. Clears `RespawnAt`.
+**Mob death**
 
-**Ordering invariant.** `MobDiedEvent` is published inside `CombatMobDeathHandler.HandleAsync` and awaited before `DestroyEntity` is called. Because `IEventBus.PublishAsync` dispatches all handlers sequentially, `SpawnSystem.HandleAsync(MobDiedEvent)` completes before `DestroyEntity` runs — the mob entity is still alive when the slot is recorded.
+1. `CombatMobDeathHandler` (priority 80) receives `CombatEndedEvent(MobDied)`. Calls `IEntityStateService.ExitState(attacker, InCombat)`.
+2. Publishes `MobDiedEvent { MobEntityId, BlueprintId, KillerEntityId }` while the entity is still live. `SpawnSystem` (priority 20) records slot vacancy and sets `RespawnAt = now + delay`.
+3. Calls `EntityService.DestroyEntity(mobEntityId)`. On a later heartbeat tick, `SpawnSystem` spawns a fresh entity from the template and places it in the room.
 
-**Cross-references.**
+**Player incapacitation**
+
+4. `PlayerIncapacitatedEvent` fires (from `CombatTickHandler` or `EffectTickHandler`). `DeathNarrationHandler` writes the collapse message to the player and broadcasts to the room.
+5. While incapacitated, `CommandDispatcher` blocks all commands except `help`, `commands`, and `score` (`UsableWhileIncapacitated` gate).
+
+**Bleed-out**
+
+6. On each `HeartbeatTickEvent`, `DeathTickHandler` (priority 20) subtracts `Death:BleedPerTick` HP via `IAttributeSystem.SetCurrentHp`, then calls `IDeathSystem.OnHpChanged`.
+   - `None` returned: publishes `PlayerBleedingEvent`; `DeathNarrationHandler` sends per-tick status to the player and a third-person warning to the room.
+   - `Died` returned (HP ≤ `Death:HpFloor`): publishes `PlayerDiedEvent(entityId, deathRoomEntityId)`.
+
+**Respawn**
+
+7. `PlayerDeathHandler` (priority 20) handles `PlayerDiedEvent`. Calls `IDeathSystem.Respawn(entityId)`: exits Incapacitated, resolves `RespawnComponent.RoomBlueprintId` to a live room (fallback: `WorldConfiguration.StartingRoomBlueprintId`), updates `LocationComponent`, calls `IEffectSystem.RemoveImpermanent` (strips non-`UntilRemoved` effects), restores all four pools to `floor(Max × Death:RespawnPoolPercent)`.
+8. `PlayerDeathHandler` publishes `PlayerRespawnedEvent`. `DeathNarrationHandler` broadcasts the death message to the death room, writes the respawn confirmation to the player, broadcasts arrival to the respawn room.
+
+No `SaveEntityAsync` in the respawn path — periodic flush covers pool/location/effect mutations (INV-22 runtime transition).
+
+## Where to look
+
 - [`Core/Modules/Combat/Handlers/CombatMobDeathHandler.cs`](../../../Core/Modules/Combat/Handlers/CombatMobDeathHandler.cs)
-- [`Core/Modules/Mobs/Events/MobDiedEvent.cs`](../../../Core/Modules/Mobs/Events/MobDiedEvent.cs)
+- [`Core/Modules/Death/Handlers/DeathTickHandler.cs`](../../../Core/Modules/Death/Handlers/DeathTickHandler.cs) · [`Core/Modules/Death/Handlers/PlayerDeathHandler.cs`](../../../Core/Modules/Death/Handlers/PlayerDeathHandler.cs) · [`Core/Modules/Death/Handlers/DeathNarrationHandler.cs`](../../../Core/Modules/Death/Handlers/DeathNarrationHandler.cs)
+- [`Core/Modules/Death/Systems/IDeathSystem.cs`](../../../Core/Modules/Death/Systems/IDeathSystem.cs)
 - [`Core/Modules/Spawn/Systems/SpawnSystem.cs`](../../../Core/Modules/Spawn/Systems/SpawnSystem.cs)
-- [`Core/ECS/Components/SpawnConfigComponent.cs`](../../../Core/ECS/Components/SpawnConfigComponent.cs)
-- [`docs/use-cases/persistence-reform.md`](../../use-cases/persistence-reform.md) — Stage C, mob death flow
+- [`../../features/combat/combat.md`](../../features/combat/combat.md) — the feature; [`../../features/combat/death-system.md`](../../features/combat/death-system.md) for death pipeline internals.

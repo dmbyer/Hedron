@@ -1,6 +1,6 @@
 # Phase 3 Slice 11-d — Aspect & Registry Foundation
 
-**PR:** (this branch) · **Spec:** [`../../use-cases/aspect-foundation.md`](../../use-cases/aspect-foundation.md)
+**PR:** (this branch) · **Spec:** [`../../implementation-plans/aspect-foundation.md`](../../features/aspects/aspects.md)
 
 ## Outcome
 
@@ -46,7 +46,7 @@ Landed two gameplay-model spines in one slice. **Spine F (Registry layer):** a g
 
 Blocking findings resolved:
 - **INV-17 (flow drift — four flows):** `flow-01-server-startup.md` updated with `RegistryValidationBootstrap`; `flow-18-combat-round-pulse.md` updated with `IAspectSystem.Resolve` path; `flow-24-ability-activation.md` and `flow-26-offensive-ability-opens-combat.md` updated with `def.Aspect` composition threading through `ResolveAbilityStrike`.
-- **INV-D2 (use-case trim):** `aspect-foundation.md` trimmed to its durable behavior spec; in-flight sections removed.
+- **INV-28 (use-case trim):** `aspect-foundation.md` trimmed to its durable behavior spec; in-flight sections removed.
 
 Non-blocking findings addressed:
 - **INV-19 acknowledged debt:** `// TODO migrate` comment added to `EffectParams.Aspect`; backlog entry filed.
