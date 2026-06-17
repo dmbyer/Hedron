@@ -37,6 +37,14 @@ namespace Hedron.Core.Modules.Items.Systems
                 ? template.WornSlots.ConvertAll(s => s.ToString().ToLowerInvariant())
                 : null;
 
+            var statBonuses = template.StatBonuses.Count > 0
+                ? template.StatBonuses.ConvertAll(b => new StatBonusDto
+                {
+                    TargetScore = b.TargetScore.ToString().ToLowerInvariant(),
+                    Magnitude = b.Magnitude,
+                })
+                : null;
+
             var dto = new ItemDto
             {
                 BlueprintId = template.BlueprintId,
@@ -46,7 +54,7 @@ namespace Hedron.Core.Modules.Items.Systems
                 ItemType = template.ItemType.ToString(),
                 WornSlots = wornSlots,
                 SpawnRoomId = template.SpawnRoomBlueprintId,
-                DamageBonus = template.DamageBonus,
+                StatBonuses = statBonuses,
             };
 
             var body = _yaml.Serialize(dto);
@@ -66,7 +74,13 @@ namespace Hedron.Core.Modules.Items.Systems
             public string ItemType { get; set; } = string.Empty;
             public List<string>? WornSlots { get; set; }
             public string SpawnRoomId { get; set; } = string.Empty;
-            public int DamageBonus { get; set; }
+            public List<StatBonusDto>? StatBonuses { get; set; }
+        }
+
+        private sealed class StatBonusDto
+        {
+            public string TargetScore { get; set; } = string.Empty;
+            public int Magnitude { get; set; }
         }
     }
 }

@@ -9,6 +9,7 @@ using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Items.Events;
 using Hedron.Core.Modules.Items.Systems;
+using Hedron.Core.Modules.Stats;
 using Hedron.Core.Output;
 using Hedron.Core.Systems;
 
@@ -32,11 +33,12 @@ namespace Hedron.Core.Modules.Items.Commands
         public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
         public string ShortDescription => "Set a property on an item.";
         public string LongDescription =>
-            "Sets name, description, keywords (space-separated), type, slot, or dmg on the item with the given blueprint id. " +
+            "Sets name, description, keywords (space-separated), type, slot, or worn-stat bonuses on the item with the given blueprint id. " +
             "Valid types: none, weapon, armor, consumable, container, misc. " +
-            "Valid slots (space-separated): mainhand, offhand, head, chest, feet. " +
-            "dmg accepts a non-negative integer (flat damage bonus applied when equipped in MainHand).";
-        public string Usage => "setitem <blueprintId> <property> <value>";
+            "Valid slots (space-separated): mainhand, offhand, head, chest, feet, legs, hands, arms, waist, neck, finger, finger2, wrist, wrist2. " +
+            "bonus <score> <amount> adds or replaces a worn stat bonus (amount 0 removes that score; negative is allowed for cursed gear); " +
+            "clearbonus removes all bonuses. Valid scores: attackpower, defense (any score id).";
+        public string Usage => "setitem <blueprintId> <property> [value]";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
         public CommandArgumentSchema ArgumentSchema { get; } = new(new[]
@@ -44,9 +46,9 @@ namespace Hedron.Core.Modules.Items.Commands
             new CommandArgument("blueprintId", typeof(string), CommandArgumentKind.Token,
                 Required: true, "Blueprint id of the target item."),
             new CommandArgument("property", typeof(string), CommandArgumentKind.Token,
-                Required: true, "Property to set: name, description, keywords, type."),
+                Required: true, "Property to set: name, description, keywords, type, slot, bonus, clearbonus."),
             new CommandArgument("value", typeof(string), CommandArgumentKind.RestOfLine,
-                Required: true, "New value."),
+                Required: false, "New value (omit only for clearbonus)."),
         });
 
         public SetitemCommand(
@@ -67,7 +69,8 @@ namespace Hedron.Core.Modules.Items.Commands
         {
             var blueprintId = context.Args.Get<string>("blueprintId");
             var property = context.Args.Get<string>("property").ToLowerInvariant();
-            var value = context.Args.Get<string>("value");
+            context.Args.TryGet<string>("value", out var valueArg);
+            var value = valueArg ?? string.Empty;
 
             if (!_templateRegistry.TryGet(blueprintId, out _))
             {
@@ -92,6 +95,15 @@ namespace Hedron.Core.Modules.Items.Commands
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     $"Item '{blueprintId}' has no live entity in the world.",
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
+                return;
+            }
+
+            // Every property except clearbonus needs a value; reject early so the cases can assume one.
+            if (property != "clearbonus" && string.IsNullOrWhiteSpace(value))
+            {
+                await context.Output.WriteAsync(new PlainMessage(
+                    $"Property '{property}' requires a value.",
                     OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
@@ -131,7 +143,7 @@ namespace Hedron.Core.Modules.Items.Commands
                         if (!Enum.TryParse<WornSlot>(slotName, ignoreCase: true, out var wornSlot))
                         {
                             await context.Output.WriteAsync(new PlainMessage(
-                                $"Unknown slot '{slotName}'. Valid slots: mainhand, offhand, head, chest, feet.",
+                                $"Unknown slot '{slotName}'. Valid slots: mainhand, offhand, head, chest, feet, legs, hands, arms, waist, neck, finger, finger2, wrist, wrist2.",
                                 OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                             return;
                         }
@@ -141,29 +153,41 @@ namespace Hedron.Core.Modules.Items.Commands
                     break;
                 }
 
-                case "dmg":
+                case "bonus":
                 {
-                    if (!int.TryParse(value, out var dmgValue))
+                    var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length != 2)
                     {
                         await context.Output.WriteAsync(new PlainMessage(
-                            $"Invalid damage bonus '{value}'. Expected a non-negative integer.",
+                            "Usage: setitem <blueprintId> bonus <score> <amount>.",
                             OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
-                    if (dmgValue < 0)
+                    if (!Enum.TryParse<ScoreId>(parts[0], ignoreCase: true, out var score))
                     {
                         await context.Output.WriteAsync(new PlainMessage(
-                            "Damage bonus must be non-negative.",
+                            $"Unknown score '{parts[0]}'. Valid scores include attackpower, defense.",
                             OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
-                    _itemBuilder.SetItemDamageBonus(itemEntityId, dmgValue);
+                    if (!int.TryParse(parts[1], out var magnitude))
+                    {
+                        await context.Output.WriteAsync(new PlainMessage(
+                            $"Invalid amount '{parts[1]}'. Expected an integer (0 removes the bonus).",
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
+                        return;
+                    }
+                    _itemBuilder.SetItemStatBonus(itemEntityId, score, magnitude);
                     break;
                 }
 
+                case "clearbonus":
+                    _itemBuilder.ClearItemStatBonuses(itemEntityId);
+                    break;
+
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
-                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, slot, dmg.",
+                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, slot, bonus, clearbonus.",
                         OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
             }
@@ -178,8 +202,11 @@ namespace Hedron.Core.Modules.Items.Commands
                 tpl is Hedron.Core.Modules.Items.Templates.ItemTemplate itemTpl)
                 await _contentWriter.WriteAsync(itemTpl).ConfigureAwait(false);
 
+            var confirmation = property == "clearbonus"
+                ? "Item bonuses cleared."
+                : $"Item {property} set to '{value}'.";
             await context.Output.WriteAsync(new PlainMessage(
-                $"Item {property} set to '{value}'.",
+                confirmation,
                 OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
         }
     }

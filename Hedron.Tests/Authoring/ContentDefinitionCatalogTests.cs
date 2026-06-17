@@ -17,6 +17,7 @@ using Hedron.Core.Modules.Mobs;
 using Hedron.Core.Modules.Mobs.Systems;
 using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.World;
+using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.World.Systems;
 using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
@@ -155,7 +156,11 @@ namespace Hedron.Tests.Authoring
             item.Keywords = new List<string> { "sword", "blade" };
             item.ItemType = ItemType.Weapon;
             item.WornSlots = new List<WornSlot> { WornSlot.MainHand };
-            item.DamageBonus = 7;
+            item.StatBonuses = new List<EquipmentStatBonus>
+            {
+                new(ScoreId.AttackPower, 7),
+                new(ScoreId.Defense, 2),
+            };
             item.SpawnRoomBlueprintId = "room.adhoc.abc";
 
             var result = await catalog.SaveAsync(def);
@@ -168,7 +173,9 @@ namespace Hedron.Tests.Authoring
             Assert.Equal(new[] { "sword", "blade" }, roundTripped.Keywords);
             Assert.Equal(ItemType.Weapon, roundTripped.ItemType);
             Assert.Equal(new[] { WornSlot.MainHand }, roundTripped.WornSlots);
-            Assert.Equal(7, roundTripped.DamageBonus);
+            Assert.Equal(
+                new[] { new EquipmentStatBonus(ScoreId.AttackPower, 7), new EquipmentStatBonus(ScoreId.Defense, 2) },
+                roundTripped.StatBonuses);
             Assert.Equal("room.adhoc.abc", roundTripped.SpawnRoomBlueprintId);
         }
 

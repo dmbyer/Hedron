@@ -3,6 +3,7 @@ using Hedron.Core.Modules.Items.Commands;
 using Hedron.Core.Modules.Items.Handlers;
 using Hedron.Core.Modules.Items.Resolvers;
 using Hedron.Core.Modules.Items.Systems;
+using Hedron.Core.Modules.Effects.Systems;
 using Hedron.Core.Systems;
 using Hedron.Core.ECS.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +23,9 @@ namespace Hedron.Core.Modules.Items
             services.AddSingleton<IItemBuilderSystem, ItemBuilderSystem>();
             services.AddSingleton<IItemContentWriter, ItemContentWriter>();
             services.AddSingleton<IEquipmentSystem, EquipmentSystem>();
+
+            // Worn-gear stat contributions fold into the effect modifier pipeline (INV-24).
+            services.AddSingleton<IEffectContributor, EquipmentEffectContributor>();
 
             // Resolvers — stateless singletons, injected into commands via constructor
             services.AddSingleton<ItemInRoomResolver>();

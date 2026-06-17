@@ -8,7 +8,7 @@ A player types `kill <mob>` to engage a mob in the current room. Once combat beg
 
 If the mob's HP reaches zero, the mob is slain, its blueprint slot is freed, and it will respawn from its template later. If the player's HP reaches zero, they are incapacitated: unable to act, bleeding out one HP per tick, until they either receive healing or bleed to the death floor (−10 HP) and respawn in a weakened state at their stored respawn room.
 
-The fight loop is intentionally simple — no aggro, no group combat, no skills-in-combat beyond what the abilities feature provides. Weapon damage contributes via `IStatSystem.GetEffectiveAttackPower`; armor defense contributes via `IStatSystem.GetEffectiveDefense`.
+The fight loop is intentionally simple — no aggro, no group combat, no skills-in-combat beyond what the abilities feature provides. The round reads attack and defense through `IStatSystem.Get(AttackPower)` / `Get(Defense)`, which fold worn-gear bonuses (authored as `ItemDataComponent.StatBonuses`) via the equipment effect contributor — so weapons and armor change combat numbers as data.
 
 ## How it works
 

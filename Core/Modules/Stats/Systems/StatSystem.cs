@@ -1,5 +1,3 @@
-using Hedron.Core.ECS;
-using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Attributes.Systems;
 using Hedron.Core.Modules.Effects.Systems;
 
@@ -8,13 +6,11 @@ namespace Hedron.Core.Modules.Stats.Systems
     public sealed class StatSystem : IStatSystem
     {
         private readonly IAttributeSystem _attributes;
-        private readonly EntityService _entityService;
         private readonly IEffectSystem _effectSystem;
 
-        public StatSystem(IAttributeSystem attributes, EntityService entityService, IEffectSystem effectSystem)
+        public StatSystem(IAttributeSystem attributes, IEffectSystem effectSystem)
         {
             _attributes = attributes;
-            _entityService = entityService;
             _effectSystem = effectSystem;
         }
 
@@ -23,20 +19,10 @@ namespace Hedron.Core.Modules.Stats.Systems
         public int GetEffectiveSpirit(uint entityId) => _attributes.GetSpirit(entityId);
         public int GetEffectiveAttunement(uint entityId) => _attributes.GetAttunement(entityId);
 
-        public int GetEffectiveAttackPower(uint entityId)
-        {
-            var body = _attributes.GetBody(entityId);
-            var bonus = 0;
-
-            if (_entityService.TryGet<EquipmentComponent>(entityId, out var equipment) &&
-                equipment.Slots.TryGetValue(WornSlot.MainHand, out var mainHandItemId) &&
-                _entityService.TryGet<ItemDataComponent>(mainHandItemId, out var itemData))
-            {
-                bonus = itemData.DamageBonus;
-            }
-
-            return body / 2 + bonus;
-        }
+        // Base attack power only. Weapon (and all worn-gear) bonuses now ride the effect
+        // contributor folded by Get(ScoreId.AttackPower) — see EquipmentEffectContributor.
+        // Callers that need the gear-inclusive value MUST read Get(AttackPower), not this getter.
+        public int GetEffectiveAttackPower(uint entityId) => _attributes.GetBody(entityId) / 2;
 
         public int GetEffectiveDefense(uint entityId) => _attributes.GetBody(entityId) / 4;
 

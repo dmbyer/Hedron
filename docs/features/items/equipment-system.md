@@ -38,6 +38,12 @@ An item with both `MainHand` and `OffHand` in `WornSlots` works without special-
 
 `EquipmentCommand.ExecuteAsync` reads `EquipmentComponent.Slots` from the invoker. If empty → "You are not wearing anything." Otherwise builds an `EquipmentDisplayMessage` with one row per occupied slot (slot label + item name), ordered by `WornSlot` enum ordinal: `MainHand`, `OffHand`, `Head`, `Chest`, `Feet`. Unoccupied slots are omitted. No events fired.
 
+### Worn-gear stat contributions
+
+Equipment changes effective stats through the **effect contributor seam** (INV-24), not through `EquipmentSystem` or `StatSystem` directly. Each item carries authored `ItemDataComponent.StatBonuses` — a list of `EquipmentStatBonus(ScoreId TargetScore, int Magnitude)` rows. [`EquipmentEffectContributor`](../../reference/systems.md) (an `IEffectContributor` registered by `AddItemsModule`) reads the wearer's `EquipmentComponent.Slots`, and for each worn item yields its bonus rows as `WhileEquipped` `StatModifier` effects. `IStatSystem.Get` folds `IEffectSystem.GetModifiers`, which sums every contributor — so a weapon's `AttackPower` row and a breastplate's `Defense` row land in `Get(AttackPower)` / `Get(Defense)` with no change to `StatSystem` or `EffectSystem` (open/closed).
+
+The contribution is **derived on read, never stored** (the [contributor seam](../effects/effect-system.md#the-contributor-seam) rule): no `EffectsComponent` entry is written on equip, no recompute event fires, and the next stat read simply reflects the current worn set. An item occupying two slots (a two-hand weapon in `MainHand` + `OffHand`) is deduped so its bonuses count once. Keying by `ScoreId` makes new bonus dimensions (`+HpMax`, future speed/crit) pure data. Authoring is via `setitem <id> bonus <score> <amount>` / `clearbonus` (`IItemBuilderSystem.SetItemStatBonus` / `ClearItemStatBonuses`).
+
 ### Migration guard
 
 `CharacterHydrationHandler` attaches an empty `EquipmentComponent` to characters persisted before slice 7. The component is persisted on the character's next save-on-change event.
@@ -51,7 +57,7 @@ The seam self-documents in code — describe behaviour here, not signatures:
 
 ## Considerations
 
-- **Stat effects are explicitly deferred.** `EquipmentComponent.Slots` is the hook; the combat/stats slices read it via `IStatSystem.GetEffectiveAttackPower` (reads `MainHand` slot for `DamageBonus`) and `GetEffectiveDefense` (armor-slot contribution is acknowledged future debt). No stat computation in `EquipmentSystem`.
+- **Stat effects ship via the effect contributor, not this system.** Worn gear contributes stats through `ItemDataComponent.StatBonuses` + [`EquipmentEffectContributor`](#worn-gear-stat-contributions) (the INV-24 seam), which `IStatSystem.Get(AttackPower|Defense)` folds on read. `EquipmentSystem` does **no** stat computation — it only owns slot lifecycle. `EquipmentComponent.Slots` is the source the contributor reads.
 - **`OffHand` is deferred.** The enum value exists so YAML authors can declare it, but no player command uses it independently in slice 7. A future dual-wield or shield use-case leverages it without a schema change.
 - **`BlueprintComponent` is already cleared.** `ItemSystem.MoveToInventory` clears `BlueprintComponent` at pickup (INV-21). `WearCommand` and `EquipmentSystem` need not interact with `BlueprintComponent`.
 - **`setitem slot` writes YAML.** `SetitemCommand` calls `IItemContentWriter.WriteAsync` after `IItemBuilderSystem.SetItemSlots` so the slot assignment survives `@reload`. This is the command's responsibility, not the system's (INV-5).
@@ -59,7 +65,7 @@ The seam self-documents in code — describe behaviour here, not signatures:
 ## Extensibility
 
 - **Additional worn slots.** Add enum values and YAML entries — no architecture change.
-- **Stat bonuses.** `EquipmentComponent.Slots` + `ItemDataComponent.DamageBonus`/`WornSlots` are the hooks; plug into `IStatSystem` getters.
+- **Stat bonuses.** Authored as `ItemDataComponent.StatBonuses` (`(ScoreId, magnitude)` rows) and folded by `EquipmentEffectContributor` into `IStatSystem.Get` — keyed by `ScoreId`, so any addressable score (`+HpMax`, future speed/crit) is a data addition, not a code change.
 - **Mob gear.** `EquipmentComponent` is cross-cutting; no domain dependency added.
 
 ## Related

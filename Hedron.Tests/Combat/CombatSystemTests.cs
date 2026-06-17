@@ -44,7 +44,7 @@ namespace Hedron.Tests.Combat
             var deathOpts = Options.Create(new DeathOptions { HpFloor = -10 });
 
             var attributes = new AttributeSystem(ecs, noEffects, deathOpts);
-            var stats = new StatSystem(attributes, ecs, noEffects);
+            var stats = new StatSystem(attributes, noEffects);
             var aspects = new AspectSystem(ecs);
 
             var combat = new CombatSystem(ecs, stats, attributes, aspects, rng);

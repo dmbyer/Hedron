@@ -13,7 +13,9 @@ using Hedron.Core.Modules.Death;
 using Hedron.Core.Modules.Death.Systems;
 using Hedron.Core.Modules.Effects.Systems;
 using Hedron.Core.Modules.EntityState.Systems;
+using Hedron.Core.Modules.Items;
 using Hedron.Core.Modules.Mobs.Events;
+using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.Stats.Systems;
 using Hedron.Core.Systems;
 using Hedron.Tests.Harness;
@@ -79,7 +81,7 @@ namespace Hedron.Tests.Combat
                 var deathOpts = Options.Create(new DeathOptions { HpFloor = -10 });
 
                 Attributes = new AttributeSystem(Ecs, noEffects, deathOpts);
-                Stats = new StatSystem(Attributes, Ecs, noEffects);
+                Stats = new StatSystem(Attributes, noEffects);
                 Aspects = new AspectSystem(Ecs);
                 Combat = new CombatSystem(Ecs, Stats, Attributes, Aspects, rng);
                 EntityState = new EntityStateService(Ecs);
@@ -400,10 +402,61 @@ namespace Hedron.Tests.Combat
             var noEffects = new EffectSystem(ecs, System.Array.Empty<IEffectContributor>());
             var deathOpts = Options.Create(new DeathOptions { HpFloor = -10 });
             var attributes = new AttributeSystem(ecs, noEffects, deathOpts);
-            var stats = new StatSystem(attributes, ecs, noEffects);
+            var stats = new StatSystem(attributes, noEffects);
             var aspects = new AspectSystem(ecs);
             var combat = new CombatSystem(ecs, stats, attributes, aspects, rng);
             return (combat, attributes, ecs);
+        }
+
+        // Like BuildDirectWorld, but the EffectSystem carries the equipment contributor so worn-gear
+        // stat bonuses fold into IStatSystem.Get — needed to exercise the combat read-path repoint.
+        private static (CombatSystem combat, AttributeSystem attributes, EntityService ecs)
+            BuildDirectWorldWithEquipment(FakeRandom rng)
+        {
+            var ecs = new EntityService();
+            var effects = new EffectSystem(ecs, new IEffectContributor[] { new EquipmentEffectContributor(ecs) });
+            var deathOpts = Options.Create(new DeathOptions { HpFloor = -10 });
+            var attributes = new AttributeSystem(ecs, effects, deathOpts);
+            var stats = new StatSystem(attributes, effects);
+            var aspects = new AspectSystem(ecs);
+            var combat = new CombatSystem(ecs, stats, attributes, aspects, rng);
+            return (combat, attributes, ecs);
+        }
+
+        // ── T-F1 — combat round consumes the gear-inclusive attack power ─────────
+
+        /// <summary>
+        /// Regression guard for the DamageBonus→effect migration's read-path repoint: the combat
+        /// round must read attack power through <c>Get(AttackPower)</c> (which folds the equipment
+        /// contributor), not the base-only <c>GetEffectiveAttackPower</c>. Attacker Body=10 (base
+        /// attack 5) wields a weapon granting +6 AttackPower → gear-inclusive attack 11 → damage roll
+        /// <c>Next(1, 13)</c>. We prescribe damage=10, which is in range ONLY because the weapon
+        /// bonus landed; without the repoint attack power would be 5, <c>Next(1, 7)</c>, and FakeRandom
+        /// would throw on the out-of-range 10.
+        /// </summary>
+        [Fact]
+        public void Combat_round_uses_equipment_attack_power_via_Get()
+        {
+            var rng = new FakeRandom(20, 10);   // d20 hit roll, then damage=10 (valid only with the +6 weapon)
+            var (combat, attributes, ecs) = BuildDirectWorldWithEquipment(rng);
+
+            var weapon = ecs.CreateEntity();
+            ecs.AddComponent(weapon.Id, new ItemDataComponent
+            {
+                Name = "greatsword",
+                StatBonuses = { new EquipmentStatBonus(ScoreId.AttackPower, 6) },
+            });
+
+            var attacker = new EntityBuilder(ecs)
+                .AsPlayer().WithAttributes(body: 10).WithPools(hp: 100).Wielding(weapon.Id).Build();
+            var defender = new EntityBuilder(ecs)
+                .AsMob("dummy").WithAttributes(body: 8).WithPools(hp: 100).Build();
+
+            var result = combat.ExecuteRound(attacker, defender);
+
+            Assert.True(result.AttackerHit);
+            Assert.Equal(10, result.DamageDealt);
+            Assert.Equal(90, attributes.GetCurrentHp(defender));
         }
     }
 }

@@ -12,10 +12,17 @@ namespace Hedron.Core.Modules.Stats.Systems
         int GetEffectiveSpirit(uint entityId);
         int GetEffectiveAttunement(uint entityId);
 
-        /// <summary>Body / 2 + MainHand item DamageBonus (0 if no weapon or no bonus).</summary>
+        /// <summary>
+        /// Base attack power (Body / 2) only. Worn-gear bonuses ride the effect contributor and are
+        /// folded by <see cref="Get"/>(AttackPower) — read that for the gear-inclusive value.
+        /// </summary>
         int GetEffectiveAttackPower(uint entityId);
 
-        /// <summary>Body / 4. Defense governance is interim; evasion/armor score lands in a later slice.</summary>
+        /// <summary>
+        /// Base defense (Body / 4) only. Armor bonuses ride the effect contributor and are folded by
+        /// <see cref="Get"/>(Defense). Defense governance is interim; a dedicated evasion/armor score
+        /// lands in a later slice.
+        /// </summary>
         int GetEffectiveDefense(uint entityId);
 
         int GetCurrentHp(uint entityId);

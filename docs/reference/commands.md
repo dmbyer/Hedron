@@ -454,8 +454,8 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/Items/Commands/SetitemCommand.cs`  
 **Description:** Sets a property on an existing item entity identified by blueprint id. Validates the blueprint id exists in `ITemplateRegistry`; resolves the live entity by `BlueprintComponent.BlueprintId`. Delegates mutation to `IItemBuilderSystem`. Saves the item entity immediately.  
-**Usage:** `setitem <blueprintId> <property> <value>`  
-**Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`, `slot`), `RestOfLine string "value"` (required). For `keywords`, value is split on whitespace. For `type`, value must parse as `ItemType` enum. For `slot`, value is a space-separated list of `WornSlot` names (e.g. `mainhand`, `chest`); an empty list clears `WornSlots`.  
+**Usage:** `setitem <blueprintId> <property> [value]`  
+**Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`, `slot`, `bonus`, `clearbonus`), `RestOfLine string "value"` (optional — required for every property except `clearbonus`). For `keywords`, value is split on whitespace. For `type`, value must parse as `ItemType` enum. For `slot`, value is a space-separated list of `WornSlot` names (e.g. `mainhand`, `chest`, `legs`, `finger`, `wrist2`); an empty list clears `WornSlots`. For `bonus`, value is `<score> <amount>` where `<score>` is a `ScoreId` (e.g. `attackpower`, `defense`) and `<amount>` is an integer (0 removes that score's row; negative allowed for cursed gear) — add-or-replaces one worn-stat bonus row. `clearbonus` removes all bonus rows and takes no value.  
 **Events:** `ItemPropertySetByAdminEvent`
 
 ---

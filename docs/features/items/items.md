@@ -50,5 +50,5 @@ Commands are the Initiators: they call the appropriate system, publish a past-te
 
 - [`../../architecture/checklist.md`](../../architecture/checklist.md) — INV-8 (command calls one system method), INV-14 (two-level persistence opt-in), INV-21 (blueprint/instance separation at pickup).
 - [`../../roadmap/completed/slice-6-items-and-inventory.md`](../../roadmap/completed/slice-6-items-and-inventory.md) · [`../../roadmap/completed/slice-7-equipment.md`](../../roadmap/completed/slice-7-equipment.md) — as-built history and design decisions.
-- **Combat stats** (not yet migrated) — `EquipmentComponent.Slots` is the hook `IStatSystem.GetEffectiveAttackPower` reads to compute weapon bonuses; see [`../../reference/systems.md`](../../reference/systems.md) for the `StatSystem` row.
+- **Combat stats** — worn gear contributes via `ItemDataComponent.StatBonuses` + `EquipmentEffectContributor` (the INV-24 effect seam), folded into `IStatSystem.Get(AttackPower|Defense)`; see [`equipment-system.md`](equipment-system.md#worn-gear-stat-contributions) and the `EquipmentEffectContributor` row in [`../../reference/systems.md`](../../reference/systems.md).
 - **Mobs** (not yet migrated) — `EquipmentComponent` is cross-cutting; mob entities carry it without a domain dependency.

@@ -4,6 +4,7 @@ using Hedron.Core.Modules.Account.Components;
 using Hedron.Core.Modules.Aspects;
 using Hedron.Core.Modules.Aspects.Systems;
 using Hedron.Core.Modules.Attributes.Systems;
+using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.Stats.Systems;
 using Hedron.Core.Systems;
 
@@ -76,7 +77,7 @@ namespace Hedron.Core.Modules.Combat.Systems
         public CombatRoundResult ExecuteRound(uint attackerEntityId, uint defenderEntityId)
         {
             var roll = _random.Next(1, 21) + _statSystem.GetEffectiveBody(attackerEntityId) / 2;
-            var defenseThreshold = 10 + _statSystem.GetEffectiveDefense(defenderEntityId);
+            var defenseThreshold = 10 + _statSystem.Get(defenderEntityId, ScoreId.Defense);
             var hit = roll >= defenseThreshold;
 
             if (!hit)
@@ -90,7 +91,7 @@ namespace Hedron.Core.Modules.Combat.Systems
                     AspectComposition: null);
             }
 
-            var attackPower = _statSystem.GetEffectiveAttackPower(attackerEntityId);
+            var attackPower = _statSystem.Get(attackerEntityId, ScoreId.AttackPower);
             var rawDamage = _random.Next(1, attackPower + 2);
 
             // Composition source for melee: the attacker's entity affinity (empty = untyped).
@@ -107,7 +108,7 @@ namespace Hedron.Core.Modules.Combat.Systems
             AspectComposition? composition = null)
         {
             // Ability strikes always land — no hit/miss roll.
-            var rawDamage = System.Math.Max(1, _random.Next(1, basePower + 2) - _statSystem.GetEffectiveDefense(defenderEntityId));
+            var rawDamage = System.Math.Max(1, _random.Next(1, basePower + 2) - _statSystem.Get(defenderEntityId, ScoreId.Defense));
 
             var comp = composition ?? AspectComposition.Empty;
             var damage = _aspectSystem.Resolve(rawDamage, comp, attackerEntityId, defenderEntityId);

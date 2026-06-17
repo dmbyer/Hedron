@@ -50,8 +50,8 @@ After raw damage is computed, `IAspectSystem.Affinity(attackerId)` returns the a
 
 ## Extensibility
 
-- **Armor defense contribution** — `IStatSystem.GetEffectiveDefense` currently returns `Body/4`. Armor-slot bonuses add to the same seam with no combat code changes.
-- **Weapon types / dual-wielding** — `GetEffectiveAttackPower` is the single extension point.
+- **Armor / weapon stat contribution** — landed via `ItemDataComponent.StatBonuses` + `EquipmentEffectContributor` (INV-24); combat reads `IStatSystem.Get(AttackPower|Defense)`, which folds the worn-gear bonuses. New weapon/armor types are pure data — no combat code change.
+- **Weapon types / dual-wielding** — distinct weapon stat profiles are authored bonus rows; `OffHand` already exists for a second wielded item when a dual-wield use-case lands.
 - **Group combat** — `CombatStateComponent` is a one-to-one opponent reference. Group combat requires either a list reference or multiple components; combat tick deduplication logic changes accordingly.
 - **`MobInRoomResolver`** is wired to `CombatModule` but not yet bound to any command argument schema. Extract both `KillCommand` and `AbilityInvocationPipeline`'s inline `TryFindTargetInRoom` calls to this resolver when a third mob-targeting argument is needed (INV-19, ≥3-consumer threshold).
 
