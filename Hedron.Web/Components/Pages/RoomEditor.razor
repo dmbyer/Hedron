@@ -24,8 +24,14 @@ else if (_template is not null)
     </div>
 
     <div class="field">
-        <label>Area id <span class="hint-inline">(target area blueprint id)</span></label>
-        <input @bind="_template.AreaId" />
+        <label>Area <span class="hint-inline">(target area blueprint id)</span></label>
+        <select value="@_template.AreaId" @onchange="e => _template.AreaId = e.Value?.ToString() ?? string.Empty">
+            <option value="">-- no area --</option>
+            @foreach (var area in _areas)
+            {
+                <option value="@area.BlueprintId">@area.Name (@area.BlueprintId)</option>
+            }
+        </select>
     </div>
 
     <div class="field">
@@ -37,14 +43,31 @@ else if (_template is not null)
         <legend>Exits</legend>
         @foreach (var dir in AllDirections)
         {
-            <div class="field-row exit">
+            var dir_ = dir;
+            <div class="exit-picker">
                 <label class="exit-label">@dir</label>
-                <input placeholder="target room blueprint id" value="@ExitFor(dir)"
-                       @onchange="e => SetExit(dir, e.Value?.ToString())" />
+                <div class="room-picker">
+                    <input class="room-picker-filter" placeholder="filter by name or id"
+                           value="@_exitFilters[dir_]"
+                           @oninput="e => SetExitFilter(dir_, e.Value?.ToString())" />
+                    <select value="@ExitFor(dir_)"
+                            @onchange="e => SetExit(dir_, e.Value?.ToString())">
+                        <option value="">-- no exit --</option>
+                        @foreach (var room in FilteredRoomsFor(dir_))
+                        {
+                            <option value="@room.BlueprintId">@room.Name (@room.BlueprintId)</option>
+                        }
+                    </select>
+                </div>
             </div>
         }
-        <p class="hint">Leave a direction blank for no exit. Values are target room blueprint ids.</p>
+        <p class="hint">Leave a direction with no exit selected to omit that exit.</p>
     </fieldset>
+
+    <div class="bidir-toggle">
+        <input type="checkbox" id="bidir" @bind="_bidirectional" />
+        <label for="bidir">Write inverse exits (bidirectional) &mdash; also writes the reverse exit on each target room; skips with a warning if the target already has a different exit in that direction.</label>
+    </div>
 
     @if (_errors.Count > 0)
     {
@@ -59,9 +82,40 @@ else if (_template is not null)
         </div>
     }
 
+    @if (_warnings.Count > 0)
+    {
+        <div class="warning-box">
+            <strong>Saved with notices:</strong>
+            <ul>
+                @foreach (var w in _warnings)
+                {
+                    <li>@w</li>
+                }
+            </ul>
+        </div>
+    }
+
     @if (_saved)
     {
         <p class="success">Saved <span class="mono">@_template.BlueprintId</span> to YAML.</p>
+    }
+
+    @if (!IsNew)
+    {
+        <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)">
+            @if (_confirmDelete)
+            {
+                <span class="confirm-inline">
+                    <span>Permanently delete this room definition?</span>
+                    <button class="danger-confirm" disabled="@_deleting" @onclick="ConfirmDelete">Yes, delete</button>
+                    <button class="danger" @onclick="() => _confirmDelete = false">Cancel</button>
+                </span>
+            }
+            else
+            {
+                <button class="danger" @onclick="() => _confirmDelete = true">Delete room</button>
+            }
+        </div>
     }
 
     <div class="actions">
@@ -81,7 +135,14 @@ else if (_template is not null)
     private bool _notFound;
     private bool _saving;
     private bool _saved;
+    private bool _bidirectional;
+    private bool _confirmDelete;
+    private bool _deleting;
     private IReadOnlyList<string> _errors = Array.Empty<string>();
+    private IReadOnlyList<string> _warnings = Array.Empty<string>();
+    private IReadOnlyList<ContentSummary> _areas = Array.Empty<ContentSummary>();
+    private IReadOnlyList<ContentSummary> _rooms = Array.Empty<ContentSummary>();
+    private Dictionary<Direction, string> _exitFilters = new();
 
     private bool IsNew => string.IsNullOrEmpty(BlueprintId);
 
@@ -89,6 +150,12 @@ else if (_template is not null)
     {
         _saved = false;
         _errors = Array.Empty<string>();
+        _warnings = Array.Empty<string>();
+        _confirmDelete = false;
+        _bidirectional = false;
+        _areas = Catalog.List(ContentKind.Area);
+        _rooms = Catalog.List(ContentKind.Room);
+        _exitFilters = AllDirections.ToDictionary(d => d, _ => string.Empty);
 
         if (IsNew)
         {
@@ -105,6 +172,19 @@ else if (_template is not null)
 
     private string ExitFor(Direction dir) =>
         _template is not null && _template.Exits.TryGetValue(dir, out var target) ? target : string.Empty;
+
+    private void SetExitFilter(Direction dir, string? value) =>
+        _exitFilters[dir] = value ?? string.Empty;
+
+    private IEnumerable<ContentSummary> FilteredRoomsFor(Direction dir)
+    {
+        var filter = _exitFilters.TryGetValue(dir, out var f) ? f : string.Empty;
+        if (string.IsNullOrWhiteSpace(filter))
+            return _rooms;
+        return _rooms.Where(r =>
+            r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+            r.BlueprintId.Contains(filter, StringComparison.OrdinalIgnoreCase));
+    }
 
     private void SetExit(Direction dir, string? raw)
     {
@@ -124,19 +204,43 @@ else if (_template is not null)
         _saving = true;
         _saved = false;
         _errors = Array.Empty<string>();
+        _warnings = Array.Empty<string>();
 
-        var result = await Catalog.SaveAsync(new ContentDefinition(ContentKind.Room, _template));
+        var result = _bidirectional
+            ? await Catalog.SaveRoomAsync(_template, bidirectional: true)
+            : await Catalog.SaveAsync(new ContentDefinition(ContentKind.Room, _template));
 
         _saving = false;
         if (result.Success)
         {
             _saved = true;
+            _warnings = result.Warnings;
             if (IsNew)
                 Nav.NavigateTo($"room/{Uri.EscapeDataString(_template.BlueprintId)}");
         }
         else
         {
             _errors = result.Errors;
+        }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (_template is null) return;
+        _deleting = true;
+        _confirmDelete = false;
+        try
+        {
+            await Catalog.DeleteAsync(ContentKind.Room, _template.BlueprintId);
+            Nav.NavigateTo(string.Empty);
+        }
+        catch (Exception ex)
+        {
+            _errors = new[] { $"Delete failed: {ex.Message}" };
+        }
+        finally
+        {
+            _deleting = false;
         }
     }
 }

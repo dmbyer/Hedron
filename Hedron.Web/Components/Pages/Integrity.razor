@@ -1,0 +1,107 @@
+@page "/integrity"
+@inject IContentReferenceIndex RefIndex
+
+<PageTitle>Content integrity</PageTitle>
+
+<h1>Content integrity</h1>
+
+<p class="hint">
+    Sweeps all on-disk YAML definitions for broken cross-references &mdash; targets that no
+    longer exist. Fix each referrer in its editor before running <strong>Apply to live</strong>.
+    This page is read-only; it never writes files.
+</p>
+
+<div class="actions" style="margin-top:0.5rem">
+    <button class="primary" disabled="@_sweeping" @onclick="Sweep">
+        @(_sweeping ? "Sweeping..." : "Sweep now")
+    </button>
+</div>
+
+@if (_swept)
+{
+    @if (_broken.Count == 0)
+    {
+        <p class="success" style="margin-top:1rem">No broken references found &mdash; all cross-definition links resolve.</p>
+    }
+    else
+    {
+        <p class="integrity-summary">Found <strong>@_broken.Count</strong> broken reference@(_broken.Count == 1 ? "" : "s").</p>
+
+        <table class="grid">
+            <thead>
+                <tr>
+                    <th>Kind</th>
+                    <th>Source id</th>
+                    <th>Field</th>
+                    <th>Missing target</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var ref_ in _broken)
+                {
+                    <tr>
+                        <td><span class="kind-badge">@ref_.SourceKind</span></td>
+                        <td class="mono">@ref_.SourceBlueprintId</td>
+                        <td class="mono">@ref_.FieldLabel</td>
+                        <td class="missing-id mono">@ref_.MissingTargetId</td>
+                        <td>
+                            <a href="@EditHref(ref_.SourceKind, ref_.SourceBlueprintId)">Edit</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@if (_error is not null)
+{
+    <p class="error" style="margin-top:1rem">Sweep failed: @_error</p>
+}
+
+@code {
+    private bool _sweeping;
+    private bool _swept;
+    private IReadOnlyList<BrokenReference> _broken = Array.Empty<BrokenReference>();
+    private string? _error;
+
+    protected override void OnInitialized() => RunSweep();
+
+    private void Sweep() => RunSweep();
+
+    private void RunSweep()
+    {
+        _sweeping = true;
+        _swept = false;
+        _error = null;
+        _broken = Array.Empty<BrokenReference>();
+
+        try
+        {
+            _broken = RefIndex.SweepBroken();
+            _swept = true;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _sweeping = false;
+        }
+    }
+
+    private static string EditHref(ContentKind kind, string blueprintId)
+    {
+        var segment = kind switch
+        {
+            ContentKind.Area => "area",
+            ContentKind.Room => "room",
+            ContentKind.Item => "item",
+            ContentKind.Mob  => "mob",
+            _ => "area",
+        };
+        return $"{segment}/{Uri.EscapeDataString(blueprintId)}";
+    }
+}

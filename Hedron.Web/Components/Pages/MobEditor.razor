@@ -44,10 +44,33 @@ else if (_template is not null)
         </div>
     </div>
 
-    <div class="field">
-        <label>Spawn room blueprint id <span class="hint-inline">(blank = no spawn location)</span></label>
-        <input @bind="_template.SpawnRoomBlueprintId" />
-    </div>
+    <fieldset class="spawn-location">
+        <legend>Spawn location</legend>
+        <p class="hint">Select an area to narrow the room list, then pick the spawn room.</p>
+        <div class="field-row">
+            <div class="field">
+                <label>Area</label>
+                <select value="@_spawnAreaFilter" @onchange="e => SetSpawnAreaFilter(e.Value?.ToString())">
+                    <option value="">All areas</option>
+                    @foreach (var area in _areas)
+                    {
+                        <option value="@area.BlueprintId">@area.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Room <span class="hint-inline">(blank = no spawn location)</span></label>
+                <select value="@_template.SpawnRoomBlueprintId"
+                        @onchange="e => _template.SpawnRoomBlueprintId = e.Value?.ToString() ?? string.Empty">
+                    <option value="">-- no spawn room --</option>
+                    @foreach (var room in SpawnRooms)
+                    {
+                        <option value="@room.BlueprintId">@room.Name (@room.BlueprintId)</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </fieldset>
 
     <fieldset class="keywords">
         <legend>Keywords</legend>
@@ -116,9 +139,40 @@ else if (_template is not null)
         </div>
     }
 
+    @if (_warnings.Count > 0)
+    {
+        <div class="warning-box">
+            <strong>Saved with notices:</strong>
+            <ul>
+                @foreach (var w in _warnings)
+                {
+                    <li>@w</li>
+                }
+            </ul>
+        </div>
+    }
+
     @if (_saved)
     {
         <p class="success">Saved <span class="mono">@_template.BlueprintId</span> to YAML.</p>
+    }
+
+    @if (!IsNew)
+    {
+        <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)">
+            @if (_confirmDelete)
+            {
+                <span class="confirm-inline">
+                    <span>Permanently delete this mob definition?</span>
+                    <button class="danger-confirm" disabled="@_deleting" @onclick="ConfirmDelete">Yes, delete</button>
+                    <button class="danger" @onclick="() => _confirmDelete = false">Cancel</button>
+                </span>
+            }
+            else
+            {
+                <button class="danger" @onclick="() => _confirmDelete = true">Delete mob</button>
+            }
+        </div>
     }
 
     <div class="actions">
@@ -138,7 +192,21 @@ else if (_template is not null)
     private bool _notFound;
     private bool _saving;
     private bool _saved;
+    private bool _confirmDelete;
+    private bool _deleting;
     private IReadOnlyList<string> _errors = Array.Empty<string>();
+    private IReadOnlyList<string> _warnings = Array.Empty<string>();
+    private IReadOnlyList<ContentSummary> _areas = Array.Empty<ContentSummary>();
+    private IReadOnlyList<ContentSummary> _allRooms = Array.Empty<ContentSummary>();
+    private string _spawnAreaFilter = string.Empty;
+
+    private IEnumerable<ContentSummary> SpawnRooms =>
+        string.IsNullOrEmpty(_spawnAreaFilter)
+            ? _allRooms
+            : _allRooms.Where(r => r.AreaBlueprintId == _spawnAreaFilter);
+
+    private void SetSpawnAreaFilter(string? value) =>
+        _spawnAreaFilter = value ?? string.Empty;
 
     private bool IsNew => string.IsNullOrEmpty(BlueprintId);
 
@@ -146,6 +214,11 @@ else if (_template is not null)
     {
         _saved = false;
         _errors = Array.Empty<string>();
+        _warnings = Array.Empty<string>();
+        _confirmDelete = false;
+        _areas = Catalog.List(ContentKind.Area);
+        _allRooms = Catalog.List(ContentKind.Room);
+        _spawnAreaFilter = string.Empty;
 
         if (IsNew)
         {
@@ -157,6 +230,12 @@ else if (_template is not null)
             var definition = Catalog.Load(ContentKind.Mob, BlueprintId!);
             _template = definition?.Template as MobTemplate;
             _notFound = _template is null;
+            // Pre-select the area filter to match the current spawn room, if resolvable.
+            if (_template is not null && !string.IsNullOrEmpty(_template.SpawnRoomBlueprintId))
+            {
+                var matchingRoom = _allRooms.FirstOrDefault(r => r.BlueprintId == _template.SpawnRoomBlueprintId);
+                _spawnAreaFilter = matchingRoom?.AreaBlueprintId ?? string.Empty;
+            }
         }
     }
 
@@ -175,6 +254,7 @@ else if (_template is not null)
         _saving = true;
         _saved = false;
         _errors = Array.Empty<string>();
+        _warnings = Array.Empty<string>();
 
         var result = await Catalog.SaveAsync(new ContentDefinition(ContentKind.Mob, _template));
 
@@ -182,12 +262,33 @@ else if (_template is not null)
         if (result.Success)
         {
             _saved = true;
+            _warnings = result.Warnings;
             if (IsNew)
                 Nav.NavigateTo($"mob/{Uri.EscapeDataString(_template.BlueprintId)}");
         }
         else
         {
             _errors = result.Errors;
+        }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (_template is null) return;
+        _deleting = true;
+        _confirmDelete = false;
+        try
+        {
+            await Catalog.DeleteAsync(ContentKind.Mob, _template.BlueprintId);
+            Nav.NavigateTo(string.Empty);
+        }
+        catch (Exception ex)
+        {
+            _errors = new[] { $"Delete failed: {ex.Message}" };
+        }
+        finally
+        {
+            _deleting = false;
         }
     }
 }

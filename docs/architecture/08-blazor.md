@@ -74,7 +74,7 @@ The authoring backend — `IContentDefinitionCatalog`, `IContentValidator`, `ICo
 - **Config reuse.** The web host consumes the same `appsettings.json` sections via `CompositionRoot` (see [05-configuration.md](05-configuration.md)); only `Web:BindUrl` is web-specific. The `HEDRON_`-prefixed env-var override applies identically.
 - **Hosted services.** Exactly two — `WorldContentBootstrap` (so the catalog and validator have content to work against) and `RegistryValidationBootstrap` (fail-fast on invalid content at boot). The split is guarded by `Hedron.Tests/Composition/HostCompositionTests`.
 
-The authoring edit loop (browse → load → edit → validate → save → apply) is traced as **Flow 30** in [flows/README.md](flows/README.md); it reuses Flow 5 (content reload) as its apply leg.
+The authoring edit loop (browse → load → edit → validate → save → apply) is traced as the offline-edit leg of **Flow 29** (content-tooling journey) in [flows/README.md](flows/README.md); it reuses Flow 5 (content reload) as its apply leg.
 
 ---
 

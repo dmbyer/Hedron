@@ -80,6 +80,10 @@ Slice 11-c ([`../implementation-plans/resource-regeneration.md`](../features/cha
 
 Acknowledged debt from the admin-area-authoring slice (`docs/implementation-plans/admin-area-authoring.md`). `ListCommand` hand-rolls `StringBuilder`-based tabular output (header + rows, 15-char description truncation). Two admin commands now share this pattern (`AreaCommand` produces a similar structured listing; `ListCommand` is the second). At the third consumer, extract a shared `TableBuilder` or `ColumnFormatter` helper (INV-19: ≥3-consumer threshold). Until then the inline implementation is intentional.
 
+### 🔵 Atomic multi-file content cascade (acknowledged debt from content-reference-integrity slice)
+
+The content-editor reference-integrity slice ([`../implementation-plans/content-reference-integrity-and-delete.md`](../implementation-plans/content-reference-integrity-and-delete.md)) ships **best-effort** cascade-clear on delete: deleting a referenced definition rewrites every referrer's YAML, then deletes the target file, each write atomic on its own (tmp → rename) but the *set* not transactional. If a rewrite mid-cascade fails (disk error, permissions), earlier rewrites have already landed — leaving a partially-cascaded state. Acceptable for v1: the operation is offline, single-author, loopback-only, and the integrity/health page surfaces any resulting broken link on the next sweep. The full fix — a transactional cascade (stage all edits, commit-or-rollback the set) — lands if/when the editor gains multi-author/concurrent use or the content set grows large enough that a partial cascade is hard to recover by hand.
+
 ### 🔵 Locale enhancements
 
 Deferred from slice 5a (bare-bones content spawning). Remaining capabilities:

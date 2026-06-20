@@ -50,6 +50,7 @@ sequenceDiagram
 sequenceDiagram
     participant UI as Blazor component
     participant Cat as IContentDefinitionCatalog
+    participant Idx as IContentReferenceIndex
     participant Val as IContentValidator
     participant W as I*ContentWriter
     participant WCL as IWorldContentLoader
@@ -57,14 +58,30 @@ sequenceDiagram
     UI->>Cat: List(kind) / Load(kind, id) / CreateNew(kind, name)
     Cat-->>UI: ContentSummary[] / ContentDefinition
     Note over UI: designer edits working copy (no catalog call)
-    UI->>Cat: SaveAsync(definition)
+    UI->>Cat: SaveAsync(definition)  [or SaveRoomAsync(room, bidirectional)]
     Cat->>Val: Validate(template)
     alt invalid
         Cat-->>UI: ContentWriteResult.Failed(errors)
-    else valid
+    else valid (warn-but-allow)
+        Cat->>Idx: BrokenFor(definition)
+        Idx-->>Cat: BrokenReference[] (may be empty)
         Cat->>W: WriteAsync(template) (atomic tmp→rename)
-        Cat-->>UI: ContentWriteResult.Ok
+        opt bidirectional room save
+            Cat->>W: WriteAsync(targetRoom with inverse exit)
+            Note over Cat,W: conflict → warn-and-skip (no overwrite)
+        end
+        Cat-->>UI: ContentWriteResult.Ok [+ Warnings if broken refs or bidir conflict]
     end
+    UI->>Cat: DeleteAsync(kind, blueprintId)
+    Cat->>Idx: Referrers(kind, blueprintId)
+    Idx-->>Cat: ReferrerEdit[] (all referrers to cascade-clear)
+    loop per referrer
+        Cat->>W: WriteAsync(referrer with field cleared)
+    end
+    Cat->>Cat: File.Delete(target YAML)  [no EntityService / no SQLite]
+    Cat-->>UI: ContentDeleteResult(DeletedPath, DeletedBlueprintId, CascadeEdits)
+    UI->>Idx: SweepBroken()  [integrity page only]
+    Idx-->>UI: BrokenReference[] (all broken edges across all kinds)
     UI->>WCL: ReloadAsync()  (see Flow 5)
     WCL-->>UI: ContentReloadResult
 ```
@@ -73,8 +90,23 @@ sequenceDiagram
 1. Page calls `IContentDefinitionCatalog.List(kind)` and renders the definition table.
 2. Page calls `Load(kind, blueprintId)` or `CreateNew(kind, name)`. No live entity created.
 3. Designer edits form fields; form holds a working copy (no catalog call yet).
-4. On save: `SaveAsync(definition)` validates, then writes YAML via `I*ContentWriter`. The live world is untouched. Invalid definitions block the write and return structured errors.
-5. "Apply to live": page calls `IWorldContentLoader.ReloadAsync()` — [Flow 5](flow-05-content-reload.md). Counts rendered. No live entities mutated.
+4. On save: `SaveAsync(definition)` (or `SaveRoomAsync(room, bidirectional)` for rooms) validates,
+   then writes YAML via `I*ContentWriter`. The live world is untouched. Invalid definitions block
+   the write and return structured errors. Cross-reference misses are non-blocking: the file is still
+   written, and `ContentWriteResult.Warnings` lists the dangling refs (warn-but-allow; INV-19).
+   With `bidirectional: true`, the catalog also writes the inverse exit on each target room; if a
+   target already has a *different* exit in the inverse direction, that paired write is skipped and
+   a warning is added (warn-and-skip; no silent overwrite).
+5. On delete: `DeleteAsync(kind, blueprintId)` queries `IContentReferenceIndex.Referrers` for every
+   definition pointing at the target, rewrites each via the matching writer (clearing the dangling
+   field), then calls `File.Delete` on the target YAML. **YAML-file-only — no `EntityService`,
+   no SQLite delete, no live-world mutation (INV-22/23).** Returns `ContentDeleteResult` with the
+   deleted path and each cascade edit; the UI renders a summary.
+6. Integrity page: calls `IContentReferenceIndex.SweepBroken()` directly (injected as
+   `IContentReferenceIndex`). Returns every broken edge across all kinds; UI tabulates them with
+   edit links back to each offending definition's editor.
+7. "Apply to live": page calls `IWorldContentLoader.ReloadAsync()` — [Flow 5](flow-05-content-reload.md).
+   Counts rendered. No live entities mutated.
 
 The `Hedron.Web` host runs `AddContentBootstrapHostedServices` only (content load + registry validation; no telnet/heartbeat/persistence). Loopback-only for v1.
 
@@ -82,11 +114,14 @@ The `Hedron.Web` host runs `AddContentBootstrapHostedServices` only (content loa
 
 ## Invariants
 
-- INV-5: `IContentGenerationSystem` and `IContentDefinitionCatalog` return results; they never touch the event bus.
+- INV-5: `IContentGenerationSystem`, `IContentDefinitionCatalog`, and `IContentReferenceIndex` return results; they never touch the event bus.
 - INV-8: no authoring logic in the run-mode CLI or Blazor components — everything lives in the Core systems.
 - INV-10: the `generate` run-mode is a no-chain Initiator: composes, runs one operation, writes files, exits; publishes nothing.
-- INV-12 / INV-23: YAML only — no `EntityService.CreateEntity`, no `PersistentEntity`, no SQLite in either path.
+- INV-12 / INV-23: YAML only — no `EntityService.CreateEntity`, no `PersistentEntity`, no SQLite in either path. **`DeleteAsync` is YAML-file-only**: it calls `File.Delete` + `I*ContentWriter` rewrites and never invokes `EntityService.DestroyEntity`, no SQLite delete, and no live-world mutation.
+- INV-19: the four cross-definition reference edges (room→area, exit→room, item→spawnRoom, mob→spawnRoom, area→room) are declared once in `IContentReferenceIndex`'s edge set and drive all four consumers (delete-cascade, save-warn, integrity sweep, filter-association) without per-edge code paths.
 - INV-26: all randomness in `ContentGenerationSystem` flows through `SeededRandom`; blueprint ids are counter-derived; no wall clock read. Fixed-seed run is byte-reproducible.
+- **Warn-but-allow:** a `SaveAsync`/`SaveRoomAsync` result with `Success = true` may carry a non-empty `Warnings` list — these are cross-reference notices, not errors; the file was still written. Structural failures are still `Success = false` / no write.
+- **Bidirectional warn-and-skip:** when `SaveRoomAsync(bidirectional: true)` encounters a target room that already has a *different* exit in the inverse direction, that paired write is skipped and a warning is added. The source room's own file is always written. No silent overwrite.
 
 ## Cross-references
 
