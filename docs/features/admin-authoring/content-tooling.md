@@ -90,4 +90,5 @@ The full sequence is [Flow 29 (content-tooling journey)](../../architecture/flow
 - [`../../architecture/flows/flow-29-bulk-content-generation.md`](../../architecture/flows/flow-29-bulk-content-generation.md) — the content-tooling journey: bulk `generate` + offline editor.
 - [`../../reference/systems.md`](../../reference/systems.md) — `IContentDefinitionCatalog`, `IContentValidator`, `IContentGenerationSystem`, the `I*ContentWriter` family.
 - [`../../roadmap/completed/content-tooling-platform.md`](../../roadmap/completed/content-tooling-platform.md) — as-built record: shipped pieces, design decisions, spec-review provenance.
+- [`../../roadmap/completed/content-editor-integrity.md`](../../roadmap/completed/content-editor-integrity.md) — as-built record for `IContentReferenceIndex`, `DeleteAsync` cascade, warn-but-allow save, and bidirectional linking.
 - [`../../design/feature-horizon.md`](../../design/feature-horizon.md) — "Procedural / generated areas" (§1), the gameplay generalization of `IContentGenerationSystem`.
