@@ -1,6 +1,7 @@
 @page "/"
 @inject IContentDefinitionCatalog Catalog
 @inject NavigationManager Nav
+@using System.Collections.Generic
 
 <PageTitle>Browse content</PageTitle>
 
@@ -21,11 +22,22 @@
 
 <div class="kind-toolbar">
     <button class="primary" @onclick="CreateNew">+ New @_kind</button>
+    @if (SupportsAreaFilter(_kind))
+    {
+        <label class="filter-label">Area:</label>
+        <select class="area-filter" value="@_areaFilter" @onchange="e => SetAreaFilter(e.Value?.ToString())">
+            <option value="">All areas</option>
+            @foreach (var area in _areas)
+            {
+                <option value="@area.BlueprintId">@area.Name</option>
+            }
+        </select>
+    }
 </div>
 
-@if (_summaries.Count == 0)
+@if (FilteredSummaries.Count == 0)
 {
-    <p class="empty">No @_kind definitions found.</p>
+    <p class="empty">No @_kind definitions found@(HasAreaFilter ? " in the selected area" : "").</p>
 }
 else
 {
@@ -39,19 +51,60 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var s in _summaries)
+            @foreach (var s in FilteredSummaries)
             {
+                var id = s.BlueprintId;
                 <tr>
                     <td class="mono">@s.BlueprintId</td>
                     <td>@s.Name</td>
                     <td class="desc">@Short(s.Description)</td>
                     <td>
-                        <a href="@EditHref(s.BlueprintId)">Edit</a>
+                        <div style="display:flex;gap:0.6rem;align-items:center;justify-content:flex-end">
+                            <a href="@EditHref(s.BlueprintId)">Edit</a>
+                            @if (_confirmDeleteId == id)
+                            {
+                                <span class="confirm-inline">
+                                    <span>Delete?</span>
+                                    <button class="danger-confirm" disabled="@_deleting"
+                                            @onclick="() => ConfirmDelete(id)">Yes, delete</button>
+                                    <button class="danger" @onclick="CancelDelete">Cancel</button>
+                                </span>
+                            }
+                            else
+                            {
+                                <button class="danger" @onclick="() => StartDelete(id)">Delete</button>
+                            }
+                        </div>
                     </td>
                 </tr>
             }
         </tbody>
     </table>
+}
+
+@if (_deleteResult is { } dr)
+{
+    <div class="delete-result">
+        <strong>Deleted</strong> <span class="mono deleted-id">@dr.DeletedBlueprintId</span>
+        @if (dr.CascadeEdits.Count > 0)
+        {
+            <ul class="cascade-list">
+                @foreach (var edit in dr.CascadeEdits)
+                {
+                    <li>Cleared <span class="mono">@edit.FieldLabel</span> on @edit.ReferrerKind <span class="mono">@edit.ReferrerBlueprintId</span></li>
+                }
+            </ul>
+        }
+        else
+        {
+            <span class="hint"> &mdash; no referrers required cascade edits.</span>
+        }
+    </div>
+}
+
+@if (_deleteError is not null)
+{
+    <p class="error">Delete failed: @_deleteError</p>
 }
 
 @code {
@@ -60,18 +113,53 @@ else
 
     private ContentKind _kind = ContentKind.Area;
     private IReadOnlyList<ContentSummary> _summaries = Array.Empty<ContentSummary>();
+    private IReadOnlyList<ContentSummary> _areas = Array.Empty<ContentSummary>();
+    private string _areaFilter = string.Empty;
 
-    protected override void OnInitialized() => Reload();
+    // Delete two-step state
+    private string? _confirmDeleteId;
+    private bool _deleting;
+    private ContentDeleteResult? _deleteResult;
+    private string? _deleteError;
+
+    private bool HasAreaFilter => !string.IsNullOrEmpty(_areaFilter);
+
+    private IReadOnlyList<ContentSummary> FilteredSummaries =>
+        HasAreaFilter
+            ? _summaries.Where(s => s.AreaBlueprintId == _areaFilter).ToList()
+            : _summaries;
+
+    protected override void OnInitialized()
+    {
+        _areas = Catalog.List(ContentKind.Area);
+        Reload();
+    }
 
     private void SelectKind(ContentKind kind)
     {
         _kind = kind;
+        _areaFilter = string.Empty;
+        _confirmDeleteId = null;
+        _deleteResult = null;
+        _deleteError = null;
         Reload();
     }
 
-    private void Reload() => _summaries = Catalog.List(_kind);
+    private void SetAreaFilter(string? value)
+    {
+        _areaFilter = value ?? string.Empty;
+    }
+
+    private void Reload()
+    {
+        _summaries = Catalog.List(_kind);
+        _areas = Catalog.List(ContentKind.Area);
+    }
 
     private int CountFor(ContentKind kind) => Catalog.List(kind).Count;
+
+    private static bool SupportsAreaFilter(ContentKind kind) =>
+        kind == ContentKind.Room || kind == ContentKind.Item || kind == ContentKind.Mob;
 
     private static string RouteSegment(ContentKind kind) => kind switch
     {
@@ -92,4 +180,38 @@ else
         string.IsNullOrEmpty(description) || description.Length <= 80
             ? description
             : description[..77] + "...";
+
+    private void StartDelete(string blueprintId)
+    {
+        _confirmDeleteId = blueprintId;
+        _deleteResult = null;
+        _deleteError = null;
+    }
+
+    private void CancelDelete()
+    {
+        _confirmDeleteId = null;
+    }
+
+    private async Task ConfirmDelete(string blueprintId)
+    {
+        _deleting = true;
+        _confirmDeleteId = null;
+        _deleteResult = null;
+        _deleteError = null;
+
+        try
+        {
+            _deleteResult = await Catalog.DeleteAsync(_kind, blueprintId);
+            Reload();
+        }
+        catch (Exception ex)
+        {
+            _deleteError = ex.Message;
+        }
+        finally
+        {
+            _deleting = false;
+        }
+    }
 }

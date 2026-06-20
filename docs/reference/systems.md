@@ -217,11 +217,54 @@ Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RoomBuil
 **Dependencies:** `IAbilityRegistry`, `IEffectRegistry`, `IAspectRegistry`, `EntityService`.
 **Interface:** [`IContentValidator.cs`](../../Core/Modules/World/Systems/IContentValidator.cs) — `ValidateRegistry(startingAbilityIds)` / `Validate(IEntityTemplate)`. Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RegistryValidationBootstrap` (boot) and `IContentDefinitionCatalog.SaveAsync` (per-edit). Implemented (Phase 3 content-tooling WP-1).
 
+### IContentReferenceIndex (Authoring module)
+**Purpose:** Declared-edge reference model over the on-disk YAML definition set. Answers three read questions without applying any policy: *does this target exist?*, *who points at this id?*, and *what is broken across all definitions?* Pure read — returns structured results, publishes nothing, holds no live entities (INV-5). The declared edge set drives all four consumers (delete-cascade, warn-but-allow save, integrity sweep, and save-time cross-ref check) without per-edge code paths (INV-19).
+**Location:** `Core/Modules/Authoring/Systems/IContentReferenceIndex.cs` (interface) · `ContentReferenceIndex.cs` (implementation).
+**Dependencies:** `IContentSerializer`, `IOptions<WorldOptions>`, `ILogger`.
+
+Declared edges (five total; adding a new edge is a one-line data change — INV-19):
+- `(Room, AreaId) → Area`
+- `(Room, Exits[dir]) → Room` — one tuple per non-blank exit direction
+- `(Item, SpawnRoomBlueprintId) → Room`
+- `(Mob, SpawnRoomBlueprintId) → Room`
+- `(Area, Rooms[]) → Room` — one tuple per room blueprint id in `AreaTemplate.Rooms`
+
+```csharp
+public interface IContentReferenceIndex
+{
+    bool Resolves(ContentKind targetKind, string targetBlueprintId);
+    IReadOnlyList<ReferrerEdit> Referrers(ContentKind targetKind, string targetBlueprintId);
+    IReadOnlyList<BrokenReference> SweepBroken();
+    IReadOnlyList<BrokenReference> BrokenFor(IEntityTemplate definition);
+}
+```
+`Resolves` returns `true` if a definition file for the given kind and id exists on disk. `Referrers` returns every definition that references the given blueprint id as a target. `SweepBroken` sweeps the entire on-disk set and returns every edge whose target does not resolve. `BrokenFor` checks one in-memory definition's cross-references. Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling Slice B, WP-1 + WP-2 fifth-edge addition).
+
+Data records (`Core/Modules/Authoring/ContentReference.cs`): `ReferenceEdge(SourceKind, FieldLabel, TargetKind)` · `BrokenReference(SourceKind, SourceBlueprintId, FieldLabel, MissingTargetId)` · `ReferrerEdit(ReferrerKind, ReferrerBlueprintId, FieldLabel)`.
+
 ### IContentDefinitionCatalog (Authoring module)
-**Purpose:** The shared content-definition layer both content-tooling tracks call — the offline Blazor editor and the headless bulk generator. Reads/lists/loads/creates/validates/writes the YAML content-definition families (area, room, item, mob). **Writes YAML only** — never creates a live entity, adds `PersistentEntity`, or calls `SaveEntityAsync` ([INV-12](../architecture/checklist.md)/[INV-23](../architecture/checklist.md)); applying content to the live world is a separate `reload` step. `SaveAsync` validates before writing. `CreateNew` mints an ad-hoc blueprint id without touching the registry or the world.
+**Purpose:** The shared content-definition layer both content-tooling tracks call — the offline Blazor editor and the headless bulk generator. Reads/lists/loads/creates/validates/writes/deletes the YAML content-definition families (area, room, item, mob). **Writes and deletes YAML only** — never creates or destroys a live entity, adds `PersistentEntity`, or calls `SaveEntityAsync` ([INV-12](../architecture/checklist.md)/[INV-22/23](../architecture/checklist.md)); applying content changes to the live world is a separate `reload` step. `SaveAsync` validates before writing. `CreateNew` mints an ad-hoc blueprint id without touching the registry or the world.
 **Location:** `Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs` (interface) · `ContentDefinitionCatalog.cs` (implementation).
-**Dependencies:** `IContentSerializer`, `IContentValidator`, `ITemplateRegistry`, per-kind content writers, `IOptions<WorldOptions>`, `ILogger`.
-**Interface:** [`IContentDefinitionCatalog.cs`](../../Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs) — `List` / `Load` / `SaveAsync` / `CreateNew`. Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling WP-1). The Blazor host (WP-2) and the bulk-generation system are thin callers. See [`../features/admin-authoring/content-tooling.md`](../features/admin-authoring/content-tooling.md) for the full design.
+**Dependencies:** `IContentSerializer`, `IContentValidator`, `ITemplateRegistry`, `IContentReferenceIndex`, per-kind content writers, `IOptions<WorldOptions>`, `ILogger`.
+**Interface:** [`IContentDefinitionCatalog.cs`](../../Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs) — `List` / `RoomsInArea` / `Load` / `SaveAsync` / `SaveRoomAsync` / `DeleteAsync` / `CreateNew`. Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling WP-1; area-association read-model added in Slice A; `Delete`, warn-but-allow save, bidirectional room save added in Slice B WP-2). The Blazor host and the bulk-generation system are thin callers. See [`../features/admin-authoring/content-tooling.md`](../features/admin-authoring/content-tooling.md) for the full design.
+
+`List(kind)` returns `ContentSummary` rows; each row carries a resolved `AreaBlueprintId`:
+- **Room** — one hop: its own `RoomTemplate.AreaId` (`null` if blank).
+- **Item / Mob** — two hops: `SpawnRoomBlueprintId` → that room's `AreaId` (`null` if blank/missing/dangling).
+- **Area** — always `null` (areas have no parent area).
+The two-hop resolution builds a single room→area map per `List` call (O(N) file reads once, O(1) per item/mob entry).
+
+`RoomsInArea(areaBlueprintId)` returns the subset of rooms from `List(Room)` whose resolved `AreaBlueprintId` equals the argument. Returns an empty list for an unknown area id.
+
+`SaveAsync(definition)` runs structural `Validate`; on structural failure returns `Failed` and writes nothing. On structural pass, writes the file via the matching `I*ContentWriter` and then calls `IContentReferenceIndex.BrokenFor` — any dangling cross-references become non-blocking `Warnings` on the returned `Success` result (warn-but-allow; the file is still written). Use `SaveRoomAsync` for a room with bidirectional exit linking.
+
+`SaveRoomAsync(room, bidirectional)` behaves identically to `SaveAsync` for the room itself; when `bidirectional = true`, also writes the inverse exit on each target room (`Direction.Opposite`). Conflict policy: if a target already has a *different* exit in the inverse direction, the paired write is skipped and a warning is added. If the target already has the *correct* inverse exit (or it is a self-loop), the write is a silent no-op (no warning, no spurious rewrite).
+
+`DeleteAsync(kind, blueprintId)` uses `IContentReferenceIndex.Referrers` to find every referrer of the target, rewrites each to clear the dangling link (room `AreaId` → empty; exit entry removed; item/mob `SpawnRoomBlueprintId` → empty; area `Rooms` entry removed), then calls `File.Delete` on the target YAML file. **No `EntityService.DestroyEntity`, no SQLite delete, no live-world mutation** (INV-22/23). Returns `ContentDeleteResult` with the deleted file path and every cascade edit applied.
+
+`ContentWriteResult` shape (Slice B addition): `record(bool Success, string BlueprintId, IReadOnlyList<string> Errors, IReadOnlyList<string> Warnings)`. A `Success` result may carry non-empty `Warnings`. Factories: `Ok(id)` · `OkWithWarnings(id, warnings)` · `Failed(id, errors)`.
+
+`ContentDeleteResult` shape: `record(string DeletedPath, string DeletedBlueprintId, IReadOnlyList<ReferrerEdit> CascadeEdits)` (`Core/Modules/Authoring/ContentDeleteResult.cs`).
 
 ### IContentGenerationSystem (Authoring module)
 **Purpose:** Headless bulk content generator (content-tooling track T1). Composes the four existing per-kind content writers + `*Template` types to emit a connected, walkable swath of world-content YAML from a `GenerationProfile` (area count, rooms-per-area range, level range, mob/item density, aspect mix, scaling curve, seed, blueprint prefix). Each area's rooms are wired into an east/west chain and consecutive areas are joined up/down, so the generated world is one reachable graph (Resolved Decision 3). All randomness flows through a per-run `SeededRandom` constructed from `profile.Seed`, and blueprint ids are derived deterministically from `prefix + a per-kind counter` (never `Guid`), so a fixed-seed run is byte-reproducible within a runtime image (INV-26). **Writes YAML only** — creates no live entities, registers nothing in `TemplateRegistry`, never calls persistence (INV-12/22/23). **Returns a `GenerationResult`; never publishes** (INV-5); validation is the caller's (run-mode's) concern.

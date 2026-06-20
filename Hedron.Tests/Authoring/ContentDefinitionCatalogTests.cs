@@ -269,5 +269,582 @@ namespace Hedron.Tests.Authoring
             // INV-12: CreateNew never touches the live world.
             Assert.Empty(ecs.GetAllComponents<AreaComponent>());
         }
+
+        // ── AreaBlueprintId resolution (WP1) ────────────────────────────────────────
+
+        [Fact]
+        public async Task List_Room_PopulatesAreaBlueprintId_OneHop()
+        {
+            var (catalog, _) = NewCatalog();
+
+            // Create a room that references an area blueprint id directly.
+            var roomDef = catalog.CreateNew(ContentKind.Room, "Entrance Hall");
+            ((RoomTemplate)roomDef.Template).AreaId = "area.adhoc.target";
+            await catalog.SaveAsync(roomDef);
+
+            var list = catalog.List(ContentKind.Room);
+
+            Assert.Single(list);
+            Assert.Equal("area.adhoc.target", list[0].AreaBlueprintId);
+        }
+
+        [Fact]
+        public async Task List_Room_BlankAreaId_YieldsNullAreaBlueprintId()
+        {
+            var (catalog, _) = NewCatalog();
+
+            // Room with no AreaId set (defaults to empty string).
+            var roomDef = catalog.CreateNew(ContentKind.Room, "Placeless Room");
+            await catalog.SaveAsync(roomDef);
+
+            var list = catalog.List(ContentKind.Room);
+
+            Assert.Single(list);
+            Assert.Null(list[0].AreaBlueprintId);
+        }
+
+        [Fact]
+        public async Task List_Item_PopulatesAreaBlueprintId_TwoHop()
+        {
+            var (catalog, _) = NewCatalog();
+
+            // Room with an area.
+            var roomDef = catalog.CreateNew(ContentKind.Room, "Armory");
+            ((RoomTemplate)roomDef.Template).AreaId = "area.adhoc.castle";
+            await catalog.SaveAsync(roomDef);
+
+            // Item whose spawn room is that room.
+            var itemDef = catalog.CreateNew(ContentKind.Item, "Longsword");
+            ((ItemTemplate)itemDef.Template).SpawnRoomBlueprintId = roomDef.BlueprintId;
+            await catalog.SaveAsync(itemDef);
+
+            var list = catalog.List(ContentKind.Item);
+
+            Assert.Single(list);
+            Assert.Equal("area.adhoc.castle", list[0].AreaBlueprintId);
+        }
+
+        [Fact]
+        public async Task List_Mob_PopulatesAreaBlueprintId_TwoHop()
+        {
+            var (catalog, _) = NewCatalog();
+
+            // Room with an area.
+            var roomDef = catalog.CreateNew(ContentKind.Room, "Guard Post");
+            ((RoomTemplate)roomDef.Template).AreaId = "area.adhoc.fortress";
+            await catalog.SaveAsync(roomDef);
+
+            // Mob whose spawn room is that room.
+            var mobDef = catalog.CreateNew(ContentKind.Mob, "Guard");
+            ((MobTemplate)mobDef.Template).SpawnRoomBlueprintId = roomDef.BlueprintId;
+            await catalog.SaveAsync(mobDef);
+
+            var list = catalog.List(ContentKind.Mob);
+
+            Assert.Single(list);
+            Assert.Equal("area.adhoc.fortress", list[0].AreaBlueprintId);
+        }
+
+        [Fact]
+        public async Task List_Item_BlankSpawnRoomBlueprintId_YieldsNull_DoesNotThrow()
+        {
+            var (catalog, _) = NewCatalog();
+
+            // Item with no spawn room set.
+            var itemDef = catalog.CreateNew(ContentKind.Item, "Floating Orb");
+            // SpawnRoomBlueprintId defaults to string.Empty
+            await catalog.SaveAsync(itemDef);
+
+            var list = catalog.List(ContentKind.Item);
+
+            Assert.Single(list);
+            Assert.Null(list[0].AreaBlueprintId);
+        }
+
+        [Fact]
+        public async Task List_Mob_BlankSpawnRoomBlueprintId_YieldsNull_DoesNotThrow()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var mobDef = catalog.CreateNew(ContentKind.Mob, "Wandering Spirit");
+            await catalog.SaveAsync(mobDef);
+
+            var list = catalog.List(ContentKind.Mob);
+
+            Assert.Single(list);
+            Assert.Null(list[0].AreaBlueprintId);
+        }
+
+        [Fact]
+        public async Task List_Item_DanglingSpawnRoomBlueprintId_YieldsNull_DoesNotThrow()
+        {
+            var (catalog, _) = NewCatalog();
+
+            // Item referencing a room that does not exist on disk.
+            var itemDef = catalog.CreateNew(ContentKind.Item, "Lost Artifact");
+            ((ItemTemplate)itemDef.Template).SpawnRoomBlueprintId = "room.adhoc.nonexistent";
+            await catalog.SaveAsync(itemDef);
+
+            // No rooms written — the spawn room is dangling.
+            var list = catalog.List(ContentKind.Item);
+
+            Assert.Single(list);
+            Assert.Null(list[0].AreaBlueprintId);
+        }
+
+        [Fact]
+        public async Task List_Mob_DanglingSpawnRoomBlueprintId_YieldsNull_DoesNotThrow()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var mobDef = catalog.CreateNew(ContentKind.Mob, "Shadow Wraith");
+            ((MobTemplate)mobDef.Template).SpawnRoomBlueprintId = "room.adhoc.ghost";
+            await catalog.SaveAsync(mobDef);
+
+            var list = catalog.List(ContentKind.Mob);
+
+            Assert.Single(list);
+            Assert.Null(list[0].AreaBlueprintId);
+        }
+
+        [Fact]
+        public async Task List_Item_SpawnRoomExistsButBlankAreaId_YieldsNull()
+        {
+            var (catalog, _) = NewCatalog();
+
+            // Room exists but has no AreaId.
+            var roomDef = catalog.CreateNew(ContentKind.Room, "Unassigned Room");
+            // AreaId left blank (default)
+            await catalog.SaveAsync(roomDef);
+
+            var itemDef = catalog.CreateNew(ContentKind.Item, "Orphan Item");
+            ((ItemTemplate)itemDef.Template).SpawnRoomBlueprintId = roomDef.BlueprintId;
+            await catalog.SaveAsync(itemDef);
+
+            var list = catalog.List(ContentKind.Item);
+
+            Assert.Single(list);
+            Assert.Null(list[0].AreaBlueprintId);
+        }
+
+        [Fact]
+        public async Task List_Area_AlwaysYieldsNullAreaBlueprintId()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var areaDef = catalog.CreateNew(ContentKind.Area, "The Wilds");
+            await catalog.SaveAsync(areaDef);
+
+            var list = catalog.List(ContentKind.Area);
+
+            Assert.Single(list);
+            Assert.Null(list[0].AreaBlueprintId);
+        }
+
+        // ── RoomsInArea query (WP1) ──────────────────────────────────────────────────
+
+        [Fact]
+        public async Task RoomsInArea_ReturnsOnlyMatchingRooms()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var r1 = catalog.CreateNew(ContentKind.Room, "Hall");
+            ((RoomTemplate)r1.Template).AreaId = "area.adhoc.alpha";
+            await catalog.SaveAsync(r1);
+
+            var r2 = catalog.CreateNew(ContentKind.Room, "Cellar");
+            ((RoomTemplate)r2.Template).AreaId = "area.adhoc.alpha";
+            await catalog.SaveAsync(r2);
+
+            var r3 = catalog.CreateNew(ContentKind.Room, "Rooftop");
+            ((RoomTemplate)r3.Template).AreaId = "area.adhoc.beta";
+            await catalog.SaveAsync(r3);
+
+            var inAlpha = catalog.RoomsInArea("area.adhoc.alpha");
+
+            Assert.Equal(2, inAlpha.Count);
+            Assert.Contains(inAlpha, s => s.BlueprintId == r1.BlueprintId);
+            Assert.Contains(inAlpha, s => s.BlueprintId == r2.BlueprintId);
+            Assert.DoesNotContain(inAlpha, s => s.BlueprintId == r3.BlueprintId);
+        }
+
+        [Fact]
+        public async Task RoomsInArea_ExcludesNonMatchingRooms()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var r1 = catalog.CreateNew(ContentKind.Room, "Tower");
+            ((RoomTemplate)r1.Template).AreaId = "area.adhoc.beta";
+            await catalog.SaveAsync(r1);
+
+            var inAlpha = catalog.RoomsInArea("area.adhoc.alpha");
+
+            Assert.Empty(inAlpha);
+        }
+
+        [Fact]
+        public void RoomsInArea_UnknownAreaId_ReturnsEmpty()
+        {
+            var (catalog, _) = NewCatalog();
+
+            // No rooms written — content dir is empty.
+            var result = catalog.RoomsInArea("area.adhoc.unknown");
+
+            Assert.Empty(result);
+        }
+
+        [Fact]
+        public async Task RoomsInArea_UnknownAreaId_WithSomeRoomsOnDisk_ReturnsEmpty()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var r1 = catalog.CreateNew(ContentKind.Room, "Cave");
+            ((RoomTemplate)r1.Template).AreaId = "area.adhoc.gamma";
+            await catalog.SaveAsync(r1);
+
+            var result = catalog.RoomsInArea("area.adhoc.unknown");
+
+            Assert.Empty(result);
+        }
+
+        // ── WP2: Delete cascade-clear (one test per referrer type) ───────────────────
+
+        [Fact]
+        public async Task Delete_ClearAreaId_OnReferringRoom()
+        {
+            // Deleting room X clears AreaId on a room that references it.
+            // (This tests the Room→Area path: delete area X, clear room.AreaId.)
+            var (catalog, _) = NewCatalog();
+
+            var area = catalog.CreateNew(ContentKind.Area, "The Area");
+            await catalog.SaveAsync(area);
+
+            var room = catalog.CreateNew(ContentKind.Room, "Foyer");
+            ((RoomTemplate)room.Template).AreaId = area.BlueprintId;
+            await catalog.SaveAsync(room);
+
+            var result = await catalog.DeleteAsync(ContentKind.Area, area.BlueprintId);
+
+            // Target file deleted.
+            Assert.Null(catalog.Load(ContentKind.Area, area.BlueprintId));
+
+            // Referring room's AreaId was cleared.
+            var reloaded = (RoomTemplate)catalog.Load(ContentKind.Room, room.BlueprintId)!.Template;
+            Assert.Empty(reloaded.AreaId);
+
+            // Result enumerates the edit.
+            Assert.Equal(area.BlueprintId, result.DeletedBlueprintId);
+            Assert.Single(result.CascadeEdits);
+            Assert.Equal(ContentKind.Room, result.CascadeEdits[0].ReferrerKind);
+            Assert.Equal(room.BlueprintId, result.CascadeEdits[0].ReferrerBlueprintId);
+            Assert.Equal("AreaId", result.CascadeEdits[0].FieldLabel);
+        }
+
+        [Fact]
+        public async Task Delete_RemovesExitEntry_OnReferringRoom()
+        {
+            // Deleting room X removes the exit entry on a room that points to X.
+            var (catalog, _) = NewCatalog();
+
+            var targetRoom = catalog.CreateNew(ContentKind.Room, "East Room");
+            await catalog.SaveAsync(targetRoom);
+
+            var sourceRoom = catalog.CreateNew(ContentKind.Room, "West Room");
+            ((RoomTemplate)sourceRoom.Template).Exits[Direction.East] = targetRoom.BlueprintId;
+            await catalog.SaveAsync(sourceRoom);
+
+            var result = await catalog.DeleteAsync(ContentKind.Room, targetRoom.BlueprintId);
+
+            // Target file deleted.
+            Assert.Null(catalog.Load(ContentKind.Room, targetRoom.BlueprintId));
+
+            // Source room's East exit removed.
+            var reloaded = (RoomTemplate)catalog.Load(ContentKind.Room, sourceRoom.BlueprintId)!.Template;
+            Assert.False(reloaded.Exits.ContainsKey(Direction.East));
+
+            // Result enumerates the cascade edit.
+            Assert.Single(result.CascadeEdits);
+            Assert.Equal("Exits[East]", result.CascadeEdits[0].FieldLabel);
+        }
+
+        [Fact]
+        public async Task Delete_ClearsSpawnRoomBlueprintId_OnReferringItem()
+        {
+            // Deleting room X clears SpawnRoomBlueprintId on a referring item.
+            var (catalog, _) = NewCatalog();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Armory");
+            await catalog.SaveAsync(room);
+
+            var item = catalog.CreateNew(ContentKind.Item, "Sword");
+            ((ItemTemplate)item.Template).SpawnRoomBlueprintId = room.BlueprintId;
+            await catalog.SaveAsync(item);
+
+            var result = await catalog.DeleteAsync(ContentKind.Room, room.BlueprintId);
+
+            // Target file deleted.
+            Assert.Null(catalog.Load(ContentKind.Room, room.BlueprintId));
+
+            // Item's spawn room cleared.
+            var reloadedItem = (ItemTemplate)catalog.Load(ContentKind.Item, item.BlueprintId)!.Template;
+            Assert.Empty(reloadedItem.SpawnRoomBlueprintId);
+
+            // Result enumerates the cascade edit.
+            Assert.Contains(result.CascadeEdits, e =>
+                e.ReferrerKind == ContentKind.Item
+                && e.ReferrerBlueprintId == item.BlueprintId
+                && e.FieldLabel == "SpawnRoomBlueprintId");
+        }
+
+        [Fact]
+        public async Task Delete_ClearsSpawnRoomBlueprintId_OnReferringMob()
+        {
+            // Deleting room X clears SpawnRoomBlueprintId on a referring mob.
+            var (catalog, _) = NewCatalog();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Guard Post");
+            await catalog.SaveAsync(room);
+
+            var mob = catalog.CreateNew(ContentKind.Mob, "Guard");
+            ((MobTemplate)mob.Template).SpawnRoomBlueprintId = room.BlueprintId;
+            await catalog.SaveAsync(mob);
+
+            var result = await catalog.DeleteAsync(ContentKind.Room, room.BlueprintId);
+
+            // Target file deleted.
+            Assert.Null(catalog.Load(ContentKind.Room, room.BlueprintId));
+
+            // Mob's spawn room cleared.
+            var reloadedMob = (MobTemplate)catalog.Load(ContentKind.Mob, mob.BlueprintId)!.Template;
+            Assert.Empty(reloadedMob.SpawnRoomBlueprintId);
+
+            // Result enumerates the cascade edit.
+            Assert.Contains(result.CascadeEdits, e =>
+                e.ReferrerKind == ContentKind.Mob
+                && e.ReferrerBlueprintId == mob.BlueprintId
+                && e.FieldLabel == "SpawnRoomBlueprintId");
+        }
+
+        [Fact]
+        public async Task Delete_RemovesRoomFromAreaRoomsList()
+        {
+            // Deleting room X removes X from a referring area's Rooms list.
+            var (catalog, _) = NewCatalog();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Cave Chamber");
+            await catalog.SaveAsync(room);
+
+            var area = catalog.CreateNew(ContentKind.Area, "The Cave");
+            ((AreaTemplate)area.Template).Rooms.Add(room.BlueprintId);
+            await catalog.SaveAsync(area);
+
+            var result = await catalog.DeleteAsync(ContentKind.Room, room.BlueprintId);
+
+            // Target file deleted.
+            Assert.Null(catalog.Load(ContentKind.Room, room.BlueprintId));
+
+            // Room removed from area's Rooms list.
+            var reloadedArea = (AreaTemplate)catalog.Load(ContentKind.Area, area.BlueprintId)!.Template;
+            Assert.DoesNotContain(room.BlueprintId, reloadedArea.Rooms);
+
+            // Result enumerates the cascade edit.
+            Assert.Contains(result.CascadeEdits, e =>
+                e.ReferrerKind == ContentKind.Area
+                && e.ReferrerBlueprintId == area.BlueprintId
+                && e.FieldLabel == "Rooms[]");
+        }
+
+        [Fact]
+        public async Task Delete_TouchesNoEntityService_NoSqlite()
+        {
+            // INV-22/23: The catalog ctor has no EntityService or persistence port.
+            // Structural assertion: only file/writer ops occur — the ecs from NewCatalog()
+            // has nothing added to it by the delete operation.
+            var (catalog, ecs) = NewCatalog();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Delete-Test Room");
+            await catalog.SaveAsync(room);
+
+            var entityCountBefore = ecs.GetAllComponents<RoomComponent>().Count();
+
+            await catalog.DeleteAsync(ContentKind.Room, room.BlueprintId);
+
+            // EntityService is completely unchanged — delete is file-only.
+            Assert.Equal(entityCountBefore, ecs.GetAllComponents<RoomComponent>().Count());
+
+            // The catalog's ctor signature takes no EntityService or IPersistenceSystem —
+            // verified by the fact that NewCatalog() constructs it without those deps
+            // and all Delete operations above succeed without them.
+        }
+
+        // ── WP2: Warn-but-allow save ──────────────────────────────────────────────────
+
+        [Fact]
+        public async Task SaveAsync_WarnButAllow_OnDanglingAreaId_FileWritten()
+        {
+            // A structurally valid room with a non-resolving AreaId →
+            // Success = true, Warnings non-empty, AND the YAML file is written.
+            var (catalog, _) = NewCatalog();
+
+            var roomDef = catalog.CreateNew(ContentKind.Room, "Orphan Room");
+            ((RoomTemplate)roomDef.Template).AreaId = "area.adhoc.nonexistent";
+
+            var result = await catalog.SaveAsync(roomDef);
+
+            Assert.True(result.Success);
+            Assert.NotEmpty(result.Warnings);
+            Assert.Contains("area.adhoc.nonexistent", result.Warnings[0]);
+            // File must be present on disk.
+            Assert.NotNull(catalog.Load(ContentKind.Room, roomDef.BlueprintId));
+        }
+
+        [Fact]
+        public async Task SaveAsync_StructuralFailure_StillBlocks_NoFileWritten()
+        {
+            // A structurally invalid definition → Failed, no file written (regression guard).
+            var (catalog, _) = NewCatalog();
+
+            var def = catalog.CreateNew(ContentKind.Area, "Bad Area");
+            // Aspect weights sum to 60, not 100 — structurally invalid.
+            ((AreaTemplate)def.Template).AspectAffinities =
+                new Dictionary<AspectId, int> { [AspectId.Fire] = 60 };
+
+            var result = await catalog.SaveAsync(def);
+
+            Assert.False(result.Success);
+            Assert.NotEmpty(result.Errors);
+            Assert.Null(catalog.Load(ContentKind.Area, def.BlueprintId));
+        }
+
+        [Fact]
+        public async Task SaveAsync_NoWarnings_WhenAllRefsResolve()
+        {
+            // A valid room whose AreaId resolves → Success, empty Warnings.
+            var (catalog, _) = NewCatalog();
+
+            var area = catalog.CreateNew(ContentKind.Area, "Real Area");
+            await catalog.SaveAsync(area);
+
+            var room = catalog.CreateNew(ContentKind.Room, "Connected Room");
+            ((RoomTemplate)room.Template).AreaId = area.BlueprintId;
+
+            var result = await catalog.SaveAsync(room);
+
+            Assert.True(result.Success);
+            Assert.Empty(result.Warnings);
+        }
+
+        // ── WP2: Bidirectional room save ─────────────────────────────────────────────
+
+        [Fact]
+        public async Task SaveRoomAsync_Bidirectional_WritesInverseExit()
+        {
+            // Saving room A east→B with bidirectional=true writes B's west→A.
+            var (catalog, _) = NewCatalog();
+
+            var roomB = catalog.CreateNew(ContentKind.Room, "East Room");
+            await catalog.SaveAsync(roomB);
+
+            var roomA = catalog.CreateNew(ContentKind.Room, "West Room");
+            ((RoomTemplate)roomA.Template).Exits[Direction.East] = roomB.BlueprintId;
+
+            var result = await catalog.SaveRoomAsync((RoomTemplate)roomA.Template, bidirectional: true);
+
+            Assert.True(result.Success);
+            Assert.Empty(result.Warnings);
+
+            // B's west exit was written.
+            var reloadedB = (RoomTemplate)catalog.Load(ContentKind.Room, roomB.BlueprintId)!.Template;
+            Assert.True(reloadedB.Exits.TryGetValue(Direction.West, out var westTarget));
+            Assert.Equal(roomA.BlueprintId, westTarget);
+        }
+
+        [Fact]
+        public async Task SaveRoomAsync_Bidirectional_Conflict_WarnAndSkip()
+        {
+            // B already has west→C; saving A east→B bidirectional warns and does NOT overwrite B.
+            var (catalog, _) = NewCatalog();
+
+            var roomC = catalog.CreateNew(ContentKind.Room, "Third Room");
+            await catalog.SaveAsync(roomC);
+
+            var roomB = catalog.CreateNew(ContentKind.Room, "East Room");
+            ((RoomTemplate)roomB.Template).Exits[Direction.West] = roomC.BlueprintId;
+            await catalog.SaveAsync(roomB);
+
+            var roomA = catalog.CreateNew(ContentKind.Room, "West Room");
+            ((RoomTemplate)roomA.Template).Exits[Direction.East] = roomB.BlueprintId;
+
+            var result = await catalog.SaveRoomAsync((RoomTemplate)roomA.Template, bidirectional: true);
+
+            Assert.True(result.Success);
+            Assert.NotEmpty(result.Warnings);
+            Assert.Contains(roomB.BlueprintId, result.Warnings[0]);
+
+            // B's west exit is unchanged (still points to C, not A).
+            var reloadedB = (RoomTemplate)catalog.Load(ContentKind.Room, roomB.BlueprintId)!.Template;
+            Assert.Equal(roomC.BlueprintId, reloadedB.Exits[Direction.West]);
+        }
+
+        [Fact]
+        public async Task SaveRoomAsync_Bidirectional_AlreadyCorrect_SilentNoOp()
+        {
+            // B already has west→A; saving A east→B bidirectional produces no warning and no rewrite.
+            var (catalog, _) = NewCatalog();
+
+            var roomB = catalog.CreateNew(ContentKind.Room, "East Room");
+            // We don't know roomA's blueprint id yet — create A first, then save B with the inverse.
+            var roomA = catalog.CreateNew(ContentKind.Room, "West Room");
+            ((RoomTemplate)roomA.Template).Exits[Direction.East] = roomB.BlueprintId;
+            ((RoomTemplate)roomB.Template).Exits[Direction.West] = roomA.BlueprintId;
+
+            await catalog.SaveAsync(roomB);
+            await catalog.SaveAsync(roomA);  // Write A first so both exist on disk
+
+            // Now save A again bidirectionally — B already has the correct inverse.
+            var result = await catalog.SaveRoomAsync((RoomTemplate)roomA.Template, bidirectional: true);
+
+            Assert.True(result.Success);
+            Assert.Empty(result.Warnings);
+
+            // B is unchanged.
+            var reloadedB = (RoomTemplate)catalog.Load(ContentKind.Room, roomB.BlueprintId)!.Template;
+            Assert.Equal(roomA.BlueprintId, reloadedB.Exits[Direction.West]);
+        }
+
+        [Fact]
+        public async Task SaveRoomAsync_Bidirectional_SelfLoop_SilentNoOp()
+        {
+            // A room whose exit points at itself (self-loop) → no write, no warning.
+            var (catalog, _) = NewCatalog();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Mirror Room");
+            ((RoomTemplate)room.Template).Exits[Direction.North] = room.BlueprintId;
+            await catalog.SaveAsync(room);
+
+            var result = await catalog.SaveRoomAsync((RoomTemplate)room.Template, bidirectional: true);
+
+            Assert.True(result.Success);
+            Assert.Empty(result.Warnings);
+        }
+
+        [Fact]
+        public async Task SaveRoomAsync_Bidirectional_False_DoesNotWriteInverse()
+        {
+            // Bidirectional=false behaves like SaveAsync — no inverse exit written.
+            var (catalog, _) = NewCatalog();
+
+            var roomB = catalog.CreateNew(ContentKind.Room, "Target Room");
+            await catalog.SaveAsync(roomB);
+
+            var roomA = catalog.CreateNew(ContentKind.Room, "Source Room");
+            ((RoomTemplate)roomA.Template).Exits[Direction.North] = roomB.BlueprintId;
+
+            await catalog.SaveRoomAsync((RoomTemplate)roomA.Template, bidirectional: false);
+
+            // B has no south exit.
+            var reloadedB = (RoomTemplate)catalog.Load(ContentKind.Room, roomB.BlueprintId)!.Template;
+            Assert.False(reloadedB.Exits.ContainsKey(Direction.South));
+        }
     }
 }
