@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Hedron.Core.Modules.Abilities;
+using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Effects;
 using Hedron.Core.Sessions;
 
@@ -16,6 +17,13 @@ namespace Hedron.Core.Output
     /// </summary>
     public sealed class TelnetOutputFormatter : IOutputFormatter
     {
+        private readonly ICurrencyRegistry _currencyRegistry;
+
+        public TelnetOutputFormatter(ICurrencyRegistry currencyRegistry)
+        {
+            _currencyRegistry = currencyRegistry;
+        }
+
         public string TransportKey => "telnet";
 
         // ANSI escape sequences for the four semantic roles.
@@ -177,7 +185,24 @@ namespace Hedron.Core.Output
             var respawnLabel = string.IsNullOrEmpty(m.RespawnRoomBlueprintId)
                 ? "(starting room)"
                 : m.RespawnRoomBlueprintId;
-            sb.Append($"  Respawn   : {respawnLabel}");
+            sb.AppendLine($"  Respawn   : {respawnLabel}");
+
+            // Wallet balances — rendered up the denomination ladder via shared CurrencyFormatter.
+            if (m.WalletBalances != null && m.WalletBalances.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine(ApplyColor("<system>  Wallet</system>", color));
+                foreach (var (currency, baseAmount) in m.WalletBalances)
+                {
+                    var formatted = CurrencyFormatter.FormatAmount(baseAmount, currency, _currencyRegistry);
+                    sb.Append($"    {currency,-10}: {formatted}");
+                }
+            }
+            else
+            {
+                sb.Append("  Wallet    : (empty)");
+            }
+
             return ApplyColor(sb.ToString(), color);
         }
 

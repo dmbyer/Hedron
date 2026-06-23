@@ -1,6 +1,7 @@
 @page "/mob/new"
 @page "/mob/{BlueprintId}"
 @using Hedron.Core.ECS.Components
+@using Hedron.Core.Modules.Economy
 @using Hedron.Core.Modules.Mobs.Templates
 @inject IContentDefinitionCatalog Catalog
 @inject NavigationManager Nav
@@ -126,6 +127,25 @@ else if (_template is not null)
         <p class="hint">Leave a pool at 0 to use the apply-time default.</p>
     </fieldset>
 
+    <fieldset class="currency-loot">
+        <legend>Currency loot</legend>
+        <p class="hint">Base units (copper). 100 = 1 gold. Leave both at 0 for no currency drop (opt-in default).</p>
+        <div class="field-row">
+            <div class="field">
+                <label>Coin min (copper)</label>
+                <input type="number" min="0"
+                       value="@GetCoinLootMin()"
+                       @onchange="e => SetCoinLootMin(e.Value?.ToString())" />
+            </div>
+            <div class="field">
+                <label>Coin max (copper)</label>
+                <input type="number" min="0"
+                       value="@GetCoinLootMax()"
+                       @onchange="e => SetCoinLootMax(e.Value?.ToString())" />
+            </div>
+        </div>
+    </fieldset>
+
     @if (_errors.Count > 0)
     {
         <div class="error-box">
@@ -245,6 +265,32 @@ else if (_template is not null)
         _template.Keywords = (raw ?? string.Empty)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
+    }
+
+    // ── Currency loot helpers ─────────────────────────────────────────────────
+
+    private int GetCoinLootMin() =>
+        _template is not null && _template.CurrencyLoot.TryGetValue(CurrencyId.Coin, out var r)
+            ? r.Min : 0;
+
+    private int GetCoinLootMax() =>
+        _template is not null && _template.CurrencyLoot.TryGetValue(CurrencyId.Coin, out var r)
+            ? r.Max : 0;
+
+    private void SetCoinLootMin(string? raw)
+    {
+        if (_template is null) return;
+        if (!int.TryParse(raw, out var v) || v < 0) v = 0;
+        _template.CurrencyLoot.TryGetValue(CurrencyId.Coin, out var existing);
+        _template.CurrencyLoot[CurrencyId.Coin] = (v, existing.Max);
+    }
+
+    private void SetCoinLootMax(string? raw)
+    {
+        if (_template is null) return;
+        if (!int.TryParse(raw, out var v) || v < 0) v = 0;
+        _template.CurrencyLoot.TryGetValue(CurrencyId.Coin, out var existing);
+        _template.CurrencyLoot[CurrencyId.Coin] = (existing.Min, v);
     }
 
     private async Task Save()

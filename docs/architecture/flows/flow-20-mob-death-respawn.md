@@ -12,8 +12,10 @@ sequenceDiagram
     participant Bus as IEventBus
     participant CH as CombatHandler (p=20)
     participant MDH as CombatMobDeathHandler (p=80)
-    participant SS as SpawnSystem
+    participant CLH as CurrencyLootHandler (p=20)
+    participant SS as SpawnSystem (p=20)
     participant ES as EntityService
+    participant CANH as CurrencyAwardNarrationHandler (p=80)
     participant DTH as DeathTickHandler (p=20)
     participant DS as IDeathSystem
     participant PDH as PlayerDeathHandler (p=20)
@@ -24,7 +26,13 @@ sequenceDiagram
     Bus->>CH: HandleAsync → "You have slain X!"
     Bus->>MDH: HandleAsync
     MDH->>Bus: PublishAsync(MobDiedEvent{KillerEntityId})
-    Bus->>SS: HandleAsync → mark slot vacant, schedule respawn
+    Note over CLH,SS: Independent reads of the live mob — no ordering constraint
+    Bus->>CLH: HandleAsync (p=20) — if KillerEntityId==0: discard
+    CLH->>CLH: ICurrencyLootSystem.RollLoot(mobEntityId)
+    CLH->>CLH: IWalletSystem.Deposit(KillerEntityId, currency, amount)
+    CLH->>Bus: PublishAsync(CurrencyAwardedEvent) per currency
+    Bus->>CANH: HandleAsync (p=80) → "You receive 1 gold, 0 silver, 5 copper."
+    Bus->>SS: HandleAsync (p=20) → mark slot vacant, schedule respawn
     MDH->>ES: DestroyEntity(mobEntityId)
 
     Note over DTH,DNH: Player incapacitation + bleed-out
@@ -53,8 +61,11 @@ sequenceDiagram
 **Mob death**
 
 1. `CombatMobDeathHandler` (priority 80) receives `CombatEndedEvent(MobDied)`. Calls `IEntityStateService.ExitState(attacker, InCombat)`.
-2. Publishes `MobDiedEvent { MobEntityId, BlueprintId, KillerEntityId }` while the entity is still live. `SpawnSystem` (priority 20) records slot vacancy and sets `RespawnAt = now + delay`.
-3. Calls `EntityService.DestroyEntity(mobEntityId)`. On a later heartbeat tick, `SpawnSystem` spawns a fresh entity from the template and places it in the room.
+2. Publishes `MobDiedEvent { MobEntityId, BlueprintId, KillerEntityId }` while the entity is still live.
+3. Two independent `MobDiedEvent` subscribers read the live mob — no inter-handler ordering constraint between them:
+   - `CurrencyLootHandler` (priority 20): if `KillerEntityId == 0`, discards (no deposit, no event). Otherwise calls `ICurrencyLootSystem.RollLoot(mobEntityId)`, then for each non-zero `(currency, amount)` calls `IWalletSystem.Deposit(KillerEntityId, currency, amount)` and publishes `CurrencyAwardedEvent(KillerEntityId, currency, amount)`. `CurrencyAwardNarrationHandler` (priority 80) writes a "You receive …" line (formatted up the denomination ladder, e.g. "You receive 1 gold, 0 silver, 5 copper.") to the recipient.
+   - `SpawnSystem` (priority 20): records slot vacancy and sets `RespawnAt = now + delay`.
+4. Calls `EntityService.DestroyEntity(mobEntityId)`. On a later heartbeat tick, `SpawnSystem` spawns a fresh entity from the template and places it in the room.
 
 **Player incapacitation**
 
@@ -81,3 +92,5 @@ No `SaveEntityAsync` in the respawn path — periodic flush covers pool/location
 - [`Core/Modules/Death/Systems/IDeathSystem.cs`](../../../Core/Modules/Death/Systems/IDeathSystem.cs)
 - [`Core/Modules/Spawn/Systems/SpawnSystem.cs`](../../../Core/Modules/Spawn/Systems/SpawnSystem.cs)
 - [`../../features/combat/combat.md`](../../features/combat/combat.md) — the feature; [`../../features/combat/death-system.md`](../../features/combat/death-system.md) for death pipeline internals.
+- [`Core/Modules/Economy/Handlers/CurrencyLootHandler.cs`](../../../Core/Modules/Economy/Handlers/CurrencyLootHandler.cs) · [`Core/Modules/Economy/Handlers/CurrencyAwardNarrationHandler.cs`](../../../Core/Modules/Economy/Handlers/CurrencyAwardNarrationHandler.cs)
+- [`Core/Modules/Economy/Systems/ICurrencyLootSystem.cs`](../../../Core/Modules/Economy/Systems/ICurrencyLootSystem.cs) · [`Core/Modules/Economy/Components/CurrencyLootComponent.cs`](../../../Core/Modules/Economy/Components/CurrencyLootComponent.cs)

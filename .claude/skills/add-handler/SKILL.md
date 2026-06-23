@@ -44,7 +44,7 @@ If you find yourself reaching for a fine-grained priority (like 37), it's a sign
 ## Steps
 
 1. File location: `Core/Modules/<Feature>/Handlers/<X>Handler.cs`.
-2. Register the handler in the feature's `AddXModule(IServiceCollection)` extension (e.g. `Core/Modules/<Feature>/<Feature>Module.cs`), and subscribe it via `eventBus.Subscribe<Event>(handler, priority)` in the same place.
+2. Register the handler **type** in DI via the feature's `AddXModule(IServiceCollection)` extension (e.g. `Core/Modules/<Feature>/<Feature>Module.cs`). Then **subscribe** it to its event in the central event-handler wiring in `Server/Program.cs` — `bus.Subscribe<Event>(host.Services.GetRequiredService<XHandler>(), priority)` — alongside the other handler subscriptions, **not** in the module extension. (The bus is wired once per host in `Program.cs`; `CompositionRoot.Register` owns the pure DI registrations both hosts share, while bus subscription is a `Server`-host concern.)
 3. Inject only the systems you actually need.
 4. Update [docs/reference/handlers.md](../../../docs/reference/handlers.md) with a one-line row for the new handler.
 5. If this handler is the orchestrator for a use case, update the implementation-plan file's "Systems / handlers" section.

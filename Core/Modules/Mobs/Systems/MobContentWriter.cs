@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.World;
 using Microsoft.Extensions.Options;
@@ -27,6 +28,19 @@ namespace Hedron.Core.Modules.Mobs.Systems
         {
             Directory.CreateDirectory(_mobsDirectory);
 
+            // Map currency loot ranges to the DTO shape: Dictionary<string, CurrencyLootRangeDto>
+            // keyed by enum name (not ordinal) so YAML files are stable under CurrencyId reordering.
+            var currencyLoot = new Dictionary<string, CurrencyLootRangeDto>();
+            foreach (var (currency, range) in template.CurrencyLoot)
+            {
+                if (range.Max > 0)
+                    currencyLoot[currency.ToString()] = new CurrencyLootRangeDto
+                    {
+                        Min = range.Min,
+                        Max = range.Max,
+                    };
+            }
+
             var dto = new MobDto
             {
                 BlueprintId = template.BlueprintId,
@@ -44,6 +58,7 @@ namespace Hedron.Core.Modules.Mobs.Systems
                 MaxMana = template.MaxMana,
                 MaxStamina = template.MaxStamina,
                 MaxAstra = template.MaxAstra,
+                CurrencyLoot = currencyLoot.Count > 0 ? currencyLoot : null,
             };
 
             var body = _yaml.Serialize(dto);
@@ -52,6 +67,12 @@ namespace Hedron.Core.Modules.Mobs.Systems
 
             await File.WriteAllTextAsync(tmpPath, body, ct).ConfigureAwait(false);
             File.Move(tmpPath, filePath, overwrite: true);
+        }
+
+        private sealed class CurrencyLootRangeDto
+        {
+            public int Min { get; set; }
+            public int Max { get; set; }
         }
 
         private sealed class MobDto
@@ -71,6 +92,11 @@ namespace Hedron.Core.Modules.Mobs.Systems
             public int MaxMana { get; set; }
             public int MaxStamina { get; set; }
             public int MaxAstra { get; set; }
+            /// <summary>
+            /// Optional per-currency loot range. Key is the <see cref="CurrencyId"/> enum name.
+            /// Null / absent means no loot ranges configured (no drop by default).
+            /// </summary>
+            public Dictionary<string, CurrencyLootRangeDto>? CurrencyLoot { get; set; }
         }
     }
 }

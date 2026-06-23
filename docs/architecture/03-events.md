@@ -220,7 +220,7 @@ The living catalog lives in the module events folders (`Core/Modules/<Feature>/E
 **Movement:** `PlayerMoveEvent`, `PlayerTeleportEvent`, `PlayerEnterRoomEvent`, `PlayerExitRoomEvent`
 **Combat:** `CombatStartedEvent`, `CombatEndedEvent`, `AttackEvent`, `DamageEvent`, `FleeEvent`
 **Items:** `ItemPickedUpEvent`, `ItemDroppedEvent`, `ItemEquippedEvent`, `ItemUnequippedEvent`, `ItemDestroyedEvent`, `LootDroppedEvent`, `LootCollectedEvent`, `ContainerOpenedEvent`
-**Economy:** `TradeProposedEvent`, `TradeAcceptedEvent`, `TradeCompletedEvent`, `ShopPurchaseEvent`, `ShopSaleEvent`
+**Economy:** `TradeProposedEvent`, `TradeAcceptedEvent`, `TradeCompletedEvent`, `ShopPurchaseEvent`, `ShopSaleEvent` — **implemented:** `CurrencyAwardedEvent` (payload: `RecipientEntityId`, `Currency`, `Amount`; published by `CurrencyLootHandler` per awarded currency; subscribed by `CurrencyAwardNarrationHandler` at priority 80; currency-foundation WP-2)
 **Crafting:** `CraftingStartedEvent`, `CraftingCompletedEvent`, `CraftingFailedEvent`
 **Magic:** `SpellCastEvent`, `SpellEffectAppliedEvent`, `SpellEffectExpiredEvent`, `SpellInterruptedEvent`
 **Progression:** `ExperienceGainedEvent`, `LevelUpEvent`, `SkillIncreasedEvent`, `AttributeIncreasedEvent`

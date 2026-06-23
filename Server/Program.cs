@@ -26,6 +26,8 @@ using Hedron.Core.Modules.Time.Events;
 using Hedron.Core.Modules.World.Events;
 using Hedron.Core.Events;
 using Hedron.Core.Handlers;
+using Hedron.Core.Modules.Economy.Events;
+using Hedron.Core.Modules.Economy.Handlers;
 using Hedron.Core.Modules.Mobs.Events;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -126,6 +128,8 @@ public static class Program
         bus.Subscribe<PlayerRespawnSetByAdminEvent>(audit);
         bus.Subscribe<AbilityTaughtByAdminEvent>(audit);
         bus.Subscribe<RoomAreaAssignedByAdminEvent>(audit);
+        bus.Subscribe<AreaCreatedByAdminEvent>(audit);
+        bus.Subscribe<WalletSetByAdminEvent>(audit);
 
         var characterHydration = host.Services.GetRequiredService<CharacterHydrationHandler>();
         bus.Subscribe<WorldContentReadyEvent>(characterHydration);
@@ -150,6 +154,12 @@ public static class Program
         var itemContext = host.Services.GetRequiredService<ItemContextHandler>();
         bus.Subscribe<ItemPickedUpEvent>(itemContext);
         bus.Subscribe<ItemDroppedEvent>(itemContext);
+
+        var currencyLoot = host.Services.GetRequiredService<CurrencyLootHandler>();
+        bus.Subscribe<MobDiedEvent>(currencyLoot);
+
+        var currencyAwardNarration = host.Services.GetRequiredService<CurrencyAwardNarrationHandler>();
+        bus.Subscribe<CurrencyAwardedEvent>(currencyAwardNarration);
 
         await host.RunAsync();
         return 0;

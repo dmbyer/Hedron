@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging;
@@ -61,7 +62,33 @@ namespace Hedron.Core.Modules.Mobs
             template.MaxStamina = dto.MaxStamina;
             template.MaxAstra = dto.MaxAstra;
 
+            // Deserialize currency loot ranges. Keys are CurrencyId enum names (case-insensitive).
+            // Unknown currency names are logged and skipped so a stale YAML key doesn't crash startup.
+            if (dto.CurrencyLoot is { Count: > 0 })
+            {
+                foreach (var (key, rangeDto) in dto.CurrencyLoot)
+                {
+                    if (Enum.TryParse<CurrencyId>(key, ignoreCase: true, out var currencyId))
+                    {
+                        if (rangeDto.Max > 0)
+                            template.CurrencyLoot[currencyId] = (rangeDto.Min, rangeDto.Max);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Mob '{Id}': unknown currencyLoot key '{Key}' — skipping.",
+                            dto.BlueprintId, key);
+                    }
+                }
+            }
+
             return template;
+        }
+
+        private sealed class CurrencyLootRangeDto
+        {
+            public int Min { get; set; }
+            public int Max { get; set; }
         }
 
         private sealed class MobDto
@@ -81,6 +108,11 @@ namespace Hedron.Core.Modules.Mobs
             public int MaxMana { get; set; }
             public int MaxStamina { get; set; }
             public int MaxAstra { get; set; }
+            /// <summary>
+            /// Optional per-currency loot range. Key is the <see cref="CurrencyId"/> enum name.
+            /// Null / absent means no loot ranges configured (no drop by default).
+            /// </summary>
+            public Dictionary<string, CurrencyLootRangeDto>? CurrencyLoot { get; set; }
         }
     }
 }

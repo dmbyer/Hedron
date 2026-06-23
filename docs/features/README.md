@@ -20,6 +20,7 @@ Holistic, **player-facing** documentation — one folder per capability. A featu
 | [`items/`](items/) | Items (incl. inventory + equipment) | item-inventory-system, equipment-system |
 | [`world/`](world/) | World, Movement, Spawn, Time | world-content, movement-system, spawn-system, area-model, time-system |
 | [`mobs/`](mobs/) | Mobs | mob-system |
+| [`economy/`](economy/) | Economy | wallet-system, currency-loot-system |
 | [`accounts/`](accounts/) | Account, Session, `Core/Sessions/` | account-system, login-flow |
 | [`admin-authoring/`](admin-authoring/) | Admin, Authoring | admin-commands, content-authoring, content-tooling |
 | [`communication/`](communication/) | Chat, Help | chat-system, help-system |
@@ -30,7 +31,7 @@ Holistic, **player-facing** documentation — one folder per capability. A featu
 
 ## Growing the taxonomy
 
-A new feature folder is added when a new `Core/Modules/` capability is built. The menu of *future* capabilities is [`../design/feature-horizon.md`](../design/feature-horizon.md) — its themes (§1 World, §5 Combat depth, §6 NPCs, §8 Economy, §9 Crafting, §11 Guilds, §12 Quests, §13 Housing, …) map cleanly onto this taxonomy: each theme is either an existing folder, a cross-cutting spine (Aspect/Ability/Effect → `aspects`/`abilities`/`effects`), or an unbuilt capability that will become its own folder (economy, crafting, guilds, quests, housing). The horizon is the *future-feature* menu; this README is the *built-feature* index.
+A new feature folder is added when a new `Core/Modules/` capability is built. The menu of *future* capabilities is [`../design/feature-horizon.md`](../design/feature-horizon.md) — its themes (§1 World, §5 Combat depth, §6 NPCs, §8 Economy, §9 Crafting, §11 Guilds, §12 Quests, §13 Housing, …) map cleanly onto this taxonomy: each theme is either an existing folder, a cross-cutting spine (Aspect/Ability/Effect → `aspects`/`abilities`/`effects`), or an unbuilt capability that will become its own folder (crafting, guilds, quests, housing). The horizon is the *future-feature* menu; this README is the *built-feature* index.
 
 Two current groupings are deliberate **interim homes** that may graduate to their own folder as they deepen: **Movement** (under `world/` today — splits out when mounts / following / encumbrance land, horizon §2) and **Progression** (the Spine E experience-track machinery — under `character-stats/` today, gets its own `progression/` folder when built, horizon §4).
 
