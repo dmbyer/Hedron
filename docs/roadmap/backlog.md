@@ -171,6 +171,18 @@ The currency-foundation slice ([`../features/economy/currency-loot-system.md`](.
 
 The deferred work is the general `LootComponent` + `ILootSystem` (weighted tables, item generation, rarity scaling) and the corpse/pile-and-pickup path it implies. The currency-foundation seam is shaped to keep this **additive, not a rewrite**: its `CurrencyLootHandler` subscribes to `MobDiedEvent` and deposits via the shared `IWalletSystem`, so a future general `LootHandler` slots in as a peer/superset on the same event, with currency loot becoming one contributor to the table. Lands when item drops + the Scaling/rarity spine (slice queue / Spine D) are scheduled; premature before items roll affixes and corpses exist.
 
+### 🔵 Multi-currency item value (deferred from item-value, slice 12a)
+
+`ItemDataComponent.Value` ships as a single base-unit `long` denominated in the launch currency (**Coin**). Items priced in a non-Coin family (faction marks, an Astral currency) need the field to carry a `CurrencyId`. The field is shaped to grow — a later migration adds the currency key **without moving the value off `ItemDataComponent`** or changing the compute-on-read price derivation. Premature while Coin is the sole trade currency; revisit when a second tradeable currency family or a non-Coin vendor is real. See [`../implementation-plans/item-value.md`](../implementation-plans/item-value.md).
+
+### 🔵 Category-granular effect immunity (deferred from mob-protection, slice 12b)
+
+`ProtectionComponent.EffectImmune` is an all-or-nothing axis: an effect-immune entity rejects **every** effect, beneficial or harmful. Selective immunity (immune to curses only, vulnerable to blessings, etc.) aligns with the effect system's "immunity keys off `Category`" note ([`../features/effects/effect-system.md`](../features/effects/effect-system.md)). The two-axis `[Flags]` model is shaped to extend — a per-`EffectCategory` mask replaces the single bool without changing the gate sites (`IEffectSystem.Apply`, the combat check). Lands when content needs an entity protected from a *subset* of effect categories. See [`../implementation-plans/mob-protection.md`](../implementation-plans/mob-protection.md).
+
+### 🔵 Per-shop pricing overrides (deferred from shopping, slice 12c)
+
+The sell / buy-back price ratio ships as an app-wide `ShopOptions` value — every shop applies the same spread over an item's `Value`. A per-shop override (a luxury vendor that pays less, a black-market fence that pays more) is an optional field on `ShopComponent` the price calc prefers over the global default. Deferred to keep the shopping slice's config surface flat; `ShopComponent` is shaped to carry the override unused. Revisit when shops need to differ economically. See [`../implementation-plans/shopping.md`](../implementation-plans/shopping.md).
+
 ### 🔵 Balance & tuning surface + reference doc
 
 As the gameplay-model spines land (effect Power-scaling, ability costs, rarity/scaling budgets, progression XP curves, character defaults), each introduces tunable numbers — [`../architecture/05-configuration.md`](../architecture/05-configuration.md) **Category 3 (System Math / Balance)**. Today these live as co-located `*Constants` per the config strategy (and `CharacterDefaults`, slice 9-d, is the first set surfaced as settings under the OD-2 promotion trigger). Worth describing as a standalone concern because the knobs accumulate across systems:
