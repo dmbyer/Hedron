@@ -7,6 +7,7 @@ using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Attributes.Events;
 using Hedron.Core.Modules.Combat.Events;
 using Hedron.Core.Modules.Death.Events;
+using Hedron.Core.Modules.Economy.Events;
 using Hedron.Core.Modules.Effects.Events;
 using Hedron.Core.Modules.Items.Events;
 using Hedron.Core.Modules.Mobs.Events;
@@ -42,7 +43,8 @@ namespace Hedron.Core.Modules.Admin.Handlers
         IEventHandler<PlayerRespawnSetByAdminEvent>,
         IEventHandler<AbilityTaughtByAdminEvent>,
         IEventHandler<RoomAreaAssignedByAdminEvent>,
-        IEventHandler<AreaCreatedByAdminEvent>
+        IEventHandler<AreaCreatedByAdminEvent>,
+        IEventHandler<WalletSetByAdminEvent>
     {
         private readonly EntityService _entityService;
         private readonly ILogger<AdminAuditHandler> _logger;
@@ -188,6 +190,14 @@ namespace Hedron.Core.Modules.Admin.Handlers
             _logger.LogInformation(
                 "AdminCommandExecuted: admin={Admin} command=mkarea area={AreaEntityId} blueprint={BlueprintId}",
                 ResolveName(e.AdminEntityId), e.AreaEntityId, e.BlueprintId);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(WalletSetByAdminEvent e)
+        {
+            _logger.LogInformation(
+                "AdminCommandExecuted: admin={Admin} command=setwallet player={PlayerEntityId} currency={Currency} amount={Amount}",
+                ResolveName(e.AdminEntityId), e.TargetEntityId, e.Currency, e.Amount);
             return Task.CompletedTask;
         }
 

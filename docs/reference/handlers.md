@@ -142,6 +142,20 @@ Ask:
 **Location:** `Core/Modules/Admin/Handlers/AdminAuditHandler.cs`
 **Uses:** `EntityService` (display-name resolution), `ILogger<AdminAuditHandler>`
 
+### CurrencyLootHandler
+**Events:** `MobDiedEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** On `MobDiedEvent`: if `KillerEntityId == 0`, returns immediately (currency discarded — no deposit, no event). Otherwise calls `ICurrencyLootSystem.RollLoot(mobEntityId)` while the mob is still live (mob is pre-destroy at this point — `CombatMobDeathHandler` awaits `PublishAsync` before `DestroyEntity`). For each non-zero `(currency, amount)` in the result, calls `IWalletSystem.Deposit(KillerEntityId, currency, amount)`, then publishes `CurrencyAwardedEvent(KillerEntityId, currency, amount)`. Pure orchestrator — no game rule held here (INV-8); roll lives in `ICurrencyLootSystem`, mutation lives in `IWalletSystem`. Second `MobDiedEvent` subscriber alongside `SpawnSystem` — independent reads, no inter-handler ordering constraint.
+**Location:** `Core/Modules/Economy/Handlers/CurrencyLootHandler.cs`
+**Uses:** `ICurrencyLootSystem`, `IWalletSystem`, `IEventBus`
+
+### CurrencyAwardNarrationHandler
+**Events:** `CurrencyAwardedEvent`
+**Priority:** 80 (`HandlerPriority.Notification`)
+**Responsibilities:** Pure presentation — writes a "You receive …" line to the recipient entity, formatted up the denomination ladder via `CurrencyFormatter`/`ICurrencyRegistry` (shared with `TelnetOutputFormatter`). Resolves the recipient's room via `LocationComponent` and uses `IBroadcastSystem.SendToRoomAsync` with a filter for the recipient entity id. Silently no-ops if the recipient has no `LocationComponent`.
+**Location:** `Core/Modules/Economy/Handlers/CurrencyAwardNarrationHandler.cs`
+**Uses:** `EntityService`, `IBroadcastSystem`, `ICurrencyRegistry`
+
 ### OutputFlushTickHandler
 **Events:** `HeartbeatTickEvent`
 **Priority:** 85 (`HandlerPriority.OutputFlush`)

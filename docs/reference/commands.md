@@ -499,6 +499,20 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 
 ---
 
+### `setwallet`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Economy/Commands/SetwalletCommand.cs`  
+**Description:** Absolute-sets the balance of a given currency in a currently-connected player's wallet. Resolves player by character name via `ISessionManager.GetAll()`. Parses `<currency>` as a `CurrencyId` enum name (case-insensitive, e.g. `Coin`) and `<amount>` as a non-negative `long` in base units (copper for Coin). Calls `IWalletSystem.SetBalance`, performs exactly one admin boundary save (`IPersistenceSystem.SaveEntityAsync(targetEntityId)`, INV-22), then publishes `WalletSetByAdminEvent` for the audit log. Protected by `AdminRequirement`.  
+**Usage:** `setwallet <characterName> <currency> <amount>`  
+**Schema:** `Token string "characterName"` (required), `Token string "currency"` (required: `Coin`), `Token string "amount"` (required, non-negative integer in base units)  
+**Dependencies:** `IWalletSystem`, `ISessionManager`, `EntityService`, `IEventBus`, `IPersistenceSystem`  
+**Events:** `WalletSetByAdminEvent`  
+**RequiredPrivileges:** `AdminRequirement`
+
+---
+
 ### `teach`
 
 **Aliases:** none

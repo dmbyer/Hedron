@@ -503,3 +503,43 @@ Initiators drive the tick loop or startup; they are not "systems" in the domain-
 **Configuration:** `Heartbeat:IntervalMs` (Category 1 operational key, default 2000). `TickId` starts at 1; `TickId = 0` is an unambiguous "no tick has fired" sentinel.
 **Startup ordering:** Registered last in the hosted-service queue (after `TelnetServer`) so the first tick cannot land before the world is fully seeded. `PeriodicTimer` does not drift on handler overrun. See [`../features/world/time-system.md`](../features/world/time-system.md) for the full tick loop design, handler priority table, and thread-safety acknowledgment.
 Implemented (Phase 3 slice 9-b).
+
+### CurrencyRegistry / ICurrencyRegistry (Economy module)
+**Purpose:** Registry of all known currency families, keyed by `CurrencyId` (enum). Each `CurrencyDefinition` holds a display name and a denomination ladder (e.g. copper=1, silver=10, gold=100). Ladder validation (strictly ascending, base unit = 1) runs at construction; a bad row throws `ArgumentException` immediately. Follows the `StatRegistry`/`AspectRegistry` `DefinitionRegistry<TKey,TDef>` precedent. Launch row: `CurrencyId.Coin` (copper/silver/gold). New currency families are added as registry rows — no code change beyond a new `CurrencyId` member.
+**Location:** `Core/Modules/Economy/CurrencyRegistry.cs` · `Core/Modules/Economy/CurrencyId.cs` · `Core/Modules/Economy/CurrencyDefinition.cs`
+**Dependencies:** `DefinitionRegistry<CurrencyId, CurrencyDefinition>` (core infrastructure); none at domain level.
+```csharp
+public interface ICurrencyRegistry : IRegistry<CurrencyId, CurrencyDefinition> { }
+```
+Registered as a singleton in `EconomyModule.AddEconomyModule`. Implemented (currency-foundation WP-1).
+
+### WalletSystem / IWalletSystem (Economy module)
+**Purpose:** Single wallet-mutation seam for all currency flows. Owns all reads and mutations of `WalletComponent`. Creates `WalletComponent` on first deposit. INV-5: pure — returns results only; never touches the event bus or persistence.
+**Location:** `Core/Modules/Economy/Systems/WalletSystem.cs` · `IWalletSystem.cs`
+**Dependencies:** `EntityService`.
+```csharp
+public interface IWalletSystem
+{
+    long GetBalance(uint entityId, CurrencyId currency);
+    IReadOnlyDictionary<CurrencyId, long> GetBalances(uint entityId);
+    bool Deposit(uint entityId, CurrencyId currency, long amount);   // false if amount < 0
+    bool TryWithdraw(uint entityId, CurrencyId currency, long amount);
+    bool CanAfford(uint entityId, CurrencyId currency, long amount);
+    bool Transfer(uint from, uint to, CurrencyId currency, long amount); // atomic; self-transfer no-op
+    void SetBalance(uint entityId, CurrencyId currency, long amount);    // throws on amount < 0
+}
+```
+The wallet is entity-keyed: any holder (player, vendor till, bank vault, guild treasury) is a `WalletComponent` carrier — authorization of which entities may transact lives in the calling command/handler (INV-8), not here. Registered as a singleton in `EconomyModule.AddEconomyModule`. Implemented (currency-foundation WP-1).
+
+### CurrencyLootSystem / ICurrencyLootSystem (Economy module)
+**Purpose:** Pure domain system that resolves a mob's currency loot roll. Reads the mob's `CurrencyLootComponent`; for each configured currency rolls a uniform inclusive `[min, max]` amount via the injected `IRandom` seam (INV-26). Returns a `CurrencyLootResult` (`CurrencyId → baseAmount`; only non-zero entries). Absent component or zero range → empty result (opt-in default). Never touches the event bus (INV-5).
+**Location:** `Core/Modules/Economy/Systems/CurrencyLootSystem.cs` · `ICurrencyLootSystem.cs` · `CurrencyLootResult.cs`
+**Dependencies:** `EntityService`, `IRandom`.
+```csharp
+public interface ICurrencyLootSystem
+{
+    CurrencyLootResult RollLoot(uint mobEntityId);
+}
+public sealed record CurrencyLootResult(IReadOnlyDictionary<CurrencyId, long> Awards);
+```
+Registered as a singleton in `EconomyModule.AddEconomyModule`. Implemented (currency-foundation WP-2).

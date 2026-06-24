@@ -6,6 +6,7 @@ using Hedron.Core.Commands.Authorization;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Account.Components;
+using Hedron.Core.Modules.Economy.Systems;
 using Hedron.Core.Modules.EntityState.Systems;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.Stats.Systems;
@@ -18,6 +19,7 @@ namespace Hedron.Core.Modules.Attributes.Commands
         private readonly EntityService _entityService;
         private readonly IStatSystem _statSystem;
         private readonly IEntityStateService _entityStateService;
+        private readonly IWalletSystem _walletSystem;
 
         public string Name => "score";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -25,17 +27,22 @@ namespace Hedron.Core.Modules.Attributes.Commands
         public CommandMatchingMode MatchingMode => CommandMatchingMode.Partial;
         public bool UsableWhileIncapacitated => true;
         public string ShortDescription => "Display your character stats.";
-        public string LongDescription => "Shows your level, hit points, mana, stamina, astra, base attributes, respawn room, and current status.";
+        public string LongDescription => "Shows your level, hit points, mana, stamina, astra, base attributes, respawn room, current status, and wallet balances.";
         public string Usage => "score";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             Array.Empty<IAuthorizationRequirement>();
         public CommandArgumentSchema ArgumentSchema { get; } = new(Array.Empty<CommandArgument>());
 
-        public ScoreCommand(EntityService entityService, IStatSystem statSystem, IEntityStateService entityStateService)
+        public ScoreCommand(
+            EntityService entityService,
+            IStatSystem statSystem,
+            IEntityStateService entityStateService,
+            IWalletSystem walletSystem)
         {
             _entityService = entityService;
             _statSystem = statSystem;
             _entityStateService = entityStateService;
+            _walletSystem = walletSystem;
         }
 
         public async Task ExecuteAsync(CommandContext context)
@@ -57,6 +64,10 @@ namespace Hedron.Core.Modules.Attributes.Commands
 
             var isIncapacitated = _entityStateService.IsInState(entityId, EntityStateFlags.Incapacitated);
 
+            // Wallet balances — raw CurrencyId → baseAmount pairs; empty if no WalletComponent.
+            // Formatting (ladder display) is the formatter's job (INV-5: system returns results only).
+            var walletBalances = _walletSystem.GetBalances(entityId);
+
             await context.Output.WriteAsync(new ScoreDisplayMessage(
                 charName,
                 level,
@@ -73,7 +84,8 @@ namespace Hedron.Core.Modules.Attributes.Commands
                 _statSystem.Get(entityId, ScoreId.AstraCurrent),
                 _statSystem.Get(entityId, ScoreId.AstraMax),
                 respawnRoomBlueprintId,
-                isIncapacitated)).ConfigureAwait(false);
+                isIncapacitated,
+                walletBalances)).ConfigureAwait(false);
         }
     }
 }

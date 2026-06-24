@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Economy;
+using Hedron.Core.Modules.Economy.Components;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Mobs.Templates
@@ -25,6 +27,14 @@ namespace Hedron.Core.Modules.Mobs.Templates
         public int MaxMana { get; set; } = 0;
         public int MaxStamina { get; set; } = 0;
         public int MaxAstra { get; set; } = 0;
+
+        /// <summary>
+        /// Optional per-currency loot range (min, max in base units / copper).
+        /// When a currency key is absent or both min and max are zero, no loot component
+        /// entry is written for that currency (opt-in default: no drop).
+        /// Authored via YAML / Blazor editor and applied by <see cref="Apply"/>.
+        /// </summary>
+        public Dictionary<CurrencyId, (int Min, int Max)> CurrencyLoot { get; set; } = new();
 
         public MobTemplate(string blueprintId)
         {
@@ -65,6 +75,17 @@ namespace Hedron.Core.Modules.Mobs.Templates
                 MaxAstra = maxAstra,
                 CurrentAstra = maxAstra,
             });
+
+            // Add CurrencyLootComponent only when at least one non-zero range is configured.
+            // Zero / absent range → no component → no drop (opt-in default, INV-23 world content).
+            var lootComp = new CurrencyLootComponent();
+            foreach (var (currency, range) in CurrencyLoot)
+            {
+                if (range.Max > 0)
+                    lootComp.Ranges[currency] = range;
+            }
+            if (lootComp.Ranges.Count > 0)
+                entityService.AddComponent(entity.Id, lootComp);
         }
     }
 }

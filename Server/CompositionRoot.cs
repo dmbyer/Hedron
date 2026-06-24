@@ -52,6 +52,7 @@ using Hedron.Core.Modules.Regeneration.Handlers;
 using Hedron.Core.Modules.Effects;
 using Hedron.Core.Modules.Effects.Events;
 using Hedron.Core.Modules.Effects.Handlers;
+using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.Time;
 using Hedron.Core.Modules.Time.Events;
@@ -151,6 +152,7 @@ public static class CompositionRoot
         services.AddSpawnModule();
         services.AddDeathModule();
         services.AddRegenerationModule();
+        services.AddEconomyModule();
 
         return services;
     }
