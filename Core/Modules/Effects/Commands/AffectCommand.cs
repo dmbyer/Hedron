@@ -10,6 +10,7 @@ using Hedron.Core.Events;
 using Hedron.Core.Modules.Account.Components;
 using Hedron.Core.Modules.Attributes.Systems;
 using Hedron.Core.Modules.Effects.Events;
+using Hedron.Core.Modules.Effects;
 using Hedron.Core.Modules.Effects.Systems;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Output;
@@ -109,17 +110,25 @@ namespace Hedron.Core.Modules.Effects.Commands
                 appliedDef = definition;
             }
 
-            var appliedEffect = _effectSystem.Apply(targetEntityId, appliedDef, context.InvokerEntityId);
-            if (appliedEffect != null && appliedEffect.Kind == EffectKind.Instant)
-                ApplyInstantMagnitude(targetEntityId, appliedEffect.Params.TargetScore, appliedEffect.Power);
+            var applyResult = _effectSystem.Apply(targetEntityId, appliedDef, context.InvokerEntityId);
 
-            if (appliedEffect == null)
+            // Gate B — surface immune / stacking-blocked outcomes before publishing events.
+            if (applyResult is EffectApplyResult.NotApplied notApplied)
             {
+                string notAppliedMsg = notApplied.Reason == EffectNotAppliedReason.Immune
+                    ? $"The target is immune and the effect '{effectId}' did not take hold."
+                    : $"Effect '{effectId}' was not applied (HighestWins policy: existing effect has equal or greater power).";
+
                 await context.Output.WriteAsync(new PlainMessage(
-                    $"Effect '{effectId}' was not applied (HighestWins policy: existing effect has equal or greater power).",
+                    notAppliedMsg,
                     OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
+
+            var appliedEffect = ((EffectApplyResult.Applied)applyResult).Effect;
+
+            if (appliedEffect.Kind == EffectKind.Instant)
+                ApplyInstantMagnitude(targetEntityId, appliedEffect.Params.TargetScore, appliedEffect.Power);
 
             await _eventBus.PublishAsync(new EffectAppliedEvent(
                 targetEntityId, effectId, definition.Category, appliedEffect.Power))

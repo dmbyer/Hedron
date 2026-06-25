@@ -12,6 +12,15 @@ namespace Hedron.Core.Modules.Combat.Systems
     /// </summary>
     public interface ICombatSystem
     {
+        /// <summary>
+        /// Returns <c>true</c> iff <paramref name="targetEntityId"/> can be attacked —
+        /// i.e., it does NOT carry <see cref="Hedron.Core.ECS.Components.ProtectionComponent"/>
+        /// with the <see cref="Hedron.Core.ECS.Components.ProtectionFlags.Untargetable"/> flag set.
+        /// Returns <c>true</c> when no <c>ProtectionComponent</c> is present (unprotected entities are attackable).
+        /// PURE: no events, no state mutation (INV-5, INV-8). Shared query used by ≥2 initiators (INV-19).
+        /// </summary>
+        bool CanBeAttacked(uint targetEntityId);
+
         bool TryFindTargetInRoom(uint roomEntityId, string token, out uint mobEntityId);
         void StartCombat(uint attackerEntityId, uint defenderEntityId);
         void EndCombat(uint attackerEntityId, uint defenderEntityId);

@@ -18,6 +18,10 @@ sequenceDiagram
 
     Cmd->>ESS: IsInState(player, InCombat) [guard]
     Cmd->>CS: TryFindTargetInRoom → mobEntityId
+    Cmd->>CS: CanBeAttacked(mobEntityId) [Gate A]
+    alt Untargetable
+        Cmd-->>Player: "X is protected and cannot be attacked." [return]
+    end
     Cmd->>ESS: TryEnterState(player, InCombat)
     Cmd->>ESS: TryEnterState(mob, InCombat)
     Cmd->>CS: StartCombat(player, mob)
@@ -50,7 +54,7 @@ sequenceDiagram
 
 ## Steps
 
-1. **Initiation.** `KillCommand` guards `IsInState(InCombat)`, prefix-matches the target via `ICombatSystem.TryFindTargetInRoom`, calls `TryEnterState(InCombat)` on both entities, calls `ICombatSystem.StartCombat` to attach `CombatStateComponent { OpponentEntityId }` on both, and publishes `CombatStartedEvent`.
+1. **Initiation.** `KillCommand` guards `IsInState(InCombat)`, prefix-matches the target via `ICombatSystem.TryFindTargetInRoom`, then calls `ICombatSystem.CanBeAttacked(targetEntityId)` (**Gate A — protection check**): if the target carries `ProtectionFlags.Untargetable`, the command writes "X is protected and cannot be attacked." and returns — no state transition, no `StartCombat`, no `CombatStartedEvent`. For unprotected targets, calls `TryEnterState(InCombat)` on both entities, calls `ICombatSystem.StartCombat` to attach `CombatStateComponent { OpponentEntityId }` on both, and publishes `CombatStartedEvent`.
 
 2. **Round pulse.** On each `HeartbeatTickEvent`, `CombatTickHandler` snapshots all `CombatStateComponent` entities. For each pair with `entityId < opponentEntityId`: calls `ICombatSystem.ExecuteRound` (hit check + aspect-resolved damage) and publishes `CombatRoundEvent`. `CombatHandler` broadcasts the hit/miss narrative and the per-round HP status to the player.
 

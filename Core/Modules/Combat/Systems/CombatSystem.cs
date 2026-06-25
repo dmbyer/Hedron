@@ -32,6 +32,14 @@ namespace Hedron.Core.Modules.Combat.Systems
             _random = random;
         }
 
+        public bool CanBeAttacked(uint targetEntityId)
+        {
+            // Untargetable flag → cannot be attacked; missing component or None → attackable.
+            if (_entityService.TryGet<ECS.Components.ProtectionComponent>(targetEntityId, out var protection))
+                return !protection.Flags.HasFlag(ECS.Components.ProtectionFlags.Untargetable);
+            return true;
+        }
+
         public bool TryFindTargetInRoom(uint roomEntityId, string token, out uint mobEntityId)
         {
             var lower = token.ToLowerInvariant();

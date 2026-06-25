@@ -9,7 +9,7 @@
 ## Dependencies
 
 - **12a — Item value** (✅ shipped — [items feature](../features/items/items.md), [`../roadmap/completed/item-value.md`](../roadmap/completed/item-value.md)): the `ItemDataComponent.Value` field every shop price derives from. **Hard prerequisite — satisfied.**
-- **12b — Mob protection** ([`mob-protection.md`](mob-protection.md)): the `ProtectionComponent` a safe-area shopkeeper sets. **Soft** — shopping works without it, but protected shopkeepers need it; sequence 12b before or with 12c.
+- **12b — Mob protection** (✅ shipped — [mobs feature](../features/mobs/mobs.md#protection-invulnerability--immunity), [`../roadmap/completed/mob-protection.md`](../roadmap/completed/mob-protection.md)): the `ProtectionComponent` a safe-area shopkeeper sets. **Soft** — shopping works without it, but protected shopkeepers need it. **Satisfied.**
 
 ## Description
 

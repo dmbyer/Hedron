@@ -18,6 +18,14 @@ namespace Hedron.Core.Modules.Mobs.Systems
         /// Pool invariant: when hp/maxmana/maxstamina/maxastra is set, CurrentX is clamped to the new max.
         /// </summary>
         void SetAttribute(uint mobEntityId, MobTemplate template, string property, int value);
+        /// <summary>
+        /// Dual-writes <see cref="ProtectionFlags"/> onto the live <see cref="ProtectionComponent"/>
+        /// and <see cref="MobTemplate.Protection"/>. When <paramref name="flags"/> is
+        /// <see cref="ProtectionFlags.None"/>, removes any existing <see cref="ProtectionComponent"/>
+        /// from the live entity (mirrors the opt-in default in <see cref="MobTemplate.Apply"/>).
+        /// INV-5: does not publish events or call persistence.
+        /// </summary>
+        void SetMobProtection(uint mobEntityId, ProtectionFlags flags);
     }
 
     public readonly record struct MobCreationResult(uint MobEntityId, string BlueprintId, MobTemplate Template);

@@ -46,7 +46,6 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 
 | Status | Plan | Slice |
 |---|---|---|
-| `planned` | [`mob-protection.md`](mob-protection.md) | Slice 12b — Mob protection (advisor seed) |
 | `planned` | [`shopping.md`](shopping.md) | Slice 12c — Shopping (advisor seed; depends on 12a/12b) |
 | `planned` | [`admin-area-authoring.md`](admin-area-authoring.md) | `mkarea` + `list <type>` |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C) |

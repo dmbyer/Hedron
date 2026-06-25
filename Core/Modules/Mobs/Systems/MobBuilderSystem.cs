@@ -96,6 +96,26 @@ namespace Hedron.Core.Modules.Mobs.Systems
             if (tpl is not null) tpl.MobType = mobType;
         }
 
+        public void SetMobProtection(uint mobEntityId, ProtectionFlags flags)
+        {
+            // Update the live entity: add/update or remove the ProtectionComponent.
+            if (flags == ProtectionFlags.None)
+            {
+                _entityService.RemoveComponent<ProtectionComponent>(mobEntityId);
+            }
+            else
+            {
+                if (_entityService.TryGet<ProtectionComponent>(mobEntityId, out var existing))
+                    existing.Flags = flags;
+                else
+                    _entityService.AddComponent(mobEntityId, new ProtectionComponent { Flags = flags });
+            }
+
+            // Update the in-memory template.
+            var tpl = TryGetTemplate(mobEntityId);
+            if (tpl is not null) tpl.Protection = flags;
+        }
+
         public void SetAttribute(uint mobEntityId, MobTemplate template, string property, int value)
         {
             switch (property)

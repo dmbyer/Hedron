@@ -148,7 +148,8 @@ namespace Hedron.Tests.Death
                     list.RemoveAll(e => e.Lifetime != EffectLifetime.UntilRemoved);
             }
 
-            public Effect? Apply(uint targetEntityId, EffectDefinition definition, uint sourceEntityId) => null;
+            public EffectApplyResult Apply(uint targetEntityId, EffectDefinition definition, uint sourceEntityId)
+                => EffectApplyResult.StackingBlocked;
             public void Remove(uint entityId, string effectId) { }
             public void RemoveByCategory(uint entityId, EffectCategory category) { }
             public int GetModifiers(uint entityId, ScoreId scoreId) => 0;

@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.World;
@@ -41,6 +43,17 @@ namespace Hedron.Core.Modules.Mobs.Systems
                     };
             }
 
+            // Serialize protection flags as a list of individual flag names (e.g. ["Untargetable", "EffectImmune"]).
+            // None/empty → null → absent from YAML (opt-in default).
+            List<string>? protectionFlags = null;
+            if (template.Protection != ProtectionFlags.None)
+            {
+                protectionFlags = Enum.GetValues<ProtectionFlags>()
+                    .Where(f => f != ProtectionFlags.None && template.Protection.HasFlag(f))
+                    .Select(f => f.ToString())
+                    .ToList();
+            }
+
             var dto = new MobDto
             {
                 BlueprintId = template.BlueprintId,
@@ -59,6 +72,7 @@ namespace Hedron.Core.Modules.Mobs.Systems
                 MaxStamina = template.MaxStamina,
                 MaxAstra = template.MaxAstra,
                 CurrencyLoot = currencyLoot.Count > 0 ? currencyLoot : null,
+                Protection = protectionFlags,
             };
 
             var body = _yaml.Serialize(dto);
@@ -97,6 +111,11 @@ namespace Hedron.Core.Modules.Mobs.Systems
             /// Null / absent means no loot ranges configured (no drop by default).
             /// </summary>
             public Dictionary<string, CurrencyLootRangeDto>? CurrencyLoot { get; set; }
+            /// <summary>
+            /// Optional protection flag names (e.g. ["Untargetable", "EffectImmune"]).
+            /// Null / absent means no protection (opt-in default).
+            /// </summary>
+            public List<string>? Protection { get; set; }
         }
     }
 }

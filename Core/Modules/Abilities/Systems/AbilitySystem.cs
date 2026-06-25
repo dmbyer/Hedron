@@ -118,15 +118,17 @@ namespace Hedron.Core.Modules.Abilities.Systems
                     continue;
                 }
 
-                var appliedEffect = _effectSystem.Apply(resolvedTarget, effectDef, actorEntityId);
-                if (appliedEffect != null)
+                var applyResult = _effectSystem.Apply(resolvedTarget, effectDef, actorEntityId);
+                if (applyResult is Hedron.Core.Modules.Effects.EffectApplyResult.Applied applied)
                 {
-                    if (appliedEffect.Kind == EffectKind.Instant)
+                    if (applied.Effect.Kind == EffectKind.Instant)
                     {
-                        ApplyInstantMagnitude(resolvedTarget, appliedEffect.Params.TargetScore, appliedEffect.Power);
+                        ApplyInstantMagnitude(resolvedTarget, applied.Effect.Params.TargetScore, applied.Effect.Power);
                     }
-                    appliedEffects.Add(appliedEffect);
+                    appliedEffects.Add(applied.Effect);
                 }
+                // Immune or stacking-blocked: exclude from AppliedEffects.
+                // The initiator (AbilityInvocationPipeline) emits no EffectAppliedEvent for excluded effects (INV-5).
             }
 
             return new AbilityActivationResult(

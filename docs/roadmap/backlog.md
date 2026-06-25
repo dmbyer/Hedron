@@ -177,7 +177,7 @@ The deferred work is the general `LootComponent` + `ILootSystem` (weighted table
 
 ### 🔵 Category-granular effect immunity (deferred from mob-protection, slice 12b)
 
-`ProtectionComponent.EffectImmune` is an all-or-nothing axis: an effect-immune entity rejects **every** effect, beneficial or harmful. Selective immunity (immune to curses only, vulnerable to blessings, etc.) aligns with the effect system's "immunity keys off `Category`" note ([`../features/effects/effect-system.md`](../features/effects/effect-system.md)). The two-axis `[Flags]` model is shaped to extend — a per-`EffectCategory` mask replaces the single bool without changing the gate sites (`IEffectSystem.Apply`, the combat check). Lands when content needs an entity protected from a *subset* of effect categories. See [`../implementation-plans/mob-protection.md`](../implementation-plans/mob-protection.md).
+`ProtectionComponent.EffectImmune` is an all-or-nothing axis: an effect-immune entity rejects **every** effect, beneficial or harmful. Selective immunity (immune to curses only, vulnerable to blessings, etc.) aligns with the effect system's "immunity keys off `Category`" note ([`../features/effects/effect-system.md`](../features/effects/effect-system.md)). The two-axis `[Flags]` model is shaped to extend — a per-`EffectCategory` mask replaces the single bool without changing the gate sites (`IEffectSystem.Apply`, the combat check). Lands when content needs an entity protected from a *subset* of effect categories. See [`completed/mob-protection.md`](completed/mob-protection.md) and the [mobs feature](../features/mobs/mobs.md#protection-invulnerability--immunity).
 
 ### 🔵 Per-shop pricing overrides (deferred from shopping, slice 12c)
 

@@ -563,6 +563,102 @@ namespace Hedron.Tests.Authoring
             sys.SetAttribute(result.MobEntityId, result.Template, "nonsense", 42);
         }
 
+        // ── SetMobProtection ─────────────────────────────────────────────────────
+
+        [Fact]
+        public void SetMobProtection_Untargetable_adds_ProtectionComponent_with_correct_flags()
+        {
+            var (sys, ecs, _) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateMob("Shopkeeper", roomId);
+
+            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.Untargetable);
+
+            Assert.True(ecs.HasComponent<ProtectionComponent>(result.MobEntityId));
+            var comp = ecs.Get<ProtectionComponent>(result.MobEntityId);
+            Assert.Equal(ProtectionFlags.Untargetable, comp.Flags);
+        }
+
+        [Fact]
+        public void SetMobProtection_BothFlags_adds_ProtectionComponent_with_both_flags()
+        {
+            var (sys, ecs, _) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateMob("Guard", roomId);
+
+            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.Untargetable | ProtectionFlags.EffectImmune);
+
+            var comp = ecs.Get<ProtectionComponent>(result.MobEntityId);
+            Assert.Equal(ProtectionFlags.Untargetable | ProtectionFlags.EffectImmune, comp.Flags);
+        }
+
+        [Fact]
+        public void SetMobProtection_updates_template_Protection_in_registry()
+        {
+            var (sys, ecs, registry) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateMob("Vendor", roomId);
+
+            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.Untargetable | ProtectionFlags.EffectImmune);
+
+            registry.TryGet(result.BlueprintId, out var template);
+            var mobTemplate = Assert.IsType<MobTemplate>(template);
+            Assert.Equal(ProtectionFlags.Untargetable | ProtectionFlags.EffectImmune, mobTemplate.Protection);
+        }
+
+        [Fact]
+        public void SetMobProtection_None_removes_existing_ProtectionComponent()
+        {
+            var (sys, ecs, _) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateMob("Mob", roomId);
+
+            // First set a flag...
+            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.Untargetable);
+            Assert.True(ecs.HasComponent<ProtectionComponent>(result.MobEntityId));
+
+            // ...then clear it to None — component should be removed.
+            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.None);
+            Assert.False(ecs.HasComponent<ProtectionComponent>(result.MobEntityId));
+        }
+
+        [Fact]
+        public void SetMobProtection_None_sets_template_Protection_to_None()
+        {
+            var (sys, ecs, registry) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateMob("Mob", roomId);
+
+            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.EffectImmune);
+            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.None);
+
+            registry.TryGet(result.BlueprintId, out var template);
+            var mobTemplate = Assert.IsType<MobTemplate>(template);
+            Assert.Equal(ProtectionFlags.None, mobTemplate.Protection);
+        }
+
+        [Fact]
+        public void SetMobProtection_updates_existing_ProtectionComponent_flags()
+        {
+            var (sys, ecs, _) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateMob("Mob", roomId);
+
+            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.Untargetable);
+            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.EffectImmune);
+
+            var comp = ecs.Get<ProtectionComponent>(result.MobEntityId);
+            Assert.Equal(ProtectionFlags.EffectImmune, comp.Flags);
+        }
+
+        [Fact]
+        public void SetMobProtection_is_noop_for_unknown_entity()
+        {
+            var (sys, _, _) = Build();
+            // Should not throw even if entity doesn't exist.
+            sys.SetMobProtection(99999u, ProtectionFlags.Untargetable);
+        }
+
         // ── INV-5: MobBuilderSystem does not hold IEventBus ──────────────────────
 
         [Fact]

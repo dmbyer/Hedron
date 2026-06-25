@@ -36,6 +36,13 @@ namespace Hedron.Core.Modules.Mobs.Templates
         /// </summary>
         public Dictionary<CurrencyId, (int Min, int Max)> CurrencyLoot { get; set; } = new();
 
+        /// <summary>
+        /// Optional protection flags. When <see cref="ProtectionFlags.None"/> (the default),
+        /// no <see cref="ProtectionComponent"/> is added in <see cref="Apply"/> (opt-in default,
+        /// mirrors the <c>CurrencyLoot</c> precedent). Durable form is YAML; NOT <c>[Persistent]</c>.
+        /// </summary>
+        public ProtectionFlags Protection { get; set; } = ProtectionFlags.None;
+
         public MobTemplate(string blueprintId)
         {
             BlueprintId = blueprintId;
@@ -86,6 +93,11 @@ namespace Hedron.Core.Modules.Mobs.Templates
             }
             if (lootComp.Ranges.Count > 0)
                 entityService.AddComponent(entity.Id, lootComp);
+
+            // Add ProtectionComponent only when flags are non-None (opt-in default, mirrors CurrencyLoot).
+            // ProtectionFlags.None → no component → no protection (world-content default).
+            if (Protection != ProtectionFlags.None)
+                entityService.AddComponent(entity.Id, new ProtectionComponent { Flags = Protection });
         }
     }
 }

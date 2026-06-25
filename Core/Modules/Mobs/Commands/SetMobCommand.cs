@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Core.Commands;
 using Hedron.Core.Commands.Authorization;
@@ -30,7 +31,8 @@ namespace Hedron.Core.Modules.Mobs.Commands
         public string LongDescription =>
             "Sets a property on the mob with the given blueprint id. " +
             "Valid properties: name, description, keywords (space-separated), type (none/vendor/guard/creature), " +
-            "level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra.";
+            "level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra, " +
+            "protection (comma or space-separated flags: none, untargetable, effectimmune).";
         public string Usage => "setmob <blueprintId> <property> <value>";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
@@ -136,9 +138,37 @@ namespace Hedron.Core.Modules.Mobs.Commands
                     _mobBuilder.SetAttribute(mobEntityId, template, property, numericValue);
                     break;
 
+                case "protection":
+                    // Parse comma or space-separated flag tokens (case-insensitive).
+                    // "none" clears all flags. Unknown tokens produce an error.
+                    var tokens = value.Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    var combined = ProtectionFlags.None;
+                    var parseError = false;
+                    foreach (var token in tokens)
+                    {
+                        if (token.Equals("none", StringComparison.OrdinalIgnoreCase))
+                            continue; // explicit none — combined stays None
+                        if (Enum.TryParse<ProtectionFlags>(token, ignoreCase: true, out var parsed) &&
+                            parsed != ProtectionFlags.None)
+                        {
+                            combined |= parsed;
+                        }
+                        else
+                        {
+                            await context.Output.WriteAsync(new PlainMessage(
+                                $"Unknown protection flag '{token}'. Valid flags: none, untargetable, effectimmune.",
+                                OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
+                            parseError = true;
+                            break;
+                        }
+                    }
+                    if (parseError) return;
+                    _mobBuilder.SetMobProtection(mobEntityId, combined);
+                    break;
+
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
-                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra.",
+                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra, protection.",
                         OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
             }
