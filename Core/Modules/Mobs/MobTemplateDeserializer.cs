@@ -82,6 +82,28 @@ namespace Hedron.Core.Modules.Mobs
                 }
             }
 
+            // Deserialize protection flags. Each list entry is a ProtectionFlags enum name (case-insensitive).
+            // Unknown flag names are logged and skipped so a stale YAML entry doesn't crash startup.
+            if (dto.Protection is { Count: > 0 })
+            {
+                var combined = ProtectionFlags.None;
+                foreach (var flagName in dto.Protection)
+                {
+                    if (Enum.TryParse<ProtectionFlags>(flagName, ignoreCase: true, out var flag) &&
+                        flag != ProtectionFlags.None)
+                    {
+                        combined |= flag;
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Mob '{Id}': unknown protection flag '{Flag}' — skipping.",
+                            dto.BlueprintId, flagName);
+                    }
+                }
+                template.Protection = combined;
+            }
+
             return template;
         }
 
@@ -113,6 +135,11 @@ namespace Hedron.Core.Modules.Mobs
             /// Null / absent means no loot ranges configured (no drop by default).
             /// </summary>
             public Dictionary<string, CurrencyLootRangeDto>? CurrencyLoot { get; set; }
+            /// <summary>
+            /// Optional list of <see cref="ProtectionFlags"/> enum names (e.g. ["Untargetable", "EffectImmune"]).
+            /// Null / absent means no protection (opt-in default).
+            /// </summary>
+            public List<string>? Protection { get; set; }
         }
     }
 }

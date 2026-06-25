@@ -15,7 +15,7 @@ sequenceDiagram
     participant Bus as IEventBus
 
     Src->>ES: Apply(target, definition, source)
-    note over ES: compute Power (source base stats),<br/>resolve StackPolicy, store in EffectsComponent
+    note over ES: Gate B — EffectImmune check first;<br/>if set, return EffectApplyResult.Immune (no EffectsComponent mutation).<br/>Otherwise: compute Power, resolve StackPolicy, store in EffectsComponent.
     loop each HeartbeatTickEvent
         ETH->>ES: AdvanceTick(elapsed) → due Periodic apps + expired (Phase-ordered)
         ETH->>AS: apply each periodic magnitude (HoT before DoT)
@@ -25,7 +25,7 @@ sequenceDiagram
 
 ## Steps
 
-1. **Apply.** `EffectSystem.Apply` computes `Power` from the source's *base* stats (acyclic — never via `IStatSystem`), applies the `StackPolicy` (`HighestWins` keeps the stronger, etc.), and stores the effect — or, for `Instant`, returns the one-shot result without storing.
+1. **Apply.** `EffectSystem.Apply` first checks **Gate B — effect immunity**: if the target carries `ProtectionComponent` with `EffectImmune` set, it returns `EffectApplyResult.Immune` immediately — no `Power` computation, no `EffectsComponent` mutation, for **both** beneficial and harmful definitions. For unprotected targets: computes `Power` from the source's *base* stats (acyclic — never via `IStatSystem`), applies the `StackPolicy` (`HighestWins` keeps the stronger, etc.), and stores the effect — or, for `Instant`, returns the one-shot result without storing. Callers (`AffectCommand`, `AbilitySystem.Activate`) surface the immune result; no `EffectAppliedEvent` is published for immune targets.
 2. **Transparent read.** For `StatModifier` effects, `IStatSystem.Get` sums `EffectSystem.GetModifiers` over base + equipment, so combat / `score` / any consumer reflect the buff with no call-site change.
 3. **Tick.** Each heartbeat, `EffectTickHandler` calls `AdvanceTick`; the system advances `Timed` elapsed, collects due `Periodic` applications and expiries, and returns both `Phase`-ordered. The handler writes magnitudes via `IAttributeSystem` (heal phase before damage phase) and publishes `EffectExpiredEvent` per expiry.
 4. **Persist.** On flush, only `UntilRemoved` effects are written (the lifetime-filtering JSON converter); `Timed` effects are intentionally dropped on restart; source-bound effects re-derive from their sources.

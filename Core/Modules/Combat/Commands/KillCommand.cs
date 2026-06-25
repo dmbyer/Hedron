@@ -80,6 +80,17 @@ namespace Hedron.Core.Modules.Combat.Commands
                 return;
             }
 
+            // Gate A — protection check: refuse BEFORE any state transition or StartCombat.
+            if (!_combatSystem.CanBeAttacked(mobEntityId))
+            {
+                if (!_entityService.TryGet<ECS.Components.MobDataComponent>(mobEntityId, out var mobData))
+                    mobData = new ECS.Components.MobDataComponent { Name = "That" };
+                await context.Output.WriteAsync(new PlainMessage(
+                    $"{mobData.Name} is protected and cannot be attacked.",
+                    OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
+                return;
+            }
+
             if (!_entityStateService.TryEnterState(context.InvokerEntityId, EntityStateFlags.InCombat, out var failReason))
             {
                 await context.Output.WriteAsync(new PlainMessage(failReason!, OutputSeverity.System, OutputCategory.System))

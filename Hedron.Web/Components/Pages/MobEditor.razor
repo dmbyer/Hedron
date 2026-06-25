@@ -127,6 +127,29 @@ else if (_template is not null)
         <p class="hint">Leave a pool at 0 to use the apply-time default.</p>
     </fieldset>
 
+    <fieldset class="protection">
+        <legend>Protection</legend>
+        <p class="hint">Flags prevent this mob from being attacked or affected. Leave both unchecked for no protection (opt-in default).</p>
+        <div class="field-row">
+            <div class="field">
+                <label>
+                    <input type="checkbox"
+                           checked="@_template.Protection.HasFlag(ProtectionFlags.Untargetable)"
+                           @onchange="e => ToggleProtectionFlag(ProtectionFlags.Untargetable, (bool)(e.Value ?? false))" />
+                    Untargetable (cannot be attacked)
+                </label>
+            </div>
+            <div class="field">
+                <label>
+                    <input type="checkbox"
+                           checked="@_template.Protection.HasFlag(ProtectionFlags.EffectImmune)"
+                           @onchange="e => ToggleProtectionFlag(ProtectionFlags.EffectImmune, (bool)(e.Value ?? false))" />
+                    Effect-immune (rejects all effects)
+                </label>
+            </div>
+        </div>
+    </fieldset>
+
     <fieldset class="currency-loot">
         <legend>Currency loot</legend>
         <p class="hint">Base units (copper). 100 = 1 gold. Leave both at 0 for no currency drop (opt-in default).</p>
@@ -265,6 +288,17 @@ else if (_template is not null)
         _template.Keywords = (raw ?? string.Empty)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
+    }
+
+    // ── Protection helpers ────────────────────────────────────────────────────
+
+    private void ToggleProtectionFlag(ProtectionFlags flag, bool on)
+    {
+        if (_template is null) return;
+        if (on)
+            _template.Protection |= flag;
+        else
+            _template.Protection &= ~flag;
     }
 
     // ── Currency loot helpers ─────────────────────────────────────────────────

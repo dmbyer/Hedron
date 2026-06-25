@@ -82,6 +82,16 @@ namespace Hedron.Core.Modules.Abilities.Commands
             if (isOffensive && resolvedTarget.HasValue
                 && !_entityStateService.IsInState(actorId, EntityStateFlags.InCombat))
             {
+                // Gate A — protection check: refuse BEFORE TryEnterState / StartCombat.
+                if (!_combatSystem.CanBeAttacked(resolvedTarget.Value))
+                {
+                    var targetName = GetEntityName(resolvedTarget.Value);
+                    await output.WriteAsync(new PlainMessage(
+                        $"{targetName} is protected and cannot be attacked.",
+                        OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
+                    return;
+                }
+
                 if (!_entityStateService.TryEnterState(actorId, EntityStateFlags.InCombat, out var failReason))
                 {
                     await output.WriteAsync(new PlainMessage(failReason!, OutputSeverity.System, OutputCategory.System))

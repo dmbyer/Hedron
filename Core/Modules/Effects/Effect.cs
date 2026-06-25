@@ -89,4 +89,44 @@ namespace Hedron.Core.Modules.Effects
         StackPolicy Stacking,
         EffectPhase Phase
     );
+
+    /// <summary>
+    /// Reason a non-immune <see cref="EffectApplyResult"/> was not applied.
+    /// Distinguishes the stacking-policy rejection from the protection-immunity rejection
+    /// so callers can produce the correct player message.
+    /// </summary>
+    public enum EffectNotAppliedReason
+    {
+        /// <summary>Stacking policy (e.g. HighestWins) blocked the application.</summary>
+        StackingPolicy,
+        /// <summary>Target carries <c>EffectImmune</c> — the effect cannot land.</summary>
+        Immune,
+    }
+
+    /// <summary>
+    /// Structured result returned by <see cref="Systems.IEffectSystem.Apply"/>.
+    /// Replaces the previous nullable <see cref="Effect"/> to distinguish "not applied
+    /// (stacking)" from "not applied (immune)" so callers phrase messages correctly.
+    /// </summary>
+    public abstract record EffectApplyResult
+    {
+        private EffectApplyResult() { }
+
+        /// <summary>Effect was applied (may be instant — not stored in <c>EffectsComponent</c>).</summary>
+        public sealed record Applied(Effect Effect) : EffectApplyResult;
+
+        /// <summary>Effect was NOT applied; <see cref="Reason"/> explains why.</summary>
+        public sealed record NotApplied(EffectNotAppliedReason Reason) : EffectApplyResult;
+
+        // ── Convenience factories ──────────────────────────────────────────────
+
+        /// <summary>Returns an <see cref="Applied"/> result for the given effect.</summary>
+        public static EffectApplyResult ForApplied(Effect effect) => new Applied(effect);
+
+        /// <summary>Returns a <see cref="NotApplied"/> result for an immunity refusal.</summary>
+        public static EffectApplyResult Immune { get; } = new NotApplied(EffectNotAppliedReason.Immune);
+
+        /// <summary>Returns a <see cref="NotApplied"/> result for a stacking-policy rejection.</summary>
+        public static EffectApplyResult StackingBlocked { get; } = new NotApplied(EffectNotAppliedReason.StackingPolicy);
+    }
 }

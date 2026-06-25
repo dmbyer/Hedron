@@ -120,7 +120,7 @@ namespace Hedron.Tests.Abilities
         {
             public List<(uint Target, EffectDefinition Def, uint Source)> ApplyCalls { get; } = new();
 
-            public Effect? Apply(uint targetEntityId, EffectDefinition definition, uint sourceEntityId)
+            public EffectApplyResult Apply(uint targetEntityId, EffectDefinition definition, uint sourceEntityId)
             {
                 ApplyCalls.Add((targetEntityId, definition, sourceEntityId));
 
@@ -130,7 +130,7 @@ namespace Hedron.Tests.Abilities
                     ? EffectLifetime.Instant
                     : EffectLifetime.Timed;
 
-                return new Effect(
+                var effect = new Effect(
                     EffectId: definition.EffectId,
                     Kind: definition.Kind,
                     Params: definition.Params,
@@ -143,6 +143,7 @@ namespace Hedron.Tests.Abilities
                     Elapsed: 0f,
                     Stacking: definition.Stacking,
                     Phase: definition.Phase);
+                return EffectApplyResult.ForApplied(effect);
             }
 
             public void Remove(uint entityId, string effectId) { }

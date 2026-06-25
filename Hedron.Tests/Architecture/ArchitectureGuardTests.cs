@@ -273,15 +273,20 @@ namespace Hedron.Tests.Architecture
         // ── INV-23: world-content-not-persistent ──────────────────────────────
 
         /// <summary>
-        /// INV-23: World-content component types (RoomComponent, AreaComponent) must not
-        /// carry the [Persistent] attribute. World content is always fresh-spawned from
+        /// INV-23: World-content component types (RoomComponent, AreaComponent, ProtectionComponent)
+        /// must not carry the [Persistent] attribute. World content is always fresh-spawned from
         /// YAML/templates — never written to SQLite.
+        ///
+        /// ProtectionComponent is mob world-content (durable form is MobTemplate YAML).
+        /// Its non-persistence is independently proven by the Tier-4 YAML round-trip test
+        /// in MobProtectionRoundTripTests (the CurrencyLootComponent precedent).
         /// </summary>
         [Fact]
         public void World_content_components_are_not_persistent()
         {
             var roomComponent = typeof(Hedron.Core.ECS.Components.RoomComponent);
             var areaComponent = typeof(Hedron.Core.ECS.Components.AreaComponent);
+            var protectionComponent = typeof(Hedron.Core.ECS.Components.ProtectionComponent);
 
             var violations = new List<string>();
 
@@ -291,9 +296,12 @@ namespace Hedron.Tests.Architecture
             if (areaComponent.GetCustomAttribute<PersistentAttribute>() != null)
                 violations.Add($"{areaComponent.FullName} carries [Persistent]");
 
+            if (protectionComponent.GetCustomAttribute<PersistentAttribute>() != null)
+                violations.Add($"{protectionComponent.FullName} carries [Persistent]");
+
             Assert.True(
                 violations.Count == 0,
-                $"INV-23 violated — world-content components (RoomComponent, AreaComponent) " +
+                $"INV-23 violated — world-content components (RoomComponent, AreaComponent, ProtectionComponent) " +
                 $"must not be [Persistent]. Violations:\n" +
                 string.Join("\n", violations));
         }

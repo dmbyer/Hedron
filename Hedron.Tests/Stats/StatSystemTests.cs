@@ -41,7 +41,7 @@ namespace Hedron.Tests.Stats
                 => _modifiers.TryGetValue((entityId, scoreId), out var v) ? v : 0;
 
             // ── Unused IEffectSystem members — not exercised by StatSystem ───────
-            public Effect? Apply(uint targetEntityId, EffectDefinition definition, uint sourceEntityId)
+            public EffectApplyResult Apply(uint targetEntityId, EffectDefinition definition, uint sourceEntityId)
                 => throw new NotSupportedException("FakeEffectSystem.Apply not used by StatSystem tests.");
 
             public void Remove(uint entityId, string effectId) { }

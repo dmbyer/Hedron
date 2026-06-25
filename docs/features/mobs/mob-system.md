@@ -27,11 +27,13 @@ A minimal `MobTemplate` is registered in `ITemplateRegistry`. Returns `MobCreati
 
 Slice 8-a added `SetAttribute(mobEntityId, template, property, value)` for mutating `AttributesComponent` and `PoolsComponent` properties (`level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra`). It enforces `CurrentX ≤ MaxX` clamp on pool max changes (INV-8).
 
+Slice 12b added `SetMobProtection(mobEntityId, ProtectionFlags)` — dual-writes the live `ProtectionComponent` (added/updated when flags ≠ `None`, removed when `None`) and `MobTemplate.Protection` so the assignment survives `reload`. Mirrors `SetMobType`; the gates that read it live in the combat and effects domains, not here. See [mobs.md → Protection](mobs.md#protection-invulnerability--immunity).
+
 ### YAML template shape
 
-`MobTemplate` fields: `blueprintId`, `name`, `description`, `keywords`, `type` (string enum — `none`, `vendor`, `guard`, `creature`), `spawnRoomBlueprintId`. Slice 8-a extended the DTO with `level`, `maxHp`, attribute fields (`mind`, `body`, `spirit`, `attunement`), and pool fields (`maxMana`, `maxStamina`, `maxAstra`).
+`MobTemplate` fields: `blueprintId`, `name`, `description`, `keywords`, `type` (string enum — `none`, `vendor`, `guard`, `creature`), `spawnRoomBlueprintId`. Slice 8-a extended the DTO with `level`, `maxHp`, attribute fields (`mind`, `body`, `spirit`, `attunement`), and pool fields (`maxMana`, `maxStamina`, `maxAstra`). Slice 12b added `protection` — a flag-name string list (`untargetable`, `effectimmune`); absent/empty ⇒ `None` ⇒ no `ProtectionComponent` on `Apply` (opt-in, mirrors `currencyLoot`).
 
-`MobTemplateDeserializer` warns on unknown `type` values and never throws — resilient deserialization is the design contract (unknown fields are ignored; bad fields log and default).
+`MobTemplateDeserializer` warns on unknown `type` values and never throws — resilient deserialization is the design contract (unknown fields are ignored; bad fields log and default). Unknown `protection` flag names are logged and skipped (case-insensitive parse).
 
 ### Spawn from content
 
@@ -45,7 +47,7 @@ Slice 8-a added `SetAttribute(mobEntityId, template, property, value)` for mutat
 
 The seam self-documents in code — describe behaviour here, not signatures:
 
-- [`IMobBuilderSystem.cs`](../../../Core/Modules/Mobs/Systems/IMobBuilderSystem.cs) — `CreateMob` / `SetMobName` / `SetMobDescription` / `SetMobKeywords` / `SetMobType` / `SetAttribute`. Pure: returns results; never touches the bus or persistence (INV-5).
+- [`IMobBuilderSystem.cs`](../../../Core/Modules/Mobs/Systems/IMobBuilderSystem.cs) — `CreateMob` / `SetMobName` / `SetMobDescription` / `SetMobKeywords` / `SetMobType` / `SetAttribute` / `SetMobProtection`. Pure: returns results; never touches the bus or persistence (INV-5).
 - [`IMobContentWriter.cs`](../../../Core/Modules/Mobs/Systems/IMobContentWriter.cs) — `WriteAsync(MobTemplate, CancellationToken)`. Atomic YAML write (tmp → rename).
 
 ## Considerations

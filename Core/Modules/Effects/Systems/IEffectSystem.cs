@@ -6,7 +6,15 @@ namespace Hedron.Core.Modules.Effects.Systems
 {
     public interface IEffectSystem
     {
-        Effect? Apply(uint targetEntityId, EffectDefinition definition, uint sourceEntityId);
+        /// <summary>
+        /// Attempts to apply <paramref name="definition"/> to <paramref name="targetEntityId"/>.
+        /// Returns <see cref="EffectApplyResult.Applied"/> on success,
+        /// <see cref="EffectApplyResult.Immune"/> when the target carries
+        /// <c>EffectImmune</c> (both beneficial and harmful definitions are rejected),
+        /// or <see cref="EffectApplyResult.StackingBlocked"/> when the stacking policy
+        /// (e.g. <c>HighestWins</c>) blocks a weaker re-application.
+        /// </summary>
+        EffectApplyResult Apply(uint targetEntityId, EffectDefinition definition, uint sourceEntityId);
 
         void Remove(uint entityId, string effectId);
         void RemoveByCategory(uint entityId, EffectCategory category);

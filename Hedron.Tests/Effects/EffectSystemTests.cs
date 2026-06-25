@@ -75,10 +75,10 @@ namespace Hedron.Tests.Effects
         /// <summary>
         /// When an effect with <see cref="StackPolicy.HighestWins"/> is already active and
         /// the existing Power is greater than or equal to the new effect's Power,
-        /// <see cref="EffectSystem.Apply"/> must return <c>null</c> (blocked).
+        /// <see cref="EffectSystem.Apply"/> must return <see cref="EffectApplyResult.StackingBlocked"/>.
         /// </summary>
         [Fact]
-        public void Apply_HighestWins_returns_null_when_existing_power_is_greater()
+        public void Apply_HighestWins_returns_StackingBlocked_when_existing_power_is_greater()
         {
             var ecs = new EntityService();
             var system = Build(ecs);
@@ -88,14 +88,15 @@ namespace Hedron.Tests.Effects
             // Apply a strong empower (power=10).
             var strongDef = StatModDef("empower", StackPolicy.HighestWins, duration: 30f, magnitude: 10);
             var first = system.Apply(target, strongDef, source);
-            Assert.NotNull(first);
-            Assert.Equal(10, first!.Power);
+            var firstApplied = Assert.IsType<EffectApplyResult.Applied>(first);
+            Assert.Equal(10, firstApplied.Effect.Power);
 
-            // Re-apply with a weaker version (power=5) — must be blocked.
+            // Re-apply with a weaker version (power=5) — must be stacking-blocked.
             var weakDef = StatModDef("empower", StackPolicy.HighestWins, duration: 30f, magnitude: 5);
             var blocked = system.Apply(target, weakDef, source);
 
-            Assert.True(blocked is null, "HighestWins must return null when existing power >= new power");
+            var notApplied = Assert.IsType<EffectApplyResult.NotApplied>(blocked);
+            Assert.Equal(EffectNotAppliedReason.StackingPolicy, notApplied.Reason);
 
             // The stored effect must still be the original (power=10).
             var active = ecs.Get<EffectsComponent>(target).Effects;
@@ -104,7 +105,7 @@ namespace Hedron.Tests.Effects
         }
 
         [Fact]
-        public void Apply_HighestWins_returns_null_when_existing_power_is_equal()
+        public void Apply_HighestWins_returns_StackingBlocked_when_existing_power_is_equal()
         {
             var ecs = new EntityService();
             var system = Build(ecs);
@@ -114,9 +115,10 @@ namespace Hedron.Tests.Effects
             var def = StatModDef("empower", StackPolicy.HighestWins, duration: 30f, magnitude: 8);
             system.Apply(target, def, source); // first apply
 
-            // Same power — must also be blocked (existing.Power >= power).
+            // Same power — must also be stacking-blocked (existing.Power >= power).
             var blocked = system.Apply(target, def, source);
-            Assert.True(blocked is null, "HighestWins must return null when existing power == new power");
+            var notApplied = Assert.IsType<EffectApplyResult.NotApplied>(blocked);
+            Assert.Equal(EffectNotAppliedReason.StackingPolicy, notApplied.Reason);
         }
 
         [Fact]
@@ -133,8 +135,8 @@ namespace Hedron.Tests.Effects
             var strong = StatModDef("empower", StackPolicy.HighestWins, duration: 30f, magnitude: 15);
             var result = system.Apply(target, strong, source);
 
-            Assert.NotNull(result);
-            Assert.Equal(15, result!.Power);
+            var applied = Assert.IsType<EffectApplyResult.Applied>(result);
+            Assert.Equal(15, applied.Effect.Power);
 
             var active = ecs.Get<EffectsComponent>(target).Effects;
             Assert.Single(active);

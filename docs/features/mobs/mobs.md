@@ -27,9 +27,18 @@ The full model — YAML shape, blueprint id format, builder method contracts, an
 
 ## Surfaces
 
-- **Commands (admin)** — `mkmob [name]` (creates a mob in the invoker's room; prints blueprint id), `setmob <blueprintId> <property> <value>` (mutates `name`, `description`, `keywords`, `type`). See [`../../reference/commands.md`](../../reference/commands.md).
+- **Commands (admin)** — `mkmob [name]` (creates a mob in the invoker's room; prints blueprint id), `setmob <blueprintId> <property> <value>` (mutates `name`, `description`, `keywords`, `type`, `protection`). See [`../../reference/commands.md`](../../reference/commands.md).
 - **Events** — `MobCreatedByAdminEvent`, `MobPropertySetByAdminEvent` (thin, past-tense; audit only). See [`../../reference/handlers.md`](../../reference/handlers.md).
-- **Component** — `MobDataComponent` (`[Persistent]`, cross-cutting). See [`../../reference/components.md`](../../reference/components.md).
+- **Components** — `MobDataComponent` (`[Persistent]`, cross-cutting); `ProtectionComponent` (cross-cutting, **not** `[Persistent]` — world content, durable form is `MobTemplate.Protection`). See [`../../reference/components.md`](../../reference/components.md).
+
+## Protection (invulnerability / immunity)
+
+A mob (or any entity) may be configured with **protection flags** along two independent axes, carried by the cross-cutting `ProtectionComponent` (`[Flags] ProtectionFlags { None, Untargetable, EffectImmune }`):
+
+- **`Untargetable`** — cannot be the target of an attack. The combat domain owns the gate: `ICombatSystem.CanBeAttacked(targetEntityId)` returns `false`, and both initiators (`KillCommand` and the offensive-target branch of `AbilityInvocationPipeline`) refuse *before* any state transition, HP change, or `CombatStartedEvent` — a clear refusal message, not a no-op round.
+- **`EffectImmune`** — rejects **every** effect, beneficial or harmful. `IEffectSystem.Apply` reads the flag at entry and returns a structured immune result (no `Effect` constructed, no `EffectsComponent` change); `AffectCommand` and `AbilitySystem.Activate` surface it (no `EffectAppliedEvent` for an immune target).
+
+The two axes are independent so a future entity can have one without the other (a boss immune to crowd-control but killable; a passive NPC affectable but un-attackable). A safe-area shopkeeper sets **both**. The flag is data; each refusal lives with its owning domain (combat, effects) — keeping invulnerability a general entity property rather than a trade or mob concern. Authored on the mob template via `setmob <bp> protection <flags>` and the Blazor `MobEditor`; absent/`None` ⇒ no component (opt-in, mirroring `CurrencyLoot`). Shopping (slice 12c) *consumes* this to protect safe-area shopkeepers. Category-granular immunity (immune to `Curse` only, etc.) is deferred — see [`../../roadmap/backlog.md`](../../roadmap/backlog.md).
 
 ## The combat-target surface
 

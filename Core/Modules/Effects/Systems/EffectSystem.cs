@@ -4,6 +4,7 @@ using System.Linq;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Stats;
+using ProtComp = Hedron.Core.ECS.Components.ProtectionComponent;
 
 namespace Hedron.Core.Modules.Effects.Systems
 {
@@ -18,8 +19,17 @@ namespace Hedron.Core.Modules.Effects.Systems
             _contributors = contributors;
         }
 
-        public Effect? Apply(uint targetEntityId, EffectDefinition definition, uint sourceEntityId)
+        public EffectApplyResult Apply(uint targetEntityId, EffectDefinition definition, uint sourceEntityId)
         {
+            // Gate B — effect immunity: reject ALL effects (beneficial and harmful) if the target
+            // carries EffectImmune. This check must be first, before any Power computation or
+            // EffectsComponent mutation (INV-4, INV-8).
+            if (_entityService.TryGet<ProtComp>(targetEntityId, out var protection) &&
+                protection.Flags.HasFlag(ProtectionFlags.EffectImmune))
+            {
+                return EffectApplyResult.Immune;
+            }
+
             var power = PowerScaling.Evaluate(definition.PowerScalingFormula, definition, _entityService, sourceEntityId);
 
             var effect = new Effect(
@@ -38,7 +48,7 @@ namespace Hedron.Core.Modules.Effects.Systems
             );
 
             if (definition.Kind == EffectKind.Instant)
-                return effect;
+                return EffectApplyResult.ForApplied(effect);
 
             EnsureComponent(targetEntityId, out var comp);
 
@@ -50,7 +60,7 @@ namespace Hedron.Core.Modules.Effects.Systems
                     if (existing != null)
                     {
                         if (existing.Power >= power)
-                            return null;
+                            return EffectApplyResult.StackingBlocked;
                         comp.Effects.Remove(existing);
                     }
                     comp.Effects.Add(effect);
@@ -85,7 +95,7 @@ namespace Hedron.Core.Modules.Effects.Systems
                     break;
             }
 
-            return effect;
+            return EffectApplyResult.ForApplied(effect);
         }
 
         public void Remove(uint entityId, string effectId)

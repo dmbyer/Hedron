@@ -12,7 +12,7 @@ The same shape covers all of them — each is a parameterized instance of a smal
 
 The feature composes three pieces at the orchestration level:
 
-- **`EffectSystem`** (core) owns the lifecycle — compute power, apply the stacking rule, store, tick, expire — and exposes the modifier seam. It decides; it doesn't broadcast.
+- **`EffectSystem`** (core) owns the lifecycle — compute power, apply the stacking rule, store, tick, expire — and exposes the modifier seam. It decides; it doesn't broadcast. `Apply` returns a structured `EffectApplyResult` (`Applied` / `NotApplied(reason)`) so callers can distinguish an out-stacked application from an **immune** refusal: an entity carrying `ProtectionComponent`-`EffectImmune` rejects **every** effect (beneficial or harmful) at method entry, with no `Effect` constructed and no `EffectsComponent` change. See [mobs → Protection](../mobs/mobs.md#protection-invulnerability--immunity).
 - **`EffectTickHandler`** (heartbeat subscriber) drives periodic application and expiry each tick, writes pool changes through `IAttributeSystem`, and publishes the expiry events. Orchestration only.
 - **The stat pipeline** reads effect modifiers transparently: `IStatSystem.Get` folds `EffectSystem.GetModifiers` on top of base + equipment, so combat, the `score` command, and every other consumer see buffed/debuffed values with **no call-site change**.
 
@@ -39,3 +39,4 @@ The keystone design is the **contributor seam** ([INV-24](../../architecture/che
 - [`../../design/gameplay-model.md`](../../design/gameplay-model.md) — Spine C, the design this realizes.
 - [`../../roadmap/completed/slice-9e-effect-substrate.md`](../../roadmap/completed/slice-9e-effect-substrate.md) — as-built history and decisions.
 - **Consumers** (cross-feature links added as they migrate): combat reads effect-modified stats and later produces combat effects; abilities and items produce effects via `EffectSystem.Apply`.
+- **Mobs** — [`../mobs/mobs.md#protection-invulnerability--immunity`](../mobs/mobs.md#protection-invulnerability--immunity) — the `EffectImmune` axis of `ProtectionComponent` is the immune gate `EffectSystem.Apply` reads.

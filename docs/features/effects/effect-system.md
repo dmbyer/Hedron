@@ -68,6 +68,11 @@ Deferred kinds are enum values with no handler yet; adding a handler later is ad
 The seam self-documents in code — describe behaviour here, not signatures:
 
 - [`IEffectSystem.cs`](../../../Core/Modules/Effects/Systems/IEffectSystem.cs) — `Apply` / `Remove` / `RemoveByCategory` / `GetActive` / `GetModifiers(entityId, scoreId)` / `AdvanceTick(elapsed)`. Pure: returns results, never touches the bus or persistence, never calls a domain system.
+  - **`Apply` return contract (changed 12b WP-1):** returns `EffectApplyResult` — a discriminated union:
+    - `EffectApplyResult.Applied(Effect)` — effect landed (Instant or stored).
+    - `EffectApplyResult.NotApplied(Reason=Immune)` — target carries `ProtectionFlags.EffectImmune`; no `EffectsComponent` mutation. Rejects both beneficial and harmful definitions.
+    - `EffectApplyResult.NotApplied(Reason=StackingPolicy)` — `HighestWins` policy blocked a weaker re-application.
+    Callers surface the reason in their output; no `EffectAppliedEvent` is published for non-`Applied` results.
 - [`EffectsComponent.cs`](../../../Core/ECS/Components/EffectsComponent.cs) — the `[Persistent]` store + its lifetime-filtering JSON converter.
 
 ## The contributor seam

@@ -100,6 +100,10 @@ sequenceDiagram
     Cmd->>P: InvokeAsync(actorId, abilityId, def, "goblin", output, context)
     note over P: MobInRoomResolver resolves goblinId
     P->>ESS: IsInState(actorId, InCombat) → false
+    P->>CS: CanBeAttacked(goblinId) [Gate A]
+    alt Untargetable
+        P-->>Player: "X is protected and cannot be attacked." [return]
+    end
     P->>ESS: TryEnterState(actorId, InCombat)
     P->>ESS: TryEnterState(goblinId, InCombat)
     P->>CS: StartCombat(actorId, goblinId)
@@ -117,6 +121,7 @@ sequenceDiagram
 1. `CastCommand` / `SkillInvocationCommand` delegates to `AbilityInvocationPipeline`.
 2. Explicit target token → `MobInRoomResolver` (or `ICombatSystem.TryFindTargetInRoom`) resolves the mob. No match → "You don't see that here."
 3. `IAbilitySystem.IsOffensive(abilityId)` → true + actor not `InCombat` → combat-entry path:
+   - `ICombatSystem.CanBeAttacked(goblinId)` (**Gate A — protection check**): if the target carries `ProtectionFlags.Untargetable`, write "X is protected and cannot be attacked." and return — no cost spent, no `TryEnterState`, no `StartCombat`, no `CombatStartedEvent`.
    - `TryEnterState(actorId, InCombat)` — blocked → write `failReason`, abort (no cost spent, INV-5).
    - `TryEnterState(goblinId, InCombat)` — mobs never reject; logs warning if they do.
    - `ICombatSystem.StartCombat(actorId, goblinId)` — attaches `CombatStateComponent`.
