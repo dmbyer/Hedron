@@ -40,6 +40,10 @@ else if (_template is not null)
                 }
             </select>
         </div>
+        <div class="field">
+            <label>Value <span class="hint-inline">(base-unit Coin; 0 = non-saleable)</span></label>
+            <input type="number" min="0" @bind="_template.Value" />
+        </div>
     </div>
 
     <fieldset class="stat-bonuses">

@@ -27,6 +27,14 @@ namespace Hedron.Core.Modules.Items.Systems
 
         /// <summary>Remove all worn-stat bonuses from the item (and its template).</summary>
         void ClearItemStatBonuses(uint itemEntityId);
+
+        /// <summary>
+        /// Sets the intrinsic base value (base-unit Coin) on both the live entity's
+        /// <see cref="Hedron.Core.ECS.Components.ItemDataComponent.Value"/> and the
+        /// in-memory <see cref="Templates.ItemTemplate.Value"/>. Pure setter — validation
+        /// (non-negative guard) lives at the command edge.
+        /// </summary>
+        void SetItemValue(uint itemEntityId, long value);
     }
 
     /// <summary>Result of <see cref="IItemBuilderSystem.CreateItem"/>.</summary>

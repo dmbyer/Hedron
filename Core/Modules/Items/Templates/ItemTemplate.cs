@@ -31,6 +31,12 @@ namespace Hedron.Core.Modules.Items.Templates
         /// <summary>Stat contributions applied while this item is worn (WhileEquipped StatModifiers, derived on read). Empty = none.</summary>
         public List<EquipmentStatBonus> StatBonuses { get; set; } = new();
 
+        /// <summary>
+        /// Intrinsic base value in base-unit Coin. <c>0</c> means "valueless / not saleable".
+        /// Copied onto <see cref="ItemDataComponent.Value"/> by <see cref="Apply"/>.
+        /// </summary>
+        public long Value { get; set; } = 0;
+
         public ItemTemplate(string blueprintId)
         {
             BlueprintId = blueprintId;
@@ -46,6 +52,7 @@ namespace Hedron.Core.Modules.Items.Templates
                 ItemType = ItemType,
                 WornSlots = WornSlots.Count > 0 ? new List<WornSlot>(WornSlots) : null,
                 StatBonuses = new List<EquipmentStatBonus>(StatBonuses),
+                Value = Value,
             });
         }
     }

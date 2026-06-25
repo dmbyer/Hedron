@@ -27,6 +27,8 @@ Commands are the Initiators: they call the appropriate system, publish a past-te
 
 **`BlueprintComponent` decoupling.** `ItemSystem.MoveToInventory` (slice 6) unconditionally clears `BlueprintComponent` at pickup. By the time a player can invoke `wear`, the item entity is already decoupled from its template; `WearCommand` and `EquipmentSystem` need not handle `BlueprintComponent` (INV-21).
 
+**Item value (the price substrate).** Every item carries an intrinsic `ItemDataComponent.Value` — a non-negative base-unit Coin `long` (the `CurrencyRegistry` ladder's unit; default `0`), authored beside its other designer fields and persisted with them. Value is the single source from which every *economic price is derived* — shop buy/sell/buy-back, salvage, repair, enchanting cost — computed on read as `Value × ratio` by the consumer. **No price is ever stored**, the same discipline as derived stats: storing a price would reintroduce the "did I recompute when value changed?" bug family. `Value == 0` is the "valueless / not saleable" default (items authored before the field deserialize to 0 and are correctly non-saleable until set). Authoring mirrors `SetItemType`: `IItemBuilderSystem.SetItemValue` dual-writes `ItemDataComponent.Value` on the live entity **and** `ItemTemplate.Value` on the in-memory template (so the value survives `@reload`); it is a pure setter, with non-negativity enforced at the command/editor edge. The first consumer is Shopping (slice 12c); this feature lands only the substrate.
+
 ## Systems
 
 | System | Role |
@@ -38,8 +40,8 @@ Commands are the Initiators: they call the appropriate system, publish a past-te
 
 - **Commands** — `get <item>`, `drop <item>`, `inventory`/`inv`/`i`, `wear <item>`, `remove <item>`, `equipment`/`eq`. See [`../../reference/commands.md`](../../reference/commands.md).
 - **Events** — `ItemPickedUpEvent`, `ItemDroppedEvent`, `ItemEquippedEvent`, `ItemUnequippedEvent`, `ItemCreatedByAdminEvent`, `ItemPropertySetByAdminEvent`. See [`../../reference/handlers.md`](../../reference/handlers.md).
-- **Components** — `ItemDataComponent` (`[Persistent]`, name/description/keywords/type/worn-slots/damage-bonus), `InventoryComponent` (`[Persistent]`, cross-cutting), `EquipmentComponent` (`[Persistent]`, cross-cutting). See [`../../reference/components.md`](../../reference/components.md).
-- **Admin commands** — `mkitem [name]`, `setitem <blueprintId> <property> <value>`. See [`../../reference/commands.md`](../../reference/commands.md).
+- **Components** — `ItemDataComponent` (`[Persistent]`, name/description/keywords/type/worn-slots/stat-bonuses/value), `InventoryComponent` (`[Persistent]`, cross-cutting), `EquipmentComponent` (`[Persistent]`, cross-cutting). See [`../../reference/components.md`](../../reference/components.md).
+- **Admin commands** — `mkitem [name]`, `setitem <blueprintId> <property> <value>` (properties include `value <n>` — base-unit Coin, non-negative). See [`../../reference/commands.md`](../../reference/commands.md).
 
 ## Flows
 

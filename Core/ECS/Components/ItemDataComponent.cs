@@ -27,5 +27,12 @@ namespace Hedron.Core.ECS.Components
         /// Empty means the item contributes no stats.
         /// </summary>
         public List<EquipmentStatBonus> StatBonuses { get; set; } = new();
+
+        /// <summary>
+        /// Intrinsic base value of this item in base-unit Coin (the <c>CurrencyRegistry</c> base
+        /// unit). <c>0</c> means "valueless / not saleable". Prices are derived from this at
+        /// read time by consumers (e.g. the shop system) — never stored separately.
+        /// </summary>
+        public long Value { get; set; } = 0;
     }
 }
