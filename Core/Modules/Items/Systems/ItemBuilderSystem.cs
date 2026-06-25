@@ -133,6 +133,14 @@ namespace Hedron.Core.Modules.Items.Systems
             if (tpl is not null) tpl.StatBonuses.Clear();
         }
 
+        public void SetItemValue(uint itemEntityId, long value)
+        {
+            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
+                item.Value = value;
+            var tpl = TryGetTemplate(itemEntityId);
+            if (tpl is not null) tpl.Value = value;
+        }
+
         // Keep one row per ScoreId: drop any existing row for this score, then add the new one
         // unless magnitude is 0 (which means "remove the bonus").
         private static void ApplyStatBonus(List<EquipmentStatBonus> bonuses, ScoreId score, int magnitude)

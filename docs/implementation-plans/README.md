@@ -46,7 +46,6 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 
 | Status | Plan | Slice |
 |---|---|---|
-| `planned` | [`item-value.md`](item-value.md) | Slice 12a — Item value (advisor seed) |
 | `planned` | [`mob-protection.md`](mob-protection.md) | Slice 12b — Mob protection (advisor seed) |
 | `planned` | [`shopping.md`](shopping.md) | Slice 12c — Shopping (advisor seed; depends on 12a/12b) |
 | `planned` | [`admin-area-authoring.md`](admin-area-authoring.md) | `mkarea` + `list <type>` |

@@ -8,7 +8,7 @@
 
 ## Dependencies
 
-- **12a — Item value** ([`item-value.md`](item-value.md)): the `ItemDataComponent.Value` field every shop price derives from. **Hard prerequisite.**
+- **12a — Item value** (✅ shipped — [items feature](../features/items/items.md), [`../roadmap/completed/item-value.md`](../roadmap/completed/item-value.md)): the `ItemDataComponent.Value` field every shop price derives from. **Hard prerequisite — satisfied.**
 - **12b — Mob protection** ([`mob-protection.md`](mob-protection.md)): the `ProtectionComponent` a safe-area shopkeeper sets. **Soft** — shopping works without it, but protected shopkeepers need it; sequence 12b before or with 12c.
 
 ## Description

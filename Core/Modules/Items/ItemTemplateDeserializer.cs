@@ -43,6 +43,7 @@ namespace Hedron.Core.Modules.Items
                 Name = dto.Name ?? string.Empty,
                 Description = dto.Description ?? string.Empty,
                 SpawnRoomBlueprintId = dto.SpawnRoomId ?? string.Empty,
+                Value = dto.Value,
             };
 
             if (dto.Keywords is { Count: > 0 })
@@ -96,6 +97,7 @@ namespace Hedron.Core.Modules.Items
             public List<string>? WornSlots { get; set; }
             public string? SpawnRoomId { get; set; }
             public List<StatBonusDto>? StatBonuses { get; set; }
+            public long Value { get; set; } = 0;
         }
 
         private sealed class StatBonusDto

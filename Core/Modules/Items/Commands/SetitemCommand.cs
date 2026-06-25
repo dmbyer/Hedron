@@ -33,12 +33,13 @@ namespace Hedron.Core.Modules.Items.Commands
         public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
         public string ShortDescription => "Set a property on an item.";
         public string LongDescription =>
-            "Sets name, description, keywords (space-separated), type, slot, or worn-stat bonuses on the item with the given blueprint id. " +
+            "Sets name, description, keywords (space-separated), type, slot, value, or worn-stat bonuses on the item with the given blueprint id. " +
             "Valid types: none, weapon, armor, consumable, container, misc. " +
             "Valid slots (space-separated): mainhand, offhand, head, chest, feet, legs, hands, arms, waist, neck, finger, finger2, wrist, wrist2. " +
+            "value <n> sets the item's intrinsic base-unit coin value (non-negative integer; 0 = valueless/non-saleable). " +
             "bonus <score> <amount> adds or replaces a worn stat bonus (amount 0 removes that score; negative is allowed for cursed gear); " +
             "clearbonus removes all bonuses. Valid scores: attackpower, defense (any score id).";
-        public string Usage => "setitem <blueprintId> <property> [value]";
+        public string Usage => "setitem <blueprintId> <property> [value]  (properties: name, description, keywords, type, slot, value, bonus, clearbonus)";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
         public CommandArgumentSchema ArgumentSchema { get; } = new(new[]
@@ -123,6 +124,17 @@ namespace Hedron.Core.Modules.Items.Commands
                     _itemBuilder.SetItemKeywords(itemEntityId, keywords);
                     break;
 
+                case "value":
+                    if (!long.TryParse(value, out var itemValue) || itemValue < 0)
+                    {
+                        await context.Output.WriteAsync(new PlainMessage(
+                            $"Invalid value '{value}'. Expected a non-negative integer (e.g. 250).",
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
+                        return;
+                    }
+                    _itemBuilder.SetItemValue(itemEntityId, itemValue);
+                    break;
+
                 case "type":
                     if (!Enum.TryParse<ItemType>(value, ignoreCase: true, out var itemType))
                     {
@@ -187,7 +199,7 @@ namespace Hedron.Core.Modules.Items.Commands
 
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
-                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, slot, bonus, clearbonus.",
+                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, slot, value, bonus, clearbonus.",
                         OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
             }

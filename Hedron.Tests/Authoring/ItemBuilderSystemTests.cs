@@ -497,5 +497,94 @@ namespace Hedron.Tests.Authoring
                     "domain systems must never hold or publish to the event bus.");
             }
         }
+
+        // ── SetItemValue — dual-write (item-value WP1) ────────────────────────────
+
+        [Fact]
+        public void SetItemValue_updates_ItemDataComponent_on_live_entity()
+        {
+            var (sys, ecs, _) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateItem("Gold Ring", roomId);
+
+            sys.SetItemValue(result.ItemEntityId, 250L);
+
+            var item = ecs.Get<ItemDataComponent>(result.ItemEntityId);
+            Assert.Equal(250L, item.Value);
+        }
+
+        [Fact]
+        public void SetItemValue_updates_template_in_registry()
+        {
+            var (sys, ecs, registry) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateItem("Silver Amulet", roomId);
+
+            sys.SetItemValue(result.ItemEntityId, 750L);
+
+            registry.TryGet(result.BlueprintId, out var template);
+            var itemTemplate = Assert.IsType<ItemTemplate>(template);
+            Assert.Equal(750L, itemTemplate.Value);
+        }
+
+        [Fact]
+        public void SetItemValue_is_noop_for_unknown_entity()
+        {
+            // Pure setter — no throw for unknown entity (validation is caller's responsibility).
+            var (sys, _, _) = Build();
+            sys.SetItemValue(99999u, 100L);
+        }
+
+        [Fact]
+        public void SetItemValue_zero_is_accepted_as_valueless()
+        {
+            var (sys, ecs, registry) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateItem("Pebble", roomId);
+
+            sys.SetItemValue(result.ItemEntityId, 500L);
+            sys.SetItemValue(result.ItemEntityId, 0L);
+
+            var item = ecs.Get<ItemDataComponent>(result.ItemEntityId);
+            Assert.Equal(0L, item.Value);
+
+            registry.TryGet(result.BlueprintId, out var template);
+            var itemTemplate = Assert.IsType<ItemTemplate>(template);
+            Assert.Equal(0L, itemTemplate.Value);
+        }
+
+        // ── ItemTemplate.Apply copies Value (item-value WP1) ──────────────────────
+
+        [Fact]
+        public void ItemTemplate_Apply_copies_default_zero_Value_onto_ItemDataComponent()
+        {
+            var ecs = new EntityService();
+            var template = new ItemTemplate("item.test.zero") { Name = "Pebble" };
+            // Value defaults to 0 — the "valueless" sentinel.
+            Assert.Equal(0L, template.Value);
+
+            var entity = ecs.CreateEntity();
+            template.Apply(entity, ecs);
+
+            var comp = ecs.Get<ItemDataComponent>(entity.Id);
+            Assert.Equal(0L, comp.Value);
+        }
+
+        [Fact]
+        public void ItemTemplate_Apply_copies_nonzero_Value_onto_ItemDataComponent()
+        {
+            var ecs = new EntityService();
+            var template = new ItemTemplate("item.test.valued")
+            {
+                Name = "Diamond",
+                Value = 5000L,
+            };
+
+            var entity = ecs.CreateEntity();
+            template.Apply(entity, ecs);
+
+            var comp = ecs.Get<ItemDataComponent>(entity.Id);
+            Assert.Equal(5000L, comp.Value);
+        }
     }
 }

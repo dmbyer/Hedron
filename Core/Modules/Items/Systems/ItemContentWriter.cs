@@ -55,6 +55,7 @@ namespace Hedron.Core.Modules.Items.Systems
                 WornSlots = wornSlots,
                 SpawnRoomId = template.SpawnRoomBlueprintId,
                 StatBonuses = statBonuses,
+                Value = template.Value,
             };
 
             var body = _yaml.Serialize(dto);
@@ -75,6 +76,7 @@ namespace Hedron.Core.Modules.Items.Systems
             public List<string>? WornSlots { get; set; }
             public string SpawnRoomId { get; set; } = string.Empty;
             public List<StatBonusDto>? StatBonuses { get; set; }
+            public long Value { get; set; } = 0;
         }
 
         private sealed class StatBonusDto

@@ -173,7 +173,7 @@ The deferred work is the general `LootComponent` + `ILootSystem` (weighted table
 
 ### 🔵 Multi-currency item value (deferred from item-value, slice 12a)
 
-`ItemDataComponent.Value` ships as a single base-unit `long` denominated in the launch currency (**Coin**). Items priced in a non-Coin family (faction marks, an Astral currency) need the field to carry a `CurrencyId`. The field is shaped to grow — a later migration adds the currency key **without moving the value off `ItemDataComponent`** or changing the compute-on-read price derivation. Premature while Coin is the sole trade currency; revisit when a second tradeable currency family or a non-Coin vendor is real. See [`../implementation-plans/item-value.md`](../implementation-plans/item-value.md).
+`ItemDataComponent.Value` ships as a single base-unit `long` denominated in the launch currency (**Coin**). Items priced in a non-Coin family (faction marks, an Astral currency) need the field to carry a `CurrencyId`. The field is shaped to grow — a later migration adds the currency key **without moving the value off `ItemDataComponent`** or changing the compute-on-read price derivation. Premature while Coin is the sole trade currency; revisit when a second tradeable currency family or a non-Coin vendor is real. See [`completed/item-value.md`](completed/item-value.md) and the [items feature](../features/items/items.md).
 
 ### 🔵 Category-granular effect immunity (deferred from mob-protection, slice 12b)
 
