@@ -170,6 +170,29 @@ Ask:
 **Location:** `Core/Handlers/CommandLoggingHandler.cs`
 **Uses:** `ILogger<CommandLoggingHandler>`
 
+### ShopInteractionHandler
+**Events:** `ItemBoughtEvent`, `ItemSoldEvent`
+**Priority:** 80 (`HandlerPriority.Notification`)
+**Responsibilities:** Pure presentation fan-out for trade — writes the "You buy/sell … for …" line (price via `CurrencyFormatter`/`ICurrencyRegistry`) to the actor and broadcasts to the room. Also clears `ShopStockComponent` on buy (domain-state cleanup co-located with narration). The persistence-pool transition itself is owned by `ItemContextHandler`, not here.
+**Location:** `Core/Modules/Shopping/Handlers/ShopInteractionHandler.cs`
+**Uses:** `EntityService`, `IBroadcastSystem`, `ICurrencyRegistry`
+
+### ShopkeeperSpawnHandler
+**Events:** `WorldContentReadyEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** Second-pass shop setup after world content loads (the step `MobTemplate.Apply` can't do — needs `IShopSystem`/`ITemplateRegistry`/`ShopOptions`). For each `ShopComponent` mob: seeds the till via `IShopSystem.SeedTill`, then spawns the authored base-stock items into the shopkeeper's `InventoryComponent`, each stamped `ShopStockComponent { Base }`. Adds no `PersistentEntity` (world content, INV-23). Re-runs on `reload` (the rebuild re-publishes `WorldContentReadyEvent`); safe because the shopkeeper is destroyed + re-spawned first.
+**Location:** `Core/Modules/Shopping/Handlers/ShopkeeperSpawnHandler.cs`
+**Uses:** `EntityService`, `ITemplateRegistry`, `IShopSystem`
+
+### ShopRestockTickHandler · ShopExpiryTickHandler
+**Events:** `HeartbeatTickEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** Two independent interval-gated closed sweeps (gate on accumulated `Elapsed` against `ShopOptions.RestockInterval` / `BuyBackRetention`; time via injected `IClock`, INV-26). **Restock:** `IShopSystem.PlanRestock` → spawn each base-stock shortfall via `ITemplateRegistry.Spawn`, stamp `{ Base }` (top-up, never wipe/duplicate). **Expiry:** `IShopSystem.FindExpired(shop, clock.UtcNow)` → `EntityService.DestroyEntity` each past-`ExpiresAt` acquired item. Both **publish nothing** (no game-rule fan-out, INV-10); no inter-handler ordering.
+**Location:** `Core/Modules/Shopping/Handlers/ShopRestockTickHandler.cs`, `ShopExpiryTickHandler.cs`
+**Uses:** `IShopSystem`, `ITemplateRegistry`, `EntityService`, `IClock`
+
+> **`ItemContextHandler` (Spawn module) is extended for trade.** Beyond `ItemPickedUpEvent`/`ItemDroppedEvent`, it also subscribes to `ItemBoughtEvent`/`ItemSoldEvent` (slice 12c) and applies the same persistence-pool transition: buy → add `PersistentEntity` + keep `BlueprintComponent` (INV-21) + clear `ShopStockComponent`; sell → remove `PersistentEntity`. One home for the pool transition (INV-19).
+
 ---
 
 ## File Organization

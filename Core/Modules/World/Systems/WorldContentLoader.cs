@@ -75,22 +75,33 @@ namespace Hedron.Core.Modules.World.Systems
             }
             else
             {
-                var liveBlueprints = BuildLiveBlueprintMap();
-                var newlySpawned = SpawnMissingEntities(liveBlueprints);
-                LinkRoomExits(liveBlueprints);
-                PlaceItemsInRooms(liveBlueprints, newlySpawned);
-                PlaceMobsInRooms(liveBlueprints, newlySpawned);
-                LinkRoomAreas(liveBlueprints);
+                SpawnAndPlaceWorld();
             }
 
             ResolveStartingRoom();
         }
 
+        /// <summary>
+        /// Full rebuild of the live world instance — <b>not</b> additive. Tears down every live
+        /// world-content entity, re-reads the YAML templates, and re-spawns the world from scratch,
+        /// the same path <see cref="LoadAndSpawnAsync"/> takes at startup. Persistent entities
+        /// (players and player-owned items/containers) are preserved; the caller re-publishes
+        /// <c>WorldContentReadyEvent</c> after this returns so the post-load fan-out re-runs —
+        /// shops re-seed their till + base stock, spawn slots rebuild, and
+        /// <c>CharacterHydrationHandler</c> re-resolves each player's <c>RoomBlueprintId</c> to the
+        /// fresh <c>RoomEntityId</c> (resetting to the starting room if their room was removed from
+        /// YAML). This makes <c>reload</c> reset runtime instance state — picked-up world items
+        /// respawn, depleted shop stock refills — exactly like a restart, without dropping players.
+        /// </summary>
         public async Task<ContentReloadResult> ReloadAsync(CancellationToken ct = default)
         {
             var previousIds = new HashSet<string>(_templateRegistry.AllBlueprintIds(), StringComparer.OrdinalIgnoreCase);
-            _templateRegistry.Clear();
 
+            // 1. Tear down the current world instance (persistent entities survive).
+            DestroyWorldContent();
+
+            // 2. Re-read templates from YAML.
+            _templateRegistry.Clear();
             await LoadTemplatesAsync(ct).ConfigureAwait(false);
 
             var currentIds = new HashSet<string>(_templateRegistry.AllBlueprintIds(), StringComparer.OrdinalIgnoreCase);
@@ -98,13 +109,20 @@ namespace Hedron.Core.Modules.World.Systems
             var unchanged = currentIds.Intersect(previousIds, StringComparer.OrdinalIgnoreCase).Count();
             var removed = previousIds.Except(currentIds, StringComparer.OrdinalIgnoreCase).Count();
 
-            // Additive only: spawn any template that has no live counterpart.
-            var liveBlueprints = BuildLiveBlueprintMap();
-            var newlySpawned = SpawnMissingEntities(liveBlueprints);
-            LinkRoomExits(liveBlueprints);
-            PlaceItemsInRooms(liveBlueprints, newlySpawned);
-            PlaceMobsInRooms(liveBlueprints, newlySpawned);
-            LinkRoomAreas(liveBlueprints);
+            // 3. Re-spawn the world fresh from templates.
+            if (_templateRegistry.AllBlueprintIds().Count == 0)
+            {
+                SeedVoidRoom();
+                if (_templateRegistry.TryGet(VoidRoomBlueprintId, out var voidTpl) &&
+                    voidTpl is RoomTemplate voidRoomTpl)
+                    await _roomContentWriter.WriteAsync(voidRoomTpl, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                SpawnAndPlaceWorld();
+            }
+
+            ResolveStartingRoom();
 
             return new ContentReloadResult(loaded, unchanged, removed);
         }
@@ -349,12 +367,61 @@ namespace Hedron.Core.Modules.World.Systems
             }
         }
 
+        /// <summary>
+        /// Spawns a live entity for every registered template that has no live world counterpart,
+        /// then links exits, places items/mobs in their rooms, and links rooms to areas. Shared by
+        /// the startup load (<see cref="LoadAndSpawnAsync"/>) and the <see cref="ReloadAsync"/>
+        /// rebuild so both follow an identical spawn/place/link path.
+        /// </summary>
+        private void SpawnAndPlaceWorld()
+        {
+            var liveBlueprints = BuildLiveBlueprintMap();
+            var newlySpawned = SpawnMissingEntities(liveBlueprints);
+            LinkRoomExits(liveBlueprints);
+            PlaceItemsInRooms(liveBlueprints, newlySpawned);
+            PlaceMobsInRooms(liveBlueprints, newlySpawned);
+            LinkRoomAreas(liveBlueprints);
+        }
+
+        /// <summary>
+        /// Tears down the live world-content instance ahead of a <see cref="ReloadAsync"/> rebuild:
+        /// destroys every entity carrying a <see cref="BlueprintComponent"/> but not
+        /// <see cref="PersistentEntity"/> — rooms, areas, mobs, world/dropped items, and shop base
+        /// stock / buy-back items. Persistent entities (players and player-owned items/containers)
+        /// are preserved; their now-stale <c>RoomEntityId</c> is re-resolved from the durable
+        /// <c>RoomBlueprintId</c> by <c>CharacterHydrationHandler</c> after the world re-spawns.
+        /// </summary>
+        private void DestroyWorldContent()
+        {
+            // Snapshot first — DestroyEntity mutates the component store we are iterating.
+            var worldEntities = new List<uint>();
+            foreach (var (entityId, _) in _entityService.GetAllComponents<BlueprintComponent>())
+            {
+                if (_entityService.HasComponent<PersistentEntity>(entityId)) continue;
+                worldEntities.Add(entityId);
+            }
+
+            foreach (var entityId in worldEntities)
+                _entityService.DestroyEntity(entityId);
+        }
+
+        /// <summary>
+        /// Maps blueprint id → the live <b>world</b> entity for that blueprint. Entities carrying
+        /// <see cref="PersistentEntity"/> are excluded: a persisted entity sharing a blueprint id is a
+        /// player-owned <i>instance</i> (it kept its <see cref="BlueprintComponent"/> as an origin
+        /// record on pickup, INV-21) — not the authored world entity. Excluding them keeps world-content
+        /// spawning/placement (the only consumers of this map) independent of player state, so authored
+        /// content always re-spawns from YAML and is placed even when a player owns a copy of the same
+        /// blueprint (e.g. a picked-up authored item, or gear stored in a player container). World
+        /// content never opts into persistence (INV-23), so a world entity is never excluded here.
+        /// </summary>
         private Dictionary<string, uint> BuildLiveBlueprintMap()
         {
             var map = new Dictionary<string, uint>(StringComparer.OrdinalIgnoreCase);
             foreach (var (entityId, blueprint) in _entityService.GetAllComponents<BlueprintComponent>())
             {
                 if (string.IsNullOrEmpty(blueprint.BlueprintId)) continue;
+                if (_entityService.HasComponent<PersistentEntity>(entityId)) continue;
                 map[blueprint.BlueprintId] = entityId;
             }
             return map;

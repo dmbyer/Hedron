@@ -57,8 +57,17 @@ namespace Hedron.Core.Modules.Spawn.Systems
         /// Scans all rooms with <see cref="SpawnConfigComponent"/> and registers their current
         /// live entities in the slot tracker.
         /// </summary>
+        /// <remarks>
+        /// Reload-safe: <c>WorldContentReadyEvent</c> is re-published on the <c>reload</c> command,
+        /// which tears down and re-spawns all world content. The prior slot state is cleared first
+        /// so the tracker is rebuilt against the fresh entity graph rather than retaining slots that
+        /// reference destroyed entities.
+        /// </remarks>
         public Task HandleAsync(WorldContentReadyEvent @event)
         {
+            _slots.Clear();
+            _entityToSlot.Clear();
+
             foreach (var (roomEntityId, spawnConfig) in _entityService.GetAllComponents<SpawnConfigComponent>())
             {
                 foreach (var rule in spawnConfig.Rules)

@@ -3,12 +3,23 @@ using Hedron.Core.Commands;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 
-namespace Hedron.Core.Modules.Combat.Resolvers
+namespace Hedron.Core.Modules.Mobs.Resolvers
 {
     /// <summary>
     /// Resolves a mob name/keyword against mobs currently in the invoker's room.
     /// Returns the mob entity id (as string) as the canonical value so that commands
-    /// can pass it directly to combat resolution without a second name-lookup.
+    /// can pass it directly to combat/shop resolution without a second name-lookup.
+    ///
+    /// <para>
+    /// Shared resolver — lives in the non-combat <c>Core/Modules/Mobs/Resolvers/</c> home.
+    /// Its only active consumer today is the shopping <c>list</c> command (which binds it as the
+    /// optional <c>shopkeeper</c> argument resolver). Combat and ability targeting still resolve
+    /// room mobs via the inline <c>ICombatSystem.TryFindTargetInRoom</c> path; migrating both onto
+    /// this resolver — at which point it genuinely crosses the INV-19 ≥3-consumer threshold — is
+    /// backlogged (see roadmap/backlog.md). Registered in
+    /// <see cref="Hedron.Core.Modules.Combat.CombatModule"/> to preserve DI composition order; the
+    /// Combat and Shopping modules both resolve it from the container.
+    /// </para>
     /// </summary>
     public sealed class MobInRoomResolver : IArgumentResolver
     {

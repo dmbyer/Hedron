@@ -26,6 +26,7 @@
 | 21 | [Effects journey (apply · tick · expire)](flow-21-effect-tick.md) | An effect is applied, then ticked/expired on `HeartbeatTickEvent` | [effects](../../features/effects/effects.md) feature |
 | 24 | [Abilities journey (activation · bare-verb skill invocation · offensive-opens-combat)](flow-24-ability-activation.md) | Admin sends `useability`; player sends `cast`/skill verb; offensive ability opens combat | Phase 3 slices 11-a, 11-b; source: [../../features/abilities/abilities.md](../../features/abilities/abilities.md) |
 | 29 | [Content-tooling journey (bulk generate · offline edit)](flow-29-bulk-content-generation.md) | `dotnet run --project Server -- generate --profile <path>` or designer edits in `Hedron.Web` | content-tooling platform (T1, T2); source: [../../features/admin-authoring/admin-authoring.md](../../features/admin-authoring/admin-authoring.md) |
+| 30 | [Shopping journey (list · buy · sell · buy-back; restock & expiry sweeps)](flow-30-shopping.md) | Player sends `list`/`buy`/`sell`; heartbeat drives restock + buy-back expiry | Phase 3 slice 12c; source: [../../features/economy/shop-system.md](../../features/economy/shop-system.md) |
 
 Flows that don't yet exist (mob wander tick, etc.) get added by the slice that introduces them.
 

@@ -29,6 +29,8 @@ using Hedron.Core.Handlers;
 using Hedron.Core.Modules.Economy.Events;
 using Hedron.Core.Modules.Economy.Handlers;
 using Hedron.Core.Modules.Mobs.Events;
+using Hedron.Core.Modules.Shopping.Events;
+using Hedron.Core.Modules.Shopping.Handlers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -134,6 +136,9 @@ public static class Program
         var characterHydration = host.Services.GetRequiredService<CharacterHydrationHandler>();
         bus.Subscribe<WorldContentReadyEvent>(characterHydration);
 
+        var shopkeeperSpawn = host.Services.GetRequiredService<ShopkeeperSpawnHandler>();
+        bus.Subscribe<WorldContentReadyEvent>(shopkeeperSpawn);
+
         var itemInteraction = host.Services.GetRequiredService<ItemInteractionHandler>();
         bus.Subscribe<ItemPickedUpEvent>(itemInteraction);
         bus.Subscribe<ItemDroppedEvent>(itemInteraction);
@@ -154,12 +159,24 @@ public static class Program
         var itemContext = host.Services.GetRequiredService<ItemContextHandler>();
         bus.Subscribe<ItemPickedUpEvent>(itemContext);
         bus.Subscribe<ItemDroppedEvent>(itemContext);
+        bus.Subscribe<ItemBoughtEvent>(itemContext);
+        bus.Subscribe<ItemSoldEvent>(itemContext);
+
+        var shopInteraction = host.Services.GetRequiredService<ShopInteractionHandler>();
+        bus.Subscribe<ItemBoughtEvent>(shopInteraction);
+        bus.Subscribe<ItemSoldEvent>(shopInteraction);
 
         var currencyLoot = host.Services.GetRequiredService<CurrencyLootHandler>();
         bus.Subscribe<MobDiedEvent>(currencyLoot);
 
         var currencyAwardNarration = host.Services.GetRequiredService<CurrencyAwardNarrationHandler>();
         bus.Subscribe<CurrencyAwardedEvent>(currencyAwardNarration);
+
+        var shopRestock = host.Services.GetRequiredService<ShopRestockTickHandler>();
+        bus.Subscribe<HeartbeatTickEvent>(shopRestock);
+
+        var shopExpiry = host.Services.GetRequiredService<ShopExpiryTickHandler>();
+        bus.Subscribe<HeartbeatTickEvent>(shopExpiry);
 
         await host.RunAsync();
         return 0;

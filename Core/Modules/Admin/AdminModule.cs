@@ -30,7 +30,7 @@ namespace Hedron.Core.Modules.Admin
             services.AddSingleton<ICommand, AreaCommand>();
             services.AddSingleton<ICommand, SetAreaCommand>();
             services.AddSingleton<ICommand, MkareaCommand>();
-            services.AddSingleton<ICommand, ListCommand>();
+            services.AddSingleton<ICommand, ListEntitiesCommand>();
 
             services.AddSingleton<AdminAuditHandler>();
             return services;

@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using Hedron.Core;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Items.Templates;
 using Hedron.Core.Modules.World;
 using Hedron.Core.Modules.World.Systems;
 using Hedron.Core.Modules.World.Templates;
@@ -168,10 +169,81 @@ namespace Hedron.Tests.World
             Assert.Equal(0u, room.AreaEntityId);
         }
 
-        // ── ReloadAsync: LinkRoomAreas is called; existing AreaEntityId preserved ─
+        // ── Persisted player-owned instance must not shadow authored world spawn ──
 
+        /// <summary>
+        /// Regression: an authored item that a player has picked up is restored from the DB before
+        /// the world loader runs. The restored entity keeps its <see cref="BlueprintComponent"/> as an
+        /// origin record (INV-21) and carries <see cref="PersistentEntity"/>. The loader must still
+        /// re-spawn the authored world copy from YAML and place it in its room — the persisted,
+        /// player-owned instance must not suppress world content (the blueprint/instance separation).
+        /// </summary>
         [Fact]
-        public async Task WorldContentLoader_ReloadAsync_RelinkRoomAreas()
+        public async Task WorldContentLoader_PersistedInstance_DoesNotShadow_AuthoredWorldSpawn()
+        {
+            var (loader, ecs, registry) = Build();
+
+            const string roomBpId = "core.room.start";
+            const string itemBpId = "core.item.sword";
+
+            // Simulate a restored-from-persistence, player-owned copy of the item: same blueprint id,
+            // PersistentEntity, no LocationComponent (it lives in a player's inventory/container).
+            var persisted = ecs.CreateEntity();
+            ecs.AddComponent(persisted.Id, new BlueprintComponent { BlueprintId = itemBpId });
+            ecs.AddComponent(persisted.Id, new ItemDataComponent { Name = "sword" });
+            ecs.AddComponent(persisted.Id, new PersistentEntity());
+
+            // Authored world content: the room and the item that spawns into it.
+            registry.Register(roomBpId, new RoomTemplate(roomBpId) { Name = "Starting Room" });
+            registry.Register(itemBpId, new ItemTemplate(itemBpId)
+            {
+                Name = "sword",
+                SpawnRoomBlueprintId = roomBpId,
+            });
+
+            await loader.LoadAndSpawnAsync();
+
+            var roomEntityId = FindEntityByBlueprint(ecs, roomBpId);
+            Assert.True(roomEntityId.HasValue, "Room entity should have been spawned.");
+
+            // A fresh world copy (distinct from the persisted instance) must exist, placed in the room,
+            // and must NOT be persistent.
+            uint? worldCopy = null;
+            foreach (var (entityId, bp) in ecs.GetAllComponents<BlueprintComponent>())
+            {
+                if (entityId == persisted.Id) continue;
+                if (string.Equals(bp.BlueprintId, itemBpId, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    worldCopy = entityId;
+                    break;
+                }
+            }
+
+            Assert.True(worldCopy.HasValue,
+                "Authored world copy should re-spawn from YAML despite the persisted player-owned instance.");
+            Assert.True(ecs.HasComponent<LocationComponent>(worldCopy!.Value),
+                "World copy should be placed in a room.");
+            Assert.Equal(roomEntityId!.Value, ecs.Get<LocationComponent>(worldCopy.Value).RoomEntityId);
+            Assert.False(ecs.HasComponent<PersistentEntity>(worldCopy.Value),
+                "World copy is world content — it must not be persistent.");
+
+            // The persisted, player-owned instance is untouched: still persistent, still no location.
+            Assert.True(ecs.HasComponent<PersistentEntity>(persisted.Id));
+            Assert.False(ecs.HasComponent<LocationComponent>(persisted.Id),
+                "The player-owned instance must not be re-placed into the world.");
+        }
+
+        // ── ReloadAsync: rebuild tears down world content, preserves persistent entities ─
+
+        /// <summary>
+        /// <see cref="WorldContentLoader.ReloadAsync"/> is a full rebuild, not additive: it destroys
+        /// every world-content entity (BlueprintComponent, no PersistentEntity) before re-spawning
+        /// from YAML. Persistent entities (players, player-owned items) survive the teardown. Here the
+        /// content directory is empty, so the rebuild tears the world down to a void room — proving the
+        /// destroy half — while the persistent entity is left intact.
+        /// </summary>
+        [Fact]
+        public async Task WorldContentLoader_ReloadAsync_TearsDownWorldContent_PreservesPersistent()
         {
             var (loader, ecs, registry) = Build();
 
@@ -181,24 +253,26 @@ namespace Hedron.Tests.World
             registry.Register(areaBpId, new AreaTemplate(areaBpId) { Name = "The Midlands" });
             registry.Register(roomBpId, new RoomTemplate(roomBpId) { Name = "Market", AreaId = areaBpId });
 
-            // Initial load — area link established.
             await loader.LoadAndSpawnAsync();
+            Assert.True(FindEntityByBlueprint(ecs, roomBpId).HasValue, "Room should spawn on initial load.");
 
-            var areaEntityId = FindEntityByBlueprint(ecs, areaBpId);
-            var roomEntityId = FindEntityByBlueprint(ecs, roomBpId);
-            Assert.True(areaEntityId.HasValue);
-            Assert.True(roomEntityId.HasValue);
-            Assert.Equal(areaEntityId!.Value, ecs.Get<RoomComponent>(roomEntityId!.Value).AreaEntityId);
+            // A persistent, player-owned entity that must survive the rebuild.
+            var player = ecs.CreateEntity();
+            ecs.AddComponent(player.Id, new BlueprintComponent { BlueprintId = "player.test" });
+            ecs.AddComponent(player.Id, new PersistentEntity());
 
-            // ReloadAsync: clears templates, content dir is nonexistent so nothing re-loads.
-            // LinkRoomAreas is still called on the live entities.
-            // Because the template was cleared, TryGet returns false and AreaEntityId is NOT cleared —
-            // the prior assignment is preserved (only an explicit re-assignment would change it).
-            var reloadResult = await loader.ReloadAsync();
+            // ReloadAsync with an empty content directory: world content is torn down; because no
+            // templates re-load, the world rebuilds to the void room only.
+            await loader.ReloadAsync();
 
-            // After reload with empty template registry, the live room entity retains its area assignment.
-            var roomAfterReload = ecs.Get<RoomComponent>(roomEntityId!.Value);
-            Assert.Equal(areaEntityId!.Value, roomAfterReload.AreaEntityId);
+            // World content was destroyed (the previously-spawned room/area are gone).
+            Assert.Null(FindEntityByBlueprint(ecs, roomBpId));
+            Assert.Null(FindEntityByBlueprint(ecs, areaBpId));
+
+            // The persistent entity survived the teardown.
+            Assert.True(ecs.HasComponent<PersistentEntity>(player.Id),
+                "Persistent player entity must survive a reload rebuild.");
+            Assert.True(ecs.HasComponent<BlueprintComponent>(player.Id));
         }
     }
 }

@@ -1,8 +1,8 @@
-# Use Case: Admin Area Authoring (`mkarea` + `list`)
+# Use Case: Admin Area Authoring (`mkarea` + `listents`)
 
 **Status:** planned
 **Actors:** Administrator
-**Module:** `Core/Modules/Admin/` (new `IAreaBuilderSystem`, `MkareaCommand`, `ListCommand`, `AreaCreatedByAdminEvent`); `Core/Modules/World/` (new `IAreaContentWriter`)
+**Module:** `Core/Modules/Admin/` (new `IAreaBuilderSystem`, `MkareaCommand`, `ListEntitiesCommand`, `AreaCreatedByAdminEvent`); `Core/Modules/World/` (new `IAreaContentWriter`)
 
 ---
 
@@ -32,11 +32,11 @@ Two new admin-only commands extend the area-authoring toolchain. `mkarea [name]`
 - `IAreaContentWriter` / `AreaContentWriter` exist at `Core/Modules/World/Systems/`. `WriteAsync(AreaTemplate template)` serializes to `content/areas/<blueprintId>.yaml` using an atomic tmp → rename write. YAML DTO fields match the shape `AreaTemplateDeserializer` reads: `id`, `name`, `description`, `respawnRate`, `pvp`, `rooms`, `aspectAffinities` (camelCase). Mirrors `IRoomContentWriter` pattern.
 - `AreaCreatedByAdminEvent` exists at `Core/Modules/Admin/Events/` with payload `{ uint AdminEntityId, uint AreaEntityId, string BlueprintId }`. `AdminAuditHandler` handles this event.
 - `MkareaCommand` exists at `Core/Modules/Admin/Commands/`. Admin-gated. Argument: rest-of-line name (optional, defaults to `"New Area"`). Flow: call `IAreaBuilderSystem.CreateArea(name)` → call `IAreaContentWriter.WriteAsync(result.Template)` → publish `AreaCreatedByAdminEvent` → write confirmation with blueprint ID.
-- `ListCommand` exists at `Core/Modules/Admin/Commands/`. Admin-gated. Argument: type token (required, exact match case-insensitive: `area` or `room`). Queries `EntityService.GetAllComponents<T>()` directly. Output: header row + one row per entity showing Name | ShortDesc (first 15 chars + `…` if longer) | BlueprintId (from `BlueprintComponent` if present, else entity ID). Unknown type token → error message. No events published.
-- `docs/architecture/flows/README.md` gains two rows: Flow 27 (admin area creation, `mkarea`) and Flow 28 (admin entity list, `list`).
+- `ListEntitiesCommand` exists at `Core/Modules/Admin/Commands/`. Admin-gated. Argument: type token (required, exact match case-insensitive: `area` or `room`). Queries `EntityService.GetAllComponents<T>()` directly. Output: header row + one row per entity showing Name | ShortDesc (first 15 chars + `…` if longer) | BlueprintId (from `BlueprintComponent` if present, else entity ID). Unknown type token → error message. No events published.
+- `docs/architecture/flows/README.md` gains two rows: Flow 27 (admin area creation, `mkarea`) and Flow 28 (admin entity list, `listents`).
 - `docs/reference/systems.md` gains `IAreaBuilderSystem` under Domain Systems (Admin) and `IAreaContentWriter` under Domain Systems (World).
 - `docs/reference/handlers.md` notes `AdminAuditHandler` now handles `AreaCreatedByAdminEvent`.
-- `docs/reference/commands.md` gains `mkarea` and `list` rows under Admin commands.
+- `docs/reference/commands.md` gains `mkarea` and `listents` rows under Admin commands.
 
 ---
 
@@ -51,10 +51,10 @@ Two new admin-only commands extend the area-authoring toolchain. `mkarea [name]`
 5. **Event.** Command publishes `AreaCreatedByAdminEvent { AdminEntityId, AreaEntityId, BlueprintId }`. `AdminAuditHandler` (priority 80) logs the event.
 6. **Confirmation.** Command writes a `PlainMessage` to the admin: area name and blueprint ID.
 
-### Flow 28 — Admin entity list (`list`)
+### Flow 28 — Admin entity list (`listents`)
 
 1. **Privilege gate.** `CommandDispatcher` evaluates `AdminRequirement`; non-privileged sessions rejected.
-2. **Argument parse.** `ListCommand` reads the required type token; unrecognised type → write error message and return.
+2. **Argument parse.** `ListEntitiesCommand` reads the required type token; unrecognised type → write error message and return.
 3. **Query.** For `area`: calls `EntityService.GetAllComponents<AreaComponent>()`. For `room`: calls `EntityService.GetAllComponents<RoomComponent>()`. No system call needed — direct component scan (same pattern as `AreaCommand`).
 4. **Format.** Builds output via `StringBuilder`. Writes header row, then one row per entity: Name | ShortDesc (component `Description` truncated to 15 chars + `…`) | BlueprintId (from `BlueprintComponent` if present, else entity ID as string).
 5. **Output.** Writes the assembled `PlainMessage` to the admin's session. No events published.
@@ -67,7 +67,7 @@ Two new admin-only commands extend the area-authoring toolchain. `mkarea [name]`
 |---|---|---|---|
 | `AreaCreatedByAdminEvent` | `MkareaCommand` | `uint AdminEntityId, uint AreaEntityId, string BlueprintId` | Audit log. |
 
-No events from `IAreaBuilderSystem` (domain system returns results, INV-5). `ListCommand` is read-only; it publishes no events (INV-10).
+No events from `IAreaBuilderSystem` (domain system returns results, INV-5). `ListEntitiesCommand` is read-only; it publishes no events (INV-10).
 
 ---
 
@@ -78,7 +78,7 @@ No events from `IAreaBuilderSystem` (domain system returns results, INV-5). `Lis
 | `IAreaBuilderSystem` / `AreaBuilderSystem` | New | `Core/Modules/Admin/Systems/` |
 | `IAreaContentWriter` / `AreaContentWriter` | New | `Core/Modules/World/Systems/` |
 | `MkareaCommand` | New | `Core/Modules/Admin/Commands/` |
-| `ListCommand` | New | `Core/Modules/Admin/Commands/` |
+| `ListEntitiesCommand` | New | `Core/Modules/Admin/Commands/` |
 | `AreaCreatedByAdminEvent` | New | `Core/Modules/Admin/Events/` |
 | `AdminAuditHandler` | Extended (new event case) | `Core/Modules/Admin/Handlers/` |
 | `IAdminAuthorizer` | Reused | `Core/Modules/Admin/Systems/` |
@@ -108,13 +108,13 @@ No events from `IAreaBuilderSystem` (domain system returns results, INV-5). `Lis
 
 ### WP-2 — Builder, commands, event, tests, flows, reference updates (depends on WP-1)
 
-**Scope:** `IAreaBuilderSystem` + `AreaBuilderSystem`; `MkareaCommand`; `ListCommand`; `AreaCreatedByAdminEvent`; `AdminAuditHandler` extension; wire all into `AdminModule`; system-unit tests; `flows/README.md` rows for Flow 27 and Flow 28; `reference/systems.md` and `reference/handlers.md` updates.
+**Scope:** `IAreaBuilderSystem` + `AreaBuilderSystem`; `MkareaCommand`; `ListEntitiesCommand`; `AreaCreatedByAdminEvent`; `AdminAuditHandler` extension; wire all into `AdminModule`; system-unit tests; `flows/README.md` rows for Flow 27 and Flow 28; `reference/systems.md` and `reference/handlers.md` updates.
 
 **Files:**
 - `Core/Modules/Admin/Systems/IAreaBuilderSystem.cs`
 - `Core/Modules/Admin/Systems/AreaBuilderSystem.cs`
 - `Core/Modules/Admin/Commands/MkareaCommand.cs`
-- `Core/Modules/Admin/Commands/ListCommand.cs`
+- `Core/Modules/Admin/Commands/ListEntitiesCommand.cs`
 - `Core/Modules/Admin/Events/AreaCreatedByAdminEvent.cs`
 - `Core/Modules/Admin/Handlers/AdminAuditHandler.cs` (add `AreaCreatedByAdminEvent` case)
 - `Core/Modules/Admin/AdminModule.cs` (wire new services and commands)
@@ -143,9 +143,9 @@ No events from `IAreaBuilderSystem` (domain system returns results, INV-5). `Lis
 
 ## Cross-Cutting Surfaces Stressed
 
-**Commands framework:** Adequate — existing `ICommand` shape, `AdminRequirement`, and `CommandArgumentSchema` cover both `mkarea` (optional rest-of-line arg) and `list` (required token arg) without modification.
+**Commands framework:** Adequate — existing `ICommand` shape, `AdminRequirement`, and `CommandArgumentSchema` cover both `mkarea` (optional rest-of-line arg) and `listents` (required token arg) without modification.
 
-**Output framework:** Adequate — `PlainMessage` / `IOutputWriter` handles the tabular `list` output and the `mkarea` confirmation. No new message type is needed.
+**Output framework:** Adequate — `PlainMessage` / `IOutputWriter` handles the tabular `listents` output and the `mkarea` confirmation. No new message type is needed.
 
 **Content writing:** Gap exposed (resolved in this slice). `IRoomContentWriter` exists for rooms; `IAreaContentWriter` does not yet exist for areas. `mkarea` needs it. `AreaContentWriter` ships in WP-1 — same PR.
 
@@ -155,7 +155,7 @@ No events from `IAreaBuilderSystem` (domain system returns results, INV-5). `Lis
 
 **Persistence — entity domain classification:**
 - Area entities created by `mkarea` are **world content** (INV-23). No `PersistentEntity` is added. YAML is the sole durable form; the file is written by `IAreaContentWriter`. No `SaveEntityAsync` call anywhere in this slice.
-- `ListCommand` is read-only; it does not create or modify entities.
+- `ListEntitiesCommand` is read-only; it does not create or modify entities.
 
 **Persistence — component inclusion:**
 - `AreaComponent`: world content component; no `[Persistent]` attribute. Rationale: area entities are never SQLite-enrolled.
@@ -183,7 +183,7 @@ No events from `IAreaBuilderSystem` (domain system returns results, INV-5). `Lis
 | # | Flow | Change |
 |---|---|---|
 | 27 | Admin area creation (`mkarea`) | New — append row to `flows/README.md`; create `flow-27-admin-area-creation.md` |
-| 28 | Admin entity list (`list`) | New — append row to `flows/README.md`; create `flow-28-admin-entity-list.md` |
+| 28 | Admin entity list (`listents`) | New — append row to `flows/README.md`; create `flow-28-admin-entity-list.md` |
 
 No existing flows are modified. Flow 27 follows the same structural shape as Flow 12 (admin item creation) and Flow 15 (admin mob creation). Flow 28 is the first read-only inspection flow with tabular output; it does not touch any existing flow.
 
@@ -200,7 +200,7 @@ No existing flows are modified. Flow 27 follows the same structural shape as Flo
 **Legitimately skipped (per rubric in `docs/architecture/07-testing.md`):**
 
 - `MkareaCommand` — thin command wiring: reads one argument, calls one system method, publishes one event, calls one writer, writes one confirmation line. No game-rule logic resides in the command body; the decision logic is in `AreaBuilderSystem` (covered above).
-- `ListCommand` — thin read-only inspection with no internal state; the only logic is truncating a description string to 15 chars. Presentation output is legitimately skip-tier per the rubric.
+- `ListEntitiesCommand` — thin read-only inspection with no internal state; the only logic is truncating a description string to 15 chars. Presentation output is legitimately skip-tier per the rubric.
 - `IAreaContentWriter` / `AreaContentWriter` — thin I/O adapter. The rubric permits skipping thin I/O adapters; the WP-1 exit criterion (YAML round-trip with `AreaTemplateDeserializer`) satisfies INV-25 for this case because: (a) `AreaContentWriter` is an exact structural copy of `RoomContentWriter` (same atomic-write pattern, same DTO serialization approach, same YamlDotNet configuration) with only the DTO field names differing; (b) the DTO field names are validated at startup by `AreaTemplateDeserializer` itself — any mismatch produces a deserialization failure or empty fields that the WP-1 round-trip check catches; (c) `RoomContentWriter` has no unit test and is accepted by the existing test suite. A formal integration test in `Hedron.Tests` would add coverage for the I/O adapter tier but is not required by the rubric for a thin-copy adapter.
 - `AreaCreatedByAdminEvent` — pure-data record; no logic to test.
 - `AdminAuditHandler` extension — the new `AreaCreatedByAdminEvent` case adds one `ILogger.LogInformation` call with no branching; skipped as thin wiring per the rubric.
@@ -215,11 +215,11 @@ No existing flows are modified. Flow 27 follows the same structural shape as Flo
 
 - **`IAreaContentWriter` lives in `Core/Modules/World/` by analogy with `IRoomContentWriter`.** The content writer is a World-layer concern (it knows the `AreaTemplate` DTO shape and the `content/areas/` path); the builder that calls it lives in `Core/Modules/Admin/` (it knows the admin authoring workflow). The command calls both in order — builder first, then writer — keeping each layer at its correct scope (INV-1).
 
-- **`ListCommand` queries `EntityService` directly rather than through a system.** The existing `AreaCommand` already sets this precedent for admin inspection commands. A dedicated `IListSystem` would provide no reuse benefit; the query is a one-liner component scan with no game-rule logic. If a third admin command needs the same tabular output formatting, extract a shared helper at that point (INV-19: ≥3-consumer threshold). This acknowledged debt is tracked in `docs/roadmap/backlog.md` as "tabular output helper — defer until third consumer."
+- **`ListEntitiesCommand` queries `EntityService` directly rather than through a system.** The existing `AreaCommand` already sets this precedent for admin inspection commands. A dedicated `IListSystem` would provide no reuse benefit; the query is a one-liner component scan with no game-rule logic. If a third admin command needs the same tabular output formatting, extract a shared helper at that point (INV-19: ≥3-consumer threshold). This acknowledged debt is tracked in `docs/roadmap/backlog.md` as "tabular output helper — defer until third consumer."
 
 - **Blueprint ID `area.adhoc.<base36>`.** Same 8-character base-36 generation pattern used by `RoomBuilderSystem` (`room.adhoc.*`) and `ItemBuilderSystem` (`item.adhoc.*`). Collision probability at MUD-scale area counts is negligible; the uniqueness test in the test plan asserts the property for two sequential calls.
 
-- **`list` does not prefix-match the type token.** The command accepts exactly `area` or `room` (case-insensitive). Prefix-matching on a two-value enum adds complexity with no real benefit; unknown tokens produce an error message listing the accepted values.
+- **`listents` does not prefix-match the type token.** The command accepts exactly `area` or `room` (case-insensitive). Prefix-matching on a two-value enum adds complexity with no real benefit; unknown tokens produce an error message listing the accepted values.
 
 - **No `mkroom` command.** Rooms are created via `@dig` (which inherits area context). `mkarea` fills the gap on the area side. A standalone `mkroom` (no exit context) is deferred pending a concrete use case.
 

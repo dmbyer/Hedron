@@ -21,7 +21,7 @@ Authorization is layered:
 | Verb | System called | YAML written | Event |
 |---|---|---|---|
 | `dig <direction> [name]` | `IRoomBuilderSystem.CreateRoom` + `LinkExits` | both rooms via `IRoomContentWriter` | `RoomCreatedByAdminEvent` |
-| `mkitem [name]` | `IItemBuilderSystem.CreateItem` | none (item is `PersistentEntity`; saved by `IPersistenceSystem`) | `ItemCreatedByAdminEvent` |
+| `mkitem [name]` | `IItemBuilderSystem.CreateItem` | item template via `IItemContentWriter` (world content; no `PersistentEntity`) | `ItemCreatedByAdminEvent` |
 | `mkmob [name]` | `IMobBuilderSystem.CreateMob` | mob template via `IMobContentWriter` | `MobCreatedByAdminEvent` |
 | `mkarea [name]` | `IAreaBuilderSystem.CreateArea` | area template via `IAreaContentWriter` | `AreaCreatedByAdminEvent` |
 | `set <property> <value>` | `IRoomBuilderSystem.SetRoom*` | room template via `IRoomContentWriter` | `RoomPropertySetByAdminEvent` |
@@ -56,8 +56,8 @@ Content writers serialize a template to an atomic YAML file (tmp → rename). Th
 ## Design notes
 
 - **`dig` auto-moves the admin into the new room** by publishing `PlayerMovedEvent` after YAML is written. `PlayerMovedHandler` fires the departure/arrival/look sequence.
-- **World-content entities carry no `PersistentEntity`** (INV-23). Rooms and areas are YAML-sourced; their durability is the YAML file. Items and mobs created via `mkitem`/`mkmob` are player-adjacent entities and carry `PersistentEntity` — they are saved immediately via `IPersistenceSystem.SaveEntityAsync` (the admin boundary-save pattern, INV-22).
-- **`reload` is additive only.** It seeds missing blueprints; it never mutates existing live entities. To pick up edits to a live room, restart the server.
+- **World-content entities carry no `PersistentEntity`** (INV-23). Rooms, areas, and the items/mobs created via `mkitem`/`mkmob` are all YAML-sourced world content — they carry no `PersistentEntity`; their durability is the YAML file the builder writes. They are never written to SQLite and re-spawn fresh from YAML on startup or `reload`.
+- **`reload` is a full rebuild.** It force-saves persistent (player) state, tears down all world content, and re-spawns it from YAML — so edits to existing rooms/mobs/items take effect, picked-up items respawn, and depleted shops refill. Players are preserved (and moved to the starting room if their room was removed). See [Flow 5](../../architecture/flows/flow-05-content-reload.md).
 - **`list` is read-only** — it scans components directly, publishes no events, calls no systems. This is consistent with INV-10 (no-chain read-only path).
 
 ## Related

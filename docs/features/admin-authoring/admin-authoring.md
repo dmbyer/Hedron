@@ -8,7 +8,7 @@ Admins author world content — rooms, areas, items, mobs — through two surfac
 
 Privilege is **structural**: each admin command calls `IAdminAuthorizer.IsPrivileged` as its first line. There is no `@` prefix or special sigil. The settings-allowlist (`Admin:PrivilegedNames`) is the floor; the persisted `AdminPrivilegeComponent` layer is deferred — see `implementation-plans/admin-privilege-elevation.md`.
 
-Content edits write YAML only. The live world is refreshed by the `reload` verb, which calls the existing additive-reload path and seeds any newly authored templates without mutating existing live entities. The Blazor editor applies the same reload via its "Apply to live" action.
+Content edits write YAML only. The live world is refreshed by the `reload` verb, which rebuilds the world from YAML — tearing down and re-spawning all world content (preserving players) so edits to existing content take effect and runtime instance state resets. The Blazor editor applies the same reload via its "Apply to live" action.
 
 ## How it works
 

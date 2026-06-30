@@ -1,6 +1,6 @@
 # Economy
 
-> The currency substrate: entity-keyed **wallets**, an extensible registry of currency families with denomination ladders, opt-in mob currency-loot, and the player-facing `score`/`setwallet` surfaces. **Status:** live (currency-foundation slice). Precursor to **slice 12 — Shopping**.
+> The economy feature: entity-keyed **wallets** + a registry of currency families (the substrate), opt-in mob currency-loot, and **shopping** — players buy/sell against shopkeeper mobs. **Status:** live (currency-foundation + slice 12c shopping).
 
 ## What it is
 
@@ -24,17 +24,18 @@ The headline runtime path — mob death → loot roll → auto-award — is the 
 |---|---|
 | [`wallet-system.md`](wallet-system.md) | Currency registry + denomination ladder, the `IWalletSystem` mutation seam (incl. `Transfer`), persistence, and ladder formatting |
 | [`currency-loot-system.md`](currency-loot-system.md) | Opt-in `CurrencyLootComponent`, the `IRandom`-backed loot roll, and the auto-award + narration handlers on `MobDiedEvent` |
+| [`shop-system.md`](shop-system.md) | Shopkeeper trade: `ShopComponent` + per-item `ShopStockComponent`, the pure `IShopSystem` (compute-on-read pricing, buy/sell/buy-back, restock + expiry), and the `buy`/`sell`/`list` verbs — the first `IWalletSystem.Transfer` consumer |
 
 ## Surfaces
 
-- **Commands** — `score` (player, extended: shows wallet balances up the ladder), `setwallet <player> <currency> <amount>` (admin, absolute-set + boundary save + audit). See [`../../reference/commands.md`](../../reference/commands.md).
-- **Events** — `CurrencyAwardedEvent` (loot/reward award; drives the "You receive …" narrative), `WalletSetByAdminEvent` (admin audit). Both thin, past-tense. See [`../../architecture/03-events.md`](../../architecture/03-events.md).
-- **Components** — `WalletComponent` (`[Persistent]`, entity-keyed balance ledger), `CurrencyLootComponent` (**not** `[Persistent]` — world-content mob loot spec). See [`../../reference/components.md`](../../reference/components.md).
-- **Content tooling** — `MobTemplate` carries an opt-in per-`CurrencyId` `(min, max)` loot range (base-unit copper); the Blazor `MobEditor` exposes it; YAML round-trips it. Absent/zero range ⇒ no `CurrencyLootComponent` ⇒ no drop (mobs do not drop by default).
+- **Commands** — `score` (player, extended: shows wallet balances up the ladder), `setwallet <player> <currency> <amount>` (admin, absolute-set + boundary save + audit); **shopping:** `list` (browse a shop), `buy <item>` (base stock or buy-back), `sell <item>` (player, against the shopkeeper in the room), authored via `setmob shop` (admin). See [`../../reference/commands.md`](../../reference/commands.md).
+- **Events** — `CurrencyAwardedEvent` (loot/reward award), `WalletSetByAdminEvent` (admin audit); **shopping:** `ItemBoughtEvent` / `ItemSoldEvent` (drive the persistence-pool transition via `ItemContextHandler` + narration). All thin, past-tense. See [`../../architecture/03-events.md`](../../architecture/03-events.md).
+- **Components** — `WalletComponent` (`[Persistent]`, entity-keyed balance ledger), `CurrencyLootComponent` (**not** `[Persistent]`), `ShopComponent` + `ShopStockComponent` (**not** `[Persistent]` — world-content trade config + per-item provenance). See [`../../reference/components.md`](../../reference/components.md).
+- **Content tooling** — `MobTemplate` carries the opt-in per-`CurrencyId` `(min, max)` loot range and a `shop:` block (accepted currency, till seed, base-stock rows); the Blazor `MobEditor` exposes both; YAML round-trips them. Absent ⇒ no component ⇒ no loot / not a shop (opt-in defaults). `ShopOptions` (`Shop:` config) holds app-wide restock/retention intervals, price ratios, and the default till seed.
 
 ## The extensibility seam (banks, safes, shops, trade)
 
-The wallet is **entity-keyed**, and `IWalletSystem` operates on any wallet-bearing entity — this is the lever the whole economy hangs off. A bank account, a safe, a guild vault, a vendor till, and a corpse are not new currency mechanisms; they are new *holders* of the same ledger. Every interaction (bank deposit/withdraw, safe, player trade, mail/COD, shop buy/sell) reduces to one operation: an atomic `Transfer` of N of currency C from wallet A to wallet B iff A can afford it — differing only in *which two entities* and *what authorizes the move*. Authorization (owner-only, guild-rank) lives in the resolving command/handler (INV-8), never in the wallet system. `Transfer` is therefore exposed now even though currency-foundation itself only uses `Deposit` — shopping (next), banking, trade, and mail are ≥4 consumers, past the INV-19 framework-parity bar. *Where* a bank balance lives (account-wide, per-character, or per-location) is a future content decision the seam does not foreclose.
+The wallet is **entity-keyed**, and `IWalletSystem` operates on any wallet-bearing entity — this is the lever the whole economy hangs off. A bank account, a safe, a guild vault, a vendor till, and a corpse are not new currency mechanisms; they are new *holders* of the same ledger. Every interaction (bank deposit/withdraw, safe, player trade, mail/COD, shop buy/sell) reduces to one operation: an atomic `Transfer` of N of currency C from wallet A to wallet B iff A can afford it — differing only in *which two entities* and *what authorizes the move*. Authorization (owner-only, guild-rank) lives in the resolving command/handler (INV-8), never in the wallet system. **Shopping (slice 12c) is the first realized `Transfer` consumer** — a vendor till ↔ player wallet — validating the seam; banking, player trade, and mail are the remaining anticipated consumers. *Where* a bank balance lives (account-wide, per-character, or per-location) is a future content decision the seam does not foreclose.
 
 ## Related
 
@@ -44,4 +45,4 @@ The wallet is **entity-keyed**, and `IWalletSystem` operates on any wallet-beari
 - **Mobs** — [`../mobs/mob-system.md`](../mobs/mob-system.md) — `MobTemplate` + authoring path the loot range extends.
 - **Combat** — [`../combat/combat.md`](../combat/combat.md) — `MobDiedEvent` (published pre-destroy) is the loot handler's trigger.
 - **Character stats** — [`../character-stats/stat-system.md`](../character-stats/stat-system.md) — the `StatRegistry` `DefinitionRegistry` precedent and the `score`-screen co-location (display only).
-- Successor: **slice 12 — Shopping** — the first `Transfer` consumer (vendor till ↔ player wallet).
+- **Shopping** — [`shop-system.md`](shop-system.md) — the trade half of this feature; the first realized `Transfer` consumer (vendor till ↔ player wallet).

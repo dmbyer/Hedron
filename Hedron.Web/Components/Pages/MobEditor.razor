@@ -3,6 +3,7 @@
 @using Hedron.Core.ECS.Components
 @using Hedron.Core.Modules.Economy
 @using Hedron.Core.Modules.Mobs.Templates
+@using Hedron.Core.Modules.Shopping.Components
 @inject IContentDefinitionCatalog Catalog
 @inject NavigationManager Nav
 
@@ -167,6 +168,54 @@ else if (_template is not null)
                        @onchange="e => SetCoinLootMax(e.Value?.ToString())" />
             </div>
         </div>
+    </fieldset>
+
+    <fieldset class="shop">
+        <legend>Shop</legend>
+        <p class="hint">Configure this mob as a shopkeeper. Leave unchecked for a non-trading mob (opt-in default).</p>
+        <div class="field">
+            <label>
+                <input type="checkbox"
+                       checked="@_template.IsShop"
+                       @onchange="e => _template.IsShop = (bool)(e.Value ?? false)" />
+                Is shopkeeper
+            </label>
+        </div>
+        @if (_template.IsShop)
+        {
+            <div class="field-row">
+                <div class="field">
+                    <label>Till seed (base units, 0 = global default)</label>
+                    <input type="number" min="0"
+                           value="@_template.ShopTillSeed"
+                           @onchange="e => SetTillSeed(e.Value?.ToString())" />
+                </div>
+            </div>
+            <div class="field">
+                <p class="hint">Base stock: blueprint ids and quantities spawned into inventory on each startup. One row per item type.</p>
+                @for (var i = 0; i < _template.ShopBaseStock.Count; i++)
+                {
+                    var idx = i;
+                    <div class="field-row">
+                        <div class="field">
+                            <label>Blueprint id</label>
+                            <input value="@_template.ShopBaseStock[idx].BlueprintId"
+                                   @onchange="e => _template.ShopBaseStock[idx].BlueprintId = e.Value?.ToString() ?? string.Empty" />
+                        </div>
+                        <div class="field">
+                            <label>Qty</label>
+                            <input type="number" min="1"
+                                   value="@_template.ShopBaseStock[idx].Quantity"
+                                   @onchange="e => SetBaseStockQty(idx, e.Value?.ToString())" />
+                        </div>
+                        <div class="field">
+                            <button @onclick="() => RemoveBaseStockRow(idx)">Remove</button>
+                        </div>
+                    </div>
+                }
+                <button @onclick="AddBaseStockRow">+ Add stock row</button>
+            </div>
+        }
     </fieldset>
 
     @if (_errors.Count > 0)
@@ -350,6 +399,33 @@ else if (_template is not null)
         {
             _errors = result.Errors;
         }
+    }
+
+    // ── Shop helpers ──────────────────────────────────────────────────────────
+
+    private void SetTillSeed(string? raw)
+    {
+        if (_template is null) return;
+        if (!long.TryParse(raw, out var v) || v < 0) v = 0;
+        _template.ShopTillSeed = v;
+    }
+
+    private void AddBaseStockRow()
+    {
+        _template?.ShopBaseStock.Add(new ShopStockRow { BlueprintId = string.Empty, Quantity = 1 });
+    }
+
+    private void RemoveBaseStockRow(int index)
+    {
+        if (_template is null || index < 0 || index >= _template.ShopBaseStock.Count) return;
+        _template.ShopBaseStock.RemoveAt(index);
+    }
+
+    private void SetBaseStockQty(int index, string? raw)
+    {
+        if (_template is null || index < 0 || index >= _template.ShopBaseStock.Count) return;
+        if (!int.TryParse(raw, out var v) || v < 1) v = 1;
+        _template.ShopBaseStock[index].Quantity = v;
     }
 
     private async Task ConfirmDelete()

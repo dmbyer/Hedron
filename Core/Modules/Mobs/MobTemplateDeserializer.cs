@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Mobs.Templates;
+using Hedron.Core.Modules.Shopping.Components;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
@@ -104,6 +105,41 @@ namespace Hedron.Core.Modules.Mobs
                 template.Protection = combined;
             }
 
+            // Deserialize shop block. Null / absent → not a shopkeeper (opt-in default).
+            if (dto.Shop is not null)
+            {
+                template.IsShop = true;
+
+                if (!string.IsNullOrEmpty(dto.Shop.AcceptedCurrency) &&
+                    Enum.TryParse<CurrencyId>(dto.Shop.AcceptedCurrency, ignoreCase: true, out var currency))
+                {
+                    template.ShopAcceptedCurrency = currency;
+                }
+                else if (!string.IsNullOrEmpty(dto.Shop.AcceptedCurrency))
+                {
+                    _logger.LogWarning(
+                        "Mob '{Id}': unknown shop currency '{Currency}' — defaulting to Coin.",
+                        dto.BlueprintId, dto.Shop.AcceptedCurrency);
+                }
+
+                template.ShopTillSeed = dto.Shop.TillSeed;
+                template.ShopRatioOverride = dto.Shop.RatioOverride;
+
+                if (dto.Shop.BaseStock is { Count: > 0 })
+                {
+                    foreach (var row in dto.Shop.BaseStock)
+                    {
+                        if (string.IsNullOrWhiteSpace(row.BlueprintId))
+                            continue;
+                        template.ShopBaseStock.Add(new ShopStockRow
+                        {
+                            BlueprintId = row.BlueprintId,
+                            Quantity = row.Quantity > 0 ? row.Quantity : 1,
+                        });
+                    }
+                }
+            }
+
             return template;
         }
 
@@ -140,6 +176,24 @@ namespace Hedron.Core.Modules.Mobs
             /// Null / absent means no protection (opt-in default).
             /// </summary>
             public List<string>? Protection { get; set; }
+            /// <summary>
+            /// Optional shop configuration block. Null / absent means this mob is not a shopkeeper.
+            /// </summary>
+            public ShopDto? Shop { get; set; }
+        }
+
+        private sealed class ShopDto
+        {
+            public string? AcceptedCurrency { get; set; }
+            public long TillSeed { get; set; }
+            public decimal? RatioOverride { get; set; }
+            public List<ShopStockRowDto>? BaseStock { get; set; }
+        }
+
+        private sealed class ShopStockRowDto
+        {
+            public string? BlueprintId { get; set; }
+            public int Quantity { get; set; } = 1;
         }
     }
 }

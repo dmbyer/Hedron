@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Mobs.Templates;
+using Hedron.Core.Modules.Shopping.Components;
 
 namespace Hedron.Core.Modules.Mobs.Systems
 {
@@ -26,6 +28,26 @@ namespace Hedron.Core.Modules.Mobs.Systems
         /// INV-5: does not publish events or call persistence.
         /// </summary>
         void SetMobProtection(uint mobEntityId, ProtectionFlags flags);
+
+        /// <summary>
+        /// Configures or removes the shop on a mob entity and its in-memory template.
+        /// When <paramref name="isShop"/> is <see langword="false"/>, removes any existing
+        /// <see cref="ShopComponent"/> from the live entity and clears the template's shop
+        /// fields (opt-in default: most mobs are not shopkeepers).
+        /// When <see langword="true"/>, adds or updates <see cref="ShopComponent"/> on both
+        /// the live entity and the template; <paramref name="baseStock"/> replaces the full
+        /// base-stock list (pass <see langword="null"/> to leave base stock unchanged when
+        /// toggling other fields).
+        /// INV-5: does not publish events, call persistence, or seed the till / spawn stock
+        /// (those are runtime-spawn concerns handled by <c>ShopkeeperSpawnHandler</c>).
+        /// </summary>
+        void SetMobShop(
+            uint mobEntityId,
+            bool isShop,
+            CurrencyId acceptedCurrency = CurrencyId.Coin,
+            long tillSeed = 0,
+            decimal? ratioOverride = null,
+            IReadOnlyList<ShopStockRow>? baseStock = null);
     }
 
     public readonly record struct MobCreationResult(uint MobEntityId, string BlueprintId, MobTemplate Template);

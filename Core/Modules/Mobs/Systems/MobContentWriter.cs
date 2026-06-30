@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Mobs.Templates;
+using Hedron.Core.Modules.Shopping.Components;
 using Hedron.Core.Modules.World;
 using Microsoft.Extensions.Options;
 using YamlDotNet.Serialization;
@@ -54,6 +55,24 @@ namespace Hedron.Core.Modules.Mobs.Systems
                     .ToList();
             }
 
+            // Serialize shop block when the mob is a shopkeeper.
+            ShopDto? shopDto = null;
+            if (template.IsShop)
+            {
+                var stockRows = template.ShopBaseStock
+                    .Where(r => !string.IsNullOrEmpty(r.BlueprintId) && r.Quantity > 0)
+                    .Select(r => new ShopStockRowDto { BlueprintId = r.BlueprintId, Quantity = r.Quantity })
+                    .ToList();
+
+                shopDto = new ShopDto
+                {
+                    AcceptedCurrency = template.ShopAcceptedCurrency.ToString(),
+                    TillSeed = template.ShopTillSeed,
+                    RatioOverride = template.ShopRatioOverride,
+                    BaseStock = stockRows.Count > 0 ? stockRows : null,
+                };
+            }
+
             var dto = new MobDto
             {
                 BlueprintId = template.BlueprintId,
@@ -73,6 +92,7 @@ namespace Hedron.Core.Modules.Mobs.Systems
                 MaxAstra = template.MaxAstra,
                 CurrencyLoot = currencyLoot.Count > 0 ? currencyLoot : null,
                 Protection = protectionFlags,
+                Shop = shopDto,
             };
 
             var body = _yaml.Serialize(dto);
@@ -116,6 +136,28 @@ namespace Hedron.Core.Modules.Mobs.Systems
             /// Null / absent means no protection (opt-in default).
             /// </summary>
             public List<string>? Protection { get; set; }
+            /// <summary>
+            /// Optional shop configuration block. Null / absent means this mob is not a shopkeeper.
+            /// </summary>
+            public ShopDto? Shop { get; set; }
+        }
+
+        private sealed class ShopDto
+        {
+            /// <summary><see cref="CurrencyId"/> enum name (e.g. "Coin").</summary>
+            public string AcceptedCurrency { get; set; } = "Coin";
+            /// <summary>Till seed in base units. 0 = use global <c>ShopOptions.DefaultTillSeed</c>.</summary>
+            public long TillSeed { get; set; } = 0;
+            /// <summary>Optional per-shop price-ratio override (deferred backlog). Null = use global ratios.</summary>
+            public decimal? RatioOverride { get; set; } = null;
+            /// <summary>Authored base-stock rows. Null / absent = no base stock.</summary>
+            public List<ShopStockRowDto>? BaseStock { get; set; }
+        }
+
+        private sealed class ShopStockRowDto
+        {
+            public string BlueprintId { get; set; } = string.Empty;
+            public int Quantity { get; set; } = 1;
         }
     }
 }

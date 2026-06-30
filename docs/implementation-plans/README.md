@@ -46,8 +46,7 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 
 | Status | Plan | Slice |
 |---|---|---|
-| `planned` | [`shopping.md`](shopping.md) | Slice 12c — Shopping (advisor seed; depends on 12a/12b) |
-| `planned` | [`admin-area-authoring.md`](admin-area-authoring.md) | `mkarea` + `list <type>` |
+| `planned` | [`admin-area-authoring.md`](admin-area-authoring.md) | `mkarea` + `listents <type>` |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 

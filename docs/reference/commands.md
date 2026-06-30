@@ -257,6 +257,45 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 ---
 
+### `list`
+
+**Aliases:** none  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Shopping/Commands/ListCommand.cs`  
+**Description:** Browses a shopkeeper's wares — base stock and the buy-back shelf together — showing each item's name and compute-on-read buy price (via `CurrencyFormatter`); acquired (buy-back) rows are flagged. The shopkeeper may be named (resolved by the shared `MobInRoomResolver`) or defaults to the one shop in the room. No state mutation. (Distinct from the admin `listents` entity inspector.)  
+**Usage:** `list [shopkeeper]`  
+**Schema:** `Token string "shopkeeper"` (optional, `MobInRoomResolver`)  
+**Dependencies:** `IShopSystem`, `EntityService`, `ICurrencyRegistry`, `MobInRoomResolver`  
+**Events:** none
+
+---
+
+### `buy`
+
+**Aliases:** none  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Shopping/Commands/BuyCommand.cs`  
+**Description:** Buys a named item from the shopkeeper in the current room — works for both base stock and buy-back-shelf items (same verb). Resolves the implicit shopkeeper and the item (`IItemSystem.TryFindItemInInventory` against the shop), calls `IShopSystem.TryResolveBuy` (price + affordability), and on success does `IWalletSystem.Transfer(player → till)` + `IItemSystem.MoveBetweenInventories(shop → player)` and publishes `ItemBoughtEvent`. Insufficient funds → refusal, no mutation. All pricing/affordability rules live in `IShopSystem` (INV-8).  
+**Usage:** `buy <item>`  
+**Schema:** `Token string "item"` (required)  
+**Dependencies:** `IShopSystem`, `IItemSystem`, `IWalletSystem`, `EntityService`, `IEventBus`  
+**Events:** `ItemBoughtEvent`
+
+---
+
+### `sell`
+
+**Aliases:** none  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Shopping/Commands/SellCommand.cs`  
+**Description:** Sells a named item from the player's inventory to the shopkeeper in the room. Calls `IShopSystem.TryResolveSell` (price = `Value × SellRatio`; rejects `Value == 0`; checks the till can afford; returns the clock-derived `ExpiresAt`), then `IWalletSystem.Transfer(till → player)` + `IItemSystem.MoveBetweenInventories(player → shop)`, stamps `ShopStockComponent { Acquired, ExpiresAt }`, and publishes `ItemSoldEvent`. Dry till or valueless item → refusal, no mutation.  
+**Usage:** `sell <item>`  
+**Schema:** `Token string "item"` (required)  
+**Dependencies:** `IShopSystem`, `IItemSystem`, `IWalletSystem`, `EntityService`, `IEventBus`  
+**Events:** `ItemSoldEvent`
+
+---
+
 ### `score`
 
 **Aliases:** none  
@@ -396,13 +435,13 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 
 ---
 
-### `list`
+### `listents`
 
 **Aliases:** none  
 **MatchingMode:** `Full`  
-**Location:** `Core/Modules/Admin/Commands/ListCommand.cs`  
-**Description:** Prints a tabular view of all entities of a given type. Accepts `area` or `room` (case-insensitive). Unknown type token → error message. Columns: Name | ShortDesc (first 15 chars) | BlueprintId (entity id if no `BlueprintComponent`). No events fired.  
-**Usage:** `list <area|room>`  
+**Location:** `Core/Modules/Admin/Commands/ListEntitiesCommand.cs`  
+**Description:** Prints a tabular view of all entities of a given type. Accepts `area` or `room` (case-insensitive). Unknown type token → error message. Columns: Name | ShortDesc (first 15 chars) | BlueprintId (entity id if no `BlueprintComponent`). No events fired. (Renamed from `list` in slice 12-c so the player shop-browse verb `list` owns the unqualified verb.)  
+**Usage:** `listents <area|room>`  
 **Schema:** `Token string "type"` (required: `area` or `room`)  
 **Dependencies:** `EntityService`  
 **Events:** none  
@@ -586,10 +625,10 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none  
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/Admin/Commands/ReloadCommand.cs`  
-**Description:** Re-scans the content directory and refreshes the template registry. Newly authored templates with no live counterpart are seeded. **Existing live entities are not modified** — descriptions, exits, and components on rooms that already exist will not change. To pick up edits to a live room, restart, or use `dig` for exit changes.  
+**Description:** Rebuilds the live world from the content directory the same way a restart does, without dropping connected players. Force-saves all persistent state (`IPersistenceSystem.FlushAllAsync`), tears down every world-content entity (rooms, mobs, world/dropped/shop items — anything with a `BlueprintComponent` but no `PersistentEntity`), re-reads the YAML, and re-spawns the world fresh, then re-publishes `WorldContentReadyEvent` so the startup fan-out re-runs (shops re-seed, spawn slots rebuild, players' rooms are re-resolved). **Runtime instance state is reset**: edits to existing rooms/mobs/items take effect, picked-up world items respawn, depleted shops refill, and the buy-back shelf clears. Players whose room was removed from YAML are moved to the starting room. Persistent entities (players and player-owned items/containers) are preserved.  
 **Usage:** `reload`  
 **Schema:** no arguments  
-**Events:** `ContentReloadedEvent`
+**Events:** publishes `WorldContentReadyEvent` (drives shop re-seed, spawn-slot rebuild, player re-hydration), then `ContentReloadedEvent` (audit)
 
 ---
 

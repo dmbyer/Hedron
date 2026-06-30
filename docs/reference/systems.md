@@ -196,7 +196,7 @@ See [`../features/accounts/accounts.md`](../features/accounts/accounts.md) for t
 **Location:** `Core/Modules/World/Systems/WorldContentLoader.cs`
 **Dependencies:** `EntityService`, `ITemplateRegistry`, `IContentSerializer`, `WorldConfiguration`, `IConfiguration`, `ILogger`.
 **Interface:** [`IWorldContentLoader.cs`](../../Core/Modules/World/Systems/IWorldContentLoader.cs) — `LoadAndSpawnAsync` / `ReloadAsync(→ ContentReloadResult)`. Pure: returns results; never touches the event bus (INV-5); callers publish `ContentReloadedEvent`.
-Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). No `PersistentEntity` is added to any world-content entity — the YAML file is the sole durable state. `SpawnMissingEntities` skips blueprints already represented by a live entity. `ReloadAsync` is **additive only**. See [`../features/world/world-content.md`](../features/world/world-content.md) for the full startup-phase sequence and content file shape. Implemented (Phase 3 slices 2, persistence-reform-stage-b, 8).
+Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). No `PersistentEntity` is added to any world-content entity — the YAML file is the sole durable state. The world blueprint map (`SpawnMissingEntities` dedup, placement, exit/area linking) is built from **non-persistent** entities only, so a persisted player-owned copy never suppresses an authored re-spawn. `ReloadAsync` is a **full rebuild** — it destroys all world content (`DestroyWorldContent`) and re-spawns from YAML, preserving persistent entities; the `reload` command re-publishes `WorldContentReadyEvent` to re-run the post-load fan-out. See [`../features/world/world-content.md`](../features/world/world-content.md) and [Flow 5](../architecture/flows/flow-05-content-reload.md). Implemented (Phase 3 slices 2, persistence-reform-stage-b, 8, shopping-reload-reconciliation).
 
 ### AreaSystem
 **Purpose:** Domain system for area–room membership queries and mutation. Provides `GetRoomsInArea`, `GetAreaForRoom`, and `AssignRoomToArea`. All operations are pure ECS mutations; no event publication (INV-5). `AssignRoomToArea` sets `RoomComponent.AreaEntityId` on the live entity and mirrors `areaBlueprintId` to `RoomTemplate.AreaId` in the template registry so the assignment survives `@reload`.
@@ -303,10 +303,10 @@ Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (
 **Interface:** [`IMovementSystem.cs`](../../Core/Modules/Movement/Systems/IMovementSystem.cs) — `TryMove(playerEntityId, direction) → MoveResult`. See [`../features/world/movement-system.md`](../features/world/movement-system.md) for the move-resolution steps and extension points. Implemented (Phase 3 slice 2+).
 
 ### ItemSystem
-**Purpose:** Query and mutation operations on item entities — finds items in a room or inventory by entity id, prefix-matches a token against item names and keywords, and moves items between ground and inventory. Mutation methods are pure ECS mutations; no event publication, no persistence calls.
+**Purpose:** Query and mutation operations on item entities — finds items in a room or inventory by entity id, prefix-matches a token against item names and keywords, moves items between ground and inventory, and moves items between two inventory holders (shop↔player, give-to-NPC, player-trade, banking). All mutation methods are pure ECS mutations; no event publication, no persistence calls.
 **Location:** `Core/Modules/Items/Systems/ItemSystem.cs`
 **Dependencies:** `EntityService`.
-**Interface:** [`IItemSystem.cs`](../../Core/Modules/Items/Systems/IItemSystem.cs) — `GetItemsInRoom` / `GetItemsInInventory` / `TryFindItemInRoom` / `TryFindItemInInventory` / `MoveToInventory` / `DropToRoom`. See [`../features/items/item-inventory-system.md`](../features/items/item-inventory-system.md) for the location model, persistence lifecycle, and resolver design. Implemented (Phase 3 slice 6).
+**Interface:** [`IItemSystem.cs`](../../Core/Modules/Items/Systems/IItemSystem.cs) — `GetItemsInRoom` / `GetItemsInInventory` / `TryFindItemInRoom` / `TryFindItemInInventory` / `MoveToInventory` / `DropToRoom` / `MoveBetweenInventories(itemEntityId, fromHolderEntityId, toHolderEntityId)`. See [`../features/items/item-inventory-system.md`](../features/items/item-inventory-system.md) for the location model, persistence lifecycle, and resolver design. `MoveBetweenInventories` added in slice 12c (WP-2): removes the item id from the source holder's `InventoryComponent` and appends it to the destination's; touches no `LocationComponent` and no `BlueprintComponent` (INV-21). Implemented (Phase 3 slice 6; `MoveBetweenInventories` slice 12c).
 
 ### ItemBuilderSystem
 **Purpose:** Runtime item authoring — creates ad-hoc item entities and mutates item properties (`Name`, `Description`, `Keywords`, `ItemType`, `WornSlots`, `StatBonuses`, `Value`). Mirrors `IRoomBuilderSystem`: all methods mutate ECS state only; event publication and persistence calls remain in the command (INV-5).
@@ -450,9 +450,9 @@ Returns two `ResolvedCandidate` entries per known Active Spell — one for the a
 ### MobInRoomResolver
 
 **Purpose:** Resolves a mob name/keyword against entities with `MobDataComponent` in the invoker's current room. Returns the mob entity id (as `string`) as the canonical value so commands receive the entity id directly without a second lookup.
-**Location:** `Core/Modules/Combat/Resolvers/MobInRoomResolver.cs`
+**Location:** `Core/Modules/Mobs/Resolvers/MobInRoomResolver.cs` (moved to a shared, non-combat home in Phase 3 slice 12-c / WP-3).
 **Dependencies:** `EntityService`.
-Registered as a singleton in `CombatModule`. **Not yet wired to any command argument schema** — `AbilityInvocationPipeline` and `KillCommand` currently call `ICombatSystem.TryFindTargetInRoom` inline. Migrate both call sites to this resolver when a third mob-targeting command argument is added (INV-19 ≥3-consumer threshold). Implemented (Phase 3 slice 11-b / WP-1).
+Registered as a singleton in `CombatModule` (preserving DI composition order). **Active consumer:** the shopping `list` command binds it as the optional `shopkeeper` argument resolver. `KillCommand` and ability targeting still use the inline `ICombatSystem.TryFindTargetInRoom` path — migrating both onto this resolver (which then genuinely crosses the INV-19 ≥3-consumer threshold) is backlogged. Implemented (Phase 3 slice 11-b / WP-1; relocated 12-c / WP-3).
 
 ---
 
@@ -543,3 +543,26 @@ public interface ICurrencyLootSystem
 public sealed record CurrencyLootResult(IReadOnlyDictionary<CurrencyId, long> Awards);
 ```
 Registered as a singleton in `EconomyModule.AddEconomyModule`. Implemented (currency-foundation WP-2).
+
+### ShopSystem / IShopSystem (Shopping module)
+**Purpose:** Pure domain system for all shopping rules: price computation, buy/sell validation, buy-back pricing, restock planning, and expiry detection. Composes `IWalletSystem` and `IItemSystem` for affordability and inventory queries; uses `IClock` for all time-dependent decisions (INV-26). Never touches the event bus or persistence (INV-5). Prices are computed on read from `ItemDataComponent.Value × ratio` — never stored.
+**Location:** `Core/Modules/Shopping/Systems/ShopSystem.cs` · `IShopSystem.cs` · `ShopResults.cs`
+**Dependencies:** `EntityService`, `IWalletSystem`, `IItemSystem`, `IClock`, `IOptions<ShopOptions>`.
+```csharp
+public interface IShopSystem
+{
+    ShopListing GetListing(uint shopEntityId);
+    ShopBuyResult TryResolveBuy(uint playerEntityId, uint shopEntityId, uint itemEntityId);
+    ShopSellResult TryResolveSell(uint playerEntityId, uint shopEntityId, uint itemEntityId);
+    IReadOnlyList<(string BlueprintId, int Shortfall)> PlanRestock(uint shopEntityId);
+    IReadOnlyList<uint> FindExpired(uint shopEntityId, DateTime nowUtc);
+    void SeedTill(uint shopEntityId);
+}
+
+// Result records (ShopResults.cs):
+public sealed record ShopListingRow(uint ItemEntityId, string Name, long BuyPrice, CurrencyId Currency, bool IsAcquired);
+public sealed record ShopListing(uint ShopEntityId, CurrencyId Currency, IReadOnlyList<ShopListingRow> Rows);
+public sealed record ShopBuyResult(bool Success, long Price, CurrencyId Currency, string? FailureReason);
+public sealed record ShopSellResult(bool Success, long Price, CurrencyId Currency, DateTime? ExpiresAt, string? FailureReason);
+```
+Buy-back pricing: `Acquired` items (sold by a player) cost `Value × SellRatio` on buy-back (what the shop paid), not `Value × BuyRatio`. `TryResolveSell` carries the clock-derived `ExpiresAt` so the calling command stamps it onto `ShopStockComponent` (INV-8). `PlanRestock` ignores `Acquired` items (top-up semantics). `FindExpired` uses `<= nowUtc` boundary. Registered as a singleton in `ShoppingModule.AddShoppingModule`. Implemented (shopping slice 12c WP-2).

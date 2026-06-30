@@ -6,7 +6,7 @@
 
 **Summary.** A privileged session issues a builder verb. `CommandDispatcher` routes through the privilege gate (`IAdminAuthorizer.IsPrivileged`); the command calls the appropriate builder system (pure result), writes YAML via an `I*ContentWriter`, publishes a past-tense `*ByAdminEvent`, and in some cases calls `IPersistenceSystem.SaveEntityAsync` (admin boundary-save for persistent entities such as items and mobs). `AdminAuditHandler` (priority 80) logs every `*ByAdminEvent`. `dig` additionally publishes `PlayerMovedEvent` to auto-move the admin into the new room.
 
-**Trigger.** Privileged session sends a builder verb: `dig <direction> [name]`, `mkitem [name]`, `mkmob [name]`, `mkarea [name]`, `set <property> <value>`, `setitem`/`setmob`/`setarea`, `list <area|room>`, or `reload`.
+**Trigger.** Privileged session sends a builder verb: `dig <direction> [name]`, `mkitem [name]`, `mkmob [name]`, `mkarea [name]`, `set <property> <value>`, `setitem`/`setmob`/`setarea`, `listents <area|room>`, or `reload`.
 
 ```mermaid
 sequenceDiagram
@@ -44,11 +44,11 @@ sequenceDiagram
 6. `dig` additionally publishes `PlayerMovedEvent(adminId, sourceId, newRoomId, direction)`. `PlayerMovedHandler` fires departure broadcast + arrival broadcast + look.
 7. The command writes a confirmation `PlainMessage` showing the blueprint id.
 
-**`list` is read-only.** `ListCommand` scans `EntityService.GetAllComponents<T>()` directly, publishes no events, and calls no builder system (INV-10).
+**`listents` is read-only.** `ListEntitiesCommand` scans `EntityService.GetAllComponents<T>()` directly, publishes no events, and calls no builder system (INV-10).
 
-**`reload` is additive.** `ReloadCommand` calls `IWorldContentLoader.ReloadAsync`, seeds missing blueprints without mutating existing live entities, and publishes `ContentReloadedEvent`.
+**`reload` is a full rebuild.** `ReloadCommand` force-saves persistent state, then `IWorldContentLoader.ReloadAsync` tears down all world content and re-spawns it fresh from YAML; the command re-publishes `WorldContentReadyEvent` (shop re-seed, spawn slots, player re-placement) and `ContentReloadedEvent`. Persistent (player) entities survive. See [Flow 5](flow-05-content-reload.md).
 
 **Cross-references.**
-- [`Core/Modules/Admin/`](../../../Core/Modules/Admin/) — `DigCommand`, `SetCommand`, `SetAreaCommand`, `MkareaCommand`, `ListCommand`, `ReloadCommand`, `RoomBuilderSystem`, `AreaBuilderSystem`, `AdminAuthorizer`, `AdminAuditHandler`.
+- [`Core/Modules/Admin/`](../../../Core/Modules/Admin/) — `DigCommand`, `SetCommand`, `SetAreaCommand`, `MkareaCommand`, `ListEntitiesCommand`, `ReloadCommand`, `RoomBuilderSystem`, `AreaBuilderSystem`, `AdminAuthorizer`, `AdminAuditHandler`.
 - [`Core/Modules/Items/Commands/MkitemCommand.cs`](../../../Core/Modules/Items/Commands/MkitemCommand.cs) · [`Core/Modules/Mobs/Commands/MkMobCommand.cs`](../../../Core/Modules/Mobs/Commands/MkMobCommand.cs)
 - [`../../features/admin-authoring/admin-commands.md`](../../features/admin-authoring/admin-commands.md) — full builder verb table and privilege gate design.
