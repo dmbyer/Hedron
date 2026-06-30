@@ -3,6 +3,7 @@ using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Economy.Components;
+using Hedron.Core.Modules.Shopping.Components;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Mobs.Templates
@@ -42,6 +43,40 @@ namespace Hedron.Core.Modules.Mobs.Templates
         /// mirrors the <c>CurrencyLoot</c> precedent). Durable form is YAML; NOT <c>[Persistent]</c>.
         /// </summary>
         public ProtectionFlags Protection { get; set; } = ProtectionFlags.None;
+
+        // ── Shop fields (WP-1) ───────────────────────────────────────────────────
+
+        /// <summary>
+        /// When <see langword="true"/>, <see cref="Apply"/> adds a <see cref="ShopComponent"/>
+        /// and seeds the till (<see cref="WalletComponent"/>). Opt-in default: most mobs are not
+        /// shopkeepers. Set via <c>IMobBuilderSystem.SetMobShop</c> or the <c>shop:</c> YAML block.
+        /// </summary>
+        public bool IsShop { get; set; } = false;
+
+        /// <summary>
+        /// Currency the shop accepts. Only meaningful when <see cref="IsShop"/> is <see langword="true"/>.
+        /// </summary>
+        public CurrencyId ShopAcceptedCurrency { get; set; } = CurrencyId.Coin;
+
+        /// <summary>
+        /// Amount deposited into the till on each spawn. 0 means defer to
+        /// <c>ShopOptions.DefaultTillSeed</c> at spawn time. Only meaningful when <see cref="IsShop"/>.
+        /// </summary>
+        public long ShopTillSeed { get; set; } = 0;
+
+        /// <summary>
+        /// Per-shop price-ratio override (deferred — backlog; carried for authoring completeness).
+        /// <see langword="null"/> = use global <c>ShopOptions</c> ratios.
+        /// </summary>
+        public decimal? ShopRatioOverride { get; set; } = null;
+
+        /// <summary>
+        /// Authored base-stock rows. Each entry spawns <see cref="ShopStockRow.Quantity"/> item
+        /// entities from <see cref="ShopStockRow.BlueprintId"/> into the shop's inventory on startup,
+        /// each stamped with <see cref="ShopStockComponent"/>&#160;<c>{ Base }</c>.
+        /// Only meaningful when <see cref="IsShop"/> is <see langword="true"/>.
+        /// </summary>
+        public List<ShopStockRow> ShopBaseStock { get; set; } = new();
 
         public MobTemplate(string blueprintId)
         {
@@ -98,6 +133,25 @@ namespace Hedron.Core.Modules.Mobs.Templates
             // ProtectionFlags.None → no component → no protection (world-content default).
             if (Protection != ProtectionFlags.None)
                 entityService.AddComponent(entity.Id, new ProtectionComponent { Flags = Protection });
+
+            // Add ShopComponent + InventoryComponent only when this mob is a shopkeeper (opt-in default).
+            // Till seeding and base-stock entity spawning are deferred to ShopkeeperSpawnHandler (the
+            // WorldContentReadyEvent second pass, analogous to how items receive LocationComponent after
+            // load), because those steps require IShopSystem, ITemplateRegistry, and ShopOptions — none of
+            // which are available in Apply. ShopComponent carries all authored values needed by that pass.
+            if (IsShop)
+            {
+                entityService.AddComponent(entity.Id, new ShopComponent
+                {
+                    AcceptedCurrency = ShopAcceptedCurrency,
+                    TillSeed = ShopTillSeed,
+                    RatioOverride = ShopRatioOverride,
+                    BaseStock = new List<ShopStockRow>(ShopBaseStock),
+                });
+                // Ensure the shopkeeper has an inventory to hold stock.
+                if (!entityService.HasComponent<InventoryComponent>(entity.Id))
+                    entityService.AddComponent(entity.Id, new InventoryComponent());
+            }
         }
     }
 }

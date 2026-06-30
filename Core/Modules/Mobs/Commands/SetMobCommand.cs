@@ -7,6 +7,7 @@ using Hedron.Core.Commands.Authorization;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
+using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Mobs.Events;
 using Hedron.Core.Modules.Mobs.Systems;
 using Hedron.Core.Modules.Mobs.Templates;
@@ -32,7 +33,9 @@ namespace Hedron.Core.Modules.Mobs.Commands
             "Sets a property on the mob with the given blueprint id. " +
             "Valid properties: name, description, keywords (space-separated), type (none/vendor/guard/creature), " +
             "level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra, " +
-            "protection (comma or space-separated flags: none, untargetable, effectimmune).";
+            "protection (comma or space-separated flags: none, untargetable, effectimmune), " +
+            "shop (\"off\" to clear, or \"on [tillSeed] [currency]\" to make a shopkeeper; " +
+            "base-stock rows are authored via the content editor / YAML).";
         public string Usage => "setmob <blueprintId> <property> <value>";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
@@ -166,9 +169,59 @@ namespace Hedron.Core.Modules.Mobs.Commands
                     _mobBuilder.SetMobProtection(mobEntityId, combined);
                     break;
 
+                case "shop":
+                    // Syntax: "off" clears the shop; "on [tillSeed] [currency]" makes/updates a
+                    // shopkeeper. Base-stock rows are authored via YAML / the content editor — passing
+                    // null base stock leaves any existing base stock unchanged (INV-8: the dual-write
+                    // rule lives in IMobBuilderSystem.SetMobShop).
+                    var shopTokens = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (shopTokens.Length == 0)
+                    {
+                        await context.Output.WriteAsync(new PlainMessage(
+                            "Usage: setmob <blueprintId> shop <off | on [tillSeed] [currency]>.",
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
+                        return;
+                    }
+
+                    var toggle = shopTokens[0].ToLowerInvariant();
+                    if (toggle is "off" or "false" or "none")
+                    {
+                        _mobBuilder.SetMobShop(mobEntityId, isShop: false);
+                        break;
+                    }
+                    if (toggle is not ("on" or "true"))
+                    {
+                        await context.Output.WriteAsync(new PlainMessage(
+                            $"Unknown shop toggle '{shopTokens[0]}'. Use 'on' or 'off'.",
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
+                        return;
+                    }
+
+                    long tillSeed = 0;
+                    if (shopTokens.Length >= 2 && (!long.TryParse(shopTokens[1], out tillSeed) || tillSeed < 0))
+                    {
+                        await context.Output.WriteAsync(new PlainMessage(
+                            "Till seed must be a non-negative integer.",
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
+                        return;
+                    }
+
+                    var currency = CurrencyId.Coin;
+                    if (shopTokens.Length >= 3 &&
+                        !Enum.TryParse<CurrencyId>(shopTokens[2], ignoreCase: true, out currency))
+                    {
+                        await context.Output.WriteAsync(new PlainMessage(
+                            $"Unknown currency '{shopTokens[2]}'.",
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
+                        return;
+                    }
+
+                    _mobBuilder.SetMobShop(mobEntityId, isShop: true, currency, tillSeed, ratioOverride: null, baseStock: null);
+                    break;
+
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
-                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra, protection.",
+                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra, protection, shop.",
                         OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
             }

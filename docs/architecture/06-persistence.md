@@ -13,6 +13,8 @@ Hedron uses a two-level persistence model backed by SQLite. The questions "shoul
 
 **Cross-domain stable reference:** `LocationComponent` carries `RoomBlueprintId` (`string?`, `[Persistent]`) as the cross-restart room reference and `RoomEntityId` (`uint`, NOT `[Persistent]`) as the runtime entity ID resolved on startup. See Stage B in the [persistence-reform plan](../implementation-plans/persistence-reform.md) for full details.
 
+**Blueprint/instance coexistence (the two domains share blueprint ids).** A persistent entity may carry the *same* `BlueprintComponent.BlueprintId` as a piece of world content — e.g. a player picks up an authored world item and keeps it; the item is now persistent but retains its `BlueprintComponent` as an origin record (INV-21). The two must coexist: the persisted player-owned **instance** survives in the player's inventory/container, **and** the authored world entity must still re-spawn from YAML into its room on the next restart. To guarantee this, world-content spawning (`WorldContentLoader.BuildLiveBlueprintMap` → `SpawnMissingEntities`/`PlaceItemsInRooms`) builds its "is this blueprint already in the world?" map from **world (non-persistent) entities only** — entities carrying `PersistentEntity` are excluded, so a player-owned copy never suppresses the world respawn. World content never opts into persistence (a world entity is therefore never excluded), so this is purely a guard against player-owned instances shadowing authored content. This is the blueprint/instance separation INV-21 describes, enforced at the loader.
+
 ---
 
 ## Level 1 — Does this entity participate in persistence?

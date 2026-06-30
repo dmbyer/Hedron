@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Mobs.Templates;
+using Hedron.Core.Modules.Shopping.Components;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging;
 
@@ -114,6 +116,77 @@ namespace Hedron.Core.Modules.Mobs.Systems
             // Update the in-memory template.
             var tpl = TryGetTemplate(mobEntityId);
             if (tpl is not null) tpl.Protection = flags;
+        }
+
+        public void SetMobShop(
+            uint mobEntityId,
+            bool isShop,
+            CurrencyId acceptedCurrency = CurrencyId.Coin,
+            long tillSeed = 0,
+            decimal? ratioOverride = null,
+            IReadOnlyList<ShopStockRow>? baseStock = null)
+        {
+            if (!isShop)
+            {
+                // Remove shop from live entity.
+                _entityService.RemoveComponent<ShopComponent>(mobEntityId);
+
+                // Clear the template's shop fields.
+                var removeTpl = TryGetTemplate(mobEntityId);
+                if (removeTpl is not null)
+                {
+                    removeTpl.IsShop = false;
+                    removeTpl.ShopAcceptedCurrency = CurrencyId.Coin;
+                    removeTpl.ShopTillSeed = 0;
+                    removeTpl.ShopRatioOverride = null;
+                    removeTpl.ShopBaseStock.Clear();
+                }
+                return;
+            }
+
+            // Add or update ShopComponent on the live entity.
+            if (_entityService.TryGet<ShopComponent>(mobEntityId, out var shop))
+            {
+                shop.AcceptedCurrency = acceptedCurrency;
+                shop.TillSeed = tillSeed;
+                shop.RatioOverride = ratioOverride;
+                if (baseStock is not null)
+                {
+                    shop.BaseStock.Clear();
+                    shop.BaseStock.AddRange(baseStock);
+                }
+            }
+            else
+            {
+                var newShop = new ShopComponent
+                {
+                    AcceptedCurrency = acceptedCurrency,
+                    TillSeed = tillSeed,
+                    RatioOverride = ratioOverride,
+                };
+                if (baseStock is not null)
+                    newShop.BaseStock.AddRange(baseStock);
+                _entityService.AddComponent(mobEntityId, newShop);
+            }
+
+            // Ensure the shopkeeper has an inventory.
+            if (!_entityService.HasComponent<InventoryComponent>(mobEntityId))
+                _entityService.AddComponent(mobEntityId, new InventoryComponent());
+
+            // Update the in-memory template.
+            var tpl = TryGetTemplate(mobEntityId);
+            if (tpl is not null)
+            {
+                tpl.IsShop = true;
+                tpl.ShopAcceptedCurrency = acceptedCurrency;
+                tpl.ShopTillSeed = tillSeed;
+                tpl.ShopRatioOverride = ratioOverride;
+                if (baseStock is not null)
+                {
+                    tpl.ShopBaseStock.Clear();
+                    tpl.ShopBaseStock.AddRange(baseStock);
+                }
+            }
         }
 
         public void SetAttribute(uint mobEntityId, MobTemplate template, string property, int value)

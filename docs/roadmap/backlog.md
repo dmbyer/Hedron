@@ -78,7 +78,13 @@ Slice 11-c ([`../implementation-plans/resource-regeneration.md`](../features/cha
 
 ### 🔵 Tabular output helper — defer until third consumer
 
-Acknowledged debt from the admin-area-authoring slice (`docs/implementation-plans/admin-area-authoring.md`). `ListCommand` hand-rolls `StringBuilder`-based tabular output (header + rows, 15-char description truncation). Two admin commands now share this pattern (`AreaCommand` produces a similar structured listing; `ListCommand` is the second). At the third consumer, extract a shared `TableBuilder` or `ColumnFormatter` helper (INV-19: ≥3-consumer threshold). Until then the inline implementation is intentional.
+Acknowledged debt from the admin-area-authoring slice (`docs/implementation-plans/admin-area-authoring.md`). `ListEntitiesCommand` (the admin `listents` verb) hand-rolls `StringBuilder`-based tabular output (header + rows, 15-char description truncation). Two admin commands now share this pattern (`AreaCommand` produces a similar structured listing; `ListEntitiesCommand` is the second). At the third consumer, extract a shared `TableBuilder` or `ColumnFormatter` helper (INV-19: ≥3-consumer threshold). Until then the inline implementation is intentional.
+
+### 🔵 Migrate combat + ability targeting onto `MobInRoomResolver` (deferred from shopping, slice 12c)
+
+The shopping slice (12c) relocated `MobInRoomResolver` to the shared `Core/Modules/Mobs/Resolvers/` home and wired the shopping `list` command to it as the optional `shopkeeper` argument resolver — but that is currently its **only** active consumer. `KillCommand` and `AbilityInvocationPipeline`/`UseAbilityCommand` still resolve room mobs through the inline `ICombatSystem.TryFindTargetInRoom` path; the shopping `buy`/`sell` verbs resolve the implicit shopkeeper directly (no named argument, so a resolver doesn't fit them). So the INV-19 "≥3-consumer" threshold the original slice plan cited is **not yet genuinely crossed** — the relocation is ahead of need but harmless (one real consumer, shared home).
+
+The deferred work: migrate `KillCommand` and the ability-targeting pipeline from inline `TryFindTargetInRoom` to `MobInRoomResolver` (binding it as their target argument resolver), at which point the resolver has three genuine consumers and the extraction is fully justified. Lands when combat/ability command-argument resolution is next touched, or sooner if a third explicit mob-targeting argument appears. See [`completed/`](completed/) shopping record and [`../features/combat/combat-system.md`](../features/combat/combat-system.md).
 
 ### 🔵 Atomic multi-file content cascade (acknowledged debt from content-reference-integrity slice)
 
@@ -181,7 +187,7 @@ The deferred work is the general `LootComponent` + `ILootSystem` (weighted table
 
 ### 🔵 Per-shop pricing overrides (deferred from shopping, slice 12c)
 
-The sell / buy-back price ratio ships as an app-wide `ShopOptions` value — every shop applies the same spread over an item's `Value`. A per-shop override (a luxury vendor that pays less, a black-market fence that pays more) is an optional field on `ShopComponent` the price calc prefers over the global default. Deferred to keep the shopping slice's config surface flat; `ShopComponent` is shaped to carry the override unused. Revisit when shops need to differ economically. See [`../implementation-plans/shopping.md`](../implementation-plans/shopping.md).
+The sell / buy-back price ratio ships as an app-wide `ShopOptions` value — every shop applies the same spread over an item's `Value`. A per-shop override (a luxury vendor that pays less, a black-market fence that pays more) is an optional field on `ShopComponent` the price calc prefers over the global default. Deferred to keep the shopping slice's config surface flat; `ShopComponent` is shaped to carry the override unused. Revisit when shops need to differ economically. See [`../features/economy/shop-system.md`](../features/economy/shop-system.md) and [`completed/shopping.md`](completed/shopping.md).
 
 ### 🔵 Balance & tuning surface + reference doc
 

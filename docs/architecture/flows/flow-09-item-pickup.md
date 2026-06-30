@@ -76,6 +76,8 @@ sequenceDiagram
 5. `ItemContextHandler` (priority 20) removes `PersistentEntity` — item leaves flush pool and vanishes on restart.
 6. `ItemInteractionHandler` (priority 80) broadcasts drop messages.
 
+> **Also drives shop trade.** `ItemContextHandler` additionally subscribes to `ItemBoughtEvent` / `ItemSoldEvent` (slice 12c) and applies the same persistence-pool transition for buying/selling: buy → add `PersistentEntity` (**keep** `BlueprintComponent` per INV-21) + clear `ShopStockComponent`; sell → remove `PersistentEntity`. See the [Shopping journey (flow-30)](flow-30-shopping.md). Reusing this one handler (rather than overloading pickup/drop, whose payload carries a *room*, not a shop) keeps the pool-transition logic in a single home (INV-19).
+
 ---
 
 ## Inventory display (`inventory`)

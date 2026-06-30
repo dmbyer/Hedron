@@ -4,7 +4,7 @@
 
 ## What it is / does
 
-`WorldContentLoader` is the **domain system** that owns the content pipeline: it reads authored YAML files under `World:ContentDirectory`, deserializes each into a typed `IEntityTemplate` via `IContentSerializer` (a kind-dispatcher), registers templates in the cross-cutting `ITemplateRegistry`, and fresh-spawns entities for any template without a live counterpart. At startup it runs inside `WorldContentBootstrap` (an `IHostedService`) to enforce ordering after `PersistenceBootstrap`. On `reload` it runs the same phases additively — never mutating or destroying live entities.
+`WorldContentLoader` is the **domain system** that owns the content pipeline: it reads authored YAML files under `World:ContentDirectory`, deserializes each into a typed `IEntityTemplate` via `IContentSerializer` (a kind-dispatcher), registers templates in the cross-cutting `ITemplateRegistry`, and fresh-spawns entities for any template without a live counterpart. At startup it runs inside `WorldContentBootstrap` (an `IHostedService`) to enforce ordering after `PersistenceBootstrap`. On `reload` it runs the same phases as a **full rebuild** — tearing down and re-spawning all world content while preserving persistent (player-owned) entities.
 
 The world model is blueprint-seeds-world: persisted entities (those carrying `PersistentEntity`) are hydrated by `PersistenceBootstrap` first; the spawn pass sees them and skips their blueprint slots.
 
@@ -22,7 +22,7 @@ The world model is blueprint-seeds-world: persisted entities (those carrying `Pe
 6. **`LinkRoomAreas`** — sweeps all room entities, resolves each room's `RoomTemplate.AreaId` to a live area entity ID via the live blueprint map, and sets `RoomComponent.AreaEntityId`. Unresolvable area refs log a warning and leave `AreaEntityId = 0`.
 7. **`ResolveStartingRoom`** — resolves `World:StartingRoomBlueprintId` to a live entity ID. Unresolvable → fail fast with a logged error.
 
-`ReloadAsync` runs the same phases additively: refreshes the template registry and seeds only templates with no live counterpart. Live entities are not mutated.
+`ReloadAsync` is a **full rebuild**, not additive: it first tears down every world-content entity (`DestroyWorldContent` — anything with a `BlueprintComponent` and no `PersistentEntity`), then refreshes the template registry and runs the same spawn/place/link phases to re-spawn the world from scratch. Persistent entities (players, player-owned items/containers) are preserved; the `reload` command re-publishes `WorldContentReadyEvent` afterward so shops re-seed, spawn slots rebuild, and players' rooms are re-resolved. This resets runtime instance state (picked-up items respawn, shops refill) and applies edits to existing content. See [Flow 5](../../architecture/flows/flow-05-content-reload.md).
 
 ### Content file shape
 
@@ -60,7 +60,7 @@ Missing/empty `World:ContentDirectory` → warn and seed a single hardcoded `roo
 ## Considerations
 
 - **Two serializers coexist by design.** `System.Text.Json` for component persistence snapshots; `YamlDotNet` for content authoring. Different audiences, different change cadence, no shared code path.
-- **`reload` is additive only.** Refreshes the registry and seeds missing entities; documented in `reload`'s help text so admins don't expect description hot-reload.
+- **`reload` is a full rebuild.** Tears down all world content and re-spawns from YAML (preserving players), so edits to existing rooms/mobs/items take effect and runtime instance state resets. Documented in `reload`'s help text.
 - **Silent startup spawn.** No per-entity events during `LoadAndSpawnAsync` — consistent with the persistence hydration contract.
 - **Config keys are Category 1 (operational).** `World:ContentDirectory` and `World:StartingRoomBlueprintId` are operator-controlled. See [`../../architecture/05-configuration.md`](../../architecture/05-configuration.md).
 

@@ -53,6 +53,7 @@ using Hedron.Core.Modules.Effects;
 using Hedron.Core.Modules.Effects.Events;
 using Hedron.Core.Modules.Effects.Handlers;
 using Hedron.Core.Modules.Economy;
+using Hedron.Core.Modules.Shopping;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.Time;
 using Hedron.Core.Modules.Time.Events;
@@ -81,6 +82,8 @@ public static class CompositionRoot
             configuration.GetSection("Persistence"));
         services.Configure<CharacterDefaultsOptions>(
             configuration.GetSection("CharacterDefaults"));
+        services.Configure<ShopOptions>(
+            configuration.GetSection("Shop"));
         // ECS world
         var world = new EntityService();
         EcsManager.SetWorld(world);
@@ -153,6 +156,7 @@ public static class CompositionRoot
         services.AddDeathModule();
         services.AddRegenerationModule();
         services.AddEconomyModule();
+        services.AddShoppingModule();
 
         return services;
     }

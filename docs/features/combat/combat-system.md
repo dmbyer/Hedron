@@ -53,7 +53,7 @@ After raw damage is computed, `IAspectSystem.Affinity(attackerId)` returns the a
 - **Armor / weapon stat contribution** — landed via `ItemDataComponent.StatBonuses` + `EquipmentEffectContributor` (INV-24); combat reads `IStatSystem.Get(AttackPower|Defense)`, which folds the worn-gear bonuses. New weapon/armor types are pure data — no combat code change.
 - **Weapon types / dual-wielding** — distinct weapon stat profiles are authored bonus rows; `OffHand` already exists for a second wielded item when a dual-wield use-case lands.
 - **Group combat** — `CombatStateComponent` is a one-to-one opponent reference. Group combat requires either a list reference or multiple components; combat tick deduplication logic changes accordingly.
-- **`MobInRoomResolver`** is wired to `CombatModule` but not yet bound to any command argument schema. Extract both `KillCommand` and `AbilityInvocationPipeline`'s inline `TryFindTargetInRoom` calls to this resolver when a third mob-targeting argument is needed (INV-19, ≥3-consumer threshold).
+- **`MobInRoomResolver`** was extracted to the shared `Core/Modules/Mobs/Resolvers/` home in slice 12-c and is now bound as the optional `shopkeeper` argument resolver on the shopping `list` command (its one active consumer). `KillCommand` and `AbilityInvocationPipeline` still resolve room mobs via the inline `ICombatSystem.TryFindTargetInRoom` path; migrating both onto the resolver — which genuinely crosses the INV-19 ≥3-consumer threshold — is [backlogged](../../roadmap/backlog.md). It remains registered in `CombatModule` to preserve DI composition order.
 
 ## Related
 

@@ -110,6 +110,19 @@ namespace Hedron.Core.Modules.Items.Systems
             });
         }
 
+        public void MoveBetweenInventories(uint itemEntityId, uint fromHolderEntityId, uint toHolderEntityId)
+        {
+            // Remove from source holder's inventory (silent no-op if not found — race condition).
+            if (_entityService.TryGet<InventoryComponent>(fromHolderEntityId, out var fromInv))
+                fromInv.ItemEntityIds.Remove(itemEntityId);
+
+            // Append to destination holder's inventory.
+            // INV-21: BlueprintComponent is NOT cleared — preserved as an origin record.
+            // LocationComponent is NOT touched — this is inventory→inventory only.
+            if (_entityService.TryGet<InventoryComponent>(toHolderEntityId, out var toInv))
+                toInv.ItemEntityIds.Add(itemEntityId);
+        }
+
         private static bool PrefixMatches(string candidate, string token) =>
             candidate.StartsWith(token, StringComparison.OrdinalIgnoreCase);
     }

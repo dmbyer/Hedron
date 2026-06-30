@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Mobs.Systems;
 using Hedron.Core.Modules.Mobs.Templates;
+using Hedron.Core.Modules.Shopping.Components;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -657,6 +659,108 @@ namespace Hedron.Tests.Authoring
             var (sys, _, _) = Build();
             // Should not throw even if entity doesn't exist.
             sys.SetMobProtection(99999u, ProtectionFlags.Untargetable);
+        }
+
+        // ── SetMobShop ───────────────────────────────────────────────────────────
+
+        [Fact]
+        public void SetMobShop_true_adds_ShopComponent_and_Inventory_on_live_entity()
+        {
+            var (sys, ecs, _) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateMob("Merchant", roomId);
+
+            sys.SetMobShop(result.MobEntityId, isShop: true, CurrencyId.Coin, tillSeed: 5000);
+
+            Assert.True(ecs.HasComponent<ShopComponent>(result.MobEntityId));
+            Assert.True(ecs.HasComponent<InventoryComponent>(result.MobEntityId));
+            var shop = ecs.Get<ShopComponent>(result.MobEntityId);
+            Assert.Equal(CurrencyId.Coin, shop.AcceptedCurrency);
+            Assert.Equal(5000, shop.TillSeed);
+        }
+
+        [Fact]
+        public void SetMobShop_true_dual_writes_template_shop_fields()
+        {
+            var (sys, ecs, registry) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateMob("Merchant", roomId);
+
+            sys.SetMobShop(result.MobEntityId, isShop: true, CurrencyId.Coin, tillSeed: 5000);
+
+            registry.TryGet(result.BlueprintId, out var template);
+            var mobTemplate = Assert.IsType<MobTemplate>(template);
+            Assert.True(mobTemplate.IsShop);
+            Assert.Equal(CurrencyId.Coin, mobTemplate.ShopAcceptedCurrency);
+            Assert.Equal(5000, mobTemplate.ShopTillSeed);
+        }
+
+        [Fact]
+        public void SetMobShop_true_with_baseStock_populates_BaseStock_on_entity_and_template()
+        {
+            var (sys, ecs, registry) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateMob("Merchant", roomId);
+
+            var rows = new[]
+            {
+                new ShopStockRow { BlueprintId = "item.sword", Quantity = 2 },
+                new ShopStockRow { BlueprintId = "item.potion", Quantity = 5 },
+            };
+            sys.SetMobShop(result.MobEntityId, isShop: true, CurrencyId.Coin, tillSeed: 100, baseStock: rows);
+
+            var shop = ecs.Get<ShopComponent>(result.MobEntityId);
+            Assert.Equal(2, shop.BaseStock.Count);
+
+            registry.TryGet(result.BlueprintId, out var template);
+            var mobTemplate = Assert.IsType<MobTemplate>(template);
+            Assert.Equal(2, mobTemplate.ShopBaseStock.Count);
+        }
+
+        [Fact]
+        public void SetMobShop_true_with_null_baseStock_leaves_existing_BaseStock_unchanged()
+        {
+            var (sys, ecs, _) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateMob("Merchant", roomId);
+
+            var rows = new[] { new ShopStockRow { BlueprintId = "item.sword", Quantity = 1 } };
+            sys.SetMobShop(result.MobEntityId, isShop: true, CurrencyId.Coin, tillSeed: 100, baseStock: rows);
+
+            // Update only the till seed; pass null base stock — existing rows must survive.
+            sys.SetMobShop(result.MobEntityId, isShop: true, CurrencyId.Coin, tillSeed: 999, baseStock: null);
+
+            var shop = ecs.Get<ShopComponent>(result.MobEntityId);
+            Assert.Single(shop.BaseStock);
+            Assert.Equal(999, shop.TillSeed);
+        }
+
+        [Fact]
+        public void SetMobShop_false_removes_ShopComponent_and_clears_template_fields()
+        {
+            var (sys, ecs, registry) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateMob("Merchant", roomId);
+
+            var rows = new[] { new ShopStockRow { BlueprintId = "item.sword", Quantity = 1 } };
+            sys.SetMobShop(result.MobEntityId, isShop: true, CurrencyId.Coin, tillSeed: 100, baseStock: rows);
+            Assert.True(ecs.HasComponent<ShopComponent>(result.MobEntityId));
+
+            sys.SetMobShop(result.MobEntityId, isShop: false);
+
+            Assert.False(ecs.HasComponent<ShopComponent>(result.MobEntityId));
+            registry.TryGet(result.BlueprintId, out var template);
+            var mobTemplate = Assert.IsType<MobTemplate>(template);
+            Assert.False(mobTemplate.IsShop);
+            Assert.Empty(mobTemplate.ShopBaseStock);
+        }
+
+        [Fact]
+        public void SetMobShop_false_is_noop_for_unknown_entity()
+        {
+            var (sys, _, _) = Build();
+            // Should not throw even if entity doesn't exist.
+            sys.SetMobShop(99999u, isShop: false);
         }
 
         // ── INV-5: MobBuilderSystem does not hold IEventBus ──────────────────────

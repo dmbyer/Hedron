@@ -40,5 +40,26 @@ namespace Hedron.Core.Modules.Items.Systems
         /// <c>InventoryComponent.ItemEntityIds</c> and attaches a <c>LocationComponent</c>.
         /// </summary>
         void DropToRoom(uint itemEntityId, uint holderEntityId, uint roomEntityId);
+
+        /// <summary>
+        /// Moves <paramref name="itemEntityId"/> from <paramref name="fromHolderEntityId"/>'s
+        /// <c>InventoryComponent</c> to <paramref name="toHolderEntityId"/>'s
+        /// <c>InventoryComponent</c>: removes the item id from the source holder's list and
+        /// appends it to the destination's.
+        ///
+        /// <para>
+        /// Touches <b>no</b> <c>LocationComponent</c> and <b>no</b> <c>BlueprintComponent</c>
+        /// (INV-21). The item must not be on the ground — if neither holder has it in their
+        /// inventory, the operation is a silent no-op (acceptable race condition, mirrors the
+        /// <c>MoveToInventory</c> precedent).
+        /// </para>
+        ///
+        /// <para>
+        /// Reusable by player-trade, banking, give-to-NPC, and any future feature that needs an
+        /// inventory→inventory transfer (INV-19). Does not publish events; the caller is
+        /// responsible for that (INV-5).
+        /// </para>
+        /// </summary>
+        void MoveBetweenInventories(uint itemEntityId, uint fromHolderEntityId, uint toHolderEntityId);
     }
 }

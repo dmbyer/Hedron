@@ -11,21 +11,24 @@ using Hedron.Core.Output;
 namespace Hedron.Core.Modules.Admin.Commands
 {
     /// <summary>
-    /// Admin command <c>list &lt;area|room&gt;</c>.
+    /// Admin command <c>listents &lt;area|room&gt;</c>.
     /// Prints a tabular view of all entities of a given type.
     /// No events published — read-only inspector.
+    /// (Named <c>listents</c> rather than <c>list</c> so the player shop-browse verb
+    /// <c>list</c> — <see cref="Hedron.Core.Modules.Shopping.Commands.ListCommand"/> — owns
+    /// the unqualified verb.)
     /// </summary>
-    public sealed class ListCommand : ICommand
+    public sealed class ListEntitiesCommand : ICommand
     {
         private readonly EntityService _entityService;
 
-        public string Name => "list";
+        public string Name => "listents";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
         public CommandCategory Category => CommandCategory.Admin;
         public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
         public string ShortDescription => "List entities of a given type.";
         public string LongDescription => "Lists all entities of a given type (area or room) in a tabular view. No events fired.";
-        public string Usage => "list <area|room>";
+        public string Usage => "listents <area|room>";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
         public CommandArgumentSchema ArgumentSchema { get; } = new(new[]
@@ -34,7 +37,7 @@ namespace Hedron.Core.Modules.Admin.Commands
                 Required: true, "Entity type to list: area or room."),
         });
 
-        public ListCommand(EntityService entityService)
+        public ListEntitiesCommand(EntityService entityService)
         {
             _entityService = entityService;
         }

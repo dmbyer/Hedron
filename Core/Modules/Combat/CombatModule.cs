@@ -1,8 +1,8 @@
 using Hedron.Core.Commands;
 using Hedron.Core.Modules.Combat.Commands;
 using Hedron.Core.Modules.Combat.Handlers;
-using Hedron.Core.Modules.Combat.Resolvers;
 using Hedron.Core.Modules.Combat.Systems;
+using Hedron.Core.Modules.Mobs.Resolvers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hedron.Core.Modules.Combat
@@ -17,7 +17,8 @@ namespace Hedron.Core.Modules.Combat
             services.AddSingleton<CombatMobDeathHandler>();
             services.AddSingleton<AbilityStrikeHandler>();
 
-            // Resolver — stateless singleton; injected into ability-invocation commands via constructor.
+            // Shared resolver — stateless singleton; injected into combat + shopping commands.
+            // Lives in Core/Modules/Mobs/Resolvers/ (INV-19 extraction: three consumers).
             services.AddSingleton<MobInRoomResolver>();
 
             services.AddSingleton<ICommand, KillCommand>();
