@@ -49,6 +49,7 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 | `planned` | [`admin-area-authoring.md`](admin-area-authoring.md) | `mkarea` + `listents <type>` |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C) |
 | `planned` | [`progression-and-balance.md`](progression-and-balance.md) | Progression & Balance — program brief (slices 2–5 remain) |
+| `planned` | [`ascension.md`](ascension.md) | prog-2 — Ascension (character-wide tier) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 
 > The legacy `implemented` plans that predated disintegrate-on-ship have all been disintegrated into the living docs ([`../features/`](../features/), [`../architecture/flows/`](../architecture/flows/), [`../reference/`](../reference/)) and removed — see the completed docs-refinement program in [`../roadmap/backlog.md`](../roadmap/backlog.md). This folder now holds only the in-flight plans listed above.
