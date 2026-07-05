@@ -105,6 +105,21 @@ namespace Hedron.Core.Modules.Mobs
                 template.Protection = combined;
             }
 
+            // Deserialize the tier-band tag. Null/absent → 0 (unbanded, the default).
+            if (dto.Band.HasValue)
+            {
+                if (dto.Band.Value is >= 0 and <= 6)
+                {
+                    template.TierBand = dto.Band.Value;
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Mob '{Id}': band '{Band}' out of range 0-6 — defaulting to 0 (unbanded).",
+                        dto.BlueprintId, dto.Band.Value);
+                }
+            }
+
             // Deserialize shop block. Null / absent → not a shopkeeper (opt-in default).
             if (dto.Shop is not null)
             {
@@ -176,6 +191,10 @@ namespace Hedron.Core.Modules.Mobs
             /// Null / absent means no protection (opt-in default).
             /// </summary>
             public List<string>? Protection { get; set; }
+            /// <summary>
+            /// Optional Ascension tier-band tag (0-6). Null / absent means unbanded (0), the default.
+            /// </summary>
+            public int? Band { get; set; }
             /// <summary>
             /// Optional shop configuration block. Null / absent means this mob is not a shopkeeper.
             /// </summary>

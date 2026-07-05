@@ -4,6 +4,7 @@ using Hedron.Core;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Account.Components;
+using Hedron.Core.Modules.Ascension.Components;
 using Hedron.Core.Modules.Items;
 using Hedron.Core.Modules.Progression;
 using Hedron.Core.Modules.Progression.Components;
@@ -479,6 +480,56 @@ namespace Hedron.Tests.Persistence
             Assert.False(ecs.HasComponent<PersistentEntity>(id));
             Assert.False(ecs.HasComponent<ProgressionComponent>(id),
                 "World-content entities never carry ProgressionComponent — it is a player-only runtime-accrued shape (INV-23).");
+        }
+
+        // ── Test 11 — AscensionComponent round-trip (ascension slice prog-2) ─────────────
+
+        /// <summary>
+        /// A player's tier and granted-unlock-record state on <c>AscensionComponent</c> survive
+        /// save→load. A mob fixture (world content, no <c>PersistentEntity</c>) never carries it —
+        /// the tier-band tag on <c>MobDataComponent</c> lives only on the YAML template and is
+        /// absent from any snapshot (validates the Level-1 world-content gate, INV-23).
+        /// </summary>
+        [Fact]
+        public async Task Player_AscensionComponent_survives_round_trip()
+        {
+            using var harness = new PersistenceTestHarness();
+            var ecs = harness.EntityService;
+
+            var id = new EntityBuilder(ecs).AsPlayer().Build();
+            ecs.AddComponent(id, new AscensionComponent
+            {
+                Tier = 3,
+                GrantedUnlocks = { "unlock.test" },
+            });
+            ecs.AddComponent(id, new PersistentEntity());
+
+            await harness.SaveAsync(id);
+
+            var fresh = await harness.ReloadIntoFreshWorld();
+
+            Assert.True(fresh.HasComponent<AscensionComponent>(id),
+                "AscensionComponent must survive round-trip (INV-14).");
+            var ascension = fresh.Get<AscensionComponent>(id);
+            Assert.Equal(3, ascension.Tier);
+            Assert.Contains("unlock.test", ascension.GrantedUnlocks);
+        }
+
+        [Fact]
+        public void Mob_fixture_never_carries_AscensionComponent_and_band_absent_from_snapshot()
+        {
+            using var harness = new PersistenceTestHarness();
+            var ecs = harness.EntityService;
+
+            // World-content entity (a mob) — no PersistentEntity opt-in, no AscensionComponent.
+            // The tier-band tag lives on MobDataComponent, but since the mob is never opted in,
+            // the Level-1 gate means it is never snapshotted (durable form is the YAML template).
+            var id = new EntityBuilder(ecs).AsMob("rat").Build();
+            ecs.Get<MobDataComponent>(id).TierBand = 2;
+
+            Assert.False(ecs.HasComponent<PersistentEntity>(id));
+            Assert.False(ecs.HasComponent<AscensionComponent>(id),
+                "World-content entities never carry AscensionComponent — it is a player-only runtime shape (INV-23).");
         }
     }
 }

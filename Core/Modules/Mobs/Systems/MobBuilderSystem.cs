@@ -118,6 +118,15 @@ namespace Hedron.Core.Modules.Mobs.Systems
             if (tpl is not null) tpl.Protection = flags;
         }
 
+        public void SetMobBand(uint mobEntityId, int tierBand)
+        {
+            if (_entityService.TryGet<MobDataComponent>(mobEntityId, out var mob))
+                mob.TierBand = tierBand;
+
+            var tpl = TryGetTemplate(mobEntityId);
+            if (tpl is not null) tpl.TierBand = tierBand;
+        }
+
         public void SetMobShop(
             uint mobEntityId,
             bool isShop,

@@ -29,6 +29,8 @@ using Hedron.Core.Handlers;
 using Hedron.Core.Modules.Economy.Events;
 using Hedron.Core.Modules.Economy.Handlers;
 using Hedron.Core.Modules.Mobs.Events;
+using Hedron.Core.Modules.Ascension.Events;
+using Hedron.Core.Modules.Ascension.Handlers;
 using Hedron.Core.Modules.Progression.Handlers;
 using Hedron.Core.Modules.Shopping.Events;
 using Hedron.Core.Modules.Shopping.Handlers;
@@ -133,6 +135,7 @@ public static class Program
         bus.Subscribe<RoomAreaAssignedByAdminEvent>(audit);
         bus.Subscribe<AreaCreatedByAdminEvent>(audit);
         bus.Subscribe<WalletSetByAdminEvent>(audit);
+        bus.Subscribe<PlayerAscendedByAdminEvent>(audit);
 
         var characterHydration = host.Services.GetRequiredService<CharacterHydrationHandler>();
         bus.Subscribe<WorldContentReadyEvent>(characterHydration);
@@ -172,6 +175,9 @@ public static class Program
 
         var experienceAward = host.Services.GetRequiredService<ExperienceAwardHandler>();
         bus.Subscribe<MobDiedEvent>(experienceAward);
+
+        var ascensionNarration = host.Services.GetRequiredService<AscensionNarrationHandler>();
+        bus.Subscribe<AscendedEvent>(ascensionNarration);
 
         var currencyAwardNarration = host.Services.GetRequiredService<CurrencyAwardNarrationHandler>();
         bus.Subscribe<CurrencyAwardedEvent>(currencyAwardNarration);

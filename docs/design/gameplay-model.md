@@ -439,9 +439,10 @@ Objective {
 encounter gates, and area procs ("Dream area occasionally rewrites descriptions" is a `Trigger`
 effect *on the area*). Same primitive, area/world scope.
 
-**Ascension** is a **gated milestone, not a separate engine.** Current tier is a scalar (on a
-component — `IdentityComponent.Tier` already exists as the seed). Advancing requires completing an
-Ascension Objective (craft + use a key). Ascending raises the scaling baseline (Spine D), unlocks
+**Ascension** is a **gated milestone, not a separate engine.** Current tier is a scalar on
+`AscensionComponent` (shipped, slice prog-2 — see [`../features/progression/progression.md`](../features/progression/progression.md)).
+Advancing requires completing an Ascension Objective (craft + use a key) — deferred; the interim
+trigger is an admin `ascend` command. Ascending raises the scaling baseline (Spine D), unlocks
 content/aspects, and may re-theme. It sits at the top of the Objective graph.
 
 **Layer fit.** `IProgressionSystem`, `IObjectiveSystem`, `IAscensionSystem` are **domain
@@ -521,7 +522,7 @@ Nineteen surface features; six spines; one effect pipeline doing most of the wor
 | `EffectsComponent` | standalone effects (`Timed` + `UntilRemoved`); source-bound effects derived, not stored | yes — lifetime-filtered (`[JsonConverter]` writes only `UntilRemoved`) | one component, not a Persistent/Transient split |
 | `ProgressionComponent` | per-track experience | yes | stats/abilities/attunement tracks |
 | `ObjectiveLogComponent` | active/done objectives, daily flags | yes | player |
-| `AscensionComponent` *or* `IdentityComponent.Tier` | current tier + unlocks | yes | tier scalar already seeded |
+| `AscensionComponent` (shipped, prog-2) | current tier + unlocks | yes | tier scalar + granted-unlock-record state |
 | (area) `AreaDataComponent` += `Aspect`, rarity bias | area attunement + generation bias | yes | extends existing planned component |
 | combat scores (armor/DR/resist/speed/damage) | **no new stored component** | — | computed on read from base + effects (no caching) |
 

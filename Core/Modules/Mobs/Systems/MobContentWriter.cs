@@ -92,6 +92,7 @@ namespace Hedron.Core.Modules.Mobs.Systems
                 MaxAstra = template.MaxAstra,
                 CurrencyLoot = currencyLoot.Count > 0 ? currencyLoot : null,
                 Protection = protectionFlags,
+                Band = template.TierBand != 0 ? template.TierBand : null,
                 Shop = shopDto,
             };
 
@@ -136,6 +137,10 @@ namespace Hedron.Core.Modules.Mobs.Systems
             /// Null / absent means no protection (opt-in default).
             /// </summary>
             public List<string>? Protection { get; set; }
+            /// <summary>
+            /// Optional Ascension tier-band tag (0-6). Null / absent means unbanded (0), the default.
+            /// </summary>
+            public int? Band { get; set; }
             /// <summary>
             /// Optional shop configuration block. Null / absent means this mob is not a shopkeeper.
             /// </summary>

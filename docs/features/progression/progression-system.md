@@ -38,7 +38,7 @@ The killer/victim "effective power" the anti-grind scale compares is the sum of 
 
 ## Extensibility
 
-Adding an XP source, a track, or generalizing to a rule table is the [`edit-progression-system`](../../../.claude/skills/edit-progression-system/SKILL.md) skill's job — it documents the three-layer model (mechanism/tuning/generalization) this system was built to support. The character-wide Tier baseline (slice 2, Ascension) is designed to ride this same contributor as a second contribution source, without reshaping this system.
+Adding an XP source, a track, or generalizing to a rule table is the [`edit-progression-system`](../../../.claude/skills/edit-progression-system/SKILL.md) skill's job — it documents the three-layer model (mechanism/tuning/generalization) this system was built to support. The character-wide Tier baseline (slice prog-2, Ascension — shipped) rides this same contributor port as a second, independent contribution source, without reshaping this system — see [`ascension-system.md`](ascension-system.md).
 
 ## Related
 

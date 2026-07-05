@@ -504,9 +504,9 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none  
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/Mobs/Commands/SetMobCommand.cs`  
-**Description:** Sets a property on an existing mob entity identified by blueprint id. Validates the blueprint id exists in `ITemplateRegistry`; resolves the live entity by `BlueprintComponent.BlueprintId`. Delegates mutation to `IMobBuilderSystem`. Writes the updated template to YAML via `IMobContentWriter`. Saves the mob entity immediately. Properties: `name`, `description`, `keywords` (space-separated), `type`, `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra` (positive integer values).  
+**Description:** Sets a property on an existing mob entity identified by blueprint id. Validates the blueprint id exists in `ITemplateRegistry`; resolves the live entity by `BlueprintComponent.BlueprintId`. Delegates mutation to `IMobBuilderSystem`. Writes the updated template to YAML via `IMobContentWriter`. Saves the mob entity immediately. Properties: `name`, `description`, `keywords` (space-separated), `type`, `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra` (positive integer values), `protection` (flags), `band` (Ascension tier-band tag, prog-2), `shop`.  
 **Usage:** `setmob <blueprintId> <property> <value>`  
-**Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`, `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra`), `RestOfLine string "value"` (required). For `keywords`, value is split on whitespace. For `type`, value must parse as `MobType` enum. For numeric properties, value must be a positive integer.  
+**Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`, `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra`, `protection`, `band`, `shop`), `RestOfLine string "value"` (required). For `keywords`, value is split on whitespace. For `type`, value must parse as `MobType` enum. For numeric properties, value must be a positive integer. For `band`, value must be an integer `0`–`6` (0 = unbanded); dual-writes the live `MobDataComponent.TierBand` and `MobTemplate.TierBand`.  
 **Events:** `MobPropertySetByAdminEvent`
 
 ---
@@ -534,6 +534,20 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Schema:** `Token string "characterName"` (required), `Token string "roomBlueprintId"` (required)  
 **Dependencies:** `IDeathSystem`, `ISessionManager`, `EntityService`, `IEventBus`, `IPersistenceSystem`  
 **Events:** `PlayerRespawnSetByAdminEvent`  
+**RequiredPrivileges:** `AdminRequirement`
+
+---
+
+### `ascend`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Ascension/Commands/AscendCommand.cs`  
+**Description:** Ascends a currently-connected player one character-wide tier (defaults to the invoker when `characterName` is omitted). Resolves the target by character name via `ISessionManager.GetAll()`. Calls `IAscensionSystem.CanAscend` → `TryAscend`; a non-eligible target (e.g. already at `AscensionConstants.MaxTier`) is rejected with no mutation. On success: persists the player entity immediately (admin boundary save, INV-22), then publishes `AscendedEvent` (milestone) and `PlayerAscendedByAdminEvent` (audit log). The real player-facing Ascension-Objective gate is deferred — this command is the interim trigger.  
+**Usage:** `ascend [characterName]`  
+**Schema:** `Token string "characterName"` (optional)  
+**Dependencies:** `IAscensionSystem`, `ISessionManager`, `EntityService`, `IEventBus`, `IPersistenceSystem`  
+**Events:** `AscendedEvent`, `PlayerAscendedByAdminEvent`  
 **RequiredPrivileges:** `AdminRequirement`
 
 ---

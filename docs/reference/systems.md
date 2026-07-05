@@ -590,3 +590,24 @@ public interface IProgressionSystem
 **Location:** `Core/Modules/Progression/ProgressionEffectContributor.cs`
 **Dependencies:** `IProgressionSystem`.
 Registered as a singleton `IEffectContributor` in `ProgressionModule.AddProgressionModule`; folded automatically by `EffectSystem.GetModifiers`/`GetActive` with **no interface change** to `IStatSystem` or `EffectSystem`. Implemented (progression-substrate slice prog-1).
+
+### AscensionSystem / IAscensionSystem (Ascension module)
+**Purpose:** Character-wide tier state and the ascend gate (gameplay-model R1). `GetTier` returns 0 for an entity with no `AscensionComponent` (safe default, creates nothing). `CanAscend` returns a structured `AscendEligibility` (`Eligible` or a typed reason, e.g. `AtMaxTier`) — the seam a future player-facing Ascension-Objective gate will call; the admin path bypasses it in this slice. `TryAscend` creates `AscensionComponent` lazily, increments `Tier` (clamped `[0, MaxTier]`), and records the new tier's configured unlock ids onto `GrantedUnlocks` idempotently (the unlock table is empty in prog-2 — nothing recorded yet). INV-5: returns result records only; never touches the event bus.
+**Location:** `Core/Modules/Ascension/Systems/IAscensionSystem.cs` · `AscensionSystem.cs` · `Core/Modules/Ascension/AscensionConstants.cs`
+**Dependencies:** `EntityService` only — **never** `IStatSystem`/`IEffectSystem` (the additive baseline this system's own contributor computes is a pure function of raw `Tier`; going through the stat pipeline here would recreate the DI cycle `IStatSystem` → `IEffectSystem` → contributors → backing system → `IStatSystem`, the same guardrail `ProgressionSystem` observes).
+```csharp
+public interface IAscensionSystem
+{
+    int GetTier(uint entityId);
+    AscendEligibility CanAscend(uint entityId);
+    AscendResult TryAscend(uint entityId);
+    IReadOnlyList<string> GetGrantedUnlocks(uint entityId);
+}
+```
+Registered as a singleton in `AscensionModule.AddAscensionModule`. Implemented (ascension slice prog-2).
+
+### AscensionEffectContributor (Ascension module)
+**Purpose:** The INV-24 contribute-on-read fold for the character-wide tier's additive power baseline — a fourth registrant on the core-owned `IEffectContributor` port alongside `EquipmentEffectContributor`, `AbilityEffectContributor`, and `ProgressionEffectContributor`. `GetModifiers` returns `TierBaselineStep × GetTier(entityId)` for each score in `AscensionConstants.TrackedScores`, pulled fresh from `IAscensionSystem` on every call — never stored, never cached. `GetActive` yields a synthetic `WhileKnown` effect per tracked score when tier > 0, for display parity.
+**Location:** `Core/Modules/Ascension/AscensionEffectContributor.cs`
+**Dependencies:** `IAscensionSystem`.
+Registered as a singleton `IEffectContributor` in `AscensionModule.AddAscensionModule`; folded automatically by `EffectSystem.GetModifiers`/`GetActive` with **no interface change** to `IStatSystem` or `EffectSystem`. Implemented (ascension slice prog-2).

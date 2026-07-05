@@ -198,6 +198,15 @@ Ask:
 **Location:** `Core/Modules/Progression/Handlers/ExperienceAwardHandler.cs`
 **Uses:** `IProgressionSystem`, `IEventBus`
 
+### AscensionNarrationHandler
+**Events:** `AscendedEvent`
+**Priority:** 80 (`HandlerPriority.Notification`)
+**Responsibilities:** Broadcasts "You ascend to Tier N." to the ascended player and "X ascends to Tier N!" to the rest of the room, via `IBroadcastSystem` room fan-out. Pure output — no state mutation, no system calls beyond `IBroadcastSystem` (INV-8).
+**Location:** `Core/Modules/Ascension/Handlers/AscensionNarrationHandler.cs`
+**Uses:** `EntityService`, `IBroadcastSystem`
+
+> **`AdminAuditHandler` (Admin module) is extended for ascend.** Beyond its existing subscription list, it also subscribes to `PlayerAscendedByAdminEvent` (slice prog-2), writing one structured audit-log row per admin `ascend` — the same fan-in pattern as `PlayerRespawnSetByAdminEvent`/`WalletSetByAdminEvent`.
+
 > **`ItemContextHandler` (Spawn module) is extended for trade.** Beyond `ItemPickedUpEvent`/`ItemDroppedEvent`, it also subscribes to `ItemBoughtEvent`/`ItemSoldEvent` (slice 12c) and applies the same persistence-pool transition: buy → add `PersistentEntity` + keep `BlueprintComponent` (INV-21) + clear `ShopStockComponent`; sell → remove `PersistentEntity`. One home for the pool transition (INV-19).
 
 ---
