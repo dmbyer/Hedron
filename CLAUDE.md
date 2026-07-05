@@ -12,17 +12,17 @@ Project layout (as projects are rebuilt, see [`docs/roadmap/plan.md`](docs/roadm
 - **Server** (`Server/`) — generic-host console app that runs the telnet listener and owns DI composition
 - **Data** (`Data/`) — persistence layer; the substrate landed in Phase 3 slice 1 (see [`docs/roadmap/done.md`](docs/roadmap/done.md))
 - **Bot** (`Bot/`) — telnet test bot (deferred; rebuildable when manual multi-client testing gets painful)
-- **Tests** (`Hedron.Tests/`) — xUnit suite (system / handler / flow / persistence / architecture-guard tiers); **planned** in the testing follow-up — strategy in [`docs/architecture/07-testing.md`](docs/architecture/07-testing.md)
+- **Tests** (`Hedron.Tests/`) — xUnit suite (system / handler / flow / persistence / architecture-guard tiers); **live** and enforced on every PR via CI (INV-25) — strategy in [`docs/architecture/07-testing.md`](docs/architecture/07-testing.md)
 
 ## Commands
 
 ```bash
 dotnet build Hedron.sln
 dotnet run --project Server
-dotnet test Hedron.sln          # verification gate (INV-25) — suite stands up in the testing follow-up
+dotnet test Hedron.sln          # verification gate (INV-25) — live; enforced on every PR via CI
 ```
 
-The project is mid-rebuild; the build may be red between phase-exit points. See [`docs/roadmap/plan.md`](docs/roadmap/plan.md). The testing strategy is defined ([`docs/architecture/07-testing.md`](docs/architecture/07-testing.md)); the `Hedron.Tests` suite is being stood up and the backfill of existing systems is tracked in [`docs/roadmap/backlog.md`](docs/roadmap/backlog.md).
+The project is under active rebuild, but since Phase 3 began every merged branch leaves the build **and** `dotnet test` green (INV-25). See [`docs/roadmap/plan.md`](docs/roadmap/plan.md). The testing strategy is defined ([`docs/architecture/07-testing.md`](docs/architecture/07-testing.md)); the `Hedron.Tests` suite is **live** — full harness + architecture-guard tiers, enforced on every PR via CI — with remaining backfill draining via the on-touch ratchet ([`docs/roadmap/backlog.md`](docs/roadmap/backlog.md)).
 
 ## Where to read next
 
