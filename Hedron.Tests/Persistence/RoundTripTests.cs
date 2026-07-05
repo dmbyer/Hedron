@@ -5,6 +5,8 @@ using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Account.Components;
 using Hedron.Core.Modules.Items;
+using Hedron.Core.Modules.Progression;
+using Hedron.Core.Modules.Progression.Components;
 using Hedron.Core.Modules.Stats;
 using Hedron.Tests.Harness;
 using Xunit;
@@ -429,6 +431,54 @@ namespace Hedron.Tests.Persistence
             var contributor = new EquipmentEffectContributor(fresh);
             Assert.Equal(6, contributor.GetModifiers(player, ScoreId.AttackPower));
             Assert.Equal(4, contributor.GetModifiers(player, ScoreId.Defense));
+        }
+
+        // ── Test 10 — ProgressionComponent round-trip (progression-substrate slice 1) ─────
+
+        /// <summary>
+        /// A player's per-track XP and improvement counts on <c>ProgressionComponent</c> survive
+        /// save→load. A world-content entity (no <c>PersistentEntity</c>) never carries it —
+        /// mirrors the INV-23 guard already exercised by Test 3.
+        /// </summary>
+        [Fact]
+        public async Task Player_ProgressionComponent_survives_round_trip()
+        {
+            using var harness = new PersistenceTestHarness();
+            var ecs = harness.EntityService;
+
+            var id = new EntityBuilder(ecs).AsPlayer().Build();
+            ecs.AddComponent(id, new ProgressionComponent
+            {
+                Xp = { [ScoreId.Body] = 130, [ScoreId.HpMax] = 40 },
+                Improvements = { [ScoreId.Body] = 1, [ScoreId.HpMax] = 0 },
+            });
+            ecs.AddComponent(id, new PersistentEntity());
+
+            await harness.SaveAsync(id);
+
+            var fresh = await harness.ReloadIntoFreshWorld();
+
+            Assert.True(fresh.HasComponent<ProgressionComponent>(id),
+                "ProgressionComponent must survive round-trip (INV-14).");
+            var progression = fresh.Get<ProgressionComponent>(id);
+            Assert.Equal(130, progression.Xp[ScoreId.Body]);
+            Assert.Equal(40, progression.Xp[ScoreId.HpMax]);
+            Assert.Equal(1, progression.Improvements[ScoreId.Body]);
+            Assert.Equal(0, progression.Improvements[ScoreId.HpMax]);
+        }
+
+        [Fact]
+        public void World_content_entity_never_carries_ProgressionComponent()
+        {
+            using var harness = new PersistenceTestHarness();
+            var ecs = harness.EntityService;
+
+            // World-content entity (e.g. a mob) — no PersistentEntity opt-in, no ProgressionComponent.
+            var id = new EntityBuilder(ecs).AsMob("rat").Build();
+
+            Assert.False(ecs.HasComponent<PersistentEntity>(id));
+            Assert.False(ecs.HasComponent<ProgressionComponent>(id),
+                "World-content entities never carry ProgressionComponent — it is a player-only runtime-accrued shape (INV-23).");
         }
     }
 }

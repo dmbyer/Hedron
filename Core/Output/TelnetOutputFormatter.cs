@@ -51,6 +51,7 @@ namespace Hedron.Core.Output
                 InventoryListMessage m    => FormatInventoryList(m, color),
                 EquipmentDisplayMessage m => FormatEquipmentDisplay(m, color),
                 ScoreDisplayMessage m     => FormatScore(m, color),
+                ProgressDisplayMessage m  => FormatProgress(m, color),
                 EffectDisplayMessage m      => m.Format(),
                 AbilityDisplayMessage m    => m.Format(),
                 PromptMessage m           => FormatPrompt(m, color),
@@ -204,6 +205,25 @@ namespace Hedron.Core.Output
             }
 
             return ApplyColor(sb.ToString(), color);
+        }
+
+        private string FormatProgress(ProgressDisplayMessage m, bool color)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(ApplyColor("<system>Progression</system>", color));
+
+            if (m.Rows.Count == 0)
+            {
+                sb.Append("  (no tracks earned yet)");
+                return sb.ToString();
+            }
+
+            foreach (var row in m.Rows)
+            {
+                sb.AppendLine($"  {row.Track,-10}: improvements {row.ImprovementCount,-4} xp {row.CumulativeXp,-6} (next in {row.XpToNextThreshold})");
+            }
+
+            return sb.ToString().TrimEnd();
         }
 
         private string FormatPrompt(PromptMessage m, bool color)

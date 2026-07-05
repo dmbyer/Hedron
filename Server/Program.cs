@@ -29,6 +29,7 @@ using Hedron.Core.Handlers;
 using Hedron.Core.Modules.Economy.Events;
 using Hedron.Core.Modules.Economy.Handlers;
 using Hedron.Core.Modules.Mobs.Events;
+using Hedron.Core.Modules.Progression.Handlers;
 using Hedron.Core.Modules.Shopping.Events;
 using Hedron.Core.Modules.Shopping.Handlers;
 using Microsoft.Extensions.Configuration;
@@ -168,6 +169,9 @@ public static class Program
 
         var currencyLoot = host.Services.GetRequiredService<CurrencyLootHandler>();
         bus.Subscribe<MobDiedEvent>(currencyLoot);
+
+        var experienceAward = host.Services.GetRequiredService<ExperienceAwardHandler>();
+        bus.Subscribe<MobDiedEvent>(experienceAward);
 
         var currencyAwardNarration = host.Services.GetRequiredService<CurrencyAwardNarrationHandler>();
         bus.Subscribe<CurrencyAwardedEvent>(currencyAwardNarration);
