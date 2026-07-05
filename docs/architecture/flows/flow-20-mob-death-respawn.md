@@ -4,7 +4,7 @@
 
 ## Summary
 
-Two terminal outcomes from the [combat journey](flow-17-kill-mob-combat-initiation.md) branch here. **Mob death:** `CombatMobDeathHandler` publishes `MobDiedEvent` (while the entity is still live), then destroys the entity; `SpawnSystem` observes `MobDiedEvent` to mark the slot vacant and schedules a respawn on a future heartbeat. **Player incapacitation:** `PlayerIncapacitatedEvent` opens a bleed-out loop — `DeathTickHandler` bleeds the player by `Death:BleedPerTick` per heartbeat tick, narrated by `DeathNarrationHandler` (priority 80). When HP reaches `Death:HpFloor` (default −10), `PlayerDeathHandler` calls `IDeathSystem.Respawn`: exits Incapacitated state, relocates to the stored respawn room, strips impermanent effects, restores all four pools to 25% of max.
+Two terminal outcomes from the [combat journey](flow-17-kill-mob-combat-initiation.md) branch here. **Mob death:** `CombatMobDeathHandler` publishes `MobDiedEvent` (while the entity is still live), then destroys the entity; `SpawnSystem` observes `MobDiedEvent` to mark the slot vacant and schedules a respawn on a future heartbeat; `CurrencyLootHandler` rolls and deposits loot; `ExperienceAwardHandler` resolves the combat XP award (see [flow-31](flow-31-progression-award.md) for the progression internals) — all three are independent reads of the still-live mob with no ordering constraint. **Player incapacitation:** `PlayerIncapacitatedEvent` opens a bleed-out loop — `DeathTickHandler` bleeds the player by `Death:BleedPerTick` per heartbeat tick, narrated by `DeathNarrationHandler` (priority 80). When HP reaches `Death:HpFloor` (default −10), `PlayerDeathHandler` calls `IDeathSystem.Respawn`: exits Incapacitated state, relocates to the stored respawn room, strips impermanent effects, restores all four pools to 25% of max.
 
 ```mermaid
 sequenceDiagram
@@ -13,6 +13,7 @@ sequenceDiagram
     participant CH as CombatHandler (p=20)
     participant MDH as CombatMobDeathHandler (p=80)
     participant CLH as CurrencyLootHandler (p=20)
+    participant EAH as ExperienceAwardHandler (p=20)
     participant SS as SpawnSystem (p=20)
     participant ES as EntityService
     participant CANH as CurrencyAwardNarrationHandler (p=80)
@@ -32,6 +33,9 @@ sequenceDiagram
     CLH->>CLH: IWalletSystem.Deposit(KillerEntityId, currency, amount)
     CLH->>Bus: PublishAsync(CurrencyAwardedEvent) per currency
     Bus->>CANH: HandleAsync (p=80) → "You receive 1 gold, 0 silver, 5 copper."
+    Bus->>EAH: HandleAsync (p=20) — if KillerEntityId==0: discard
+    EAH->>EAH: IProgressionSystem.AwardCombatExperience(killer, victim)
+    EAH->>Bus: PublishAsync(ExperienceAwardedEvent) per track, TrackImprovedEvent per crossing
     Bus->>SS: HandleAsync (p=20) → mark slot vacant, schedule respawn
     MDH->>ES: DestroyEntity(mobEntityId)
 
@@ -62,8 +66,9 @@ sequenceDiagram
 
 1. `CombatMobDeathHandler` (priority 80) receives `CombatEndedEvent(MobDied)`. Calls `IEntityStateService.ExitState(attacker, InCombat)`.
 2. Publishes `MobDiedEvent { MobEntityId, BlueprintId, KillerEntityId }` while the entity is still live.
-3. Two independent `MobDiedEvent` subscribers read the live mob — no inter-handler ordering constraint between them:
+3. Three independent `MobDiedEvent` subscribers read the live mob — no inter-handler ordering constraint between them:
    - `CurrencyLootHandler` (priority 20): if `KillerEntityId == 0`, discards (no deposit, no event). Otherwise calls `ICurrencyLootSystem.RollLoot(mobEntityId)`, then for each non-zero `(currency, amount)` calls `IWalletSystem.Deposit(KillerEntityId, currency, amount)` and publishes `CurrencyAwardedEvent(KillerEntityId, currency, amount)`. `CurrencyAwardNarrationHandler` (priority 80) writes a "You receive …" line (formatted up the denomination ladder, e.g. "You receive 1 gold, 0 silver, 5 copper.") to the recipient.
+   - `ExperienceAwardHandler` (priority 20): if `KillerEntityId == 0`, discards (no award, no event). Otherwise calls `IProgressionSystem.AwardCombatExperience(killerEntityId, victimEntityId)`, then publishes `ExperienceAwardedEvent` per positive-amount track and `TrackImprovedEvent` per threshold crossed. See [flow-31](flow-31-progression-award.md) for the progression internals (anti-grind scale, threshold math, the contribute-on-read fold).
    - `SpawnSystem` (priority 20): records slot vacancy and sets `RespawnAt = now + delay`.
 4. Calls `EntityService.DestroyEntity(mobEntityId)`. On a later heartbeat tick, `SpawnSystem` spawns a fresh entity from the template and places it in the room.
 
@@ -94,3 +99,4 @@ No `SaveEntityAsync` in the respawn path — periodic flush covers pool/location
 - [`../../features/combat/combat.md`](../../features/combat/combat.md) — the feature; [`../../features/combat/death-system.md`](../../features/combat/death-system.md) for death pipeline internals.
 - [`Core/Modules/Economy/Handlers/CurrencyLootHandler.cs`](../../../Core/Modules/Economy/Handlers/CurrencyLootHandler.cs) · [`Core/Modules/Economy/Handlers/CurrencyAwardNarrationHandler.cs`](../../../Core/Modules/Economy/Handlers/CurrencyAwardNarrationHandler.cs)
 - [`Core/Modules/Economy/Systems/ICurrencyLootSystem.cs`](../../../Core/Modules/Economy/Systems/ICurrencyLootSystem.cs) · [`Core/Modules/Economy/Components/CurrencyLootComponent.cs`](../../../Core/Modules/Economy/Components/CurrencyLootComponent.cs)
+- [`Core/Modules/Progression/Handlers/ExperienceAwardHandler.cs`](../../../Core/Modules/Progression/Handlers/ExperienceAwardHandler.cs) · [`../../features/progression/progression.md`](../../features/progression/progression.md) — the progression feature; [flow-31](flow-31-progression-award.md) for the award internals.

@@ -145,7 +145,7 @@ Ask:
 ### CurrencyLootHandler
 **Events:** `MobDiedEvent`
 **Priority:** 20 (`HandlerPriority.Domain`)
-**Responsibilities:** On `MobDiedEvent`: if `KillerEntityId == 0`, returns immediately (currency discarded — no deposit, no event). Otherwise calls `ICurrencyLootSystem.RollLoot(mobEntityId)` while the mob is still live (mob is pre-destroy at this point — `CombatMobDeathHandler` awaits `PublishAsync` before `DestroyEntity`). For each non-zero `(currency, amount)` in the result, calls `IWalletSystem.Deposit(KillerEntityId, currency, amount)`, then publishes `CurrencyAwardedEvent(KillerEntityId, currency, amount)`. Pure orchestrator — no game rule held here (INV-8); roll lives in `ICurrencyLootSystem`, mutation lives in `IWalletSystem`. Second `MobDiedEvent` subscriber alongside `SpawnSystem` — independent reads, no inter-handler ordering constraint.
+**Responsibilities:** On `MobDiedEvent`: if `KillerEntityId == 0`, returns immediately (currency discarded — no deposit, no event). Otherwise calls `ICurrencyLootSystem.RollLoot(mobEntityId)` while the mob is still live (mob is pre-destroy at this point — `CombatMobDeathHandler` awaits `PublishAsync` before `DestroyEntity`). For each non-zero `(currency, amount)` in the result, calls `IWalletSystem.Deposit(KillerEntityId, currency, amount)`, then publishes `CurrencyAwardedEvent(KillerEntityId, currency, amount)`. Pure orchestrator — no game rule held here (INV-8); roll lives in `ICurrencyLootSystem`, mutation lives in `IWalletSystem`. One of three independent `MobDiedEvent` subscribers alongside `SpawnSystem` and `ExperienceAwardHandler` — independent reads, no inter-handler ordering constraint.
 **Location:** `Core/Modules/Economy/Handlers/CurrencyLootHandler.cs`
 **Uses:** `ICurrencyLootSystem`, `IWalletSystem`, `IEventBus`
 
@@ -190,6 +190,13 @@ Ask:
 **Responsibilities:** Two independent interval-gated closed sweeps (gate on accumulated `Elapsed` against `ShopOptions.RestockInterval` / `BuyBackRetention`; time via injected `IClock`, INV-26). **Restock:** `IShopSystem.PlanRestock` → spawn each base-stock shortfall via `ITemplateRegistry.Spawn`, stamp `{ Base }` (top-up, never wipe/duplicate). **Expiry:** `IShopSystem.FindExpired(shop, clock.UtcNow)` → `EntityService.DestroyEntity` each past-`ExpiresAt` acquired item. Both **publish nothing** (no game-rule fan-out, INV-10); no inter-handler ordering.
 **Location:** `Core/Modules/Shopping/Handlers/ShopRestockTickHandler.cs`, `ShopExpiryTickHandler.cs`
 **Uses:** `IShopSystem`, `ITemplateRegistry`, `EntityService`, `IClock`
+
+### ExperienceAwardHandler
+**Events:** `MobDiedEvent`
+**Priority:** 20 (`HandlerPriority.Domain`)
+**Responsibilities:** On `MobDiedEvent`: if `KillerEntityId == 0`, returns immediately (no award, no event). Otherwise calls `IProgressionSystem.AwardCombatExperience(killerEntityId, victimEntityId)` while the mob is still live, then publishes one `ExperienceAwardedEvent` per positive-amount track and one `TrackImprovedEvent` per threshold crossed. Pure orchestrator (INV-8) — the award math and threshold resolution live in `IProgressionSystem`. One of three independent `MobDiedEvent` subscribers alongside `SpawnSystem` and `CurrencyLootHandler` — independent reads, no inter-handler ordering constraint.
+**Location:** `Core/Modules/Progression/Handlers/ExperienceAwardHandler.cs`
+**Uses:** `IProgressionSystem`, `IEventBus`
 
 > **`ItemContextHandler` (Spawn module) is extended for trade.** Beyond `ItemPickedUpEvent`/`ItemDroppedEvent`, it also subscribes to `ItemBoughtEvent`/`ItemSoldEvent` (slice 12c) and applies the same persistence-pool transition: buy → add `PersistentEntity` + keep `BlueprintComponent` (INV-21) + clear `ShopStockComponent`; sell → remove `PersistentEntity`. One home for the pool transition (INV-19).
 

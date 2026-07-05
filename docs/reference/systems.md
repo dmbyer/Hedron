@@ -566,3 +566,27 @@ public sealed record ShopBuyResult(bool Success, long Price, CurrencyId Currency
 public sealed record ShopSellResult(bool Success, long Price, CurrencyId Currency, DateTime? ExpiresAt, string? FailureReason);
 ```
 Buy-back pricing: `Acquired` items (sold by a player) cost `Value × SellRatio` on buy-back (what the shop paid), not `Value × BuyRatio`. `TryResolveSell` carries the clock-derived `ExpiresAt` so the calling command stamps it onto `ShopStockComponent` (INV-8). `PlanRestock` ignores `Acquired` items (top-up semantics). `FindExpired` uses `<= nowUtc` boundary. Registered as a singleton in `ShoppingModule.AddShoppingModule`. Implemented (shopping slice 12c WP-2).
+
+### ProgressionSystem / IProgressionSystem (Progression module)
+**Purpose:** Use-driven per-track XP accrual and threshold-improvement resolution (gameplay-model Spine E). Tracks are keyed directly by `ScoreId` — no parallel key type. `AwardExperience` adds to cumulative XP (no-op if ≤ 0); `TryImprove` loops while cumulative XP ≥ the next cumulative threshold (`ThresholdBase + improvementCount × ThresholdIncrement`), incrementing once per crossing. `AwardCombatExperience` computes a killer-vs-victim anti-grind scale from **raw** `AttributesComponent` fields (not `IStatSystem` — see below), rolls a randomized per-track base amount via `IRandom` when the scale is non-zero, and awards each combat track. INV-5: returns result records only; never touches the event bus.
+**Location:** `Core/Modules/Progression/Systems/IProgressionSystem.cs` · `ProgressionSystem.cs` · `Core/Modules/Progression/ProgressionConstants.cs`
+**Dependencies:** `EntityService`, `IRandom`.
+```csharp
+public interface IProgressionSystem
+{
+    AwardOutcome AwardExperience(uint entityId, ScoreId track, int amount, XpSource source);
+    int TryImprove(uint entityId, ScoreId track);
+    CombatAwardResult AwardCombatExperience(uint killerEntityId, uint victimEntityId);
+    int GetXp(uint entityId, ScoreId track);
+    int GetImprovementCount(uint entityId, ScoreId track);
+    int GetXpToNextThreshold(uint entityId, ScoreId track);
+    IReadOnlyList<ScoreId> GetTrackedScores(uint entityId);
+}
+```
+**Not `IStatSystem`:** the anti-grind proxy deliberately reads raw attributes instead of the effect-folded value — going through `IStatSystem` would close a DI cycle back through `ProgressionEffectContributor` (below), which itself depends on `IProgressionSystem`. See [`../features/progression/progression-system.md`](../features/progression/progression-system.md#anti-grind-proxy-reads-raw-attributes). A deliberate, temporary proxy — the slice-3 `IPowerBudgetSystem` oracle replaces it. Registered as a singleton in `ProgressionModule.AddProgressionModule`. Implemented (progression-substrate slice prog-1).
+
+### ProgressionEffectContributor (Progression module)
+**Purpose:** The INV-24 contribute-on-read fold for progression power — a third registrant on the core-owned `IEffectContributor` port alongside `EquipmentEffectContributor` and `AbilityEffectContributor`. `GetModifiers` returns `PowerPerImprovement × improvementCount(score)`, pulled fresh from `IProgressionSystem` on every call — never stored, never cached. `GetActive` yields a synthetic `WhileKnown` effect per improved track for display parity.
+**Location:** `Core/Modules/Progression/ProgressionEffectContributor.cs`
+**Dependencies:** `IProgressionSystem`.
+Registered as a singleton `IEffectContributor` in `ProgressionModule.AddProgressionModule`; folded automatically by `EffectSystem.GetModifiers`/`GetActive` with **no interface change** to `IStatSystem` or `EffectSystem`. Implemented (progression-substrate slice prog-1).

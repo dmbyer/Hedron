@@ -9,9 +9,9 @@ Experience-driven progression (gameplay-model [Spine E](../../../docs/design/gam
 
 This skill is how you **extend or tune** that system: add an XP source, adjust the curves, add a track, or generalize triggers to a data table.
 
-> **Status.** Documents the pattern defined in slice 1 of the Progression & Balance program ([program brief](../../../docs/implementation-plans/progression-and-balance.md) "Advancement triggers"; `progression-substrate.md`). Symbol names (`IProgressionSystem`, `XpSource`, `ProgressionConstants`, `ProgressionEffectContributor`) are the slice-1 target — reconcile to as-built when it ships. When the program disintegrates, its durable home becomes `docs/features/progression/`; repoint the links here then (INV-28).
+> **Status.** Documents the as-built pattern from slice `prog-1` of the Progression & Balance program (durable design: [`docs/features/progression/progression.md`](../../../docs/features/progression/progression.md) · [`progression-system.md`](../../../docs/features/progression/progression-system.md); as-built history: [`docs/roadmap/completed/progression-substrate.md`](../../../docs/roadmap/completed/progression-substrate.md)). Symbol names (`IProgressionSystem`, `XpSource`, `ProgressionConstants`, `ProgressionEffectContributor`) match the shipped code.
 
-**Authoritative:** [program brief → Design notes](../../../docs/implementation-plans/progression-and-balance.md#design-notes) · [checklist](../../../docs/architecture/checklist.md) (INV-24 contribute-on-read, INV-5/INV-8 return-vs-publish, INV-19 framework-at-3, INV-26 determinism) · [config Category 3](../../../docs/architecture/05-configuration.md) (balance constants).
+**Authoritative:** [progression-system.md](../../../docs/features/progression/progression-system.md) · [program brief → Design notes](../../../docs/implementation-plans/progression-and-balance.md#design-notes) (slices 2–5) · [checklist](../../../docs/architecture/checklist.md) (INV-24 contribute-on-read, INV-5/INV-8 return-vs-publish, INV-19 framework-at-3, INV-26 determinism) · [config Category 3](../../../docs/architecture/05-configuration.md) (balance constants).
 
 ## The three layers (how progression is extended)
 
@@ -53,9 +53,11 @@ When 3+ XP sources exist, collapse the bespoke handlers into **one** thin advanc
 - **Don't fork the vocabulary.** Track key = `ScoreId`; no parallel `TrackId` enum.
 - **Balance numbers live in constants** (Category 3), not `appsettings.json`, not the handler body.
 - **The character-wide Tier baseline** (Ascension, slice 2) is a *second* contribution on the same contribute-on-read seam — additive; don't rebuild the contributor to add it.
+- **`ProgressionSystem` reads raw component data for its own inputs, never `IStatSystem`/`IEffectSystem`.** `ProgressionEffectContributor` is a registrant *on* `IEffectSystem`'s contributor list; if `ProgressionSystem` itself called `IStatSystem.Get` (which folds that same contributor list), it would close a DI cycle back through its own contributor. This generalizes to any future `IEffectContributor`: a contributor's backing system may consume raw component data, but never a computed value from the seam it feeds. Discovered while wiring `prog-1` — see [`progression-system.md`](../../../docs/features/progression/progression-system.md#anti-grind-proxy-reads-raw-attributes).
 
 ## Related
 
-- [program brief](../../../docs/implementation-plans/progression-and-balance.md) — the durable design (mechanism/tuning/generalization, the five-slice map).
+- [progression-system.md](../../../docs/features/progression/progression-system.md) — the as-built design; [progression.md](../../../docs/features/progression/progression.md) — the feature doc.
+- [program brief](../../../docs/implementation-plans/progression-and-balance.md) — the durable design for slices 2–5 (mechanism/tuning/generalization, the five-slice map).
 - [add-handler](../add-handler/SKILL.md) · [add-event](../add-event/SKILL.md) · [add-command](../add-command/SKILL.md) · [add-domain-system](../add-domain-system/SKILL.md) · [add-tests](../add-tests/SKILL.md) — the sub-patterns each recipe composes.
 - [checklist](../../../docs/architecture/checklist.md) — INV-24 / INV-5 / INV-8 / INV-19 / INV-26 (the rules; cite, don't restate).
