@@ -44,6 +44,13 @@ namespace Hedron.Core.Modules.Mobs.Templates
         /// </summary>
         public ProtectionFlags Protection { get; set; } = ProtectionFlags.None;
 
+        /// <summary>
+        /// Ascension tier-band tag, <c>0</c>&#8211;<c>6</c> (0 = unbanded, the default). Range-validated
+        /// by <c>setmob band</c>. Durable form is YAML (this template); <c>MobDataComponent.TierBand</c>
+        /// is re-applied from here on each spawn (mob entities never carry <c>PersistentEntity</c>).
+        /// </summary>
+        public int TierBand { get; set; } = 0;
+
         // ── Shop fields (WP-1) ───────────────────────────────────────────────────
 
         /// <summary>
@@ -91,6 +98,7 @@ namespace Hedron.Core.Modules.Mobs.Templates
                 Description = Description,
                 Keywords = new List<string>(Keywords),
                 MobType = MobType,
+                TierBand = TierBand,
             });
 
             var level = Level > 0 ? Level : 1;

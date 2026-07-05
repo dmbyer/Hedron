@@ -34,6 +34,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
             "Valid properties: name, description, keywords (space-separated), type (none/vendor/guard/creature), " +
             "level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra, " +
             "protection (comma or space-separated flags: none, untargetable, effectimmune), " +
+            "band (Ascension tier-band tag, integer 0-6, 0 = unbanded), " +
             "shop (\"off\" to clear, or \"on [tillSeed] [currency]\" to make a shopkeeper; " +
             "base-stock rows are authored via the content editor / YAML).";
         public string Usage => "setmob <blueprintId> <property> <value>";
@@ -169,6 +170,17 @@ namespace Hedron.Core.Modules.Mobs.Commands
                     _mobBuilder.SetMobProtection(mobEntityId, combined);
                     break;
 
+                case "band":
+                    if (!int.TryParse(value, out var tierBand) || tierBand < 0 || tierBand > 6)
+                    {
+                        await context.Output.WriteAsync(new PlainMessage(
+                            "Tier band must be an integer 0-6 (0 = unbanded).",
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
+                        return;
+                    }
+                    _mobBuilder.SetMobBand(mobEntityId, tierBand);
+                    break;
+
                 case "shop":
                     // Syntax: "off" clears the shop; "on [tillSeed] [currency]" makes/updates a
                     // shopkeeper. Base-stock rows are authored via YAML / the content editor — passing
@@ -221,7 +233,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
 
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
-                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra, protection, shop.",
+                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra, protection, band, shop.",
                         OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
             }

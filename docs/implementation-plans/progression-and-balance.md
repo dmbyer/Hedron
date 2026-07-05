@@ -21,7 +21,7 @@ This doc is the **architecture seed for the program**: it holds the durable cros
 | # | Slice | Lands | Depends on |
 |---|---|---|---|
 | **1** | **Progression substrate — ✅ done** | `ProgressionComponent` (per-track XP), `IProgressionSystem` (use-driven `AwardExperience`/`TryImprove`), `ProgressionConstants` (linear step + growing threshold), `ProgressionEffectContributor` folded into `IStatSystem` via the existing `IEffectContributor` port (reused, not a parallel `IProgressionContributor` — see [`../roadmap/completed/progression-substrate.md`](../roadmap/completed/progression-substrate.md)), XP-award off combat, `progress` inspector, `ExperienceAwardedEvent`/`TrackImprovedEvent`. Durable design now lives in [`../features/progression/progression.md`](../features/progression/progression.md); as-built history in [`../roadmap/completed/progression-substrate.md`](../roadmap/completed/progression-substrate.md). | substrate (built) |
-| **2** | **Ascension (character-wide tier)** | Tier scalar + additive power baseline (rides the same contribute-on-read seam), tier-up gate, content band tagging, overlap semantics, ascension unlock-grants, `AscendedEvent` | 1 |
+| **2** | **Ascension (character-wide tier) — ✅ done** | Tier scalar + additive power baseline (rides the same contribute-on-read seam), tier-up gate, mobs-only content band tagging, overlap semantics, unlock-record seam (grant-execution + content deferred), `AscendedEvent`. Durable design now lives in [`../features/progression/ascension-system.md`](../features/progression/ascension-system.md); as-built history in [`../roadmap/completed/ascension.md`](../roadmap/completed/ascension.md). | 1 |
 | **3** | **Power model + balance inspector** | `IPowerBudgetSystem` (core-tier shared oracle), tier power bands, in-game `power`/`powerband` inspector + Blazor editor readout | 1, 2 |
 | **4** | **Simulation harness** | `Hedron.Sim` project (parameter-sweep runner, statistical reporting, combatant-policy seam), promoted CI regression invariants | 3 (uses power oracle) |
 | **5** | **Agentic + doc layer** | Balance catalog (`design/balance.md`), `balance-tuning` + `run-simulation` skills, INV-20 updates to `add-*` and advisor/planner/reviewer | threads 1–4 |
@@ -161,11 +161,11 @@ Beyond the [INV-25](../architecture/checklist.md) xUnit tests, each slice ships 
 
 > Load-bearing for later slice specs; none block slice 1.
 
-1. **Additive tier baseline vs rescale-on-ascend** (slice 2) — ✅ **RESOLVED (2026-07-05): additive baseline, no reset** (rescale/XP-reset dropped). See [`ascension.md`](ascension.md).
+1. **Additive tier baseline vs rescale-on-ascend** (slice 2) — ✅ **RESOLVED (2026-07-05): additive baseline, no reset** (rescale/XP-reset dropped). See [`completed/ascension.md`](../roadmap/completed/ascension.md) and [`features/progression/ascension-system.md`](../features/progression/ascension-system.md).
 2. **Power-budget formula + band definition** (slice 3) — the heuristic's shape and how tier bands are drawn/tuned; expect iteration.
-3. **Specialization-on-ascend selection mechanism** (slice 2+) — ✅ **RESOLVED (2026-07-05): deferred.** prog-2 ships the unlock-*record* seam only (empty table; grant-execution seam + selection UX deferred). See [`ascension.md`](ascension.md).
+3. **Specialization-on-ascend selection mechanism** (slice 2+) — ✅ **RESOLVED (2026-07-05): deferred.** prog-2 ships the unlock-*record* seam only (empty table; grant-execution seam + selection UX deferred). See [`completed/ascension.md`](../roadmap/completed/ascension.md) and [`features/progression/ascension-system.md`](../features/progression/ascension-system.md).
 4. **XP-award sourcing + anti-grind** (slice 1) — which actions award which tracks, and diminishing-returns guards on trivial targets.
-5. **Tier-baseline home** (slice 2) — ✅ **RESOLVED (2026-07-05): rides the existing `IEffectContributor` port** (4th registrant, `AscensionEffectContributor`); no new Scaling/Spine-D seam. See [`ascension.md`](ascension.md).
+5. **Tier-baseline home** (slice 2) — ✅ **RESOLVED (2026-07-05): rides the existing `IEffectContributor` port** (4th registrant, `AscensionEffectContributor`); no new Scaling/Spine-D seam. See [`completed/ascension.md`](../roadmap/completed/ascension.md) and [`features/progression/ascension-system.md`](../features/progression/ascension-system.md).
 6. **`IPowerBudgetSystem` tier** (slice 3) — confirm it stays core-tier-generic; if it needs game-semantic inputs it moves to domain.
 
 ---

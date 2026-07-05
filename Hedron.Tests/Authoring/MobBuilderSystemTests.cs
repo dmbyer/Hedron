@@ -661,6 +661,32 @@ namespace Hedron.Tests.Authoring
             sys.SetMobProtection(99999u, ProtectionFlags.Untargetable);
         }
 
+        // ── SetMobBand ───────────────────────────────────────────────────────────
+
+        [Fact]
+        public void SetMobBand_dual_writes_live_component_and_template()
+        {
+            var (sys, ecs, registry) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateMob("Trash", roomId);
+
+            sys.SetMobBand(result.MobEntityId, 2);
+
+            var mob = ecs.Get<MobDataComponent>(result.MobEntityId);
+            Assert.Equal(2, mob.TierBand);
+
+            registry.TryGet(result.BlueprintId, out var template);
+            var mobTemplate = Assert.IsType<MobTemplate>(template);
+            Assert.Equal(2, mobTemplate.TierBand);
+        }
+
+        [Fact]
+        public void SetMobBand_is_noop_for_unknown_entity()
+        {
+            var (sys, _, _) = Build();
+            sys.SetMobBand(99999u, 3);
+        }
+
         // ── SetMobShop ───────────────────────────────────────────────────────────
 
         [Fact]

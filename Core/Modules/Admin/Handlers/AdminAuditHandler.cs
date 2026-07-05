@@ -4,6 +4,7 @@ using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Abilities.Events;
 using Hedron.Core.Modules.Admin.Events;
+using Hedron.Core.Modules.Ascension.Events;
 using Hedron.Core.Modules.Attributes.Events;
 using Hedron.Core.Modules.Combat.Events;
 using Hedron.Core.Modules.Death.Events;
@@ -44,7 +45,8 @@ namespace Hedron.Core.Modules.Admin.Handlers
         IEventHandler<AbilityTaughtByAdminEvent>,
         IEventHandler<RoomAreaAssignedByAdminEvent>,
         IEventHandler<AreaCreatedByAdminEvent>,
-        IEventHandler<WalletSetByAdminEvent>
+        IEventHandler<WalletSetByAdminEvent>,
+        IEventHandler<PlayerAscendedByAdminEvent>
     {
         private readonly EntityService _entityService;
         private readonly ILogger<AdminAuditHandler> _logger;
@@ -198,6 +200,14 @@ namespace Hedron.Core.Modules.Admin.Handlers
             _logger.LogInformation(
                 "AdminCommandExecuted: admin={Admin} command=setwallet player={PlayerEntityId} currency={Currency} amount={Amount}",
                 ResolveName(e.AdminEntityId), e.TargetEntityId, e.Currency, e.Amount);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(PlayerAscendedByAdminEvent e)
+        {
+            _logger.LogInformation(
+                "AdminCommandExecuted: admin={Admin} command=ascend target={TargetEntityId} newTier={NewTier}",
+                ResolveName(e.AdminEntityId), e.TargetEntityId, e.NewTier);
             return Task.CompletedTask;
         }
 

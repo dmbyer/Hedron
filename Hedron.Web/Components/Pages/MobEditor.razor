@@ -151,6 +151,15 @@ else if (_template is not null)
         </div>
     </fieldset>
 
+    <fieldset class="ascension">
+        <legend>Ascension</legend>
+        <p class="hint">Tier-band tag (0-6). 0 = unbanded (default). Mechanical threat is emergent from the tier baseline &mdash; this is a content tag, not a power multiplier.</p>
+        <div class="field">
+            <label>Tier band</label>
+            <input type="number" min="0" max="6" @bind="_template.TierBand" />
+        </div>
+    </fieldset>
+
     <fieldset class="currency-loot">
         <legend>Currency loot</legend>
         <p class="hint">Base units (copper). 100 = 1 gold. Leave both at 0 for no currency drop (opt-in default).</p>

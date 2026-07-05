@@ -216,6 +216,15 @@ The [`progression-substrate`](../implementation-plans/progression-substrate.md) 
 
 The [`progression-substrate`](../implementation-plans/progression-substrate.md) slice ships the accrual path + the `progress` inspector, which fully exercise and observe per-track XP/improvement — but **no admin command to hand-set** a player's progression. A `setprogress`-style verb (set a track's XP / improvement count) is the admin **boundary save** pattern (mutate via `IProgressionSystem` → `SaveEntityAsync` → audit event, INV-22), mirroring `setplayer`/`setrespawn`. Deferred because nothing in slice 1 needs hand-set progression; lands when a designer needs to seed a fixture (e.g. a mid-progression test character) without grinding — likely alongside the slice-4 sim / balance-tuning work. See [`../implementation-plans/progression-substrate.md`](../implementation-plans/progression-substrate.md) §Content tooling impact.
 
+### 🔵 Ascension unlock-grant execution seam + Objective gate (deferred from ascension, slice prog-2)
+
+The [`ascension`](completed/ascension.md) slice ships only the unlock-*record* seam: `AscensionComponent.GrantedUnlocks` + `IAscensionSystem.GetGrantedUnlocks` + `AscendedEvent`, with an **empty** `AscensionConstants.UnlocksForTier` table. Two things are deferred:
+
+1. **Grant-execution seam.** `GrantFlag`/`GrantAbility` are unimplemented `EffectKind` enum values (`Core/Modules/Effects/Effect.cs`) — there is no callable "grant X to entity" path yet. When concrete unlock content is designed (aspects/abilities/flags), it wires into `TryAscend`/`AscendedEvent` without changing this slice's shape.
+2. **Player-facing Ascension-Objective gate.** The only trigger today is the admin `ascend` command; `IAscensionSystem.CanAscend` is deliberately shaped as the seam a future objectives slice (`IObjectiveSystem`, currently unbuilt) will call.
+
+Also deferred: **item tier-bands** (mobs-only in prog-2; item bands land alongside the power-budget oracle that consumes them, slice prog-3) and the **selection UX** for specialization-on-ascend. See [`../implementation-plans/progression-and-balance.md`](../implementation-plans/progression-and-balance.md) for the program-level disposition.
+
 ### 🔵 YAML-authored definition pipeline for the big registry families (deferred from aspect-foundation)
 
 Deferred from the aspect-foundation slice ([`../implementation-plans/aspect-foundation.md`](../features/aspects/aspects.md)), which lands the Spine F registry layer (`IRegistry<TKey, TDef>` + `DefinitionRegistry<TKey, TDef>` base) with **hardcoded** definitions only — correct and expected for the spine families per [`../design/gameplay-model.md`](../design/gameplay-model.md) Spine F ("hardcoded is fine and expected").
