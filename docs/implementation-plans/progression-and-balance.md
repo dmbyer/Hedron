@@ -161,11 +161,11 @@ Beyond the [INV-25](../architecture/checklist.md) xUnit tests, each slice ships 
 
 > Load-bearing for later slice specs; none block slice 1.
 
-1. **Additive tier baseline vs rescale-on-ascend** (slice 2) — recommend additive-baseline (removes XP-reset); confirm before speccing tier-up.
+1. **Additive tier baseline vs rescale-on-ascend** (slice 2) — ✅ **RESOLVED (2026-07-05): additive baseline, no reset** (rescale/XP-reset dropped). See [`ascension.md`](ascension.md).
 2. **Power-budget formula + band definition** (slice 3) — the heuristic's shape and how tier bands are drawn/tuned; expect iteration.
-3. **Specialization-on-ascend selection mechanism** (slice 2+) — what the player customizes and how; likely deferred beyond the grant seam.
+3. **Specialization-on-ascend selection mechanism** (slice 2+) — ✅ **RESOLVED (2026-07-05): deferred.** prog-2 ships the unlock-*record* seam only (empty table; grant-execution seam + selection UX deferred). See [`ascension.md`](ascension.md).
 4. **XP-award sourcing + anti-grind** (slice 1) — which actions award which tracks, and diminishing-returns guards on trivial targets.
-5. **Tier-baseline home** (slice 2) — inside `IProgressionContributor` now vs a nascent Scaling/Spine-D seam (Spine D is unbuilt; riding the progression contributor first is the cheaper start).
+5. **Tier-baseline home** (slice 2) — ✅ **RESOLVED (2026-07-05): rides the existing `IEffectContributor` port** (4th registrant, `AscensionEffectContributor`); no new Scaling/Spine-D seam. See [`ascension.md`](ascension.md).
 6. **`IPowerBudgetSystem` tier** (slice 3) — confirm it stays core-tier-generic; if it needs game-semantic inputs it moves to domain.
 
 ---
