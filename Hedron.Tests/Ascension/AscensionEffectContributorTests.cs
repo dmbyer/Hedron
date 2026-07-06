@@ -10,6 +10,7 @@ using Hedron.Core.Modules.Progression;
 using Hedron.Core.Modules.Progression.Systems;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.Stats.Systems;
+using Hedron.Core.Systems;
 using Hedron.Tests.Harness;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -34,7 +35,7 @@ namespace Hedron.Tests.Ascension
             {
                 Ecs = new EntityService();
                 Ascension = new AscensionSystem(Ecs);
-                Progression = new ProgressionSystem(Ecs, rng);
+                Progression = new ProgressionSystem(Ecs, rng, new PowerBudgetSystem());
 
                 var ascensionContributor = new AscensionEffectContributor(Ascension);
                 var progressionContributor = new ProgressionEffectContributor(Progression);

@@ -16,7 +16,7 @@ Domain-tier. `AscensionSystem` owns the tier state machine: `GetTier` (safe-defa
 
 ### The tier baseline rides the existing `IEffectContributor` port — not a new scaling system
 
-`AscensionEffectContributor` is a **fourth** registrant on the core-owned `IEffectContributor` port, alongside `EquipmentEffectContributor`, `AbilityEffectContributor`, and `ProgressionEffectContributor`. `GetModifiers` returns `TierBaselineStep × GetTier(entityId)` for a tracked score, pulled fresh every call — never stored, never cached (INV-24). A dedicated Spine-D `IScalingSystem` is deferred; this reuses the exact pattern `ProgressionEffectContributor` proved, and a later scaling system (or the slice-3 `IPowerBudgetSystem`) can subsume the baseline computation without changing any caller.
+`AscensionEffectContributor` is a **fourth** registrant on the core-owned `IEffectContributor` port, alongside `EquipmentEffectContributor`, `AbilityEffectContributor`, and `ProgressionEffectContributor`. `GetModifiers` returns `TierBaselineStep × GetTier(entityId)` for a tracked score, pulled fresh every call — never stored, never cached (INV-24). A dedicated Spine-D `IScalingSystem` is deferred; this reuses the exact pattern `ProgressionEffectContributor` proved, and a later scaling system could subsume the baseline computation without changing any caller. (Slice prog-3's `IPowerBudgetSystem` is a *sibling*, not a replacement — it estimates power from a caller-supplied snapshot and mirrors `TierBaselineStep`/`TrackedScores` as its own constants rather than reading this contributor; see [`power-budget-system.md`](power-budget-system.md).)
 
 ### DI-cycle guard: a second confirming precedent
 
@@ -24,7 +24,7 @@ Domain-tier. `AscensionSystem` owns the tier state machine: `GetTier` (safe-defa
 
 ### Mob tier-band tag — a lightweight content tag, not a power oracle
 
-`MobTemplate.TierBand` (`int 0–6`, `0` = unbanded) is authored via `setmob band <blueprintId> <tier>` (dual-writing the live `MobDataComponent.TierBand` and the template, mirroring `SetMobProtection`) and the Blazor `MobEditor`. Mechanical threat is **emergent from the additive baseline** — a Tier-N mob is simply tuned to Tier-N baseline stats; there is no separate threat multiplier, and bands **overlap** (a maxed lower tier can reach into the next band before formally ascending). `MobDataComponent` is `[Persistent]`, but mob entities never carry `PersistentEntity` (world content), so the band never reaches a snapshot — its durable form is the YAML template, re-applied on each spawn. Item bands are deferred to slice prog-3, alongside the `IPowerBudgetSystem` oracle that consumes them.
+`MobTemplate.TierBand` (`int 0–6`, `0` = unbanded) is authored via `setmob band <blueprintId> <tier>` (dual-writing the live `MobDataComponent.TierBand` and the template, mirroring `SetMobProtection`) and the Blazor `MobEditor`. Mechanical threat is **emergent from the additive baseline** — a Tier-N mob is simply tuned to Tier-N baseline stats; there is no separate threat multiplier, and bands **overlap** (a maxed lower tier can reach into the next band before formally ascending). `MobDataComponent` is `[Persistent]`, but mob entities never carry `PersistentEntity` (world content), so the band never reaches a snapshot — its durable form is the YAML template, re-applied on each spawn. Slice prog-3 mirrors this tag onto items (`ItemDataComponent.TierBand`/`setitem band`) and adds the `IPowerBudgetSystem` oracle that reads both — see [`power-budget-system.md`](power-budget-system.md).
 
 ## Interface
 
@@ -38,7 +38,7 @@ Domain-tier. `AscensionSystem` owns the tier state machine: `GetTier` (safe-defa
 - **Persistence:** `AscensionComponent` is `[Persistent]`, attached lazily to a persistent (player) entity on first successful `TryAscend` — never to world content. The admin `ascend` command performs exactly one `SaveEntityAsync` (case-b admin boundary save, INV-22), paired with the `PlayerAscendedByAdminEvent` audit event.
 - **Determinism (INV-26):** no chance/time-dependent logic — the baseline is `step × tier` and ascend is a clamped increment, both pure functions of component state. No `IRandom` seam needed.
 - **Registration:** `AscensionModule.AddAscensionModule` registers `IAscensionSystem`, the `IEffectContributor`, `AscensionNarrationHandler`, and the `ascend` command. Called from `Server/CompositionRoot.Register` (not `Program.cs`) — the same reason `ProgressionModule` is: the Blazor content-authoring host's `StatSystem` needs the contributor too.
-- **Acknowledged debt:** the unlock-*grant execution* seam (`GrantFlag`/`GrantAbility` are unimplemented `EffectKind` values) and concrete unlock content are deferred; the real player-facing Ascension-Objective gate (`IObjectiveSystem`) is deferred; item tier-bands are deferred to slice prog-3. Tracked in [`../../roadmap/backlog.md`](../../roadmap/backlog.md).
+- **Acknowledged debt:** the unlock-*grant execution* seam (`GrantFlag`/`GrantAbility` are unimplemented `EffectKind` values) and concrete unlock content are deferred; the real player-facing Ascension-Objective gate (`IObjectiveSystem`) is deferred. Item tier-bands shipped in slice prog-3 (see [`power-budget-system.md`](power-budget-system.md)). Tracked in [`../../roadmap/backlog.md`](../../roadmap/backlog.md).
 
 ## Extensibility
 
@@ -49,6 +49,7 @@ The character-wide Tier baseline is designed as a second contribution on the sam
 - Flow: [flow-32 — Ascension journey](../../architecture/flows/flow-32-ascension.md); [flow-31 — Progression journey](../../architecture/flows/flow-31-progression-award.md) for the contribute-on-read leg this slice adds a second contributor to.
 - Reference rows: [`systems.md`](../../reference/systems.md), [`components.md`](../../reference/components.md), [`handlers.md`](../../reference/handlers.md), [`commands.md`](../../reference/commands.md).
 - [`progression-system.md`](progression-system.md) — the DI-cycle guard precedent this system confirms a second time.
+- [`power-budget-system.md`](power-budget-system.md) — the core-tier oracle that mirrors `AscensionConstants` as its own constants and derives its tier bands from this system's baseline step.
 - [`stat-system.md`](../character-stats/stat-system.md) · [`effect-system.md`](../effects/effect-system.md) — the read seam this contributor folds into.
 - [`../../design/gameplay-model.md`](../../design/gameplay-model.md) — §6 R1 (Ascension: vertical scalar 0–6).
 - [`../mobs/mob-system.md`](../mobs/mob-system.md) — the builder/template/writer authoring pattern the band tag mirrors (`SetMobProtection`).

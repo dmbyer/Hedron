@@ -84,6 +84,21 @@ namespace Hedron.Core.Modules.Items
                 }
             }
 
+            // Deserialize the tier-band tag. Null/absent → 0 (unbanded, the default).
+            if (dto.Band.HasValue)
+            {
+                if (dto.Band.Value is >= 0 and <= 6)
+                {
+                    template.TierBand = dto.Band.Value;
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Item '{Id}': band '{Band}' out of range 0-6 — defaulting to 0 (unbanded).",
+                        dto.BlueprintId, dto.Band.Value);
+                }
+            }
+
             return template;
         }
 
@@ -98,6 +113,7 @@ namespace Hedron.Core.Modules.Items
             public string? SpawnRoomId { get; set; }
             public List<StatBonusDto>? StatBonuses { get; set; }
             public long Value { get; set; } = 0;
+            public int? Band { get; set; }
         }
 
         private sealed class StatBonusDto

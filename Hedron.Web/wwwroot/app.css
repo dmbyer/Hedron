@@ -224,6 +224,7 @@ button.danger-confirm:disabled { opacity: 0.5; cursor: default; }
     color: var(--warn);
 }
 .warning-box ul { margin: 0.4rem 0 0; }
+.warning-inline { color: var(--warn); font-size: 0.9rem; margin-left: 0.5rem; }
 
 /* --- Delete-result summary --- */
 .delete-result {

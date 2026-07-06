@@ -423,6 +423,70 @@ namespace Hedron.Tests.Architecture
             return null;
         }
 
+        // ── INV-2: power-budget-oracle-is-core-tier ───────────────────────────
+
+        /// <summary>
+        /// INV-2: <c>PowerBudgetSystem</c> (Core/Systems/) must stay core-tier-generic — it must
+        /// import no <c>Core/Modules/&lt;Feature&gt;/</c> domain type at all (not just the
+        /// <c>Account</c> module's <c>CharacterDefaultsOptions</c>; the reference base build AND
+        /// the tier-band constants are co-located mirrors, never a reference into the domain
+        /// <c>Account</c> or <c>Ascension</c> modules). <c>Hedron.Core.Modules.Stats</c> is
+        /// allowlisted — it holds only the <c>ScoreId</c> enum, a shared vocabulary key with no
+        /// business logic, the same role <c>Entity</c>/component-type ids play elsewhere. Structurally,
+        /// the system also takes zero constructor dependencies — every input is a static balance
+        /// constant or the caller-supplied <c>PowerSnapshot</c>.
+        /// </summary>
+        [Fact]
+        public void PowerBudgetSystem_has_no_domain_module_dependency()
+        {
+            var type = typeof(Hedron.Core.Systems.PowerBudgetSystem);
+
+            var ctor = Assert.Single(type.GetConstructors());
+            Assert.True(
+                ctor.GetParameters().Length == 0,
+                "INV-2 violated — PowerBudgetSystem must take zero constructor dependencies " +
+                "(every input is a static balance constant or a caller-supplied PowerSnapshot).");
+
+            var coreDir = FindCoreSourceDirectory();
+            Assert.True(coreDir != null, "INV-2 pre-check: could not locate the Core/ source directory.");
+
+            var files = new[]
+            {
+                Path.Combine(coreDir!, "Systems", "PowerBudgetSystem.cs"),
+                Path.Combine(coreDir!, "Systems", "PowerBudgetConstants.cs"),
+                Path.Combine(coreDir!, "Systems", "IPowerBudgetSystem.cs"),
+                Path.Combine(coreDir!, "Systems", "PowerSnapshot.cs"),
+            };
+
+            // The only Core/Modules/<Feature>/ namespace the oracle may import — ScoreId is a
+            // plain-data vocabulary key, not a domain system or options type.
+            const string allowlistedModuleNamespace = "using Hedron.Core.Modules.Stats;";
+
+            var violations = new List<string>();
+            foreach (var file in files)
+            {
+                if (!File.Exists(file)) continue;
+                foreach (var line in File.ReadAllLines(file))
+                {
+                    var trimmed = line.TrimStart();
+
+                    if (!trimmed.StartsWith("using Hedron.Core.Modules.", StringComparison.Ordinal))
+                        continue;
+
+                    if (trimmed == allowlistedModuleNamespace)
+                        continue;
+
+                    violations.Add($"{Path.GetFileName(file)}: '{line.Trim()}'");
+                }
+            }
+
+            Assert.True(
+                violations.Count == 0,
+                "INV-2 violated — the power-budget oracle must not import any Core/Modules/<Feature>/ " +
+                "domain type other than Hedron.Core.Modules.Stats (ScoreId). Violations:\n" +
+                string.Join("\n", violations));
+        }
+
         // ── DI smoke test ─────────────────────────────────────────────────────
 
         /// <summary>

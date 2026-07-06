@@ -54,6 +54,7 @@ using Hedron.Core.Modules.Effects.Events;
 using Hedron.Core.Modules.Effects.Handlers;
 using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Ascension;
+using Hedron.Core.Modules.BalanceInspection;
 using Hedron.Core.Modules.Progression;
 using Hedron.Core.Modules.Shopping;
 using Hedron.Core.Modules.Stats;
@@ -161,6 +162,7 @@ public static class CompositionRoot
         services.AddShoppingModule();
         services.AddProgressionModule();
         services.AddAscensionModule();
+        services.AddBalanceInspectionModule();
 
         return services;
     }

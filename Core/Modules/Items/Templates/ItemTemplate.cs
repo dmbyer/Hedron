@@ -37,6 +37,12 @@ namespace Hedron.Core.Modules.Items.Templates
         /// </summary>
         public long Value { get; set; } = 0;
 
+        /// <summary>
+        /// Optional Ascension tier-band tag (0-6). 0 = unbanded (default). Copied onto
+        /// <see cref="ItemDataComponent.TierBand"/> by <see cref="Apply"/>.
+        /// </summary>
+        public int TierBand { get; set; }
+
         public ItemTemplate(string blueprintId)
         {
             BlueprintId = blueprintId;
@@ -53,6 +59,7 @@ namespace Hedron.Core.Modules.Items.Templates
                 WornSlots = WornSlots.Count > 0 ? new List<WornSlot>(WornSlots) : null,
                 StatBonuses = new List<EquipmentStatBonus>(StatBonuses),
                 Value = Value,
+                TierBand = TierBand,
             });
         }
     }

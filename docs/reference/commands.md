@@ -492,9 +492,9 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none  
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/Items/Commands/SetitemCommand.cs`  
-**Description:** Sets a property on an existing item entity identified by blueprint id. Validates the blueprint id exists in `ITemplateRegistry`; resolves the live entity by `BlueprintComponent.BlueprintId`. Delegates mutation to `IItemBuilderSystem`. Saves the item entity immediately.  
+**Description:** Sets a property on an existing item entity identified by blueprint id. Validates the blueprint id exists in `ITemplateRegistry`; resolves the live entity by `BlueprintComponent.BlueprintId`. Delegates mutation to `IItemBuilderSystem`. Saves the item entity immediately. Properties: `name`, `description`, `keywords` (space-separated), `type`, `slot`, `value`, `bonus`, `clearbonus`, `band` (Ascension tier-band tag, prog-3).  
 **Usage:** `setitem <blueprintId> <property> [value]`  
-**Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`, `slot`, `bonus`, `clearbonus`), `RestOfLine string "value"` (optional — required for every property except `clearbonus`). For `keywords`, value is split on whitespace. For `type`, value must parse as `ItemType` enum. For `slot`, value is a space-separated list of `WornSlot` names (e.g. `mainhand`, `chest`, `legs`, `finger`, `wrist2`); an empty list clears `WornSlots`. For `bonus`, value is `<score> <amount>` where `<score>` is a `ScoreId` (e.g. `attackpower`, `defense`) and `<amount>` is an integer (0 removes that score's row; negative allowed for cursed gear) — add-or-replaces one worn-stat bonus row. `clearbonus` removes all bonus rows and takes no value.  
+**Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`, `slot`, `value`, `bonus`, `clearbonus`, `band`), `RestOfLine string "value"` (optional — required for every property except `clearbonus`). For `keywords`, value is split on whitespace. For `type`, value must parse as `ItemType` enum. For `slot`, value is a space-separated list of `WornSlot` names (e.g. `mainhand`, `chest`, `legs`, `finger`, `wrist2`); an empty list clears `WornSlots`. For `value`, value must be a non-negative integer (base-unit Coin; 0 = valueless/non-saleable). For `bonus`, value is `<score> <amount>` where `<score>` is a `ScoreId` (e.g. `attackpower`, `defense`) and `<amount>` is an integer (0 removes that score's row; negative allowed for cursed gear) — add-or-replaces one worn-stat bonus row. `clearbonus` removes all bonus rows and takes no value. For `band`, value must be an integer `0`–`6` (0 = unbanded); dual-writes the live `ItemDataComponent.TierBand` and `ItemTemplate.TierBand`.  
 **Events:** `ItemPropertySetByAdminEvent`
 
 ---
@@ -680,6 +680,32 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Usage:** `teleport <roomBlueprintId|playerName>`  
 **Schema:** `Token string "target"` (required)  
 **Events:** `PlayerTeleportedByAdminEvent`
+
+---
+
+### `power`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/BalanceInspection/Commands/PowerCommand.cs`  
+**Description:** Resolves a runtime-in-world target — self (default, or `self`/`me`), an item in the invoker's inventory/room, or a mob in the invoker's room — to a score snapshot, then prints the target's computed power scalar and classified tier band (0–6) via `IPowerBudgetSystem`. Self reads `IStatSystem.Get` per `ScoreId` (folds worn gear/abilities/progression/tier); an item reads its `ItemDataComponent.StatBonuses` in isolation (tier = the item's authored `TierBand`); a mob reads its effective scores (tier = the mob's authored `TierBand`). For a banded target, echoes the authored band alongside the computed one. Blueprint-id/template resolution is deferred to the Blazor editor readout.  
+**Usage:** `power [target]`  
+**Schema:** `RestOfLine string "target"` (optional — omit for self)  
+**Events:** none  
+**RequiredPrivileges:** `AdminRequirement`
+
+---
+
+### `powerband`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/BalanceInspection/Commands/PowerbandCommand.cs`  
+**Description:** With no argument, lists every tier power band (0–6) with its lower anchor. With a tier argument, prints that band's anchor and the reference base build's power at that tier. Anchors are derived from `PowerBudgetConstants.ReferenceBaseScores` (a constant mirroring `CharacterDefaultsOptions`) via `IPowerBudgetSystem.BandAnchor` — not hand-authored ranges.  
+**Usage:** `powerband [tier]`  
+**Schema:** `Token string "tier"` (optional — 0–6; omit to list every band)  
+**Events:** none  
+**RequiredPrivileges:** `AdminRequirement`
 
 ---
 
