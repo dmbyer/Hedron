@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hedron-web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "Hedron.Web"],
+      "port": 5050
+    }
+  ]
+}

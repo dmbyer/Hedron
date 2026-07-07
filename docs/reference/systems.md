@@ -568,9 +568,9 @@ public sealed record ShopSellResult(bool Success, long Price, CurrencyId Currenc
 Buy-back pricing: `Acquired` items (sold by a player) cost `Value × SellRatio` on buy-back (what the shop paid), not `Value × BuyRatio`. `TryResolveSell` carries the clock-derived `ExpiresAt` so the calling command stamps it onto `ShopStockComponent` (INV-8). `PlanRestock` ignores `Acquired` items (top-up semantics). `FindExpired` uses `<= nowUtc` boundary. Registered as a singleton in `ShoppingModule.AddShoppingModule`. Implemented (shopping slice 12c WP-2).
 
 ### ProgressionSystem / IProgressionSystem (Progression module)
-**Purpose:** Use-driven per-track XP accrual and threshold-improvement resolution (gameplay-model Spine E). Tracks are keyed directly by `ScoreId` — no parallel key type. `AwardExperience` adds to cumulative XP (no-op if ≤ 0); `TryImprove` loops while cumulative XP ≥ the next cumulative threshold (`ThresholdBase + improvementCount × ThresholdIncrement`), incrementing once per crossing. `AwardCombatExperience` computes a killer-vs-victim anti-grind scale from **raw** `AttributesComponent` fields (not `IStatSystem` — see below), rolls a randomized per-track base amount via `IRandom` when the scale is non-zero, and awards each combat track. INV-5: returns result records only; never touches the event bus.
+**Purpose:** Use-driven per-track XP accrual and threshold-improvement resolution (gameplay-model Spine E). Tracks are keyed directly by `ScoreId` — no parallel key type. `AwardExperience` adds to cumulative XP (no-op if ≤ 0); `TryImprove` loops while cumulative XP ≥ the next cumulative threshold (`ThresholdBase + improvementCount × ThresholdIncrement`), incrementing once per crossing. `AwardCombatExperience` computes a killer-vs-victim anti-grind scale from a **raw-attribute** `PowerSnapshot` run through `IPowerBudgetSystem.Estimate` (not `IStatSystem` — see below), rolls a randomized per-track base amount via `IRandom` when the scale is non-zero, and awards each combat track. INV-5: returns result records only; never touches the event bus.
 **Location:** `Core/Modules/Progression/Systems/IProgressionSystem.cs` · `ProgressionSystem.cs` · `Core/Modules/Progression/ProgressionConstants.cs`
-**Dependencies:** `EntityService`, `IRandom`.
+**Dependencies:** `EntityService`, `IRandom`, `IPowerBudgetSystem`.
 ```csharp
 public interface IProgressionSystem
 {
@@ -583,7 +583,21 @@ public interface IProgressionSystem
     IReadOnlyList<ScoreId> GetTrackedScores(uint entityId);
 }
 ```
-**Not `IStatSystem`:** the anti-grind proxy deliberately reads raw attributes instead of the effect-folded value — going through `IStatSystem` would close a DI cycle back through `ProgressionEffectContributor` (below), which itself depends on `IProgressionSystem`. See [`../features/progression/progression-system.md`](../features/progression/progression-system.md#anti-grind-proxy-reads-raw-attributes). A deliberate, temporary proxy — the slice-3 `IPowerBudgetSystem` oracle replaces it. Registered as a singleton in `ProgressionModule.AddProgressionModule`. Implemented (progression-substrate slice prog-1).
+**Not `IStatSystem`:** the anti-grind proxy deliberately reads raw attributes instead of the effect-folded value — going through `IStatSystem` would close a DI cycle back through `ProgressionEffectContributor` (below), which itself depends on `IProgressionSystem`. See [`../features/progression/progression-system.md`](../features/progression/progression-system.md#anti-grind-proxy-reads-raw-attributes). Injecting `IPowerBudgetSystem` (a **core** system) introduces no cycle — the guard is that the snapshot values stay raw, not that the oracle is un-injected. Registered as a singleton in `ProgressionModule.AddProgressionModule`. Implemented (progression-substrate slice prog-1; anti-grind rewired onto `IPowerBudgetSystem` in slice prog-3).
+
+### PowerBudgetSystem / IPowerBudgetSystem (Core/Systems — core-tier)
+**Purpose:** Generic, core-tier (INV-2) power-budget oracle: given a caller-supplied `PowerSnapshot` (`ScoreId → int`, never an entity id, never an internal `IStatSystem` call), `Estimate` returns a weighted-sum power scalar over `PowerBudgetConstants.Weights` plus (when `tier` is positive) the tier-baseline contribution for `PowerBudgetConstants.TrackedScores` (mirrors the Ascension tier baseline); `Classify` maps a power scalar to the highest tier band (0–`PowerBudgetConstants.MaxTier`) whose `BandAnchor` is at or below it (floors to band 0). Bands are derived — anchored at `Estimate(PowerBudgetConstants.ReferenceBaseScores, tier) − BandSpan` — not hand-authored ranges. Pure, deterministic math; no `IRandom`/`IClock` seam needed (INV-26). One function serves three live consumers (INV-19): the `power`/`powerband` inspectors, the `ItemEditor`/`MobEditor` Blazor readout, and the `ProgressionSystem` anti-grind proxy.
+**Location:** `Core/Systems/IPowerBudgetSystem.cs` · `PowerBudgetSystem.cs` · `PowerBudgetConstants.cs` · `PowerSnapshot.cs`
+**Dependencies:** none — takes zero constructor parameters; every input is a static balance constant or the caller-supplied `PowerSnapshot`. Never depends on the domain `Account` module (`CharacterDefaultsOptions`) or the domain `Ascension` module (`AscensionConstants`) — the reference base build and the tier-band constants (`MaxTier`/`TierBaselineStep`/`TrackedScores`) are mirrored as co-located constants instead (INV-2).
+```csharp
+public interface IPowerBudgetSystem
+{
+    int Estimate(PowerSnapshot snapshot, int tier = 0);
+    int Classify(int power);
+    int BandAnchor(int tier);
+}
+```
+Registered as a singleton in `BalanceInspectionModule.AddBalanceInspectionModule` (called from `CompositionRoot`, not `Program.cs`, so the `Hedron.Web` host can resolve it for the editor readout). Implemented (power-budget-inspector slice prog-3).
 
 ### ProgressionEffectContributor (Progression module)
 **Purpose:** The INV-24 contribute-on-read fold for progression power — a third registrant on the core-owned `IEffectContributor` port alongside `EquipmentEffectContributor` and `AbilityEffectContributor`. `GetModifiers` returns `PowerPerImprovement × improvementCount(score)`, pulled fresh from `IProgressionSystem` on every call — never stored, never cached. `GetActive` yields a synthetic `WhileKnown` effect per improved track for display parity.

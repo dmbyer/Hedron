@@ -35,6 +35,15 @@ namespace Hedron.Core.Modules.Items.Systems
         /// (non-negative guard) lives at the command edge.
         /// </summary>
         void SetItemValue(uint itemEntityId, long value);
+
+        /// <summary>
+        /// Dual-writes the Ascension tier-band tag (<c>0</c>&#8211;<c>6</c>) onto the live
+        /// <see cref="Hedron.Core.ECS.Components.ItemDataComponent.TierBand"/> and
+        /// <see cref="Templates.ItemTemplate.TierBand"/>. Callers (<c>SetitemCommand</c>)
+        /// range-validate before calling. Mirrors <c>IMobBuilderSystem.SetMobBand</c>.
+        /// INV-5: does not publish events or call persistence.
+        /// </summary>
+        void SetItemBand(uint itemEntityId, int tierBand);
     }
 
     /// <summary>Result of <see cref="IItemBuilderSystem.CreateItem"/>.</summary>

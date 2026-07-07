@@ -34,5 +34,15 @@ namespace Hedron.Core.ECS.Components
         /// read time by consumers (e.g. the shop system) — never stored separately.
         /// </summary>
         public long Value { get; set; } = 0;
+
+        /// <summary>
+        /// Ascension tier-band tag, <c>0</c>&#8211;<c>6</c> (0 = unbanded). Authored on
+        /// <c>ItemTemplate</c>/YAML, mirroring <c>MobDataComponent.TierBand</c>; used only for the
+        /// authored-vs-computed comparison in the <c>power</c> inspector / Blazor readout — not a
+        /// power multiplier. World-spawn items never carry <c>PersistentEntity</c>, so despite
+        /// this component being <c>[Persistent]</c>, the band never reaches a snapshot for world
+        /// content; its durable form is the YAML template, re-applied on each spawn.
+        /// </summary>
+        public int TierBand { get; set; }
     }
 }

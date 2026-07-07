@@ -52,6 +52,8 @@ namespace Hedron.Core.Output
                 EquipmentDisplayMessage m => FormatEquipmentDisplay(m, color),
                 ScoreDisplayMessage m     => FormatScore(m, color),
                 ProgressDisplayMessage m  => FormatProgress(m, color),
+                PowerReadoutMessage m     => FormatPowerReadout(m, color),
+                PowerbandMessage m        => FormatPowerband(m, color),
                 EffectDisplayMessage m      => m.Format(),
                 AbilityDisplayMessage m    => m.Format(),
                 PromptMessage m           => FormatPrompt(m, color),
@@ -223,6 +225,35 @@ namespace Hedron.Core.Output
                 sb.AppendLine($"  {row.Track,-10}: improvements {row.ImprovementCount,-4} xp {row.CumulativeXp,-6} (next in {row.XpToNextThreshold})");
             }
 
+            return sb.ToString().TrimEnd();
+        }
+
+        private string FormatPowerReadout(PowerReadoutMessage m, bool color)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(ApplyColor($"<system>Power: {m.TargetLabel}</system>", color));
+            sb.AppendLine($"  Power : {m.Power}");
+            sb.Append($"  Band  : {m.Band}");
+            if (m.AuthoredBand.HasValue)
+            {
+                sb.Append(m.AuthoredBand.Value == m.Band
+                    ? $"  (authored: {m.AuthoredBand.Value}, matches)"
+                    : $"  (authored: {m.AuthoredBand.Value}, MISMATCH)");
+            }
+            return sb.ToString();
+        }
+
+        private string FormatPowerband(PowerbandMessage m, bool color)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(ApplyColor("<system>Power bands</system>", color));
+            foreach (var row in m.Rows)
+            {
+                sb.Append($"  Tier {row.Tier}: anchor {row.Anchor}");
+                if (m.Rows.Count == 1)
+                    sb.Append($"  (reference power {row.ReferenceEstimate})");
+                sb.AppendLine();
+            }
             return sb.ToString().TrimEnd();
         }
 

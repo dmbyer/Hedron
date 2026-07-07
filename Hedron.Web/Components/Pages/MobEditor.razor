@@ -4,8 +4,11 @@
 @using Hedron.Core.Modules.Economy
 @using Hedron.Core.Modules.Mobs.Templates
 @using Hedron.Core.Modules.Shopping.Components
+@using Hedron.Core.Modules.Stats
+@using Hedron.Core.Systems
 @inject IContentDefinitionCatalog Catalog
 @inject NavigationManager Nav
+@inject IPowerBudgetSystem PowerBudget
 
 <PageTitle>@(IsNew ? "New mob" : "Edit mob")</PageTitle>
 
@@ -160,6 +163,17 @@ else if (_template is not null)
         </div>
     </fieldset>
 
+    <fieldset class="power-readout">
+        <legend>Power (computed)</legend>
+        <p class="hint">Computed from this mob's authored attributes/pools + tier band via the power-budget oracle — the same math the in-game <code>power</code> inspector uses.</p>
+        <p>Power: <strong>@ComputedPower</strong> &mdash; Band: <strong>@ComputedBand</strong>
+            @if (_template.TierBand != ComputedBand)
+            {
+                <span class="warning-inline">(authored band @_template.TierBand does not match computed band @ComputedBand)</span>
+            }
+        </p>
+    </fieldset>
+
     <fieldset class="currency-loot">
         <legend>Currency loot</legend>
         <p class="hint">Base units (copper). 100 = 1 gold. Leave both at 0 for no currency drop (opt-in default).</p>
@@ -310,6 +324,28 @@ else if (_template is not null)
         _spawnAreaFilter = value ?? string.Empty;
 
     private bool IsNew => string.IsNullOrEmpty(BlueprintId);
+
+    // Snapshot built from the authored template's scores — never IStatSystem.Get, since the
+    // editor operates on YAML templates with no live entity (see power-budget-inspector.md).
+    // Mirrors IStatSystem's base derivations (AttackPower = Body/2, Defense = Body/4).
+    private int ComputedPower =>
+        _template is null
+            ? 0
+            : PowerBudget.Estimate(new PowerSnapshot(new Dictionary<ScoreId, int>
+            {
+                [ScoreId.Mind] = _template.Mind,
+                [ScoreId.Body] = _template.Body,
+                [ScoreId.Spirit] = _template.Spirit,
+                [ScoreId.Attunement] = _template.Attunement,
+                [ScoreId.HpMax] = _template.MaxHp,
+                [ScoreId.ManaMax] = _template.MaxMana,
+                [ScoreId.StaminaMax] = _template.MaxStamina,
+                [ScoreId.AstraMax] = _template.MaxAstra,
+                [ScoreId.AttackPower] = _template.Body / 2,
+                [ScoreId.Defense] = _template.Body / 4,
+            }), _template.TierBand);
+
+    private int ComputedBand => PowerBudget.Classify(ComputedPower);
 
     protected override void OnParametersSet()
     {

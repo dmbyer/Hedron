@@ -4,6 +4,7 @@ using Hedron.Core.Modules.Progression;
 using Hedron.Core.Modules.Progression.Components;
 using Hedron.Core.Modules.Progression.Systems;
 using Hedron.Core.Modules.Stats;
+using Hedron.Core.Systems;
 using Hedron.Tests.Harness;
 using Xunit;
 
@@ -20,7 +21,7 @@ namespace Hedron.Tests.Progression
         private static (ProgressionSystem System, EntityService Ecs) CreateSystem(FakeRandom rng)
         {
             var ecs = new EntityService();
-            var system = new ProgressionSystem(ecs, rng);
+            var system = new ProgressionSystem(ecs, rng, new PowerBudgetSystem());
             return (system, ecs);
         }
 
@@ -156,6 +157,36 @@ namespace Hedron.Tests.Progression
 
             // amount = round(10 * 1.5) = 15
             Assert.All(result.Tracks, row => Assert.Equal(15, row.AmountAwarded));
+        }
+
+        // ── Anti-grind rewire (power-budget-inspector WP-2, P9) ──────────────────
+
+        [Fact]
+        public void AwardCombatExperience_ignores_worn_gear_and_uses_only_raw_attributes()
+        {
+            // GetEffectivePower's snapshot must come from raw AttributesComponent fields, never
+            // IStatSystem.Get — reading the effect-folded value would recreate the DI cycle this
+            // proxy exists to avoid (see ProgressionSystem.GetEffectivePower). A killer with heavily
+            // buffed gear but the SAME raw attributes as the victim must still read as a peer
+            // (full base award), not as inflated by the gear.
+            var rng = new FakeRandom(new[] { 10, 10 });
+            var (system, ecs) = CreateSystem(rng);
+            var killer = CreateEntity(ecs, mind: 25, body: 25, spirit: 25, attunement: 25);
+            var victim = CreateEntity(ecs, mind: 25, body: 25, spirit: 25, attunement: 25);
+
+            var weapon = ecs.CreateEntity().Id;
+            ecs.AddComponent(weapon, new Hedron.Core.ECS.Components.ItemDataComponent
+            {
+                StatBonuses = { new Hedron.Core.ECS.Components.EquipmentStatBonus(ScoreId.AttackPower, 500) },
+            });
+            ecs.AddComponent(killer, new Hedron.Core.ECS.Components.EquipmentComponent
+            {
+                Slots = { [Hedron.Core.WornSlot.MainHand] = weapon },
+            });
+
+            var result = system.AwardCombatExperience(killer, victim);
+
+            Assert.All(result.Tracks, row => Assert.Equal(10, row.AmountAwarded));
         }
 
         // ── Determinism (INV-26) ─────────────────────────────────────────────────

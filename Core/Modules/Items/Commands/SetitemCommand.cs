@@ -38,8 +38,9 @@ namespace Hedron.Core.Modules.Items.Commands
             "Valid slots (space-separated): mainhand, offhand, head, chest, feet, legs, hands, arms, waist, neck, finger, finger2, wrist, wrist2. " +
             "value <n> sets the item's intrinsic base-unit coin value (non-negative integer; 0 = valueless/non-saleable). " +
             "bonus <score> <amount> adds or replaces a worn stat bonus (amount 0 removes that score; negative is allowed for cursed gear); " +
-            "clearbonus removes all bonuses. Valid scores: attackpower, defense (any score id).";
-        public string Usage => "setitem <blueprintId> <property> [value]  (properties: name, description, keywords, type, slot, value, bonus, clearbonus)";
+            "clearbonus removes all bonuses. Valid scores: attackpower, defense (any score id). " +
+            "band (Ascension tier-band tag, integer 0-6, 0 = unbanded).";
+        public string Usage => "setitem <blueprintId> <property> [value]  (properties: name, description, keywords, type, slot, value, bonus, clearbonus, band)";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
         public CommandArgumentSchema ArgumentSchema { get; } = new(new[]
@@ -197,9 +198,20 @@ namespace Hedron.Core.Modules.Items.Commands
                     _itemBuilder.ClearItemStatBonuses(itemEntityId);
                     break;
 
+                case "band":
+                    if (!int.TryParse(value, out var tierBand) || tierBand < 0 || tierBand > 6)
+                    {
+                        await context.Output.WriteAsync(new PlainMessage(
+                            "Tier band must be an integer 0-6 (0 = unbanded).",
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
+                        return;
+                    }
+                    _itemBuilder.SetItemBand(itemEntityId, tierBand);
+                    break;
+
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
-                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, slot, value, bonus, clearbonus.",
+                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, slot, value, bonus, clearbonus, band.",
                         OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
             }

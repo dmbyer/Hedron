@@ -7,6 +7,7 @@ using Hedron.Core.Modules.Progression.Events;
 using Hedron.Core.Modules.Progression.Handlers;
 using Hedron.Core.Modules.Progression.Systems;
 using Hedron.Core.Modules.Stats;
+using Hedron.Core.Systems;
 using Hedron.Tests.Harness;
 using Xunit;
 
@@ -30,7 +31,7 @@ namespace Hedron.Tests.Progression
             public TestWorld(FakeRandom rng)
             {
                 Ecs = new EntityService();
-                Progression = new ProgressionSystem(Ecs, rng);
+                Progression = new ProgressionSystem(Ecs, rng, new PowerBudgetSystem());
                 Bus = new RecordingEventBus(dispatch: false);
                 Handler = new ExperienceAwardHandler(Progression, Bus);
             }

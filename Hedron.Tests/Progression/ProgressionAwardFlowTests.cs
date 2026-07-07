@@ -20,6 +20,7 @@ using Hedron.Core.Modules.Progression.Systems;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.Stats.Systems;
 using Hedron.Core.Output;
+using Hedron.Core.Systems;
 using Hedron.Tests.Harness;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -63,7 +64,7 @@ namespace Hedron.Tests.Progression
             {
                 Ecs = new EntityService();
 
-                Progression = new ProgressionSystem(Ecs, rng);
+                Progression = new ProgressionSystem(Ecs, rng, new PowerBudgetSystem());
                 var contributor = new ProgressionEffectContributor(Progression);
                 var effects = new EffectSystem(Ecs, new IEffectContributor[] { contributor });
                 var deathOpts = Options.Create(new DeathOptions { HpFloor = -10 });

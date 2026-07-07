@@ -8,6 +8,7 @@ using Hedron.Core.Modules.Progression;
 using Hedron.Core.Modules.Progression.Systems;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.Stats.Systems;
+using Hedron.Core.Systems;
 using Hedron.Tests.Harness;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -34,7 +35,7 @@ namespace Hedron.Tests.Progression
         {
             public ProgressionEffectContributorSeam(EntityService ecs, FakeRandom rng, out IProgressionSystem progression, out IStatSystem stats)
             {
-                progression = new ProgressionSystem(ecs, rng);
+                progression = new ProgressionSystem(ecs, rng, new PowerBudgetSystem());
 
                 var contributor = new ProgressionEffectContributor(progression);
                 var effects = new EffectSystem(ecs, new IEffectContributor[] { contributor });

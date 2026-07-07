@@ -586,5 +586,41 @@ namespace Hedron.Tests.Authoring
             var comp = ecs.Get<ItemDataComponent>(entity.Id);
             Assert.Equal(5000L, comp.Value);
         }
+
+        // ── SetItemBand — dual-write (power-budget-inspector WP3) ────────────────
+
+        [Fact]
+        public void SetItemBand_updates_ItemDataComponent_on_live_entity()
+        {
+            var (sys, ecs, _) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateItem("Banded Sword", roomId);
+
+            sys.SetItemBand(result.ItemEntityId, 3);
+
+            var item = ecs.Get<ItemDataComponent>(result.ItemEntityId);
+            Assert.Equal(3, item.TierBand);
+        }
+
+        [Fact]
+        public void SetItemBand_updates_template_in_registry()
+        {
+            var (sys, ecs, registry) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateItem("Banded Shield", roomId);
+
+            sys.SetItemBand(result.ItemEntityId, 4);
+
+            registry.TryGet(result.BlueprintId, out var template);
+            var itemTemplate = Assert.IsType<ItemTemplate>(template);
+            Assert.Equal(4, itemTemplate.TierBand);
+        }
+
+        [Fact]
+        public void SetItemBand_is_noop_for_unknown_entity()
+        {
+            var (sys, _, _) = Build();
+            sys.SetItemBand(99999u, 2);
+        }
     }
 }

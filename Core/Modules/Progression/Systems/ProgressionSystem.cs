@@ -13,11 +13,13 @@ namespace Hedron.Core.Modules.Progression.Systems
     {
         private readonly EntityService _entityService;
         private readonly IRandom _random;
+        private readonly IPowerBudgetSystem _powerBudget;
 
-        public ProgressionSystem(EntityService entityService, IRandom random)
+        public ProgressionSystem(EntityService entityService, IRandom random, IPowerBudgetSystem powerBudget)
         {
             _entityService = entityService;
             _random = random;
+            _powerBudget = powerBudget;
         }
 
         public AwardOutcome AwardExperience(uint entityId, ScoreId track, int amount, XpSource source)
@@ -106,8 +108,9 @@ namespace Hedron.Core.Modules.Progression.Systems
         private static int NextThreshold(int currentImprovementCount)
             => ProgressionConstants.ThresholdBase + currentImprovementCount * ProgressionConstants.ThresholdIncrement;
 
-        // Anti-grind proxy (backlog: replaced by IPowerBudgetSystem in slice 3). Below the floor
-        // ratio the award rounds to zero; above 1.0 the scale is capped, never granting a windfall.
+        // Anti-grind scale — GetEffectivePower below builds the raw-attribute snapshot
+        // IPowerBudgetSystem.Estimate scores. Below the floor ratio the award rounds to zero;
+        // above 1.0 the scale is capped, never granting a windfall.
         private static double ComputeAntiGrindScale(int victimPower, int killerPower)
         {
             if (killerPower <= 0)
@@ -122,13 +125,22 @@ namespace Hedron.Core.Modules.Progression.Systems
 
         // Raw base attributes, not IStatSystem.Get — reading the effect-folded value here would
         // create a DI cycle (StatSystem -> EffectSystem -> contributors -> ProgressionEffectContributor
-        // -> IProgressionSystem -> ProgressionSystem -> IStatSystem). Acceptable for a coarse,
-        // one-method anti-grind proxy (backlog: replaced wholesale by IPowerBudgetSystem in slice 3).
+        // -> IProgressionSystem -> ProgressionSystem -> IStatSystem). IPowerBudgetSystem is a core
+        // system with no such cycle — the guard is that the *snapshot values* stay raw, not that
+        // the oracle is un-injected.
         private int GetEffectivePower(uint entityId)
         {
             if (!_entityService.TryGet<AttributesComponent>(entityId, out var attrs))
                 return 0;
-            return attrs.Mind + attrs.Body + attrs.Spirit + attrs.Attunement;
+
+            var snapshot = new PowerSnapshot(new Dictionary<ScoreId, int>
+            {
+                [ScoreId.Mind] = attrs.Mind,
+                [ScoreId.Body] = attrs.Body,
+                [ScoreId.Spirit] = attrs.Spirit,
+                [ScoreId.Attunement] = attrs.Attunement,
+            });
+            return _powerBudget.Estimate(snapshot);
         }
 
         private void EnsureComponent(uint entityId, out ProgressionComponent comp)
