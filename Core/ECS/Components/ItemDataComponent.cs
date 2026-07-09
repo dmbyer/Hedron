@@ -36,13 +36,22 @@ namespace Hedron.Core.ECS.Components
         public long Value { get; set; } = 0;
 
         /// <summary>
-        /// Ascension tier-band tag, <c>0</c>&#8211;<c>6</c> (0 = unbanded). Authored on
-        /// <c>ItemTemplate</c>/YAML, mirroring <c>MobDataComponent.TierBand</c>; used only for the
-        /// authored-vs-computed comparison in the <c>power</c> inspector / Blazor readout — not a
-        /// power multiplier. World-spawn items never carry <c>PersistentEntity</c>, so despite
-        /// this component being <c>[Persistent]</c>, the band never reaches a snapshot for world
-        /// content; its durable form is the YAML template, re-applied on each spawn.
+        /// Authored Ascension tier tag, <c>0</c>&#8211;<c>6</c> (0 = unbanded/base). Mechanical
+        /// power comes from the Ascension additive baseline, not this tag &#8212; it exists only
+        /// for the authored-vs-computed comparison in the <c>power</c> inspector / Blazor readout.
+        /// Authored on <c>ItemTemplate</c>/YAML, mirroring <c>MobDataComponent.Tier</c>. World-spawn
+        /// items never carry <c>PersistentEntity</c>, so despite this component being
+        /// <c>[Persistent]</c>, the tag never reaches a snapshot for world content; its durable form
+        /// is the YAML template, re-applied on each spawn.
         /// </summary>
-        public int TierBand { get; set; }
+        public int Tier { get; set; }
+
+        /// <summary>
+        /// Authored descriptive Band tag, <c>0</c>&#8211;<c>3</c> (0 = unbanded, 1-3 = low/mid/high
+        /// within <see cref="Tier"/>). Purely descriptive — grants no power, gates nothing. Paired
+        /// with <see cref="Tier"/> as the Tier×Band classification (see
+        /// <c>docs/design/power-model.md</c>); same persistence/durability notes as <see cref="Tier"/>.
+        /// </summary>
+        public int Band { get; set; }
     }
 }

@@ -45,11 +45,19 @@ namespace Hedron.Core.Modules.Mobs.Templates
         public ProtectionFlags Protection { get; set; } = ProtectionFlags.None;
 
         /// <summary>
-        /// Ascension tier-band tag, <c>0</c>&#8211;<c>6</c> (0 = unbanded, the default). Range-validated
-        /// by <c>setmob band</c>. Durable form is YAML (this template); <c>MobDataComponent.TierBand</c>
+        /// Ascension tier tag, <c>0</c>&#8211;<c>6</c> (0 = unbanded/base, the default). Range-validated
+        /// by <c>setmob tier</c>. Durable form is YAML (this template); <c>MobDataComponent.Tier</c>
         /// is re-applied from here on each spawn (mob entities never carry <c>PersistentEntity</c>).
         /// </summary>
-        public int TierBand { get; set; } = 0;
+        public int Tier { get; set; } = 0;
+
+        /// <summary>
+        /// Descriptive Band tag, <c>0</c>&#8211;<c>3</c> (0 = unbanded, the default; 1-3 = low/mid/high
+        /// within <see cref="Tier"/>). Purely descriptive — grants no power. Range-validated by
+        /// <c>setmob band</c>. Durable form is YAML; <c>MobDataComponent.Band</c> is re-applied from
+        /// here on each spawn.
+        /// </summary>
+        public int Band { get; set; } = 0;
 
         // ── Shop fields (WP-1) ───────────────────────────────────────────────────
 
@@ -98,7 +106,8 @@ namespace Hedron.Core.Modules.Mobs.Templates
                 Description = Description,
                 Keywords = new List<string>(Keywords),
                 MobType = MobType,
-                TierBand = TierBand,
+                Tier = Tier,
+                Band = Band,
             });
 
             var level = Level > 0 ? Level : 1;

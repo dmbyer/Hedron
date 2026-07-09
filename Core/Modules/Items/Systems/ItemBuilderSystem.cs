@@ -141,12 +141,20 @@ namespace Hedron.Core.Modules.Items.Systems
             if (tpl is not null) tpl.Value = value;
         }
 
-        public void SetItemBand(uint itemEntityId, int tierBand)
+        public void SetItemTier(uint itemEntityId, int tier)
         {
             if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-                item.TierBand = tierBand;
+                item.Tier = tier;
             var tpl = TryGetTemplate(itemEntityId);
-            if (tpl is not null) tpl.TierBand = tierBand;
+            if (tpl is not null) tpl.Tier = tier;
+        }
+
+        public void SetItemBand(uint itemEntityId, int band)
+        {
+            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
+                item.Band = band;
+            var tpl = TryGetTemplate(itemEntityId);
+            if (tpl is not null) tpl.Band = band;
         }
 
         // Keep one row per ScoreId: drop any existing row for this score, then add the new one

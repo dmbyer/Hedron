@@ -17,14 +17,20 @@ namespace Hedron.Core.Systems
         /// <c>HpMax</c>, <c>AttackPower</c>, <c>Defense</c>) carry meaningful positive weights;
         /// pools and current-value scores carry light-or-zero weights (P2). A score with no
         /// entry contributes 0. Heuristic and tunable — not a precise truth.
+        /// Recalibrated for the Tier×Band revision (slice prog-3b): <c>Body</c>/<c>HpMax</c> —
+        /// the two <see cref="TrackedScores"/> the tier baseline applies to — carry higher weight
+        /// so the per-tier power step (<see cref="TierBaselineStep"/> × these weights) comfortably
+        /// exceeds <c>3 × <see cref="BandSpan"/></c>, giving the 3-band subdivision (see
+        /// <c>docs/design/power-model.md</c>) real headroom to spread across. Oracle-estimation
+        /// only — does not touch <c>AscensionConstants</c>/gameplay power (deferred to prog-4).
         /// </summary>
         public static readonly IReadOnlyDictionary<ScoreId, int> Weights = new Dictionary<ScoreId, int>
         {
             [ScoreId.Mind] = 1,
-            [ScoreId.Body] = 5,
+            [ScoreId.Body] = 10,
             [ScoreId.Spirit] = 1,
             [ScoreId.Attunement] = 1,
-            [ScoreId.HpMax] = 1,
+            [ScoreId.HpMax] = 2,
             [ScoreId.ManaMax] = 0,
             [ScoreId.StaminaMax] = 0,
             [ScoreId.AstraMax] = 0,
@@ -32,17 +38,26 @@ namespace Hedron.Core.Systems
             [ScoreId.ManaCurrent] = 0,
             [ScoreId.StaminaCurrent] = 0,
             [ScoreId.AstraCurrent] = 0,
-            [ScoreId.AttackPower] = 5,
-            [ScoreId.Defense] = 5,
+            [ScoreId.AttackPower] = 8,
+            [ScoreId.Defense] = 8,
         };
 
         /// <summary>
         /// Width of the deliberate overlap between adjacent tier bands (Ascension semantics — a
         /// maxed lower-tier build can reach into the next band before formally ascending). Must
-        /// stay below the per-tier power step (<c>Σ weight[TrackedScores] × TierBaselineStep</c>)
-        /// or bands would stop being strictly ordered.
+        /// stay below a third of the per-tier power step (<c>Σ weight[TrackedScores] ×
+        /// TierBaselineStep</c>) — <c>BandSpan &lt; tierSpan / BandsPerTier</c> — or the 3-band
+        /// subdivision would stop being strictly ordered. With the recalibrated <see cref="Weights"/>
+        /// the per-tier step is 120, so 20 leaves each 40-wide band comfortable headroom.
         /// </summary>
-        public const int BandSpan = 30;
+        public const int BandSpan = 20;
+
+        /// <summary>
+        /// Number of descriptive bands (low/mid/high) each tier subdivides into. Fixed at 3 — the
+        /// "feels meaningful without introducing a whole leveling system" shape from the Tier×Band
+        /// revision (slice prog-3b); not a mirror of any domain constant.
+        /// </summary>
+        public const int BandsPerTier = 3;
 
         /// <summary>
         /// Constant snapshot mirroring the canonical new-character starting stat block

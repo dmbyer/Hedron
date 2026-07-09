@@ -165,7 +165,7 @@ namespace Hedron.Tests.Ascension
                 .AsMob("banded-trash")
                 .WithAttributes(body: 10 + AscensionConstants.TierBaselineStep)
                 .Build();
-            world.Ecs.Get<MobDataComponent>(mobId).TierBand = 1;
+            world.Ecs.Get<MobDataComponent>(mobId).Tier = 1;
 
             var playerScore = world.Stats.Get(playerId, ScoreId.Body);
             var mobScore = world.Stats.Get(mobId, ScoreId.Body);

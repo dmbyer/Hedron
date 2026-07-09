@@ -1,14 +1,16 @@
 using System.Collections.Generic;
+using Hedron.Core.Systems;
 
 namespace Hedron.Core.Output
 {
-    /// <summary>One tier band's row in the <c>powerband</c> command output.</summary>
-    public sealed record PowerBandRow(int Tier, int Anchor, int ReferenceEstimate);
+    /// <summary>One (Tier, Band) cell's row in the <c>powerband</c> command output.</summary>
+    public sealed record PowerBandRow(int Tier, int Band, PowerRange Range);
 
     /// <summary>
-    /// Carries the band-definition block written by the <c>powerband</c> command. With no tier
-    /// argument, <see cref="Rows"/> holds every band 0–<c>PowerBudgetConstants.MaxTier</c>; with a
-    /// tier argument, it holds exactly one row.
+    /// Carries the Tier×Band definition table written by the <c>powerband</c> command. With no
+    /// tier argument, <see cref="Rows"/> holds every cell (0&#8211;<c>PowerBudgetConstants.MaxTier</c>
+    /// × 1&#8211;<c>PowerBudgetConstants.BandsPerTier</c>, ~21 rows); with a tier argument, it holds
+    /// just that tier's <c>BandsPerTier</c> rows.
     /// </summary>
     public sealed record PowerbandMessage(IReadOnlyList<PowerBandRow> Rows) : IOutputMessage
     {

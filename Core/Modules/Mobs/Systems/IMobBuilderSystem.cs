@@ -30,12 +30,20 @@ namespace Hedron.Core.Modules.Mobs.Systems
         void SetMobProtection(uint mobEntityId, ProtectionFlags flags);
 
         /// <summary>
-        /// Dual-writes the Ascension tier-band tag (<c>0</c>&#8211;<c>6</c>) onto the live
-        /// <see cref="MobDataComponent.TierBand"/> and <see cref="MobTemplate.TierBand"/>.
+        /// Dual-writes the Ascension tier tag (<c>0</c>&#8211;<c>6</c>) onto the live
+        /// <see cref="MobDataComponent.Tier"/> and <see cref="MobTemplate.Tier"/>.
         /// Callers (<c>SetMobCommand</c>) range-validate before calling.
         /// INV-5: does not publish events or call persistence.
         /// </summary>
-        void SetMobBand(uint mobEntityId, int tierBand);
+        void SetMobTier(uint mobEntityId, int tier);
+
+        /// <summary>
+        /// Dual-writes the descriptive Band tag (<c>0</c>&#8211;<c>3</c>) onto the live
+        /// <see cref="MobDataComponent.Band"/> and <see cref="MobTemplate.Band"/>.
+        /// Callers (<c>SetMobCommand</c>) range-validate before calling.
+        /// INV-5: does not publish events or call persistence.
+        /// </summary>
+        void SetMobBand(uint mobEntityId, int band);
 
         /// <summary>
         /// Configures or removes the shop on a mob entity and its in-memory template.

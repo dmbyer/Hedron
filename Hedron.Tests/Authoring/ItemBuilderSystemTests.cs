@@ -587,7 +587,41 @@ namespace Hedron.Tests.Authoring
             Assert.Equal(5000L, comp.Value);
         }
 
-        // ── SetItemBand — dual-write (power-budget-inspector WP3) ────────────────
+        // ── SetItemTier / SetItemBand — dual-write (power-model-revision WP-B) ───
+
+        [Fact]
+        public void SetItemTier_updates_ItemDataComponent_on_live_entity()
+        {
+            var (sys, ecs, _) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateItem("Banded Sword", roomId);
+
+            sys.SetItemTier(result.ItemEntityId, 3);
+
+            var item = ecs.Get<ItemDataComponent>(result.ItemEntityId);
+            Assert.Equal(3, item.Tier);
+        }
+
+        [Fact]
+        public void SetItemTier_updates_template_in_registry()
+        {
+            var (sys, ecs, registry) = Build();
+            var roomId = MakeRoom(ecs);
+            var result = sys.CreateItem("Banded Shield", roomId);
+
+            sys.SetItemTier(result.ItemEntityId, 4);
+
+            registry.TryGet(result.BlueprintId, out var template);
+            var itemTemplate = Assert.IsType<ItemTemplate>(template);
+            Assert.Equal(4, itemTemplate.Tier);
+        }
+
+        [Fact]
+        public void SetItemTier_is_noop_for_unknown_entity()
+        {
+            var (sys, _, _) = Build();
+            sys.SetItemTier(99999u, 2);
+        }
 
         [Fact]
         public void SetItemBand_updates_ItemDataComponent_on_live_entity()
@@ -599,7 +633,7 @@ namespace Hedron.Tests.Authoring
             sys.SetItemBand(result.ItemEntityId, 3);
 
             var item = ecs.Get<ItemDataComponent>(result.ItemEntityId);
-            Assert.Equal(3, item.TierBand);
+            Assert.Equal(3, item.Band);
         }
 
         [Fact]
@@ -609,11 +643,11 @@ namespace Hedron.Tests.Authoring
             var roomId = MakeRoom(ecs);
             var result = sys.CreateItem("Banded Shield", roomId);
 
-            sys.SetItemBand(result.ItemEntityId, 4);
+            sys.SetItemBand(result.ItemEntityId, 2);
 
             registry.TryGet(result.BlueprintId, out var template);
             var itemTemplate = Assert.IsType<ItemTemplate>(template);
-            Assert.Equal(4, itemTemplate.TierBand);
+            Assert.Equal(2, itemTemplate.Band);
         }
 
         [Fact]

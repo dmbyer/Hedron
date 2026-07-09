@@ -39,8 +39,9 @@ namespace Hedron.Core.Modules.Items.Commands
             "value <n> sets the item's intrinsic base-unit coin value (non-negative integer; 0 = valueless/non-saleable). " +
             "bonus <score> <amount> adds or replaces a worn stat bonus (amount 0 removes that score; negative is allowed for cursed gear); " +
             "clearbonus removes all bonuses. Valid scores: attackpower, defense (any score id). " +
-            "band (Ascension tier-band tag, integer 0-6, 0 = unbanded).";
-        public string Usage => "setitem <blueprintId> <property> [value]  (properties: name, description, keywords, type, slot, value, bonus, clearbonus, band)";
+            "tier (Ascension tier tag, integer 0-6, 0 = unbanded/base). " +
+            "band (descriptive Band tag, integer 0-3, 0 = unbanded).";
+        public string Usage => "setitem <blueprintId> <property> [value]  (properties: name, description, keywords, type, slot, value, bonus, clearbonus, tier, band)";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
         public CommandArgumentSchema ArgumentSchema { get; } = new(new[]
@@ -198,20 +199,31 @@ namespace Hedron.Core.Modules.Items.Commands
                     _itemBuilder.ClearItemStatBonuses(itemEntityId);
                     break;
 
-                case "band":
-                    if (!int.TryParse(value, out var tierBand) || tierBand < 0 || tierBand > 6)
+                case "tier":
+                    if (!int.TryParse(value, out var tier) || tier < 0 || tier > 6)
                     {
                         await context.Output.WriteAsync(new PlainMessage(
-                            "Tier band must be an integer 0-6 (0 = unbanded).",
+                            "Tier must be an integer 0-6 (0 = unbanded/base).",
                             OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
-                    _itemBuilder.SetItemBand(itemEntityId, tierBand);
+                    _itemBuilder.SetItemTier(itemEntityId, tier);
+                    break;
+
+                case "band":
+                    if (!int.TryParse(value, out var band) || band < 0 || band > 3)
+                    {
+                        await context.Output.WriteAsync(new PlainMessage(
+                            "Band must be an integer 0-3 (0 = unbanded).",
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
+                        return;
+                    }
+                    _itemBuilder.SetItemBand(itemEntityId, band);
                     break;
 
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
-                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, slot, value, bonus, clearbonus, band.",
+                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, slot, value, bonus, clearbonus, tier, band.",
                         OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
             }

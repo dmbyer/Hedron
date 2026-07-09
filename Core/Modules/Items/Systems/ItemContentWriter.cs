@@ -56,7 +56,8 @@ namespace Hedron.Core.Modules.Items.Systems
                 SpawnRoomId = template.SpawnRoomBlueprintId,
                 StatBonuses = statBonuses,
                 Value = template.Value,
-                Band = template.TierBand != 0 ? template.TierBand : null,
+                Tier = template.Tier != 0 ? template.Tier : null,
+                Band = template.Band != 0 ? template.Band : null,
             };
 
             var body = _yaml.Serialize(dto);
@@ -78,6 +79,7 @@ namespace Hedron.Core.Modules.Items.Systems
             public string SpawnRoomId { get; set; } = string.Empty;
             public List<StatBonusDto>? StatBonuses { get; set; }
             public long Value { get; set; } = 0;
+            public int? Tier { get; set; }
             public int? Band { get; set; }
         }
 

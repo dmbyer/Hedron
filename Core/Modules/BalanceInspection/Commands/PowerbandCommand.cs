@@ -9,9 +9,10 @@ using Hedron.Core.Systems;
 namespace Hedron.Core.Modules.BalanceInspection.Commands
 {
     /// <summary>
-    /// Admin/designer command <c>powerband [tier]</c>. With no argument, lists every tier band's
-    /// lower anchor (0–<see cref="PowerBudgetConstants.MaxTier"/>); with a tier argument, prints that
-    /// band's anchor and the reference base build's power at that tier.
+    /// Admin/designer command <c>powerband [tier]</c>. With no argument, lists every
+    /// (Tier, Band) cell's target power range (0&#8211;<see cref="PowerBudgetConstants.MaxTier"/>
+    /// × 1&#8211;<see cref="PowerBudgetConstants.BandsPerTier"/>, ~21 rows); with a tier argument,
+    /// lists just that tier's <see cref="PowerBudgetConstants.BandsPerTier"/> rows.
     /// </summary>
     public sealed class PowerbandCommand : ICommand
     {
@@ -21,17 +22,17 @@ namespace Hedron.Core.Modules.BalanceInspection.Commands
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
         public CommandCategory Category => CommandCategory.Admin;
         public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
-        public string ShortDescription => "List tier power-band anchors.";
+        public string ShortDescription => "List Tier×Band target power ranges.";
         public string LongDescription =>
-            "With no argument, lists every tier band (0-6) with its lower power anchor. " +
-            "With a tier argument, prints that band's anchor and the reference base build's power at that tier.";
+            "With no argument, lists every (Tier, Band) cell (tiers 0-6, bands 1-3) with its target power range. " +
+            "With a tier argument, lists just that tier's three band rows.";
         public string Usage => "powerband [tier]";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
         public CommandArgumentSchema ArgumentSchema { get; } = new(new[]
         {
             new CommandArgument("tier", typeof(string), CommandArgumentKind.Token,
-                Required: false, "Tier (0-6) to inspect (omit to list every band)."),
+                Required: false, "Tier (0-6) to inspect (omit to list every tier)."),
         });
 
         public PowerbandCommand(IPowerBudgetSystem powerBudget)
@@ -45,9 +46,9 @@ namespace Hedron.Core.Modules.BalanceInspection.Commands
 
             if (string.IsNullOrWhiteSpace(tierArg))
             {
-                var rows = new List<PowerBandRow>(PowerBudgetConstants.MaxTier + 1);
+                var rows = new List<PowerBandRow>((PowerBudgetConstants.MaxTier + 1) * PowerBudgetConstants.BandsPerTier);
                 for (var tier = 0; tier <= PowerBudgetConstants.MaxTier; tier++)
-                    rows.Add(BuildRow(tier));
+                    rows.AddRange(BuildRows(tier));
 
                 await context.Output.WriteAsync(new PowerbandMessage(rows)).ConfigureAwait(false);
                 return;
@@ -62,15 +63,16 @@ namespace Hedron.Core.Modules.BalanceInspection.Commands
                 return;
             }
 
-            await context.Output.WriteAsync(new PowerbandMessage(new[] { BuildRow(requestedTier) }))
+            await context.Output.WriteAsync(new PowerbandMessage(BuildRows(requestedTier)))
                 .ConfigureAwait(false);
         }
 
-        private PowerBandRow BuildRow(int tier)
+        private List<PowerBandRow> BuildRows(int tier)
         {
-            var anchor = _powerBudget.BandAnchor(tier);
-            var referenceEstimate = _powerBudget.Estimate(new PowerSnapshot(PowerBudgetConstants.ReferenceBaseScores), tier);
-            return new PowerBandRow(tier, anchor, referenceEstimate);
+            var rows = new List<PowerBandRow>(PowerBudgetConstants.BandsPerTier);
+            for (var band = 1; band <= PowerBudgetConstants.BandsPerTier; band++)
+                rows.Add(new PowerBandRow(tier, band, _powerBudget.TargetRange(tier, band)));
+            return rows;
         }
     }
 }

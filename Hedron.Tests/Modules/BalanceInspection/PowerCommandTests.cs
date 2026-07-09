@@ -23,8 +23,10 @@ namespace Hedron.Tests.Modules.BalanceInspection
     /// <summary>
     /// Tier 2 — handler/command tests for <see cref="PowerCommand"/>.
     ///
-    /// Coverage contract: docs/implementation-plans/power-budget-inspector.md P5 — self/item/mob
-    /// target resolution, the golden-number surfacing end-to-end, and the admin-gate declaration.
+    /// Coverage contract: docs/roadmap/completed/power-model-revision.md — self/item/mob target
+    /// resolution, the two-axis (Tier, Band) readout via the shared item power-projection seam, the
+    /// golden-number surfacing end-to-end under the recalibrated constants, and the admin-gate
+    /// declaration.
     /// </summary>
     public sealed class PowerCommandTests
     {
@@ -87,8 +89,9 @@ namespace Hedron.Tests.Modules.BalanceInspection
             public TestWorld()
             {
                 var itemSystem = new ItemSystem(Ecs);
+                var itemProjection = new ItemPowerProjectionSystem();
                 var combatSystem = new StubCombatSystem(Ecs);
-                Command = new PowerCommand(new PowerBudgetSystem(), Stats, itemSystem, combatSystem, Ecs);
+                Command = new PowerCommand(new PowerBudgetSystem(), Stats, itemSystem, itemProjection, combatSystem, Ecs);
             }
         }
 
@@ -116,7 +119,7 @@ namespace Hedron.Tests.Modules.BalanceInspection
         [Fact]
         public void RequiredPrivileges_contains_AdminRequirement()
         {
-            var cmd = new PowerCommand(null!, null!, null!, null!, null!);
+            var cmd = new PowerCommand(null!, null!, null!, null!, null!, null!);
             Assert.Contains(cmd.RequiredPrivileges, r => r is AdminRequirement);
         }
 
@@ -144,8 +147,11 @@ namespace Hedron.Tests.Modules.BalanceInspection
 
             var readout = Assert.Single(GetMessages<PowerReadoutMessage>(output, invokerId));
             Assert.Equal("You", readout.TargetLabel);
-            Assert.Equal(355, readout.Power); // golden number: 1*10+5*20+1*10+1*10+1*150+5*10+5*5
-            Assert.Equal(2, readout.Band);
+            // golden number: 1*10(Mind)+10*20(Body)+1*10(Spirit)+1*10(Attunement)+2*150(HpMax)+8*10(AttackPower)+8*5(Defense)
+            Assert.Equal(650, readout.Power);
+            Assert.Equal(2, readout.Computed.Tier);
+            Assert.Equal(1, readout.Computed.Band);
+            Assert.Null(readout.AuthoredTier);
             Assert.Null(readout.AuthoredBand);
         }
 
@@ -166,7 +172,7 @@ namespace Hedron.Tests.Modules.BalanceInspection
         }
 
         [Fact]
-        public async Task Item_target_computes_power_from_StatBonuses_and_echoes_authored_band()
+        public async Task Item_target_computes_power_from_StatBonuses_and_echoes_authored_tier_and_band()
         {
             var world = new TestWorld();
             var roomId = new EntityBuilder(world.Ecs).Build();
@@ -178,7 +184,8 @@ namespace Hedron.Tests.Modules.BalanceInspection
             world.Ecs.AddComponent(item.Id, new ItemDataComponent
             {
                 Name = "Ancient Blade",
-                TierBand = 2,
+                Tier = 2,
+                Band = 2,
                 StatBonuses = { new EquipmentStatBonus(ScoreId.AttackPower, 15), new EquipmentStatBonus(ScoreId.Defense, 5) },
             });
             world.Ecs.Get<InventoryComponent>(invokerId).ItemEntityIds.Add(item.Id);
@@ -190,19 +197,23 @@ namespace Hedron.Tests.Modules.BalanceInspection
 
             var readout = Assert.Single(GetMessages<PowerReadoutMessage>(output, invokerId));
             Assert.Equal("Ancient Blade", readout.TargetLabel);
-            Assert.Equal(220, readout.Power); // (5*15 + 5*5) + tier(2)*(weight(Body)+weight(HpMax))*10
-            Assert.Equal(0, readout.Band); // 220 is below BandAnchor(1)=245 — authored band 2 does not match
+            // golden number: (8*15 + 8*5) + tier(2)*(weight(Body)+weight(HpMax))*TierBaselineStep
+            Assert.Equal(400, readout.Power);
+            Assert.Equal(0, readout.Computed.Tier); // 400 is below BandAnchor(1)=486 — authored tier 2 does not match
+            Assert.Equal(1, readout.Computed.Band);
+            Assert.Equal(2, readout.AuthoredTier);
             Assert.Equal(2, readout.AuthoredBand);
         }
 
         [Fact]
-        public async Task Mob_target_computes_power_from_IStatSystem_and_echoes_authored_band()
+        public async Task Mob_target_computes_power_from_IStatSystem_and_echoes_authored_tier_and_band()
         {
             var world = new TestWorld();
             var roomId = new EntityBuilder(world.Ecs).Build();
             var invokerId = new EntityBuilder(world.Ecs).AsPlayer().InRoom(roomId).Build();
             var mobId = new EntityBuilder(world.Ecs).AsMob("Goblin", new[] { "goblin" }).InRoom(roomId).Build();
-            world.Ecs.Get<MobDataComponent>(mobId).TierBand = 3;
+            world.Ecs.Get<MobDataComponent>(mobId).Tier = 3;
+            world.Ecs.Get<MobDataComponent>(mobId).Band = 3;
 
             world.Stats.Set(mobId, ScoreId.Body, 12);
             world.Stats.Set(mobId, ScoreId.HpMax, 80);
@@ -216,8 +227,10 @@ namespace Hedron.Tests.Modules.BalanceInspection
 
             var readout = Assert.Single(GetMessages<PowerReadoutMessage>(output, invokerId));
             Assert.Equal("Goblin", readout.TargetLabel);
-            Assert.Equal(365, readout.Power);
-            Assert.Equal(3, readout.Band);
+            Assert.Equal(712, readout.Power);
+            Assert.Equal(2, readout.Computed.Tier);
+            Assert.Equal(3, readout.Computed.Band);
+            Assert.Equal(3, readout.AuthoredTier);
             Assert.Equal(3, readout.AuthoredBand);
         }
 

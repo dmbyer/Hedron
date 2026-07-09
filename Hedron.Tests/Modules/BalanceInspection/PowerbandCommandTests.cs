@@ -14,8 +14,8 @@ namespace Hedron.Tests.Modules.BalanceInspection
     /// <summary>
     /// Tier 2 — handler/command tests for <see cref="PowerbandCommand"/>.
     ///
-    /// Coverage contract: docs/implementation-plans/power-budget-inspector.md P6 — list-all vs.
-    /// single-tier output and the admin-gate declaration.
+    /// Coverage contract: docs/roadmap/completed/power-model-revision.md — the ~21-cell
+    /// (Tier, Band) listing vs. single-tier (three cells) output and the admin-gate declaration.
     /// </summary>
     public sealed class PowerbandCommandTests
     {
@@ -50,7 +50,7 @@ namespace Hedron.Tests.Modules.BalanceInspection
         }
 
         [Fact]
-        public async Task No_argument_lists_every_band_zero_through_max_tier_with_anchors()
+        public async Task No_argument_lists_every_tier_and_band_cell_with_target_ranges()
         {
             var command = MakeCommand();
             var powerBudget = new PowerBudgetSystem();
@@ -60,18 +60,23 @@ namespace Hedron.Tests.Modules.BalanceInspection
             await command.ExecuteAsync(ctx);
 
             var message = Assert.Single(GetMessages(output));
-            Assert.Equal(PowerBudgetConstants.MaxTier + 1, message.Rows.Count);
+            Assert.Equal((PowerBudgetConstants.MaxTier + 1) * PowerBudgetConstants.BandsPerTier, message.Rows.Count);
 
+            var index = 0;
             for (var tier = 0; tier <= PowerBudgetConstants.MaxTier; tier++)
             {
-                var row = message.Rows[tier];
-                Assert.Equal(tier, row.Tier);
-                Assert.Equal(powerBudget.BandAnchor(tier), row.Anchor);
+                for (var band = 1; band <= PowerBudgetConstants.BandsPerTier; band++)
+                {
+                    var row = message.Rows[index++];
+                    Assert.Equal(tier, row.Tier);
+                    Assert.Equal(band, row.Band);
+                    Assert.Equal(powerBudget.TargetRange(tier, band), row.Range);
+                }
             }
         }
 
         [Fact]
-        public async Task Tier_argument_returns_a_single_row_with_anchor_and_reference_estimate()
+        public async Task Tier_argument_returns_that_tiers_three_band_rows()
         {
             var command = MakeCommand();
             var powerBudget = new PowerBudgetSystem();
@@ -81,12 +86,15 @@ namespace Hedron.Tests.Modules.BalanceInspection
             await command.ExecuteAsync(ctx);
 
             var message = Assert.Single(GetMessages(output));
-            var row = Assert.Single(message.Rows);
-            Assert.Equal(3, row.Tier);
-            Assert.Equal(powerBudget.BandAnchor(3), row.Anchor);
-            Assert.Equal(
-                powerBudget.Estimate(new PowerSnapshot(PowerBudgetConstants.ReferenceBaseScores), 3),
-                row.ReferenceEstimate);
+            Assert.Equal(PowerBudgetConstants.BandsPerTier, message.Rows.Count);
+
+            for (var band = 1; band <= PowerBudgetConstants.BandsPerTier; band++)
+            {
+                var row = message.Rows[band - 1];
+                Assert.Equal(3, row.Tier);
+                Assert.Equal(band, row.Band);
+                Assert.Equal(powerBudget.TargetRange(3, band), row.Range);
+            }
         }
 
         [Theory]

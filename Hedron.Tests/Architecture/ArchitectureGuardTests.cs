@@ -456,6 +456,8 @@ namespace Hedron.Tests.Architecture
                 Path.Combine(coreDir!, "Systems", "PowerBudgetConstants.cs"),
                 Path.Combine(coreDir!, "Systems", "IPowerBudgetSystem.cs"),
                 Path.Combine(coreDir!, "Systems", "PowerSnapshot.cs"),
+                Path.Combine(coreDir!, "Systems", "PowerBand.cs"),
+                Path.Combine(coreDir!, "Systems", "PowerRange.cs"),
             };
 
             // The only Core/Modules/<Feature>/ namespace the oracle may import — ScoreId is a

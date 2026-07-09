@@ -105,17 +105,36 @@ namespace Hedron.Core.Modules.Mobs
                 template.Protection = combined;
             }
 
-            // Deserialize the tier-band tag. Null/absent → 0 (unbanded, the default).
-            if (dto.Band.HasValue)
+            // Deserialize the Tier tag. Null/absent → 0 (unbanded/base, the default).
+            if (dto.Tier.HasValue)
             {
-                if (dto.Band.Value is >= 0 and <= 6)
+                if (dto.Tier.Value is >= 0 and <= 6)
                 {
-                    template.TierBand = dto.Band.Value;
+                    template.Tier = dto.Tier.Value;
                 }
                 else
                 {
                     _logger.LogWarning(
-                        "Mob '{Id}': band '{Band}' out of range 0-6 — defaulting to 0 (unbanded).",
+                        "Mob '{Id}': tier '{Tier}' out of range 0-6 — defaulting to 0 (unbanded).",
+                        dto.BlueprintId, dto.Tier.Value);
+                }
+            }
+
+            // Deserialize the Band tag. Null/absent → 0 (unbanded, the default). Clean-break note:
+            // this key reused the old single-axis "band:" name, so a legacy value in [1,3] is
+            // silently reinterpreted as new-axis band N (tier stays 0/untagged); a legacy value in
+            // [4,6] fails this range check and warns-and-untags — both acceptable under the
+            // accepted thin-content clean break (see power-model-revision.md Design notes).
+            if (dto.Band.HasValue)
+            {
+                if (dto.Band.Value is >= 0 and <= 3)
+                {
+                    template.Band = dto.Band.Value;
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Mob '{Id}': band '{Band}' out of range 0-3 — defaulting to 0 (unbanded).",
                         dto.BlueprintId, dto.Band.Value);
                 }
             }
@@ -192,7 +211,11 @@ namespace Hedron.Core.Modules.Mobs
             /// </summary>
             public List<string>? Protection { get; set; }
             /// <summary>
-            /// Optional Ascension tier-band tag (0-6). Null / absent means unbanded (0), the default.
+            /// Optional Ascension tier tag (0-6). Null / absent means unbanded/base (0), the default.
+            /// </summary>
+            public int? Tier { get; set; }
+            /// <summary>
+            /// Optional descriptive Band tag (0-3). Null / absent means unbanded (0), the default.
             /// </summary>
             public int? Band { get; set; }
             /// <summary>

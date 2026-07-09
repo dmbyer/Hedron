@@ -233,12 +233,12 @@ namespace Hedron.Core.Output
             var sb = new StringBuilder();
             sb.AppendLine(ApplyColor($"<system>Power: {m.TargetLabel}</system>", color));
             sb.AppendLine($"  Power : {m.Power}");
-            sb.Append($"  Band  : {m.Band}");
-            if (m.AuthoredBand.HasValue)
+            sb.Append($"  Tier/Band  : {m.Computed.Tier}/{m.Computed.Band}");
+            if (m.AuthoredTier.HasValue && m.AuthoredBand.HasValue)
             {
-                sb.Append(m.AuthoredBand.Value == m.Band
-                    ? $"  (authored: {m.AuthoredBand.Value}, matches)"
-                    : $"  (authored: {m.AuthoredBand.Value}, MISMATCH)");
+                sb.Append(m.AuthoredTier.Value == m.Computed.Tier && m.AuthoredBand.Value == m.Computed.Band
+                    ? $"  (authored: {m.AuthoredTier.Value}/{m.AuthoredBand.Value}, matches)"
+                    : $"  (authored: {m.AuthoredTier.Value}/{m.AuthoredBand.Value}, MISMATCH)");
             }
             return sb.ToString();
         }
@@ -249,10 +249,7 @@ namespace Hedron.Core.Output
             sb.AppendLine(ApplyColor("<system>Power bands</system>", color));
             foreach (var row in m.Rows)
             {
-                sb.Append($"  Tier {row.Tier}: anchor {row.Anchor}");
-                if (m.Rows.Count == 1)
-                    sb.Append($"  (reference power {row.ReferenceEstimate})");
-                sb.AppendLine();
+                sb.AppendLine($"  Tier {row.Tier} Band {row.Band}: {row.Range.MinPower}-{row.Range.MaxPower}");
             }
             return sb.ToString().TrimEnd();
         }
