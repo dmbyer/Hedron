@@ -12,6 +12,7 @@ namespace Hedron.Core.Modules.Mobs
         {
             services.AddSingleton<IMobBuilderSystem, MobBuilderSystem>();
             services.AddSingleton<IMobContentWriter, MobContentWriter>();
+            services.AddSingleton<IMobPowerProjectionSystem, MobPowerProjectionSystem>();
             services.AddSingleton<ICommand, MkMobCommand>();
             services.AddSingleton<ICommand, SetMobCommand>();
             services.AddSingleton<ITemplateDeserializer, MobTemplateDeserializer>();

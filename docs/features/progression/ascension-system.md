@@ -22,16 +22,16 @@ Domain-tier. `AscensionSystem` owns the tier state machine: `GetTier` (safe-defa
 
 `AscensionSystem`'s backing input is **raw `AscensionComponent.Tier`**, read via `EntityService` — never `IStatSystem`/`IEffectSystem`. This mirrors the guard `ProgressionSystem` observes (see [`progression-system.md`](progression-system.md#anti-grind-proxy-reads-raw-attributes)): a contributor's backing system may consume raw component data, but never a computed value from the seam it feeds, or it recreates the `IStatSystem` → `IEffectSystem` → contributors → backing system → `IStatSystem` cycle. Trivially satisfied here (the baseline is a pure function of tier) but stated so nobody wires `IAscensionSystem` → `IStatSystem`.
 
-### Mob tier-band tag — a lightweight content tag, not a power oracle
+### Mob Tier×Band tags — lightweight content tags, not a power oracle
 
-`MobTemplate.TierBand` (`int 0–6`, `0` = unbanded) is authored via `setmob band <blueprintId> <tier>` (dual-writing the live `MobDataComponent.TierBand` and the template, mirroring `SetMobProtection`) and the Blazor `MobEditor`. Mechanical threat is **emergent from the additive baseline** — a Tier-N mob is simply tuned to Tier-N baseline stats; there is no separate threat multiplier, and bands **overlap** (a maxed lower tier can reach into the next band before formally ascending). `MobDataComponent` is `[Persistent]`, but mob entities never carry `PersistentEntity` (world content), so the band never reaches a snapshot — its durable form is the YAML template, re-applied on each spawn. Slice prog-3 mirrors this tag onto items (`ItemDataComponent.TierBand`/`setitem band`) and adds the `IPowerBudgetSystem` oracle that reads both — see [`power-budget-system.md`](power-budget-system.md).
+`MobTemplate.Tier` (`int 0–6`, `0` = unbanded/base) is authored via `setmob tier <blueprintId> <tier>` (dual-writing the live `MobDataComponent.Tier` and the template, mirroring `SetMobProtection`) and the Blazor `MobEditor`. Mechanical threat is **emergent from the additive baseline** — a Tier-N mob is simply tuned to Tier-N baseline stats; there is no separate threat multiplier, and tiers **overlap** at their boundary (a maxed lower tier can reach into the next before formally ascending). `MobTemplate.Band` (`int 0–3`, `0` = unbanded) is a second, purely descriptive tag — low/mid/high *within* `Tier`, added by the prog-3b Tier×Band revision — authored via `setmob band <blueprintId> <band>`; it grants no power and gates nothing mechanically. `MobDataComponent` is `[Persistent]`, but mob entities never carry `PersistentEntity` (world content), so neither tag ever reaches a snapshot — their durable form is the YAML template, re-applied on each spawn. Slice prog-3 mirrored the tier tag onto items (`ItemDataComponent.Tier`/`setitem tier`) and added the `IPowerBudgetSystem` oracle that reads both; prog-3b split the single tag into this `Tier`+`Band` pair — see [`power-budget-system.md`](power-budget-system.md).
 
 ## Interface
 
 - [`IAscensionSystem.cs`](../../../Core/Modules/Ascension/Systems/IAscensionSystem.cs) — `GetTier`, `CanAscend`, `TryAscend`, `GetGrantedUnlocks`. Returns result records (`AscendEligibility`, `AscendResult`); publishes nothing.
 - [`AscensionEffectContributor.cs`](../../../Core/Modules/Ascension/AscensionEffectContributor.cs) — the `IEffectContributor` registrant.
 - [`AscensionConstants.cs`](../../../Core/Modules/Ascension/AscensionConstants.cs) — `MaxTier`, `TierBaselineStep`, `TrackedScores`, `UnlocksForTier` (empty in this slice).
-- [`IMobBuilderSystem.SetMobBand`](../../../Core/Modules/Mobs/Systems/IMobBuilderSystem.cs) — the mob tier-band dual-write.
+- [`IMobBuilderSystem.SetMobTier`](../../../Core/Modules/Mobs/Systems/IMobBuilderSystem.cs) / `SetMobBand` — the mob Tier/Band dual-writes.
 
 ## Considerations
 

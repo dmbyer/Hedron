@@ -525,7 +525,7 @@ namespace Hedron.Tests.Persistence
             // The tier-band tag lives on MobDataComponent, but since the mob is never opted in,
             // the Level-1 gate means it is never snapshotted (durable form is the YAML template).
             var id = new EntityBuilder(ecs).AsMob("rat").Build();
-            ecs.Get<MobDataComponent>(id).TierBand = 2;
+            ecs.Get<MobDataComponent>(id).Tier = 2;
 
             Assert.False(ecs.HasComponent<PersistentEntity>(id));
             Assert.False(ecs.HasComponent<AscensionComponent>(id),

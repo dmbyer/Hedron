@@ -84,17 +84,36 @@ namespace Hedron.Core.Modules.Items
                 }
             }
 
-            // Deserialize the tier-band tag. Null/absent → 0 (unbanded, the default).
-            if (dto.Band.HasValue)
+            // Deserialize the Tier tag. Null/absent → 0 (unbanded/base, the default).
+            if (dto.Tier.HasValue)
             {
-                if (dto.Band.Value is >= 0 and <= 6)
+                if (dto.Tier.Value is >= 0 and <= 6)
                 {
-                    template.TierBand = dto.Band.Value;
+                    template.Tier = dto.Tier.Value;
                 }
                 else
                 {
                     _logger.LogWarning(
-                        "Item '{Id}': band '{Band}' out of range 0-6 — defaulting to 0 (unbanded).",
+                        "Item '{Id}': tier '{Tier}' out of range 0-6 — defaulting to 0 (unbanded).",
+                        dto.BlueprintId, dto.Tier.Value);
+                }
+            }
+
+            // Deserialize the Band tag. Null/absent → 0 (unbanded, the default). Clean-break note:
+            // this key reused the old single-axis "band:" name, so a legacy value in [1,3] is
+            // silently reinterpreted as new-axis band N (tier stays 0/untagged); a legacy value in
+            // [4,6] fails this range check and warns-and-untags — both acceptable under the
+            // accepted thin-content clean break (see power-model-revision.md Design notes).
+            if (dto.Band.HasValue)
+            {
+                if (dto.Band.Value is >= 0 and <= 3)
+                {
+                    template.Band = dto.Band.Value;
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Item '{Id}': band '{Band}' out of range 0-3 — defaulting to 0 (unbanded).",
                         dto.BlueprintId, dto.Band.Value);
                 }
             }
@@ -113,6 +132,7 @@ namespace Hedron.Core.Modules.Items
             public string? SpawnRoomId { get; set; }
             public List<StatBonusDto>? StatBonuses { get; set; }
             public long Value { get; set; } = 0;
+            public int? Tier { get; set; }
             public int? Band { get; set; }
         }
 

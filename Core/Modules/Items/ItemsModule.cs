@@ -23,6 +23,7 @@ namespace Hedron.Core.Modules.Items
             services.AddSingleton<IItemBuilderSystem, ItemBuilderSystem>();
             services.AddSingleton<IItemContentWriter, ItemContentWriter>();
             services.AddSingleton<IEquipmentSystem, EquipmentSystem>();
+            services.AddSingleton<IItemPowerProjectionSystem, ItemPowerProjectionSystem>();
 
             // Worn-gear stat contributions fold into the effect modifier pipeline (INV-24).
             services.AddSingleton<IEffectContributor, EquipmentEffectContributor>();

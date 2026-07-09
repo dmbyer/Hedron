@@ -21,11 +21,11 @@ using Xunit;
 namespace Hedron.Tests.Modules.Items
 {
     /// <summary>
-    /// Tier 2 — <c>band</c> property-branch tests for <see cref="SetitemCommand"/>.
+    /// Tier 2 — <c>tier</c>/<c>band</c> property-branch tests for <see cref="SetitemCommand"/>.
     ///
-    /// Coverage contract: docs/implementation-plans/power-budget-inspector.md (WP-3, Tier 2) —
-    /// the <c>setitem band</c> dual-write assertion and out-of-range/negative rejection.
-    /// Mirrors <c>SetMobCommandBandTests</c>.
+    /// Coverage contract: docs/roadmap/completed/power-model-revision.md (WP-B, Tier 2) — the
+    /// <c>setitem tier</c>/<c>setitem band</c> dual-write assertions and out-of-range/negative
+    /// rejection. Mirrors <c>SetMobCommandBandTests</c>.
     /// </summary>
     public sealed class SetitemCommandBandTests
     {
@@ -90,6 +90,63 @@ namespace Hedron.Tests.Modules.Items
         }
 
         [Fact]
+        public async Task Tier_dual_writes_live_component_and_template()
+        {
+            var world = new TestWorld();
+            var roomId = MakeRoom(world.Ecs);
+            var result = world.Builder.CreateItem("Tiered Blade", roomId);
+
+            var output = new RecordingOutput();
+            var ctx = MakeContext(MakeArgs(result.BlueprintId, "tier", "2"), output);
+
+            await world.Command.ExecuteAsync(ctx);
+
+            var item = world.Ecs.Get<ItemDataComponent>(result.ItemEntityId);
+            Assert.Equal(2, item.Tier);
+
+            world.Registry.TryGet(result.BlueprintId, out var template);
+            var itemTemplate = Assert.IsType<ItemTemplate>(template);
+            Assert.Equal(2, itemTemplate.Tier);
+
+            Assert.Single(world.Bus.Published.OfType<ItemPropertySetByAdminEvent>());
+        }
+
+        [Fact]
+        public async Task Tier_out_of_range_above_max_is_rejected()
+        {
+            var world = new TestWorld();
+            var roomId = MakeRoom(world.Ecs);
+            var result = world.Builder.CreateItem("Tiered Blade", roomId);
+
+            var output = new RecordingOutput();
+            var ctx = MakeContext(MakeArgs(result.BlueprintId, "tier", "7"), output);
+
+            await world.Command.ExecuteAsync(ctx);
+
+            var item = world.Ecs.Get<ItemDataComponent>(result.ItemEntityId);
+            Assert.Equal(0, item.Tier);
+            Assert.Equal(0, world.Writer.WriteCount);
+            Assert.Empty(world.Bus.Published.OfType<ItemPropertySetByAdminEvent>());
+        }
+
+        [Fact]
+        public async Task Tier_negative_is_rejected()
+        {
+            var world = new TestWorld();
+            var roomId = MakeRoom(world.Ecs);
+            var result = world.Builder.CreateItem("Tiered Blade", roomId);
+
+            var output = new RecordingOutput();
+            var ctx = MakeContext(MakeArgs(result.BlueprintId, "tier", "-1"), output);
+
+            await world.Command.ExecuteAsync(ctx);
+
+            var item = world.Ecs.Get<ItemDataComponent>(result.ItemEntityId);
+            Assert.Equal(0, item.Tier);
+            Assert.Equal(0, world.Writer.WriteCount);
+        }
+
+        [Fact]
         public async Task Band_dual_writes_live_component_and_template()
         {
             var world = new TestWorld();
@@ -102,11 +159,11 @@ namespace Hedron.Tests.Modules.Items
             await world.Command.ExecuteAsync(ctx);
 
             var item = world.Ecs.Get<ItemDataComponent>(result.ItemEntityId);
-            Assert.Equal(2, item.TierBand);
+            Assert.Equal(2, item.Band);
 
             world.Registry.TryGet(result.BlueprintId, out var template);
             var itemTemplate = Assert.IsType<ItemTemplate>(template);
-            Assert.Equal(2, itemTemplate.TierBand);
+            Assert.Equal(2, itemTemplate.Band);
 
             Assert.Single(world.Bus.Published.OfType<ItemPropertySetByAdminEvent>());
         }
@@ -119,12 +176,12 @@ namespace Hedron.Tests.Modules.Items
             var result = world.Builder.CreateItem("Banded Blade", roomId);
 
             var output = new RecordingOutput();
-            var ctx = MakeContext(MakeArgs(result.BlueprintId, "band", "7"), output);
+            var ctx = MakeContext(MakeArgs(result.BlueprintId, "band", "4"), output);
 
             await world.Command.ExecuteAsync(ctx);
 
             var item = world.Ecs.Get<ItemDataComponent>(result.ItemEntityId);
-            Assert.Equal(0, item.TierBand);
+            Assert.Equal(0, item.Band);
             Assert.Equal(0, world.Writer.WriteCount);
             Assert.Empty(world.Bus.Published.OfType<ItemPropertySetByAdminEvent>());
         }
@@ -142,7 +199,7 @@ namespace Hedron.Tests.Modules.Items
             await world.Command.ExecuteAsync(ctx);
 
             var item = world.Ecs.Get<ItemDataComponent>(result.ItemEntityId);
-            Assert.Equal(0, item.TierBand);
+            Assert.Equal(0, item.Band);
             Assert.Equal(0, world.Writer.WriteCount);
         }
     }

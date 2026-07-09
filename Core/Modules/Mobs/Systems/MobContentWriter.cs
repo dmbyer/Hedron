@@ -92,7 +92,8 @@ namespace Hedron.Core.Modules.Mobs.Systems
                 MaxAstra = template.MaxAstra,
                 CurrencyLoot = currencyLoot.Count > 0 ? currencyLoot : null,
                 Protection = protectionFlags,
-                Band = template.TierBand != 0 ? template.TierBand : null,
+                Tier = template.Tier != 0 ? template.Tier : null,
+                Band = template.Band != 0 ? template.Band : null,
                 Shop = shopDto,
             };
 
@@ -138,7 +139,11 @@ namespace Hedron.Core.Modules.Mobs.Systems
             /// </summary>
             public List<string>? Protection { get; set; }
             /// <summary>
-            /// Optional Ascension tier-band tag (0-6). Null / absent means unbanded (0), the default.
+            /// Optional Ascension tier tag (0-6). Null / absent means unbanded/base (0), the default.
+            /// </summary>
+            public int? Tier { get; set; }
+            /// <summary>
+            /// Optional descriptive Band tag (0-3). Null / absent means unbanded (0), the default.
             /// </summary>
             public int? Band { get; set; }
             /// <summary>

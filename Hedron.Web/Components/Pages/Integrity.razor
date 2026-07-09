@@ -1,5 +1,8 @@
 @page "/integrity"
+@using Hedron.Core.Modules.BalanceInspection
+@using Hedron.Core.Modules.BalanceInspection.Systems
 @inject IContentReferenceIndex RefIndex
+@inject IBalanceAuditSystem BalanceAudit
 
 <PageTitle>Content integrity</PageTitle>
 
@@ -55,6 +58,74 @@
     }
 }
 
+@if (_swept && _auditReport is not null)
+{
+    <h2 style="margin-top:2rem">Power balance &mdash; Tier&times;Band drift</h2>
+    <p class="hint">
+        Compares each item/mob's authored (Tier, Band) tag against the power-budget oracle's
+        computed classification. Advisory only &mdash; never a build/reload/CI gate. Content with
+        no authored band (Band 0) is excluded from drift, but still counted below.
+    </p>
+
+    @if (_auditReport.Drifted.Count == 0)
+    {
+        <p class="success">No content past the drift tolerance &mdash; every authored band is within range.</p>
+    }
+    else
+    {
+        <p class="integrity-summary">Found <strong>@_auditReport.Drifted.Count</strong> item@(_auditReport.Drifted.Count == 1 ? "" : "s")/mob@(_auditReport.Drifted.Count == 1 ? "" : "s") past the drift tolerance.</p>
+
+        <table class="grid">
+            <thead>
+                <tr>
+                    <th>Kind</th>
+                    <th>Blueprint id</th>
+                    <th>Authored</th>
+                    <th>Computed</th>
+                    <th>Drift</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var entry in _auditReport.Drifted)
+                {
+                    <tr>
+                        <td><span class="kind-badge">@entry.Kind</span></td>
+                        <td class="mono">@entry.BlueprintId</td>
+                        <td class="mono">@entry.AuthoredTier/@entry.AuthoredBand</td>
+                        <td class="mono">@entry.ComputedTier/@entry.ComputedBand</td>
+                        <td>@entry.Drift</td>
+                        <td>
+                            <a href="@(entry.Kind == BalanceAuditKind.Item ? "item" : "mob")/@Uri.EscapeDataString(entry.BlueprintId)">Edit</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <p class="hint" style="margin-top:1rem">Content count by computed (Tier, Band) &mdash; "how much content exists at power level X":</p>
+    <table class="grid">
+        <thead>
+            <tr>
+                <th>Tier</th>
+                <th>Band</th>
+                <th>Count</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var bucket in _auditReport.BucketCounts.OrderBy(b => b.Key.Tier).ThenBy(b => b.Key.Band))
+            {
+                <tr>
+                    <td>@bucket.Key.Tier</td>
+                    <td>@bucket.Key.Band</td>
+                    <td>@bucket.Value</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
 @if (_error is not null)
 {
     <p class="error" style="margin-top:1rem">Sweep failed: @_error</p>
@@ -64,6 +135,7 @@
     private bool _sweeping;
     private bool _swept;
     private IReadOnlyList<BrokenReference> _broken = Array.Empty<BrokenReference>();
+    private BalanceAuditReport? _auditReport;
     private string? _error;
 
     protected override void OnInitialized() => RunSweep();
@@ -76,10 +148,12 @@
         _swept = false;
         _error = null;
         _broken = Array.Empty<BrokenReference>();
+        _auditReport = null;
 
         try
         {
             _broken = RefIndex.SweepBroken();
+            _auditReport = BalanceAudit.Audit();
             _swept = true;
         }
         catch (Exception ex)

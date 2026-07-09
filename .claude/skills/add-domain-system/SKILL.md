@@ -63,6 +63,7 @@ The key constraint is the same in both cases: **the system never publishes event
 4. Add the system's signature to [docs/reference/systems.md](../../../docs/reference/systems.md).
 5. If a use case now relies on this system, update its "Systems / handlers" list.
 6. If the system introduces new components, call **add-component** first. If it introduces new events, handlers publish them — not the system.
+7. **Does this system affect power, and how does its contribution enter the snapshot?** If the system computes or grants something that should feed the power-budget oracle (`IPowerBudgetSystem`), it never gains a reference to the oracle's internals or teaches it a domain concept — it either (a) contributes via an existing/new `ScoreId` the caller already includes in its `PowerSnapshot`, or (b) computes its own estimated contribution that the caller sums into the snapshot before calling `Estimate` (the `IEffectContributor` precedent). See [`docs/design/power-model.md`](../../../docs/design/power-model.md) — this is a hard rule, not a suggestion, and violating it breaks INV-2.
 
 ## Anti-patterns
 

@@ -37,13 +37,22 @@ namespace Hedron.Core.Modules.Items.Systems
         void SetItemValue(uint itemEntityId, long value);
 
         /// <summary>
-        /// Dual-writes the Ascension tier-band tag (<c>0</c>&#8211;<c>6</c>) onto the live
-        /// <see cref="Hedron.Core.ECS.Components.ItemDataComponent.TierBand"/> and
-        /// <see cref="Templates.ItemTemplate.TierBand"/>. Callers (<c>SetitemCommand</c>)
+        /// Dual-writes the Ascension tier tag (<c>0</c>&#8211;<c>6</c>) onto the live
+        /// <see cref="Hedron.Core.ECS.Components.ItemDataComponent.Tier"/> and
+        /// <see cref="Templates.ItemTemplate.Tier"/>. Callers (<c>SetitemCommand</c>)
+        /// range-validate before calling. Mirrors <c>IMobBuilderSystem.SetMobTier</c>.
+        /// INV-5: does not publish events or call persistence.
+        /// </summary>
+        void SetItemTier(uint itemEntityId, int tier);
+
+        /// <summary>
+        /// Dual-writes the descriptive Band tag (<c>0</c>&#8211;<c>3</c>) onto the live
+        /// <see cref="Hedron.Core.ECS.Components.ItemDataComponent.Band"/> and
+        /// <see cref="Templates.ItemTemplate.Band"/>. Callers (<c>SetitemCommand</c>)
         /// range-validate before calling. Mirrors <c>IMobBuilderSystem.SetMobBand</c>.
         /// INV-5: does not publish events or call persistence.
         /// </summary>
-        void SetItemBand(uint itemEntityId, int tierBand);
+        void SetItemBand(uint itemEntityId, int band);
     }
 
     /// <summary>Result of <see cref="IItemBuilderSystem.CreateItem"/>.</summary>

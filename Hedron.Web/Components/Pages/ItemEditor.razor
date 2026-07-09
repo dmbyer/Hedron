@@ -3,12 +3,15 @@
 @using System.Linq
 @using Hedron.Core
 @using Hedron.Core.ECS.Components
+@using Hedron.Core.Modules.BalanceInspection
+@using Hedron.Core.Modules.Items.Systems
 @using Hedron.Core.Modules.Items.Templates
 @using Hedron.Core.Modules.Stats
 @using Hedron.Core.Systems
 @inject IContentDefinitionCatalog Catalog
 @inject NavigationManager Nav
 @inject IPowerBudgetSystem PowerBudget
+@inject IItemPowerProjectionSystem ItemProjection
 
 <PageTitle>@(IsNew ? "New item" : "Edit item")</PageTitle>
 
@@ -122,20 +125,26 @@ else if (_template is not null)
 
     <fieldset class="ascension">
         <legend>Ascension</legend>
-        <p class="hint">Tier-band tag (0-6). 0 = unbanded (default). Mechanical threat is emergent from the tier baseline &mdash; this is a content tag, not a power multiplier.</p>
-        <div class="field">
-            <label>Tier band</label>
-            <input type="number" min="0" max="6" @bind="_template.TierBand" />
+        <p class="hint">Tier (0-6, mechanical Ascension scalar) &times; Band (0-3, purely descriptive; 0 = unbanded/default). Mechanical threat is emergent from the tier baseline &mdash; Band is a content tag, not a power multiplier.</p>
+        <div class="field-row">
+            <div class="field">
+                <label>Tier</label>
+                <input type="number" min="0" max="6" @bind="_template.Tier" />
+            </div>
+            <div class="field">
+                <label>Band</label>
+                <input type="number" min="0" max="3" @bind="_template.Band" />
+            </div>
         </div>
     </fieldset>
 
     <fieldset class="power-readout">
         <legend>Power (computed)</legend>
         <p class="hint">Computed from this item's worn stat bonuses via the power-budget oracle — the same math the in-game <code>power</code> inspector uses.</p>
-        <p>Power: <strong>@ComputedPower</strong> &mdash; Band: <strong>@ComputedBand</strong>
-            @if (_template.TierBand != ComputedBand)
+        <p>Power: <strong>@ComputedPower</strong> &mdash; Tier/Band: <strong>@ComputedBand.Tier/@ComputedBand.Band</strong>
+            @if (_template.Band != 0 && !WithinDriftTolerance)
             {
-                <span class="warning-inline">(authored band @_template.TierBand does not match computed band @ComputedBand)</span>
+                <span class="warning-inline">(authored @_template.Tier/@_template.Band does not match computed @ComputedBand.Tier/@ComputedBand.Band)</span>
             }
         </p>
     </fieldset>
@@ -226,16 +235,21 @@ else if (_template is not null)
 
     private bool IsNew => string.IsNullOrEmpty(BlueprintId);
 
-    // Snapshot straight from the authored template (StatBonuses) — never IStatSystem.Get, since
-    // the editor operates on YAML templates with no live entity (see power-budget-inspector.md).
+    // Snapshot from the authored template via the shared IItemPowerProjectionSystem seam — never
+    // IStatSystem.Get, since the editor operates on YAML templates with no live entity (see
+    // docs/features/progression/power-budget-system.md).
     private int ComputedPower =>
         _template is null
             ? 0
-            : PowerBudget.Estimate(
-                new PowerSnapshot(_template.StatBonuses.ToDictionary(b => b.TargetScore, b => b.Magnitude)),
-                _template.TierBand);
+            : PowerBudget.Estimate(ItemProjection.Project(_template), _template.Tier);
 
-    private int ComputedBand => PowerBudget.Classify(ComputedPower);
+    private PowerBand ComputedBand => PowerBudget.Classify(ComputedPower);
+
+    private bool WithinDriftTolerance =>
+        _template is not null &&
+        Math.Abs(
+            BalanceAuditConstants.GlobalBandIndex(_template.Tier, _template.Band) -
+            BalanceAuditConstants.GlobalBandIndex(ComputedBand.Tier, ComputedBand.Band)) <= BalanceAuditConstants.BandDriftTolerance;
 
     protected override void OnParametersSet()
     {
