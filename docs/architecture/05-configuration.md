@@ -33,6 +33,7 @@ Rationale: These settings are environment-specific, operator-controlled, and alr
 "World:StartingRoomBlueprintId"      (default "room.crossroads")
 "Admin:PrivilegedNames"              (default [], string array — bootstrap admin allowlist)
 "Server:Port"                        (default 4000)
+"Balance:StandardsPath"              (default "data/balance/standards.yaml")
 ```
 
 Defaults live in `appsettings.json`. Overrides live in environment variables or `appsettings.Production.json`. No magic numbers in C# source for these settings.
@@ -118,9 +119,13 @@ These questions are **recorded but not resolved**. Resolution belongs in the pha
 
 **Resolved: YAML via `YamlDotNet`.** Phase 3 slice 2 picked YAML for designer-friendliness (comments, less punctuation, indentation-driven structure). Persistence (slice 1) keeps `System.Text.Json` for component snapshots — different audience, different change cadence, no shared serializer code. See Category 2 above and the slice 2 use-case ([`../implementation-plans/world-content-loading-and-admin-substrate.md`](../features/world/world.md)) for the implementation shape (`IContentSerializer` + per-module `ITemplateDeserializer`).
 
-### OD-2 — Balance constant promotion threshold (Phase 3 slices 8–12)
+### OD-2 — Balance constant promotion threshold — resolved for the power-budget/balance-standards family (sim-1)
 
 At what point, if ever, should balance constants be promoted from sealed C# classes to externally tunable data files? The threshold is "when a designer needs to iterate without a recompile." This is a product decision, not an architectural one. Until it is triggered, constants stay in code.
+
+**Resolved for one family (sim-1, 2026-07-13):** `PowerBudgetConstants`/`BalanceAuditConstants` (`Core/Systems/`, `Core/Modules/BalanceInspection/`) promoted to the **balance-standards registry** — a YAML-authored `BalanceStandardsDocument` (`data/balance/standards.yaml`, Category 2 shape) with compiled defaults as fallback, authored via the Blazor **Standards page**. The trigger was real: three-plus data-hungry consumers (`IPowerBudgetSystem`, `IBalanceAuditSystem`, both content editors, the sim-2 engine to come) *and* a live designer-edit surface existed simultaneously — exactly the threshold this OD names. The oracle itself stays snapshot-only (INV-2, [`power-model.md`](../design/power-model.md)): its tunables arrive as one constructor-injected plain-data record (`PowerBudgetTunables`), composed by the host from the registry, never a registry/loader dependency on the oracle itself. See [`../roadmap/completed/balance-standards-registry.md`](../roadmap/completed/balance-standards-registry.md) and [`../features/progression/power-budget-system.md`](../features/progression/power-budget-system.md).
+
+**This does not generalize automatically.** Other Category-3 families (`ProgressionConstants`, `CombatConstants`, `AscensionConstants`, …) stay compiled constants — each is promoted individually, case-by-case, only when its own live-edit-surface-plus-≥3-consumers trigger fires. The pattern (a focused YAML store/registry pair, compiled defaults, load-time drift validation against any mirrored gameplay constants) is reusable, not a mandate to promote everything now.
 
 ### OD-3 — Area-level respawn rate ownership (Phase 3 slice 6 — Mobs)
 

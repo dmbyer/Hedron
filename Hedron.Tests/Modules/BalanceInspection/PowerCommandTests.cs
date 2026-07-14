@@ -91,7 +91,7 @@ namespace Hedron.Tests.Modules.BalanceInspection
                 var itemSystem = new ItemSystem(Ecs);
                 var itemProjection = new ItemPowerProjectionSystem();
                 var combatSystem = new StubCombatSystem(Ecs);
-                Command = new PowerCommand(new PowerBudgetSystem(), Stats, itemSystem, itemProjection, combatSystem, Ecs);
+                Command = new PowerCommand(new PowerBudgetSystem(PowerBudgetTunables.Default), Stats, itemSystem, itemProjection, combatSystem, Ecs);
             }
         }
 

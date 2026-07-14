@@ -433,8 +433,11 @@ namespace Hedron.Tests.Architecture
         /// <c>Account</c> or <c>Ascension</c> modules). <c>Hedron.Core.Modules.Stats</c> is
         /// allowlisted — it holds only the <c>ScoreId</c> enum, a shared vocabulary key with no
         /// business logic, the same role <c>Entity</c>/component-type ids play elsewhere. Structurally,
-        /// the system also takes zero constructor dependencies — every input is a static balance
-        /// constant or the caller-supplied <c>PowerSnapshot</c>.
+        /// the system takes exactly one constructor dependency — the plain-data
+        /// <see cref="Hedron.Core.Systems.PowerBudgetTunables"/> record (see
+        /// <c>docs/design/power-model.md</c>: "never gains a *service or domain* dependency — the
+        /// single caller-composed plain-data tunables record is the one permitted constructor
+        /// input"). Every other input is the caller-supplied <c>PowerSnapshot</c>.
         /// </summary>
         [Fact]
         public void PowerBudgetSystem_has_no_domain_module_dependency()
@@ -442,10 +445,11 @@ namespace Hedron.Tests.Architecture
             var type = typeof(Hedron.Core.Systems.PowerBudgetSystem);
 
             var ctor = Assert.Single(type.GetConstructors());
+            var parameters = ctor.GetParameters();
             Assert.True(
-                ctor.GetParameters().Length == 0,
-                "INV-2 violated — PowerBudgetSystem must take zero constructor dependencies " +
-                "(every input is a static balance constant or a caller-supplied PowerSnapshot).");
+                parameters.Length == 1 && parameters[0].ParameterType == typeof(Hedron.Core.Systems.PowerBudgetTunables),
+                "INV-2 violated — PowerBudgetSystem must take exactly one constructor dependency, " +
+                "of type PowerBudgetTunables (every other input is a caller-supplied PowerSnapshot).");
 
             var coreDir = FindCoreSourceDirectory();
             Assert.True(coreDir != null, "INV-2 pre-check: could not locate the Core/ source directory.");
@@ -453,7 +457,7 @@ namespace Hedron.Tests.Architecture
             var files = new[]
             {
                 Path.Combine(coreDir!, "Systems", "PowerBudgetSystem.cs"),
-                Path.Combine(coreDir!, "Systems", "PowerBudgetConstants.cs"),
+                Path.Combine(coreDir!, "Systems", "PowerBudgetTunables.cs"),
                 Path.Combine(coreDir!, "Systems", "IPowerBudgetSystem.cs"),
                 Path.Combine(coreDir!, "Systems", "PowerSnapshot.cs"),
                 Path.Combine(coreDir!, "Systems", "PowerBand.cs"),

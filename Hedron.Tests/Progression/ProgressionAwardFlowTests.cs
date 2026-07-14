@@ -64,7 +64,7 @@ namespace Hedron.Tests.Progression
             {
                 Ecs = new EntityService();
 
-                Progression = new ProgressionSystem(Ecs, rng, new PowerBudgetSystem());
+                Progression = new ProgressionSystem(Ecs, rng, new PowerBudgetSystem(PowerBudgetTunables.Default));
                 var contributor = new ProgressionEffectContributor(Progression);
                 var effects = new EffectSystem(Ecs, new IEffectContributor[] { contributor });
                 var deathOpts = Options.Create(new DeathOptions { HpFloor = -10 });

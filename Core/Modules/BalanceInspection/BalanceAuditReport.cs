@@ -11,7 +11,8 @@ namespace Hedron.Core.Modules.BalanceInspection
 
     /// <summary>
     /// One piece of content whose authored (Tier, Band) drifted from its computed classification
-    /// by more than <see cref="BalanceAuditConstants.BandDriftTolerance"/> global band-index steps.
+    /// by more than the injected band-drift tolerance (<see cref="Standards.IBalanceStandardsRegistry.BandDriftTolerance"/>)
+    /// global band-index steps.
     /// </summary>
     public sealed record BalanceAuditEntry(
         BalanceAuditKind Kind,

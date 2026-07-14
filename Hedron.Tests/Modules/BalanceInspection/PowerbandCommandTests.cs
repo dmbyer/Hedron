@@ -40,12 +40,13 @@ namespace Hedron.Tests.Modules.BalanceInspection
             return new CommandContext(session, 1u, args, output.WriterFor(1u), Services: null!);
         }
 
-        private static PowerbandCommand MakeCommand() => new(new PowerBudgetSystem());
+        private static PowerbandCommand MakeCommand() =>
+            new(new PowerBudgetSystem(PowerBudgetTunables.Default), PowerBudgetTunables.Default);
 
         [Fact]
         public void RequiredPrivileges_contains_AdminRequirement()
         {
-            var cmd = new PowerbandCommand(null!);
+            var cmd = new PowerbandCommand(null!, PowerBudgetTunables.Default);
             Assert.Contains(cmd.RequiredPrivileges, r => r is AdminRequirement);
         }
 
@@ -53,19 +54,19 @@ namespace Hedron.Tests.Modules.BalanceInspection
         public async Task No_argument_lists_every_tier_and_band_cell_with_target_ranges()
         {
             var command = MakeCommand();
-            var powerBudget = new PowerBudgetSystem();
+            var powerBudget = new PowerBudgetSystem(PowerBudgetTunables.Default);
             var output = new RecordingOutput();
             var ctx = MakeContext(MakeArgs(null), output);
 
             await command.ExecuteAsync(ctx);
 
             var message = Assert.Single(GetMessages(output));
-            Assert.Equal((PowerBudgetConstants.MaxTier + 1) * PowerBudgetConstants.BandsPerTier, message.Rows.Count);
+            Assert.Equal((PowerBudgetTunables.Default.MaxTier + 1) * PowerBudgetTunables.Default.BandsPerTier, message.Rows.Count);
 
             var index = 0;
-            for (var tier = 0; tier <= PowerBudgetConstants.MaxTier; tier++)
+            for (var tier = 0; tier <= PowerBudgetTunables.Default.MaxTier; tier++)
             {
-                for (var band = 1; band <= PowerBudgetConstants.BandsPerTier; band++)
+                for (var band = 1; band <= PowerBudgetTunables.Default.BandsPerTier; band++)
                 {
                     var row = message.Rows[index++];
                     Assert.Equal(tier, row.Tier);
@@ -79,22 +80,39 @@ namespace Hedron.Tests.Modules.BalanceInspection
         public async Task Tier_argument_returns_that_tiers_three_band_rows()
         {
             var command = MakeCommand();
-            var powerBudget = new PowerBudgetSystem();
+            var powerBudget = new PowerBudgetSystem(PowerBudgetTunables.Default);
             var output = new RecordingOutput();
             var ctx = MakeContext(MakeArgs("3"), output);
 
             await command.ExecuteAsync(ctx);
 
             var message = Assert.Single(GetMessages(output));
-            Assert.Equal(PowerBudgetConstants.BandsPerTier, message.Rows.Count);
+            Assert.Equal(PowerBudgetTunables.Default.BandsPerTier, message.Rows.Count);
 
-            for (var band = 1; band <= PowerBudgetConstants.BandsPerTier; band++)
+            for (var band = 1; band <= PowerBudgetTunables.Default.BandsPerTier; band++)
             {
                 var row = message.Rows[band - 1];
                 Assert.Equal(3, row.Tier);
                 Assert.Equal(band, row.Band);
                 Assert.Equal(powerBudget.TargetRange(3, band), row.Range);
             }
+        }
+
+        [Fact]
+        public async Task Row_count_reflects_injected_non_default_MaxTier_and_BandsPerTier()
+        {
+            // A synthetic tunables record with genuinely different table bounds — proves the row
+            // count/table shape derives from the injected instance, not PowerBudgetTunables.Default.
+            var custom = PowerBudgetTunables.Default with { MaxTier = 2, BandsPerTier = 2 };
+            var command = new PowerbandCommand(new PowerBudgetSystem(custom), custom);
+            var output = new RecordingOutput();
+            var ctx = MakeContext(MakeArgs(null), output);
+
+            await command.ExecuteAsync(ctx);
+
+            var message = Assert.Single(GetMessages(output));
+            Assert.Equal((custom.MaxTier + 1) * custom.BandsPerTier, message.Rows.Count);
+            Assert.NotEqual((PowerBudgetTunables.Default.MaxTier + 1) * PowerBudgetTunables.Default.BandsPerTier, message.Rows.Count);
         }
 
         [Theory]

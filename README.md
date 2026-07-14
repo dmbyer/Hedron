@@ -68,7 +68,8 @@ Each host reads an `appsettings.json` next to its project — [`Server/appsettin
 | `Persistence` | SQLite database path + flush interval |
 | `Heartbeat` | Game-loop tick interval |
 | `Admin` | Privileged account names |
-| `CharacterDefaults` · `Death` · `Output` · `Logging` | Starting stats/abilities, death tuning, output color, log levels |
+| `Balance` | Balance-standards YAML file path (`data/balance/standards.yaml`) |
+| `CharacterDefaults` · `Death` · `Output` · `Logging` · `Shop` | Starting stats/abilities, death tuning, output color, log levels, shop buy/sell ratios |
 
 The concrete keys and defaults live in the `appsettings.json` files and are not duplicated here.
 

@@ -9,19 +9,26 @@
 
 `IPowerBudgetSystem` (`Core/Systems/`) is a core-tier, snapshot-only oracle (INV-2). It never
 imports a `Core/Modules/<Feature>/` domain type, never resolves an entity id, and never gains a
-constructor dependency. Every input arrives one of two ways:
+*service or domain* dependency. The single exception is `PowerBudgetTunables` — a plain-data
+record (weights, band span, reference base scores, tier constants) composed by the host from
+compiled defaults or the balance-standards registry (sim-1) and passed into the constructor. It
+carries no behavior, no loader, and no reference to `Core/Modules/<Feature>/` — it is data, not a
+service, so injecting it does not reopen the door to a domain dependency. Every input arrives one
+of three ways:
 
 1. **A caller-supplied `PowerSnapshot`** — a plain `ScoreId → magnitude` map the caller builds
    from whatever source it has (a live `IStatSystem` read, an authored template, an editor's
    in-progress form). The oracle only ever weights and sums it.
 2. **A caller-supplied tier** — the coarse Ascension scalar, passed as a bare `int`, never read
    from `AscensionComponent`/`IAscensionSystem` directly.
+3. **The constructor-supplied `PowerBudgetTunables`** — composed once by the host at startup, not
+   re-resolved per call; the oracle itself never reaches out to fetch or reload it.
 
 **A future power source is never added by teaching the oracle a new domain concept.** It folds in
 one of two ways:
 
 - **(a) A new stat-like `ScoreId`.** If the new source is just another number callers already
-  have (a new attribute, a new item stat), add it to `PowerBudgetConstants.Weights` and have
+  have (a new attribute, a new item stat), add it to `PowerBudgetTunables.Weights` and have
   callers include it in their `PowerSnapshot`. No interface change.
 - **(b) A richer source that estimates its own contribution.** If the new source needs its own
   math to turn into a power number (an equipped-ability roster, a temporary buff stack), it

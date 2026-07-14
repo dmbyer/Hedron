@@ -87,6 +87,8 @@ public static class CompositionRoot
             configuration.GetSection("CharacterDefaults"));
         services.Configure<ShopOptions>(
             configuration.GetSection("Shop"));
+        services.Configure<BalanceOptions>(
+            configuration.GetSection("Balance"));
         // ECS world
         var world = new EntityService();
         EcsManager.SetWorld(world);
