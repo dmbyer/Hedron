@@ -10,7 +10,7 @@
 
 | # | Flow | Trigger | Slice introduced |
 |---|---|---|---|
-| 1 | [Server startup](flow-01-server-startup.md) | `dotnet run --project Server` | Phase 2 (extended in slice 2) |
+| 1 | [Server startup](flow-01-server-startup.md) | `dotnet run --project Server` | Phase 2 (extended in slice 2; balance-standards composition added sim-1) |
 | 2 | [Player connection](flow-02-player-connection.md) | TCP client connects on the configured port | Phase 2 |
 | 3 | [Command journey](flow-03-player-command-lifecycle.md) | Player sends a line of input | Phase 2 (replaced by slice 3 command framework; output leg updated in slice 4; prefix resolution added in slice 3a); source: [../../features/commands/commands.md](../../features/commands/commands.md) |
 | 4 | [Persistence flush cycle](flow-04-persistence-flush-cycle.md) | `PersistenceFlushTimer` ticks, or shutdown | Phase 3 slice 1 |
@@ -25,7 +25,7 @@
 | 20 | [Death & respawn journey (mob death · incapacitation · bleed-out · player death/respawn)](flow-20-mob-death-respawn.md) | Mob or player HP reaches zero | Phase 3 slices 9, 10; source: [../../features/combat/combat.md](../../features/combat/combat.md) |
 | 21 | [Effects journey (apply · tick · expire)](flow-21-effect-tick.md) | An effect is applied, then ticked/expired on `HeartbeatTickEvent` | [effects](../../features/effects/effects.md) feature |
 | 24 | [Abilities journey (activation · bare-verb skill invocation · offensive-opens-combat)](flow-24-ability-activation.md) | Admin sends `useability`; player sends `cast`/skill verb; offensive ability opens combat | Phase 3 slices 11-a, 11-b; source: [../../features/abilities/abilities.md](../../features/abilities/abilities.md) |
-| 29 | [Content-tooling journey (bulk generate · offline edit)](flow-29-bulk-content-generation.md) | `dotnet run --project Server -- generate --profile <path>` or designer edits in `Hedron.Web` | content-tooling platform (T1, T2); source: [../../features/admin-authoring/admin-authoring.md](../../features/admin-authoring/admin-authoring.md) |
+| 29 | [Content-tooling journey (bulk generate · offline edit · standards editing)](flow-29-bulk-content-generation.md) | `dotnet run --project Server -- generate --profile <path>` or designer edits in `Hedron.Web` | content-tooling platform (T1, T2; Standards page added sim-1); source: [../../features/admin-authoring/admin-authoring.md](../../features/admin-authoring/admin-authoring.md) |
 | 30 | [Shopping journey (list · buy · sell · buy-back; restock & expiry sweeps)](flow-30-shopping.md) | Player sends `list`/`buy`/`sell`; heartbeat drives restock + buy-back expiry | Phase 3 slice 12c; source: [../../features/economy/shop-system.md](../../features/economy/shop-system.md) |
 | 31 | [Progression journey (combat XP award · threshold improve · contribute-on-read)](flow-31-progression-award.md) | `MobDiedEvent` fires (mob kill) | Phase 3 slice prog-1; source: [../../features/progression/progression.md](../../features/progression/progression.md) |
 | 32 | [Ascension journey (tier-up · unlock-record · baseline fold)](flow-32-ascension.md) | Privileged session issues `ascend` | Phase 3 slice prog-2; source: [../../features/progression/progression.md](../../features/progression/progression.md) |

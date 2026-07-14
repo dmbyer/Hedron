@@ -4,7 +4,7 @@
 
 **Source:** [`../../features/admin-authoring/admin-authoring.md`](../../features/admin-authoring/admin-authoring.md)
 
-**Summary.** Two offline authoring paths share the same content-definition layer. (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline Blazor editor** (`Hedron.Web`) browses/loads/edits/saves definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`. Neither path mutates the live world directly (INV-12/23).
+**Summary.** Three offline authoring paths share the loopback `Hedron.Web` host (two share the same content-definition layer). (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline Blazor editor** browses/loads/edits/saves definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`. (B2) The **Standards page** (sim-1) edits the balance-standards document via `IBalanceStandardsStore` — a single criteria file deliberately outside the catalog (seed OQ1), with no `reload` leg (restart-to-apply instead). No path mutates the live world directly (INV-12/23).
 
 ---
 
@@ -112,6 +112,52 @@ The `Hedron.Web` host runs `AddContentBootstrapHostedServices` only (content loa
 
 ---
 
+## B2 — Standards page (`/standards`, sim-1)
+
+**Trigger:** Designer opens `/standards` in `Hedron.Web`.
+
+Distinct from the catalog-backed editors above: the balance-standards document is a single
+criteria file outside `IContentDefinitionCatalog` (seed OQ1 — no blueprint id, no delete-cascade)
+and outside the compiled-rows `DefinitionRegistry` construction. No `reload` leg — edits apply on
+the next host start (restart-to-apply), stated on the page.
+
+```mermaid
+sequenceDiagram
+    participant UI as Standards.razor
+    participant Store as IBalanceStandardsStore
+
+    UI->>Store: Load()
+    Store-->>UI: (BalanceStandardsDocument, Warnings)
+    Note over UI: designer edits tunables / cells / tolerances (in-memory form)
+    UI->>UI: new PowerBudgetSystem(candidateTunables).TargetRange(...) — live preview, no DI mutation
+    UI->>Store: SaveAsync(document)
+    alt structural failure
+        Store-->>UI: BalanceStandardsSaveResult(Success: false, Errors)
+    else structural pass (mirror drift / unknown ability ids warn but allow)
+        Store->>Store: atomic write (tmp → rename)
+        Store-->>UI: BalanceStandardsSaveResult(Success: true, Warnings)
+    end
+    Note over UI: page states restart-to-apply — the composed oracle/registry singleton is unchanged until next boot
+```
+
+**Steps.**
+1. Page calls `IBalanceStandardsStore.Load()` on init — the same store the boot-time DI factory
+   uses (Flow 1, step 2), so the page always reflects on-disk truth, not the frozen boot-time
+   singleton.
+2. Designer edits tunables (weights, band span, reference base scores, tracked scores), per-cell
+   reference builds (gear bonuses, ability kit) and their "authored" flag, global/per-cell outcome
+   tolerances, and the band-drift tolerance — all in an in-memory form.
+3. The page previews derived `TargetRange` per cell live by constructing a throwaway
+   `PowerBudgetSystem` over the candidate tunables — never touching the DI-composed oracle.
+4. On save: `SaveAsync(document)` re-validates. Structural failure (unknown score id,
+   out-of-range/duplicate cell, `BandSpan` calibration violation, negative tolerance) refuses the
+   write and returns errors — no partial file. A structural pass always writes atomically
+   (tmp → rename), even when mirror-drift or unknown-ability-kit warnings are present
+   (warn-but-allow).
+5. The page renders errors distinctly from warnings and shows the restart-to-apply notice.
+
+---
+
 ## Invariants
 
 - INV-5: `IContentGenerationSystem`, `IContentDefinitionCatalog`, and `IContentReferenceIndex` return results; they never touch the event bus.
@@ -122,9 +168,10 @@ The `Hedron.Web` host runs `AddContentBootstrapHostedServices` only (content loa
 - INV-26: all randomness in `ContentGenerationSystem` flows through `SeededRandom`; blueprint ids are counter-derived; no wall clock read. Fixed-seed run is byte-reproducible.
 - **Warn-but-allow:** a `SaveAsync`/`SaveRoomAsync` result with `Success = true` may carry a non-empty `Warnings` list — these are cross-reference notices, not errors; the file was still written. Structural failures are still `Success = false` / no write.
 - **Bidirectional warn-and-skip:** when `SaveRoomAsync(bidirectional: true)` encounters a target room that already has a *different* exit in the inverse direction, that paired write is skipped and a warning is added. The source room's own file is always written. No silent overwrite.
+- **B2 refuse-vs-warn (sim-1):** `IBalanceStandardsStore.SaveAsync` mirrors the same posture at the document level — structural failure refuses the write entirely (`Success = false`, no file), never a partial file; mirror-drift and unknown-ability-kit notices warn but allow the write.
 
 ## Cross-references
 
-- Systems: [`../../reference/systems.md`](../../reference/systems.md) — `IContentGenerationSystem`, `IContentDefinitionCatalog`, `IContentValidator`, the four `I*ContentWriter`s.
-- Feature: [`../../features/admin-authoring/content-tooling.md`](../../features/admin-authoring/content-tooling.md) · [`../../features/admin-authoring/content-authoring.md`](../../features/admin-authoring/content-authoring.md).
-- Related flow: [Flow 5 — content reload](flow-05-content-reload.md) (the apply leg the Blazor editor reuses).
+- Systems: [`../../reference/systems.md`](../../reference/systems.md) — `IContentGenerationSystem`, `IContentDefinitionCatalog`, `IContentValidator`, the four `I*ContentWriter`s, `IBalanceStandardsStore`/`IBalanceStandardsRegistry`.
+- Feature: [`../../features/admin-authoring/content-tooling.md`](../../features/admin-authoring/content-tooling.md) · [`../../features/admin-authoring/content-authoring.md`](../../features/admin-authoring/content-authoring.md) · [`../../features/progression/power-budget-system.md`](../../features/progression/power-budget-system.md) (the standards registry the B2 leg edits).
+- Related flow: [Flow 5 — content reload](flow-05-content-reload.md) (the apply leg the Blazor editor reuses) · [Flow 1 — server startup](flow-01-server-startup.md) (where a B2 save takes effect on next boot).

@@ -2,6 +2,7 @@
 @page "/mob/{BlueprintId}"
 @using Hedron.Core.ECS.Components
 @using Hedron.Core.Modules.BalanceInspection
+@using Hedron.Core.Modules.BalanceInspection.Standards
 @using Hedron.Core.Modules.Economy
 @using Hedron.Core.Modules.Mobs.Systems
 @using Hedron.Core.Modules.Mobs.Templates
@@ -11,6 +12,7 @@
 @inject IContentDefinitionCatalog Catalog
 @inject NavigationManager Nav
 @inject IPowerBudgetSystem PowerBudget
+@inject IBalanceStandardsRegistry StandardsRegistry
 @inject IMobPowerProjectionSystem MobProjection
 
 <PageTitle>@(IsNew ? "New mob" : "Edit mob")</PageTitle>
@@ -347,8 +349,8 @@ else if (_template is not null)
     private bool WithinDriftTolerance =>
         _template is not null &&
         Math.Abs(
-            BalanceAuditConstants.GlobalBandIndex(_template.Tier, _template.Band) -
-            BalanceAuditConstants.GlobalBandIndex(ComputedBand.Tier, ComputedBand.Band)) <= BalanceAuditConstants.BandDriftTolerance;
+            StandardsRegistry.Tunables.GlobalBandIndex(_template.Tier, _template.Band) -
+            StandardsRegistry.Tunables.GlobalBandIndex(ComputedBand.Tier, ComputedBand.Band)) <= StandardsRegistry.BandDriftTolerance;
 
     protected override void OnParametersSet()
     {

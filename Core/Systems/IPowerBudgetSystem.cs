@@ -10,16 +10,16 @@ namespace Hedron.Core.Systems
     public interface IPowerBudgetSystem
     {
         /// <summary>
-        /// Weighted sum over <paramref name="snapshot"/> per <see cref="PowerBudgetConstants.Weights"/>,
+        /// Weighted sum over <paramref name="snapshot"/> per <see cref="PowerBudgetTunables.Weights"/>,
         /// plus (when <paramref name="tier"/> is positive) the tier baseline contribution for each
-        /// of <see cref="PowerBudgetConstants.TrackedScores"/> (mirrors the Ascension tier baseline).
+        /// of <see cref="PowerBudgetTunables.TrackedScores"/> (mirrors the Ascension tier baseline).
         /// <paramref name="tier"/> of 0 (the default) adds nothing.
         /// </summary>
         int Estimate(PowerSnapshot snapshot, int tier = 0);
 
         /// <summary>
         /// Classifies a power scalar into a <see cref="PowerBand"/> cell: <c>Tier</c> is the highest
-        /// tier (0&#8211;<see cref="PowerBudgetConstants.MaxTier"/>) whose <see cref="BandAnchor"/> is
+        /// tier (0&#8211;<see cref="PowerBudgetTunables.MaxTier"/>) whose <see cref="BandAnchor"/> is
         /// at or below <paramref name="power"/> (falling back to tier 0 for a power below every
         /// anchor — the shipped tier-boundary hysteresis, retained). <c>Band</c> (1&#8211;3) then
         /// buckets the position within that tier's power span into thirds (low/mid/high); a power
@@ -41,7 +41,7 @@ namespace Hedron.Core.Systems
 
         /// <summary>
         /// The lower power anchor for <paramref name="tier"/>: the reference base build's power at
-        /// that tier, minus <see cref="PowerBudgetConstants.BandSpan"/> (the deliberate overlap so a
+        /// that tier, minus <see cref="PowerBudgetTunables.BandSpan"/> (the deliberate overlap so a
         /// maxed lower-tier build can reach into the next band before formally ascending).
         /// </summary>
         int BandAnchor(int tier);

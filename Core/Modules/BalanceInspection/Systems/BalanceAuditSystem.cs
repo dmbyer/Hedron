@@ -14,17 +14,23 @@ namespace Hedron.Core.Modules.BalanceInspection.Systems
         private readonly IPowerBudgetSystem _powerBudget;
         private readonly IItemPowerProjectionSystem _itemProjection;
         private readonly IMobPowerProjectionSystem _mobProjection;
+        private readonly PowerBudgetTunables _tunables;
+        private readonly int _bandDriftTolerance;
 
         public BalanceAuditSystem(
             ITemplateRegistry templateRegistry,
             IPowerBudgetSystem powerBudget,
             IItemPowerProjectionSystem itemProjection,
-            IMobPowerProjectionSystem mobProjection)
+            IMobPowerProjectionSystem mobProjection,
+            PowerBudgetTunables tunables,
+            int bandDriftTolerance)
         {
             _templateRegistry = templateRegistry;
             _powerBudget = powerBudget;
             _itemProjection = itemProjection;
             _mobProjection = mobProjection;
+            _tunables = tunables;
+            _bandDriftTolerance = bandDriftTolerance;
         }
 
         public BalanceAuditReport Audit()
@@ -70,7 +76,7 @@ namespace Hedron.Core.Modules.BalanceInspection.Systems
         // Authored Band 0 (unbanded) is excluded from drift assertion (Open question 5) — such
         // content still contributes to the computed bucket counts above, just carries no
         // authored-vs-computed comparison.
-        private static void TryAddDrifted(
+        private void TryAddDrifted(
             List<BalanceAuditEntry> drifted,
             BalanceAuditKind kind,
             string blueprintId,
@@ -82,10 +88,10 @@ namespace Hedron.Core.Modules.BalanceInspection.Systems
                 return;
 
             var drift = Math.Abs(
-                BalanceAuditConstants.GlobalBandIndex(authoredTier, authoredBand) -
-                BalanceAuditConstants.GlobalBandIndex(computed.Tier, computed.Band));
+                _tunables.GlobalBandIndex(authoredTier, authoredBand) -
+                _tunables.GlobalBandIndex(computed.Tier, computed.Band));
 
-            if (drift > BalanceAuditConstants.BandDriftTolerance)
+            if (drift > _bandDriftTolerance)
             {
                 drifted.Add(new BalanceAuditEntry(
                     kind, blueprintId, authoredTier, authoredBand, computed.Tier, computed.Band, drift));

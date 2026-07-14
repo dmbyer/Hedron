@@ -8,8 +8,8 @@ namespace Hedron.Core.Output
 
     /// <summary>
     /// Carries the Tier×Band definition table written by the <c>powerband</c> command. With no
-    /// tier argument, <see cref="Rows"/> holds every cell (0&#8211;<c>PowerBudgetConstants.MaxTier</c>
-    /// × 1&#8211;<c>PowerBudgetConstants.BandsPerTier</c>, ~21 rows); with a tier argument, it holds
+    /// tier argument, <see cref="Rows"/> holds every cell (0&#8211;<c>PowerBudgetTunables.MaxTier</c>
+    /// × 1&#8211;<c>PowerBudgetTunables.BandsPerTier</c>, ~21 rows); with a tier argument, it holds
     /// just that tier's <c>BandsPerTier</c> rows.
     /// </summary>
     public sealed record PowerbandMessage(IReadOnlyList<PowerBandRow> Rows) : IOutputMessage

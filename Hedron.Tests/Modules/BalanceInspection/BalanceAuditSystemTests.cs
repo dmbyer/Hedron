@@ -22,12 +22,17 @@ namespace Hedron.Tests.Modules.BalanceInspection
     /// </summary>
     public sealed class BalanceAuditSystemTests
     {
-        private static (BalanceAuditSystem System, TemplateRegistry Registry) Build()
+        private static (BalanceAuditSystem System, TemplateRegistry Registry) Build(int bandDriftTolerance = 1)
         {
             var ecs = new EntityService();
             var registry = new TemplateRegistry(ecs);
             var system = new BalanceAuditSystem(
-                registry, new PowerBudgetSystem(), new ItemPowerProjectionSystem(), new MobPowerProjectionSystem());
+                registry,
+                new PowerBudgetSystem(PowerBudgetTunables.Default),
+                new ItemPowerProjectionSystem(),
+                new MobPowerProjectionSystem(),
+                PowerBudgetTunables.Default,
+                bandDriftTolerance);
             return (system, registry);
         }
 
@@ -62,7 +67,7 @@ namespace Hedron.Tests.Modules.BalanceInspection
             Assert.Equal("item.drifted.test", entry.BlueprintId);
             Assert.Equal(2, entry.AuthoredTier);
             Assert.Equal(2, entry.AuthoredBand);
-            Assert.True(entry.Drift > BalanceAuditConstants.BandDriftTolerance);
+            Assert.True(entry.Drift > 1); // default bandDriftTolerance from Build()
         }
 
         [Fact]
@@ -123,7 +128,30 @@ namespace Hedron.Tests.Modules.BalanceInspection
             Assert.Equal("mob.drifted.test", entry.BlueprintId);
             Assert.Equal(3, entry.AuthoredTier);
             Assert.Equal(3, entry.AuthoredBand);
-            Assert.True(entry.Drift > BalanceAuditConstants.BandDriftTolerance);
+            Assert.True(entry.Drift > 1); // default bandDriftTolerance from Build()
+        }
+
+        [Fact]
+        public void Audit_flagged_set_changes_with_the_injected_band_drift_tolerance()
+        {
+            // Same item, two systems built with different injected tolerances (sim-1) — the
+            // flagged set must differ, proving the tolerance is real injected data, not a
+            // compiled constant baked into the audit logic.
+            var item = new ItemTemplate("item.tolerance-swap.test")
+            {
+                Name = "Tolerance Swap Blade",
+                Tier = 2,
+                Band = 2,
+                StatBonuses = { new EquipmentStatBonus(ScoreId.AttackPower, 15), new EquipmentStatBonus(ScoreId.Defense, 5) },
+            };
+
+            var (looseSystem, looseRegistry) = Build(bandDriftTolerance: 100);
+            looseRegistry.Register(item.BlueprintId, item);
+            Assert.Empty(looseSystem.Audit().Drifted);
+
+            var (tightSystem, tightRegistry) = Build(bandDriftTolerance: 0);
+            tightRegistry.Register(item.BlueprintId, item);
+            Assert.Single(tightSystem.Audit().Drifted);
         }
 
         [Fact]

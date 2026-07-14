@@ -1,0 +1,447 @@
+@page "/standards"
+@using System.Linq
+@using Hedron.Core.Modules.BalanceInspection.Standards
+@using Hedron.Core.Modules.Stats
+@using Hedron.Core.Systems
+@inject IBalanceStandardsStore Store
+
+<PageTitle>Balance standards</PageTitle>
+
+<h1>Balance standards</h1>
+
+<p class="hint">
+    Authors the balance-standards document — the power-budget oracle's tunables, the per-(Tier, Band)
+    reference builds, the band-drift audit tolerance, and the expected-outcome tolerances (inert
+    until the sim engine, sim-2). Target ranges below are <strong>derived</strong>, never authored
+    directly (moving a range means editing a reference build or a tunable).
+</p>
+
+<p class="callout">
+    Restart-to-apply: a saved edit takes effect on the <strong>next host start</strong>, not
+    immediately — this page previews derived ranges against your in-progress edits without
+    mutating the running oracle.
+</p>
+
+@if (_loadFailed)
+{
+    <p class="error">Failed to load the standards file: @_loadError</p>
+}
+else
+{
+    <fieldset class="tunables">
+        <legend>Oracle tunables</legend>
+        <div class="field-row">
+            <div class="field">
+                <label>Band span</label>
+                <input type="number" @bind="_tunables.BandSpan" />
+            </div>
+            <div class="field">
+                <label>Bands per tier</label>
+                <input type="number" min="1" value="@_tunables.BandsPerTier"
+                       @onchange="e => SetBandsPerTier(e.Value?.ToString())" />
+            </div>
+            <div class="field">
+                <label>Max tier</label>
+                <input type="number" min="0" value="@_tunables.MaxTier"
+                       @onchange="e => SetMaxTier(e.Value?.ToString())" />
+            </div>
+            <div class="field">
+                <label>Tier baseline step</label>
+                <input type="number" @bind="_tunables.TierBaselineStep" />
+            </div>
+        </div>
+
+        <p class="hint">Per-score weight, reference base build, and whether the tier baseline applies (tracked).</p>
+        <table class="grid">
+            <thead>
+                <tr><th>Score</th><th>Weight</th><th>Reference base</th><th>Tracked</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var score in AllScoreIds)
+                {
+                    <tr>
+                        <td>@score</td>
+                        <td>
+                            <input type="number" value="@GetWeight(score)"
+                                   @onchange="e => SetWeight(score, e.Value?.ToString())" />
+                        </td>
+                        <td>
+                            <input type="number" value="@GetReferenceBase(score)"
+                                   @onchange="e => SetReferenceBase(score, e.Value?.ToString())" />
+                        </td>
+                        <td>
+                            <input type="checkbox" checked="@_tunables.TrackedScores.Contains(score)"
+                                   @onchange="e => SetTracked(score, (bool?)e.Value ?? false)" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </fieldset>
+
+    <fieldset class="outcomes">
+        <legend>Global expected-outcome tolerances <span class="hint-inline">(inert until sim-2)</span></legend>
+        <div class="field-row">
+            <div class="field">
+                <label>Equal-cell win rate</label>
+                <input type="number" step="0.01" @bind="_equalCellWinRate" />
+            </div>
+            <div class="field">
+                <label>Win-rate tolerance</label>
+                <input type="number" step="0.01" @bind="_winRateTolerance" />
+            </div>
+            <div class="field">
+                <label>Higher-band win-rate floor</label>
+                <input type="number" step="0.01" @bind="_higherBandWinRateFloor" />
+            </div>
+            <div class="field">
+                <label>Band-drift audit tolerance</label>
+                <input type="number" min="0" @bind="_bandDriftTolerance" />
+            </div>
+        </div>
+    </fieldset>
+
+    <h2 style="margin-top:2rem">(Tier, Band) cells</h2>
+    <p class="hint">
+        Target range is derived live from the tunables above. Check <strong>Authored</strong> to
+        include a cell's reference build in the saved file — an unchecked cell falls back to an
+        empty-gear build and the global outcomes on load (sparse-fill; a criteria file need not
+        author all @( (_tunables.MaxTier + 1) * _tunables.BandsPerTier ) cells).
+    </p>
+
+    <table class="grid">
+        <thead>
+            <tr>
+                <th>Tier</th><th>Band</th><th>Target range</th><th>Authored</th>
+                <th>Gear bonuses</th><th>Ability kit</th><th>Outcomes override</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var cell in _cells)
+            {
+                var range = TargetRangeFor(cell.Tier, cell.Band);
+                <tr>
+                    <td>@cell.Tier</td>
+                    <td>@cell.Band</td>
+                    <td class="mono">@(range is null ? "—" : $"{range.Value.MinPower}–{range.Value.MaxPower}")</td>
+                    <td>
+                        <input type="checkbox" checked="@cell.Authored"
+                               @onchange="e => cell.Authored = (bool?)e.Value ?? false" />
+                    </td>
+                    <td>
+                        <input class="csv" disabled="@(!cell.Authored)" value="@GearBonusesCsv(cell)"
+                               placeholder="attackPower:5, defense:2"
+                               @onchange="e => SetGearBonuses(cell, e.Value?.ToString())" />
+                    </td>
+                    <td>
+                        <input class="csv" disabled="@(!cell.Authored)" value="@cell.AbilityKitCsv"
+                               placeholder="kick, empower"
+                               @onchange="e => cell.AbilityKitCsv = e.Value?.ToString() ?? string.Empty" />
+                    </td>
+                    <td>
+                        <label class="checkbox">
+                            <input type="checkbox" disabled="@(!cell.Authored)" checked="@cell.HasOutcomesOverride"
+                                   @onchange="e => cell.HasOutcomesOverride = (bool?)e.Value ?? false" />
+                            override
+                        </label>
+                        @if (cell.HasOutcomesOverride)
+                        {
+                            <input type="number" step="0.01" style="width:4.5rem" title="Equal-cell win rate" @bind="cell.EqualCellWinRate" />
+                            <input type="number" step="0.01" style="width:4.5rem" title="Win-rate tolerance" @bind="cell.WinRateTolerance" />
+                            <input type="number" step="0.01" style="width:4.5rem" title="Higher-band win-rate floor" @bind="cell.HigherBandWinRateFloor" />
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (_errors.Count > 0)
+    {
+        <div class="error-box">
+            <strong>Cannot save &mdash; validation failed:</strong>
+            <ul>
+                @foreach (var err in _errors)
+                {
+                    <li>@err</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (_warnings.Count > 0)
+    {
+        <div class="warning-box">
+            <strong>Saved with notices (mirror drift / unknown ability ids):</strong>
+            <ul>
+                @foreach (var w in _warnings)
+                {
+                    <li>@w</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (_saved)
+    {
+        <p class="success">Saved. Restart the host for the new standards to take effect.</p>
+    }
+
+    <div class="actions">
+        <button class="primary" disabled="@_saving" @onclick="Save">
+            @(_saving ? "Saving..." : "Save")
+        </button>
+    </div>
+}
+
+@code {
+    private static readonly ScoreId[] AllScoreIds = Enum.GetValues<ScoreId>();
+
+    private sealed class TunablesForm
+    {
+        public Dictionary<ScoreId, int> Weights = new();
+        public int BandSpan;
+        public int BandsPerTier = 1;
+        public Dictionary<ScoreId, int> ReferenceBaseScores = new();
+        public int MaxTier;
+        public int TierBaselineStep;
+        public HashSet<ScoreId> TrackedScores = new();
+
+        public PowerBudgetTunables ToTunables() => new(
+            Weights, BandSpan, BandsPerTier, ReferenceBaseScores, MaxTier, TierBaselineStep, TrackedScores.ToList());
+    }
+
+    private sealed class CellForm
+    {
+        public int Tier;
+        public int Band;
+        public bool Authored;
+        public Dictionary<ScoreId, int> GearBonuses = new();
+        public string AbilityKitCsv = string.Empty;
+        public bool HasOutcomesOverride;
+        public double EqualCellWinRate;
+        public double WinRateTolerance;
+        public double HigherBandWinRateFloor;
+    }
+
+    private TunablesForm _tunables = new();
+    private double _equalCellWinRate;
+    private double _winRateTolerance;
+    private double _higherBandWinRateFloor;
+    private int _bandDriftTolerance;
+    private List<CellForm> _cells = new();
+
+    private bool _loadFailed;
+    private string? _loadError;
+    private bool _saving;
+    private bool _saved;
+    private IReadOnlyList<string> _errors = Array.Empty<string>();
+    private IReadOnlyList<string> _warnings = Array.Empty<string>();
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            var (document, _) = Store.Load();
+            LoadForm(document);
+        }
+        catch (Exception ex)
+        {
+            _loadFailed = true;
+            _loadError = ex.Message;
+        }
+    }
+
+    private void LoadForm(BalanceStandardsDocument document)
+    {
+        _tunables = new TunablesForm
+        {
+            Weights = new Dictionary<ScoreId, int>(document.Tunables.Weights),
+            BandSpan = document.Tunables.BandSpan,
+            BandsPerTier = document.Tunables.BandsPerTier,
+            ReferenceBaseScores = new Dictionary<ScoreId, int>(document.Tunables.ReferenceBaseScores),
+            MaxTier = document.Tunables.MaxTier,
+            TierBaselineStep = document.Tunables.TierBaselineStep,
+            TrackedScores = new HashSet<ScoreId>(document.Tunables.TrackedScores),
+        };
+        _bandDriftTolerance = document.BandDriftTolerance;
+        _equalCellWinRate = document.Outcomes.EqualCellWinRate;
+        _winRateTolerance = document.Outcomes.WinRateTolerance;
+        _higherBandWinRateFloor = document.Outcomes.HigherBandWinRateFloor;
+
+        var authored = document.Cells.ToDictionary(c => (c.Tier, c.Band));
+        _cells = BuildCellRows(authored);
+    }
+
+    private List<CellForm> BuildCellRows(Dictionary<(int Tier, int Band), BalanceStandard> authored)
+    {
+        var rows = new List<CellForm>();
+        for (var tier = 0; tier <= _tunables.MaxTier; tier++)
+        {
+            for (var band = 1; band <= _tunables.BandsPerTier; band++)
+            {
+                if (authored.TryGetValue((tier, band), out var cell))
+                {
+                    rows.Add(new CellForm
+                    {
+                        Tier = tier,
+                        Band = band,
+                        Authored = true,
+                        GearBonuses = new Dictionary<ScoreId, int>(cell.ReferenceBuild.GearBonuses),
+                        AbilityKitCsv = string.Join(", ", cell.ReferenceBuild.AbilityKit),
+                        HasOutcomesOverride = cell.OutcomesOverride is not null,
+                        EqualCellWinRate = cell.OutcomesOverride?.EqualCellWinRate ?? _equalCellWinRate,
+                        WinRateTolerance = cell.OutcomesOverride?.WinRateTolerance ?? _winRateTolerance,
+                        HigherBandWinRateFloor = cell.OutcomesOverride?.HigherBandWinRateFloor ?? _higherBandWinRateFloor,
+                    });
+                }
+                else
+                {
+                    rows.Add(new CellForm { Tier = tier, Band = band, Authored = false });
+                }
+            }
+        }
+        return rows;
+    }
+
+    private void ResyncCells()
+    {
+        var existing = _cells.ToDictionary(c => (c.Tier, c.Band));
+        _cells = BuildCellRows(
+            existing.Where(kv => kv.Value.Authored)
+                .ToDictionary(kv => kv.Key, kv => new BalanceStandard(
+                    kv.Value.Tier, kv.Value.Band,
+                    new ReferenceBuildDefinition(kv.Value.GearBonuses, ParseCsv(kv.Value.AbilityKitCsv)),
+                    kv.Value.HasOutcomesOverride
+                        ? new OutcomeTolerances(kv.Value.EqualCellWinRate, kv.Value.WinRateTolerance, kv.Value.HigherBandWinRateFloor)
+                        : null)));
+    }
+
+    private void SetMaxTier(string? raw)
+    {
+        if (int.TryParse(raw, out var v) && v >= 0)
+        {
+            _tunables.MaxTier = v;
+            ResyncCells();
+        }
+    }
+
+    private void SetBandsPerTier(string? raw)
+    {
+        if (int.TryParse(raw, out var v) && v >= 1)
+        {
+            _tunables.BandsPerTier = v;
+            ResyncCells();
+        }
+    }
+
+    // ── Tunables table helpers ────────────────────────────────────────────────
+
+    private int GetWeight(ScoreId score) => _tunables.Weights.TryGetValue(score, out var w) ? w : 0;
+
+    private void SetWeight(ScoreId score, string? raw)
+    {
+        if (int.TryParse(raw, out var v))
+            _tunables.Weights[score] = v;
+    }
+
+    private int GetReferenceBase(ScoreId score) => _tunables.ReferenceBaseScores.TryGetValue(score, out var w) ? w : 0;
+
+    private void SetReferenceBase(ScoreId score, string? raw)
+    {
+        if (int.TryParse(raw, out var v))
+            _tunables.ReferenceBaseScores[score] = v;
+    }
+
+    private void SetTracked(ScoreId score, bool include)
+    {
+        if (include)
+            _tunables.TrackedScores.Add(score);
+        else
+            _tunables.TrackedScores.Remove(score);
+    }
+
+    // ── Cell table helpers ────────────────────────────────────────────────────
+
+    // Throwaway oracle over the in-progress candidate tunables — the oracle is a pure class, so
+    // previewing derived ranges never mutates the composed, DI-registered instance (Main flow step 7).
+    private PowerRange? TargetRangeFor(int tier, int band)
+    {
+        try
+        {
+            return new PowerBudgetSystem(_tunables.ToTunables()).TargetRange(tier, band);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
+    }
+
+    private static string GearBonusesCsv(CellForm cell) =>
+        string.Join(", ", cell.GearBonuses.Select(kv => $"{kv.Key.ToString().ToLowerInvariant()}:{kv.Value}"));
+
+    private void SetGearBonuses(CellForm cell, string? raw)
+    {
+        var dict = new Dictionary<ScoreId, int>();
+        foreach (var pair in (raw ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var parts = pair.Split(':', 2);
+            if (parts.Length == 2 &&
+                Enum.TryParse<ScoreId>(parts[0].Trim(), ignoreCase: true, out var score) &&
+                int.TryParse(parts[1].Trim(), out var value))
+            {
+                dict[score] = value;
+            }
+        }
+        cell.GearBonuses = dict;
+    }
+
+    private static List<string> ParseCsv(string raw) =>
+        raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+    // ── Save ───────────────────────────────────────────────────────────────────
+
+    private async Task Save()
+    {
+        _saving = true;
+        _saved = false;
+        _errors = Array.Empty<string>();
+        _warnings = Array.Empty<string>();
+
+        var document = BuildDocument();
+        var result = await Store.SaveAsync(document);
+
+        _saving = false;
+        if (result.Success)
+        {
+            _saved = true;
+            _warnings = result.Warnings;
+        }
+        else
+        {
+            _errors = result.Errors;
+        }
+    }
+
+    private BalanceStandardsDocument BuildDocument()
+    {
+        var tunables = _tunables.ToTunables();
+        var outcomes = new OutcomeTolerances(_equalCellWinRate, _winRateTolerance, _higherBandWinRateFloor);
+
+        var cells = new List<BalanceStandard>();
+        foreach (var cell in _cells.Where(c => c.Authored))
+        {
+            OutcomeTolerances? overrideTolerances = cell.HasOutcomesOverride
+                ? new OutcomeTolerances(cell.EqualCellWinRate, cell.WinRateTolerance, cell.HigherBandWinRateFloor)
+                : null;
+
+            cells.Add(new BalanceStandard(
+                cell.Tier,
+                cell.Band,
+                new ReferenceBuildDefinition(cell.GearBonuses, ParseCsv(cell.AbilityKitCsv)),
+                overrideTolerances));
+        }
+
+        return new BalanceStandardsDocument(tunables, _bandDriftTolerance, outcomes, cells);
+    }
+}

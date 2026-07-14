@@ -31,7 +31,7 @@ namespace Hedron.Tests.Progression
             public TestWorld(FakeRandom rng)
             {
                 Ecs = new EntityService();
-                Progression = new ProgressionSystem(Ecs, rng, new PowerBudgetSystem());
+                Progression = new ProgressionSystem(Ecs, rng, new PowerBudgetSystem(PowerBudgetTunables.Default));
                 Bus = new RecordingEventBus(dispatch: false);
                 Handler = new ExperienceAwardHandler(Progression, Bus);
             }

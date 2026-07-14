@@ -10,13 +10,16 @@ namespace Hedron.Core.Modules.BalanceInspection.Commands
 {
     /// <summary>
     /// Admin/designer command <c>powerband [tier]</c>. With no argument, lists every
-    /// (Tier, Band) cell's target power range (0&#8211;<see cref="PowerBudgetConstants.MaxTier"/>
-    /// × 1&#8211;<see cref="PowerBudgetConstants.BandsPerTier"/>, ~21 rows); with a tier argument,
-    /// lists just that tier's <see cref="PowerBudgetConstants.BandsPerTier"/> rows.
+    /// (Tier, Band) cell's target power range (0&#8211;<see cref="PowerBudgetTunables.MaxTier"/>
+    /// × 1&#8211;<see cref="PowerBudgetTunables.BandsPerTier"/>, ~21 rows); with a tier argument,
+    /// lists just that tier's <see cref="PowerBudgetTunables.BandsPerTier"/> rows. Table bounds
+    /// come from the injected <see cref="PowerBudgetTunables"/> — data-backed, not a compiled
+    /// constant.
     /// </summary>
     public sealed class PowerbandCommand : ICommand
     {
         private readonly IPowerBudgetSystem _powerBudget;
+        private readonly PowerBudgetTunables _tunables;
 
         public string Name => "powerband";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -35,9 +38,10 @@ namespace Hedron.Core.Modules.BalanceInspection.Commands
                 Required: false, "Tier (0-6) to inspect (omit to list every tier)."),
         });
 
-        public PowerbandCommand(IPowerBudgetSystem powerBudget)
+        public PowerbandCommand(IPowerBudgetSystem powerBudget, PowerBudgetTunables tunables)
         {
             _powerBudget = powerBudget;
+            _tunables = tunables;
         }
 
         public async Task ExecuteAsync(CommandContext context)
@@ -46,8 +50,8 @@ namespace Hedron.Core.Modules.BalanceInspection.Commands
 
             if (string.IsNullOrWhiteSpace(tierArg))
             {
-                var rows = new List<PowerBandRow>((PowerBudgetConstants.MaxTier + 1) * PowerBudgetConstants.BandsPerTier);
-                for (var tier = 0; tier <= PowerBudgetConstants.MaxTier; tier++)
+                var rows = new List<PowerBandRow>((_tunables.MaxTier + 1) * _tunables.BandsPerTier);
+                for (var tier = 0; tier <= _tunables.MaxTier; tier++)
                     rows.AddRange(BuildRows(tier));
 
                 await context.Output.WriteAsync(new PowerbandMessage(rows)).ConfigureAwait(false);
@@ -55,10 +59,10 @@ namespace Hedron.Core.Modules.BalanceInspection.Commands
             }
 
             if (!int.TryParse(tierArg, out var requestedTier) ||
-                requestedTier < 0 || requestedTier > PowerBudgetConstants.MaxTier)
+                requestedTier < 0 || requestedTier > _tunables.MaxTier)
             {
                 await context.Output.WriteAsync(new PlainMessage(
-                    $"Tier must be an integer 0-{PowerBudgetConstants.MaxTier}.",
+                    $"Tier must be an integer 0-{_tunables.MaxTier}.",
                     OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
@@ -69,8 +73,8 @@ namespace Hedron.Core.Modules.BalanceInspection.Commands
 
         private List<PowerBandRow> BuildRows(int tier)
         {
-            var rows = new List<PowerBandRow>(PowerBudgetConstants.BandsPerTier);
-            for (var band = 1; band <= PowerBudgetConstants.BandsPerTier; band++)
+            var rows = new List<PowerBandRow>(_tunables.BandsPerTier);
+            for (var band = 1; band <= _tunables.BandsPerTier; band++)
                 rows.Add(new PowerBandRow(tier, band, _powerBudget.TargetRange(tier, band)));
             return rows;
         }

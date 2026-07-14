@@ -21,7 +21,7 @@ namespace Hedron.Tests.Progression
         private static (ProgressionSystem System, EntityService Ecs) CreateSystem(FakeRandom rng)
         {
             var ecs = new EntityService();
-            var system = new ProgressionSystem(ecs, rng, new PowerBudgetSystem());
+            var system = new ProgressionSystem(ecs, rng, new PowerBudgetSystem(PowerBudgetTunables.Default));
             return (system, ecs);
         }
 

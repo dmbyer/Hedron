@@ -5,6 +5,7 @@ using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Aspects;
+using Hedron.Core.Modules.BalanceInspection.Standards;
 using Hedron.Core.Modules.Effects;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.World.Systems;
@@ -98,6 +99,7 @@ namespace Hedron.Tests.Registry
             var bootstrap = new RegistryValidationBootstrap(
                 validator,
                 configuration,
+                new BalanceStandardsRegistry(BalanceStandardsDefaults.Document),
                 NullLogger<RegistryValidationBootstrap>.Instance);
 
             bootstrap.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
