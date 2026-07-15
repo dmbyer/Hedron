@@ -58,6 +58,15 @@ public static class Program
             return await GenerationRunMode.RunAsync(args, configuration);
         }
 
+        if (SimulateRunMode.Matches(args))
+        {
+            var configuration = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: true)
+                .AddEnvironmentVariables("HEDRON_")
+                .Build();
+            return await SimulateRunMode.RunAsync(args, configuration);
+        }
+
         var host = Host.CreateDefaultBuilder(args)
             .ConfigureAppConfiguration((_, cfg) => cfg.AddEnvironmentVariables("HEDRON_"))
             .ConfigureServices((context, services) =>

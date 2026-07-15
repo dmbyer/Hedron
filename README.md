@@ -12,7 +12,7 @@ Hedron is a C# **MUD (Multi-User Dungeon) game engine** targeting **.NET 8**. It
 | Project | Output | Responsibility |
 |---|---|---|
 | [`Core/`](Core/) | library | The engine: ECS components, systems, handlers, events, commands, and the content/persistence modules. No transport or hosting. |
-| [`Server/`](Server/) | console exe | Telnet host. Owns DI composition (`CompositionRoot`) and the headless `generate` content-generation run-mode. |
+| [`Server/`](Server/) | console exe | Telnet host. Owns DI composition (`CompositionRoot`) and the headless `generate`/`simulate` run-modes. |
 | [`Hedron.Web/`](Hedron.Web/) | web app | Blazor Server **content-authoring UI** (browse / create / edit YAML content). Boots the same engine via `Server`'s composition root; loopback-only by default. |
 | [`Hedron.Tests/`](Hedron.Tests/) | xUnit | System / handler / flow / persistence / architecture-guard test suite. |
 
@@ -56,6 +56,19 @@ dotnet run --project Server -- generate --profile <path-to-profile.yaml> [--seed
 
 Writes validated YAML under the content directory and exits `0` on success, non-zero on a validation or I/O failure.
 
+### Balance simulation (headless)
+
+Run a deterministic batch of combat scenarios — an isolated sandbox world per run, never the live world — and validate the outcomes against the balance-standards registry, without starting the listener or heartbeat:
+
+```bash
+dotnet run --project Server -- simulate --scenario <path-to-scenario.yaml> [--seed N]
+```
+
+- `--scenario <path>` (**required**) — a scenario definition (see [`data/sim/scenarios/example-equal-cell.yaml`](data/sim/scenarios/example-equal-cell.yaml)).
+- `--seed N` (optional) — overrides the scenario's seed; a fixed seed reproduces byte-identical results regardless of parallelism.
+
+Prints a win-rate/time-to-kill/verdict summary and writes a JSON report artifact under `Simulation:ReportDirectory` (default `data/sim/reports/`). Exits `0` on a clean run, `1` on an engine failure, `2` on a usage or scenario-validation error.
+
 ## Configuration
 
 Each host reads an `appsettings.json` next to its project — [`Server/appsettings.json`](Server/appsettings.json) and [`Hedron.Web/appsettings.json`](Hedron.Web/appsettings.json). Settings are grouped by section:
@@ -69,6 +82,7 @@ Each host reads an `appsettings.json` next to its project — [`Server/appsettin
 | `Heartbeat` | Game-loop tick interval |
 | `Admin` | Privileged account names |
 | `Balance` | Balance-standards YAML file path (`data/balance/standards.yaml`) |
+| `Simulation` | Simulation report output directory (`data/sim/reports/`) |
 | `CharacterDefaults` · `Death` · `Output` · `Logging` · `Shop` | Starting stats/abilities, death tuning, output color, log levels, shop buy/sell ratios |
 
 The concrete keys and defaults live in the `appsettings.json` files and are not duplicated here.

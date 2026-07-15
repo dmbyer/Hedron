@@ -1,0 +1,16 @@
+kind: Combat
+name: example-equal-cell
+seed: 1234
+iterations: 200
+maxTicksPerRun: 100
+sides:
+  - combatants:
+      - source: ReferenceBuild
+        tier: 2
+        band: 2
+        policyId: cooldown-first
+  - combatants:
+      - source: ReferenceBuild
+        tier: 2
+        band: 2
+        policyId: cooldown-first
