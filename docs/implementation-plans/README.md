@@ -50,6 +50,7 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C) |
 | `planned` | [`progression-and-balance.md`](progression-and-balance.md) | Progression & Balance — program brief (slices 4–5 remain) |
 | `planned` | [`balance-simulator.md`](balance-simulator.md) | Balance Simulator & Workbench — program seed (prog-4, sub-slices sim-2…sim-5 remain; sim-1 shipped) |
+| `planned` | [`simulation-engine-core.md`](simulation-engine-core.md) | Simulation engine core (sim-2) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 
 > The legacy `implemented` plans that predated disintegrate-on-ship have all been disintegrated into the living docs ([`../features/`](../features/), [`../architecture/flows/`](../architecture/flows/), [`../reference/`](../reference/)) and removed — see the completed docs-refinement program in [`../roadmap/backlog.md`](../roadmap/backlog.md). This folder now holds only the in-flight plans listed above.
