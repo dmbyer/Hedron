@@ -4,7 +4,7 @@
 
 **Source:** [`../../features/progression/power-budget-system.md`](../../features/progression/power-budget-system.md) (the sim-1 standards registry this engine consumes)
 
-**Summary.** A headless `simulate` run-mode composes DI without gameplay hosted services, loads and validates one scenario, runs it through `ISimulationRunner` — which resolves combatants once, fans out isolated per-run sandbox worlds in parallel, drives each to completion via a synthetic per-tick sequence with no event bus, and reduces the results deterministically — then writes a JSON report artifact and prints a console summary. No live entity, no `EcsManager`, no `IEventBus` publish anywhere in the run (INV-12 nuance, INV-5, INV-10).
+**Summary.** A headless `simulate` run-mode composes DI without gameplay hosted services, loads and validates one scenario, runs it through `ISimulationRunner` — which dispatches on `ScenarioKind` to one of two executors, resolves combatants once, fans out isolated per-run sandbox worlds in parallel, drives each run to completion with no event bus, and reduces the results deterministically — then writes a JSON report artifact and prints a console summary. `Combat` (sim-2) drives a synthetic per-tick combat sequence via `CombatScenarioExecutor`; `ProgressionRate` (sim-4) drives a kill-event loop over the real `IProgressionSystem.AwardCombatExperience` seam via `ProgressionScenarioExecutor` — no combat rounds, analytical kill-events only (see the sim-4 plan's Design notes). No live entity, no `EcsManager`, no `IEventBus` publish anywhere in the run (INV-12 nuance, INV-5, INV-10).
 
 **Trigger:** `dotnet run --project Server -- simulate --scenario <path> [--seed N]` **or** the Simulation page in `Hedron.Web` (`/simulation`) — a designer composing/loading/prefilled a scenario and clicking **Run** (sim-3).
 
@@ -48,13 +48,50 @@ sequenceDiagram
 **Steps.**
 1. `Program.Main` detects the `simulate` token and branches before building the listener host (mirrors `generate`). `--scenario` is required; missing → exit 2.
 2. `SimulateRunMode` composes DI via `CompositionRoot.Register` (plus `AddLogging`, since `ISimCombatantFactory` resolves the real `IContentDefinitionCatalog` for the mob-template combatant source) — no `AddGameplayHostedServices`, so no telnet, no heartbeat, no world-content spawn.
-3. `ISimScenarioStore.Load` deserializes the scenario YAML and runs fail-fast structural validation (unknown kind, unknown policy id, wrong combatant count per side, non-positive iterations/maxTicks, unresolvable source discriminator). Any violation → exit 2 before a single run executes.
-4. `ISimulationRunner.Run` dispatches on `ScenarioKind` (only `Combat` has an executor; any other kind throws — the sim-4 seam) and resolves each side's `CombatantSpec` **once** via `ISimCombatantFactory.Resolve` — mob-template catalog reads and standards-registry reads happen here, never inside the per-run hot path.
+3. `ISimScenarioStore.Load` deserializes the scenario YAML and runs fail-fast structural validation (unknown kind, unknown policy id — combat-only, since a progression side never chooses actions — wrong combatant count per side, non-positive iterations/maxTicks, unresolvable source discriminator, and — for `progressionRate` — the kind-gated `progression:` section's own checks). Any violation → exit 2 before a single run executes.
+4. `ISimulationRunner.Run` dispatches on `ScenarioKind` to one of two executors — `Combat` (below) or `ProgressionRate` (sim-4 leg, below) — and resolves each side's `CombatantSpec` **once** via `ISimCombatantFactory.Resolve` — mob-template catalog reads and standards-registry reads happen here, never inside the per-run hot path.
 5. Runs fan out in parallel (bounded by `maxParallelism`, default processor count). Each run derives its own seed via `SimSeeds.DeriveRunSeed(scenarioSeed, runIndex)` (a stable, non-`HashCode.Combine` mix — INV-26), builds a fresh isolated `SandboxWorld` via `ISandboxWorldFactory.Create` (never the host's live world — INV-12 nuance), and materializes both resolved combatants into it via `ISimCombatantFactory.Materialize`.
 6. `CombatScenarioExecutor.ExecuteRun` drives one run to completion: each synthetic tick advances effects (due periodics applied directly, no `EffectExpiredEvent`), advances ability cooldowns, draws a randomized initiative order from the run's own `IRandom` (avoiding a structural first-strike bias), and lets each living combatant's `ISimCombatantPolicy` choose melee or an ability (activated via `IAbilitySystem.Activate` + `ICombatSystem.ResolveAbilityStrike` for offensive abilities — mirroring `AbilityInvocationPipeline` minus every bus publish), then applies regeneration. Ends on a `MobDied` outcome or the `maxTicksPerRun` cap (a draw).
 7. The runner reduces every `RunRecord` **in run-index order** (independent of completion scheduling) into win counts, draw count, and `DistributionStats` (mean/median/p10/p90/min/max) for time-to-kill and per-side damage dealt.
 8. `ISimOutcomeEvaluator.Evaluate` compares the reduced win rates against `IBalanceStandardsRegistry.OutcomesFor` tolerances — an equal-cell check when both sides share a (Tier, Band) cell, a one-band-higher floor check when their global band indexes differ by exactly one, or a skipped-with-reason verdict otherwise. Verdict math lives here, not in the CLI or a future editor page (INV-19).
-9. `SimulateRunMode` calls `ISimReportWriter.WriteAsync` (atomic tmp → rename JSON into `Simulation:ReportDirectory`), prints a console summary (win rates, TTK, verdicts), and returns 0. An engine-level exception (e.g. `NotSupportedException` for an unbuilt scenario kind) is caught and mapped to exit 1.
+9. `SimulateRunMode` calls `ISimReportWriter.WriteAsync` (atomic tmp → rename JSON into `Simulation:ReportDirectory`), prints a console summary (win rates or, for a progression-rate report, the progression payload — verdicts either way), and returns 0. An engine-level exception (e.g. `NotSupportedException` for an unbuilt scenario kind) is caught and mapped to exit 1.
+
+---
+
+## Progression-rate leg (sim-4)
+
+Activates at step 4 above when `Scenario.Kind == ProgressionRate`. Subject = `Sides[0]`, victim = `Sides[1]` (the same `CombatantSpec`/`ISimCombatantFactory` two-phase resolution as combat — no forked combatant shape). Rejoins the diagram above at step 9 (`ISimReportWriter.WriteAsync`) with an additive `ProgressionRate` payload instead of populated combat scalars.
+
+```mermaid
+sequenceDiagram
+    participant Runner as ISimulationRunner
+    participant CF as ISimCombatantFactory
+    participant SWF as ISandboxWorldFactory
+    participant Exec as ProgressionScenarioExecutor
+    participant Prog as IProgressionSystem
+    participant Eval as ISimOutcomeEvaluator
+
+    Runner->>CF: Resolve(subject spec) / Resolve(victim spec) — once per scenario
+    loop per run index i (parallel, bounded)
+        Runner->>SWF: Create(random) → fresh SandboxWorld (contains IProgressionSystem already)
+        Runner->>CF: Materialize(world, resolved) × 2 → subjectId, victimId
+        loop per kill-event, until target reached or maxKillsPerRun
+            Exec->>Prog: AwardCombatExperience(subjectId, victimId)
+            Prog-->>Exec: CombatAwardResult (one AwardOutcome per CombatTracks row)
+            Exec->>Exec: record a milestone kill-count on each threshold crossing of TargetTrack
+        end
+        Exec-->>Runner: ProgressionRunRecord (indexed by i)
+    end
+    Runner->>Runner: index-ordered reduce → kills/XP-to-target distributions, milestone means
+    Runner->>Eval: EvaluateProgressionRate(runsReachedTarget, totalRuns)
+    Eval-->>Runner: targetReached verdict + skipped progressionRateExpectation verdict
+    Runner-->>Runner: SimulationReport (ProgressionRate populated; combat scalars empty defaults)
+```
+
+- **Analytical kill-events, not simulated combat.** Each kill-event calls `IProgressionSystem.AwardCombatExperience` directly — the exact live award path (`MobDiedEvent` → `ExperienceAwardHandler` → `AwardCombatExperience` → `TryImprove`) minus the bus, mirrored the same way `CombatScenarioExecutor` mirrors `AbilityInvocationPipeline`. No combat rounds run per kill; the victim is never destroyed (one award models one kill of a fresh identical spawn — what live template respawn produces). See the sim-4 plan's Design notes for why (cost, and the current tier-baseline calibration gap that severs the combat-outcome feedback loop this would otherwise buy).
+- **Termination.** A run ends when the target track's improvement count reaches `targetImprovements`, or at `maxKillsPerRun` (target not reached — the run still reports its final kill count and per-track XP/improvements).
+- **`ticksPerKill` is authored, not engine-chained.** When present on the scenario, the reduce step converts each reaching run's kill count to synthetic ticks (`kills × ticksPerKill`) into a `TicksToTarget` distribution; the editor can prefill this field from a chosen combat report's `TicksToKill.Mean`, but the engine itself never reads report files as input.
+- **Verdicts are descriptive-first.** `targetReached` is a real, standards-free pass/fail (every run reached the target before the cap); `progressionRateExpectation` is always skipped, naming the not-yet-authored standards tolerance family (no progression-rate expectation has ever been stated by a designer — inventing one now would ship speculative authored state).
 
 ---
 
@@ -104,13 +141,14 @@ sequenceDiagram
 - **Cancellation.** A queued run cancels in place (the runner is never invoked). An active run's cooperative `CancellationToken` is signaled; `ISimulationRunner.Run` throws `OperationCanceledException` between per-iteration runs, and `SimulationRunService` marks the run `Canceled` **without calling `ISimReportWriter.WriteAsync`** — report artifacts are always complete (schema untouched).
 - **Report-read leg.** `ISimReportReader.List`/`Read` share the writer's `SimReportJson` serializer options, so a CLI-written report and an editor-written report are indistinguishable in the history list — one artifact class, two producers.
 - **Entry-point / sweep prefill hop.** `MobEditor`/`ItemEditor`'s "Simulate vs reference" buttons and the Standards page's "Re-run baseline sweep" button all rejoin this same diagram at `Enqueue` — they only differ in how the `ScenarioDefinition` is composed beforehand (`SimulationPrefill`/`BaselineSweep`, both pure web-side composers with no engine seam of their own). See [Flow 29](flow-29-bulk-content-generation.md) for the precedent of one content-tooling journey carrying multiple entry triggers.
+- **`ticksPerKill` prefill (sim-4).** The compose form's kind switch adds progression-rate fields alongside the combat ones; a "prefill from combat report" dropdown reads a selected readable combat report's `TicksToKill.Mean` via `SimulationPrefill.TicksPerKillFrom` (pure static, `Kind == Combat` + decisive-runs guard) into the `ticksPerKill` field — the same prefill-only posture as the mob/item entry-point hop above, never auto-run.
 
 ---
 
 ## Invariants
 
 - INV-2: the engine's inputs are computed values (`ResolvedCombatant.Scores`, an `IBalanceStandardsRegistry.ReferenceSnapshot`) — the sim never reaches into `PowerBudgetSystem`'s snapshot-only contract from a domain angle.
-- INV-5 / INV-10: `ISimulationRunner`, `CombatScenarioExecutor`, and every Simulation-module system return results only; `SimulateRunMode` is a no-chain Initiator. Guard-tested: no `Core/Modules/Simulation/` type references `IEventBus`.
+- INV-5 / INV-10: `ISimulationRunner`, `CombatScenarioExecutor`, `ProgressionScenarioExecutor` (sim-4), and every Simulation-module system return results only; `SimulateRunMode` is a no-chain Initiator. Guard-tested: no `Core/Modules/Simulation/` type references `IEventBus`.
 - INV-12 (named nuance): a sandbox world is explicitly **not** the "one live world" — the engine never calls `EcsManager.SetWorld` and never resolves the host's `EntityService`. Guard-tested by source scan.
 - INV-19: verdict math and the standards-registry read live in the engine, so the CLI (today), the sim-3 editor, and the promoted CI invariants can never drift onto different expected-outcome math.
 - INV-22 (by absence): no `SaveEntityAsync` call site anywhere in the Simulation module — sandbox entities are discarded with their `EntityService` at the end of each run.
@@ -120,7 +158,7 @@ sequenceDiagram
 
 ## Cross-references
 
-- Systems: [`../../reference/systems.md`](../../reference/systems.md) — `ISimScenarioStore` (+ sim-3 `SaveAsync`/`List`), `ISandboxWorldFactory`, `ISimCombatantFactory` (+ sim-3 verdict-cell fallback), `ISimCombatantPolicy` (+ built-ins), `ISimulationRunner` (+ sim-3 cancellation/progress), `ISimOutcomeEvaluator`, `ISimReportWriter`, `ISimReportReader` (sim-3), `SimulationRunService`/`BaselineSweep`/`SimulationPrefill` (sim-3, `Hedron.Web/Services/`).
-- Feature: [`../../features/progression/power-budget-system.md`](../../features/progression/power-budget-system.md) (the sim-1 standards registry this engine's reference builds and verdicts read) · [`../../features/simulation/simulation.md`](../../features/simulation/simulation.md) (the editor surface this leg documents).
+- Systems: [`../../reference/systems.md`](../../reference/systems.md) — `ISimScenarioStore` (+ sim-3 `SaveAsync`/`List`, + sim-4 `progression:` section validation), `ISandboxWorldFactory`, `ISimCombatantFactory` (+ sim-3 verdict-cell fallback), `ISimCombatantPolicy` (+ built-ins), `ISimulationRunner` (+ sim-3 cancellation/progress, + sim-4 kind dispatch), `ProgressionScenarioExecutor` (sim-4), `ISimOutcomeEvaluator` (+ sim-4 `EvaluateProgressionRate`), `ISimReportWriter`, `ISimReportReader` (sim-3), `SimulationRunService`/`BaselineSweep`/`SimulationPrefill` (sim-3/sim-4, `Hedron.Web/Services/`).
+- Feature: [`../../features/progression/power-budget-system.md`](../../features/progression/power-budget-system.md) (the sim-1 standards registry this engine's reference builds and verdicts read) · [`../../features/simulation/simulation.md`](../../features/simulation/simulation.md) (the editor surface this leg documents) · [`../../features/progression/progression-system.md`](../../features/progression/progression-system.md) (the `IProgressionSystem` seam the sim-4 leg sweeps).
 - Architecture: [`../08-blazor.md`](../08-blazor.md) "Background tooling jobs" — the polling/singleton/cancellation shape rationale.
-- Related flow: [Flow 29 — content-tooling journey](flow-29-bulk-content-generation.md) (the `generate` run-mode precedent this mirrors, and the precedent for one journey carrying multiple entry triggers) · [Flow 17 — combat journey](flow-17-kill-mob-combat-initiation.md) (the live per-tick sequence the executor's synthetic heartbeat deliberately mirrors, minus the bus) · [Flow 24 — abilities journey](flow-24-ability-activation.md) (the `Activate` + `ResolveAbilityStrike` pairing the executor drives directly).
+- Related flow: [Flow 29 — content-tooling journey](flow-29-bulk-content-generation.md) (the `generate` run-mode precedent this mirrors, and the precedent for one journey carrying multiple entry triggers) · [Flow 17 — combat journey](flow-17-kill-mob-combat-initiation.md) (the live per-tick sequence the executor's synthetic heartbeat deliberately mirrors, minus the bus) · [Flow 24 — abilities journey](flow-24-ability-activation.md) (the `Activate` + `ResolveAbilityStrike` pairing the executor drives directly) · [Flow 31 — progression award](flow-31-progression-award.md) (the system leg the sim-4 executor mirrors, minus the bus/handler leg).

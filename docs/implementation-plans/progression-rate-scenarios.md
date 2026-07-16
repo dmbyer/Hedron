@@ -1,6 +1,6 @@
 # Progression-Rate Scenarios (sim-4)
 
-**Status:** planned
+**Status:** implemented
 **Actors:** Administrator/Designer (authors + runs progression-rate scenarios from CLI or editor) · System (`simulate` run-mode, promoted CI invariants) · Blazor editor (`Hedron.Web` Simulation page — compose, run, render)
 **Module:** `Core/Modules/Simulation/` (feature: [`../features/simulation/simulation.md`](../features/simulation/simulation.md)); thin-caller touches in `Server/SimulateRunMode.cs` and `Hedron.Web` (Simulation page)
 

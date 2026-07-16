@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Hedron.Core.Modules.Simulation;
 using Hedron.Core.Modules.Simulation.Systems;
+using Hedron.Core.Modules.Stats;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -40,6 +41,35 @@ namespace Hedron.Tests.Simulation
             SideADamageDealt: new DistributionStats(50, 50, 40, 60, 30, 70),
             SideBDamageDealt: new DistributionStats(45, 45, 35, 55, 25, 65),
             Verdicts: new[] { new SimVerdict("equalCellWinRate", true, "60% vs expected 50% ± 10%") });
+
+        private static SimulationReport SampleProgressionReport(string name = "probe-progression", int seed = 42) => new(
+            SchemaVersion: 1,
+            Scenario: new ScenarioDefinition(
+                ScenarioKind.ProgressionRate, name, seed, Iterations: 10, MaxTicksPerRun: 1,
+                Sides: new[]
+                {
+                    new ScenarioSide(new[] { new CombatantSpec(CombatantSourceKind.ReferenceBuild, string.Empty, Tier: 2, Band: 2) }),
+                    new ScenarioSide(new[] { new CombatantSpec(CombatantSourceKind.ReferenceBuild, string.Empty, Tier: 2, Band: 2) }),
+                },
+                Progression: new ProgressionSettings(ScoreId.Body, TargetImprovements: 2, MaxKillsPerRun: 200, TicksPerKill: 12.4)),
+            GeneratedAt: new DateTime(2026, 7, 16, 12, 0, 0, DateTimeKind.Utc),
+            SideAWins: 0, SideBWins: 0, Draws: 0,
+            SideAWinRate: 0.0, SideBWinRate: 0.0,
+            TicksToKill: new DistributionStats(0, 0, 0, 0, 0, 0),
+            SideADamageDealt: new DistributionStats(0, 0, 0, 0, 0, 0),
+            SideBDamageDealt: new DistributionStats(0, 0, 0, 0, 0, 0),
+            Verdicts: new[] { new SimVerdict("targetReached", true, "10/10 runs reached the target before the cap (100.0 %)"), new SimVerdict("progressionRateExpectation", null, "skipped — no progression-rate tolerance family defined in the balance standards yet") },
+            ProgressionRate: new ProgressionRateResult(
+                ScoreId.Body, TargetImprovements: 2, RunsReachedTarget: 10,
+                KillsToTarget: new DistributionStats(15, 15, 12, 18, 10, 20),
+                MeanMilestoneKills: new[] { 10.0, 15.0 },
+                Tracks: new[]
+                {
+                    new ProgressionTrackResult(ScoreId.Body, new DistributionStats(150, 150, 120, 180, 100, 200), new DistributionStats(2, 2, 2, 2, 2, 2)),
+                    new ProgressionTrackResult(ScoreId.HpMax, new DistributionStats(150, 150, 120, 180, 100, 200), new DistributionStats(2, 2, 2, 2, 2, 2)),
+                },
+                TicksPerKill: 12.4,
+                TicksToTarget: new DistributionStats(186, 186, 149, 223, 124, 248)));
 
         [Fact]
         public async Task WriteAsync_ThenReread_RoundTripsSchemaVersionAndAggregates()
@@ -90,6 +120,36 @@ namespace Hedron.Tests.Simulation
 
             Assert.NotEqual(pathA, pathB);
             Assert.Equal(2, Directory.EnumerateFiles(_tempDir, "*.json").Count());
+        }
+
+        [Fact]
+        public async Task WriteAsync_ProgressionReport_ThenReread_RoundTripsProgressionRatePayload()
+        {
+            var writer = NewWriter();
+            var report = SampleProgressionReport();
+
+            var path = await writer.WriteAsync(report);
+            var body = await File.ReadAllTextAsync(path);
+
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+            };
+            var reread = JsonSerializer.Deserialize<SimulationReport>(body, options);
+
+            Assert.NotNull(reread);
+            Assert.Equal(1, reread!.SchemaVersion);
+            Assert.NotNull(reread.ProgressionRate);
+            var progression = reread.ProgressionRate!;
+            Assert.Equal(ScoreId.Body, progression.TargetTrack);
+            Assert.Equal(2, progression.TargetImprovements);
+            Assert.Equal(10, progression.RunsReachedTarget);
+            Assert.Equal(report.ProgressionRate!.KillsToTarget, progression.KillsToTarget);
+            Assert.Equal(report.ProgressionRate.MeanMilestoneKills, progression.MeanMilestoneKills);
+            Assert.Equal(2, progression.Tracks.Count);
+            Assert.Equal(12.4, progression.TicksPerKill);
+            Assert.Equal(report.ProgressionRate.TicksToTarget, progression.TicksToTarget);
         }
     }
 }

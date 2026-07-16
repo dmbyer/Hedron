@@ -6,6 +6,7 @@
 @using Hedron.Core.Modules.Items.Templates
 @using Hedron.Core.Modules.Mobs.Systems
 @using Hedron.Core.Modules.Mobs.Templates
+@using Hedron.Core.Modules.Progression
 @using Hedron.Core.Modules.Simulation
 @using Hedron.Core.Modules.Simulation.Systems
 @using Hedron.Core.Modules.Stats
@@ -54,6 +55,15 @@
     <legend>Scenario</legend>
     <div class="field-row">
         <div class="field">
+            <label>Kind</label>
+            <select value="@_kind" @onchange="e => SetKind(e.Value?.ToString())">
+                @foreach (var kind in Enum.GetValues<ScenarioKind>())
+                {
+                    <option value="@kind">@kind</option>
+                }
+            </select>
+        </div>
+        <div class="field">
             <label>Name</label>
             <input @bind="_name" />
         </div>
@@ -66,17 +76,54 @@
             <input type="number" min="1" @bind="_iterations" />
         </div>
         <div class="field">
-            <label>Max ticks per run</label>
+            <label>Max ticks per run <span class="hint-inline">(unused by progressionRate)</span></label>
             <input type="number" min="1" @bind="_maxTicksPerRun" />
         </div>
     </div>
+
+    @if (_kind == ScenarioKind.ProgressionRate)
+    {
+        <div class="field-row">
+            <div class="field">
+                <label>Target track</label>
+                <select value="@_progressionForm.TargetTrack" @onchange="e => SetTargetTrack(e.Value?.ToString())">
+                    @foreach (var track in ProgressionConstants.CombatTracks)
+                    {
+                        <option value="@track">@track</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Target improvements</label>
+                <input type="number" min="1" @bind="_progressionForm.TargetImprovements" />
+            </div>
+            <div class="field">
+                <label>Max kills per run</label>
+                <input type="number" min="1" @bind="_progressionForm.MaxKillsPerRun" />
+            </div>
+            <div class="field">
+                <label>Ticks per kill <span class="hint-inline">(optional)</span></label>
+                <input type="number" step="0.1" value="@_progressionForm.TicksPerKill" @onchange="e => _progressionForm.TicksPerKill = ParseNullableDouble(e.Value?.ToString())" />
+            </div>
+        </div>
+        <div class="field">
+            <label>Prefill ticks per kill from a combat report</label>
+            <select @onchange="e => PrefillTicksPerKill(e.Value?.ToString())">
+                <option value="">-- select a readable combat report --</option>
+                @foreach (var r in _history.Where(h => h.Readable))
+                {
+                    <option value="@r.Path">@r.ScenarioName (@r.FileName)</option>
+                }
+            </select>
+        </div>
+    }
 
     <p class="hint-inline">
         Cell table: tiers 0&ndash;@StandardsRegistry.Tunables.MaxTier, bands 1&ndash;@StandardsRegistry.Tunables.BandsPerTier.
     </p>
 
-    <CombatantSideEditor Label="Side A" Form="_sideA" Policies="Policies" Mobs="_mobs" />
-    <CombatantSideEditor Label="Side B" Form="_sideB" Policies="Policies" Mobs="_mobs" />
+    <CombatantSideEditor Label="@(_kind == ScenarioKind.ProgressionRate ? "Subject" : "Side A")" Form="_sideA" Policies="Policies" Mobs="_mobs" ShowPolicy="@(_kind == ScenarioKind.Combat)" />
+    <CombatantSideEditor Label="@(_kind == ScenarioKind.ProgressionRate ? "Victim" : "Side B")" Form="_sideB" Policies="Policies" Mobs="_mobs" ShowPolicy="@(_kind == ScenarioKind.Combat)" />
 
     @if (_formErrors.Count > 0)
     {
@@ -190,15 +237,55 @@
 {
     <fieldset class="report-view">
         <legend>Report: @_openedReport.Scenario.Name (seed @_openedReport.Scenario.Seed)</legend>
-        <p>
-            Side A wins: <strong>@_openedReport.SideAWins</strong> (@_openedReport.SideAWinRate.ToString("P1")) &mdash;
-            Side B wins: <strong>@_openedReport.SideBWins</strong> (@_openedReport.SideBWinRate.ToString("P1")) &mdash;
-            Draws: <strong>@_openedReport.Draws</strong>
-        </p>
-        <p class="hint">
-            Ticks to kill: mean @_openedReport.TicksToKill.Mean.ToString("F1"), median @_openedReport.TicksToKill.Median.ToString("F1"),
-            p10 @_openedReport.TicksToKill.P10.ToString("F1"), p90 @_openedReport.TicksToKill.P90.ToString("F1")
-        </p>
+
+        @if (_openedReport.Scenario.Kind == ScenarioKind.Combat)
+        {
+            <p>
+                Side A wins: <strong>@_openedReport.SideAWins</strong> (@_openedReport.SideAWinRate.ToString("P1")) &mdash;
+                Side B wins: <strong>@_openedReport.SideBWins</strong> (@_openedReport.SideBWinRate.ToString("P1")) &mdash;
+                Draws: <strong>@_openedReport.Draws</strong>
+            </p>
+            <p class="hint">
+                Ticks to kill: mean @_openedReport.TicksToKill.Mean.ToString("F1"), median @_openedReport.TicksToKill.Median.ToString("F1"),
+                p10 @_openedReport.TicksToKill.P10.ToString("F1"), p90 @_openedReport.TicksToKill.P90.ToString("F1")
+            </p>
+        }
+
+        @if (_openedReport.ProgressionRate is { } progression)
+        {
+            <p>
+                Target: <strong>@progression.TargetImprovements</strong> improvement(s) of <strong>@progression.TargetTrack</strong> &mdash;
+                runs reached target: <strong>@progression.RunsReachedTarget</strong> / @_openedReport.Scenario.Iterations
+            </p>
+            <p class="hint">
+                Kills to target: mean @progression.KillsToTarget.Mean.ToString("F1"), median @progression.KillsToTarget.Median.ToString("F1"),
+                p10 @progression.KillsToTarget.P10.ToString("F1"), p90 @progression.KillsToTarget.P90.ToString("F1")
+            </p>
+            <p class="hint-inline">
+                Mean kills at each milestone: @string.Join(", ", progression.MeanMilestoneKills.Select((k, i) => $"#{i + 1}: {k:F1}"))
+            </p>
+            @if (progression.TicksToTarget is { } ticksToTarget)
+            {
+                <p class="hint">
+                    Ticks to target (ticksPerKill @progression.TicksPerKill?.ToString("F1")): mean @ticksToTarget.Mean.ToString("F1"),
+                    p10 @ticksToTarget.P10.ToString("F1"), p90 @ticksToTarget.P90.ToString("F1")
+                </p>
+            }
+            <table class="grid">
+                <thead><tr><th>Track</th><th>XP (mean)</th><th>Improvements (mean)</th></tr></thead>
+                <tbody>
+                    @foreach (var track in progression.Tracks)
+                    {
+                        <tr>
+                            <td>@track.Track</td>
+                            <td>@track.Xp.Mean.ToString("F1")</td>
+                            <td>@track.Improvements.Mean.ToString("F1")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
         <table class="grid">
             <thead><tr><th>Verdict</th><th>Result</th><th>Reason</th></tr></thead>
             <tbody>
@@ -221,12 +308,14 @@
 
     private bool _prefillApplied;
 
+    private ScenarioKind _kind = ScenarioKind.Combat;
     private string _name = "editor-scenario";
     private int _seed = 1234;
     private int _iterations = 200;
     private int _maxTicksPerRun = 100;
     private readonly CombatantForm _sideA = new();
     private readonly CombatantForm _sideB = new();
+    private readonly ProgressionSettingsForm _progressionForm = new();
 
     private IReadOnlyList<ScenarioFileSummary> _savedScenarios = Array.Empty<ScenarioFileSummary>();
     private string _selectedScenarioPath = string.Empty;
@@ -303,15 +392,44 @@
 
     private void ApplyDefinition(ScenarioDefinition definition)
     {
+        _kind = definition.Kind;
         _name = definition.Name;
         _seed = definition.Seed;
         _iterations = definition.Iterations;
         _maxTicksPerRun = definition.MaxTicksPerRun;
 
+        if (definition.Progression is not null)
+            _progressionForm.ApplyFrom(definition.Progression);
+
         if (definition.Sides.Count > 0 && definition.Sides[0].Combatants.Count > 0)
             ApplyCombatant(_sideA, definition.Sides[0].Combatants[0]);
         if (definition.Sides.Count > 1 && definition.Sides[1].Combatants.Count > 0)
             ApplyCombatant(_sideB, definition.Sides[1].Combatants[0]);
+    }
+
+    private void SetKind(string? raw)
+    {
+        if (Enum.TryParse<ScenarioKind>(raw, out var kind))
+            _kind = kind;
+    }
+
+    private void SetTargetTrack(string? raw)
+    {
+        if (Enum.TryParse<ScoreId>(raw, out var track))
+            _progressionForm.TargetTrack = track;
+    }
+
+    private static double? ParseNullableDouble(string? raw) =>
+        double.TryParse(raw, out var v) ? v : null;
+
+    private void PrefillTicksPerKill(string? path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return;
+
+        var prefill = SimulationPrefill.TicksPerKillFrom(ReportReader.Read(path));
+        if (prefill is { } value)
+            _progressionForm.TicksPerKill = value;
     }
 
     private static void ApplyCombatant(CombatantForm form, CombatantSpec spec)
@@ -363,7 +481,7 @@
     }
 
     private ScenarioDefinition BuildScenario() => new(
-        ScenarioKind.Combat,
+        _kind,
         _name,
         _seed,
         _iterations,
@@ -372,7 +490,8 @@
         {
             new ScenarioSide(new[] { BuildSpec(_sideA) }),
             new ScenarioSide(new[] { BuildSpec(_sideB) }),
-        });
+        },
+        _kind == ScenarioKind.ProgressionRate ? _progressionForm.ToSettings() : null);
 
     private static IReadOnlyList<string> SplitErrors(Exception ex) =>
         ex.Message.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();

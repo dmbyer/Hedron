@@ -21,5 +21,14 @@ namespace Hedron.Core.Modules.Simulation.Systems
             int sideAWins,
             int sideBWins,
             int draws);
+
+        /// <summary>
+        /// Evaluates a progression-rate batch (sim-4): a real, standards-free <c>targetReached</c>
+        /// verdict (pass = every run reached the target before <c>maxKillsPerRun</c>; reason carries
+        /// the reached share) plus a <c>progressionRateExpectation</c> verdict that is always
+        /// skipped, naming the not-yet-authored standards tolerance family (Design notes —
+        /// descriptive-first verdict posture, confirmed by the user for this slice).
+        /// </summary>
+        IReadOnlyList<SimVerdict> EvaluateProgressionRate(int runsReachedTarget, int totalRuns);
     }
 }

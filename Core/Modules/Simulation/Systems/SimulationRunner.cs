@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hedron.Core.Modules.Progression;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Simulation.Systems
@@ -36,12 +38,19 @@ namespace Hedron.Core.Modules.Simulation.Systems
             ScenarioDefinition scenario,
             int? maxParallelism = null,
             CancellationToken cancellationToken = default,
-            Action? onRunCompleted = null)
+            Action? onRunCompleted = null) => scenario.Kind switch
         {
-            if (scenario.Kind != ScenarioKind.Combat)
-                throw new NotSupportedException(
-                    $"scenario kind '{scenario.Kind}' has no executor yet (reserved for sim-4).");
+            ScenarioKind.Combat => RunCombat(scenario, maxParallelism, cancellationToken, onRunCompleted),
+            ScenarioKind.ProgressionRate => RunProgressionRate(scenario, maxParallelism, cancellationToken, onRunCompleted),
+            _ => throw new NotSupportedException($"scenario kind '{scenario.Kind}' has no executor."),
+        };
 
+        private SimulationReport RunCombat(
+            ScenarioDefinition scenario,
+            int? maxParallelism,
+            CancellationToken cancellationToken,
+            Action? onRunCompleted)
+        {
             var sideASpec = scenario.Sides[0].Combatants[0];
             var sideBSpec = scenario.Sides[1].Combatants[0];
 
@@ -79,10 +88,10 @@ namespace Hedron.Core.Modules.Simulation.Systems
                 onRunCompleted?.Invoke();
             });
 
-            return Reduce(scenario, resolvedA, resolvedB, runRecords);
+            return ReduceCombat(scenario, resolvedA, resolvedB, runRecords);
         }
 
-        private SimulationReport Reduce(
+        private SimulationReport ReduceCombat(
             ScenarioDefinition scenario, ResolvedCombatant resolvedA, ResolvedCombatant resolvedB, RunRecord[] runRecords)
         {
             var sideAWins = 0;
@@ -122,6 +131,100 @@ namespace Hedron.Core.Modules.Simulation.Systems
                 SideADamageDealt: DistributionStats.From(damageA),
                 SideBDamageDealt: DistributionStats.From(damageB),
                 Verdicts: verdicts);
+        }
+
+        private SimulationReport RunProgressionRate(
+            ScenarioDefinition scenario,
+            int? maxParallelism,
+            CancellationToken cancellationToken,
+            Action? onRunCompleted)
+        {
+            var settings = scenario.Progression
+                ?? throw new InvalidOperationException("progressionRate scenario has no 'progression' section (should have failed ISimScenarioStore.Validate).");
+
+            var subjectSpec = scenario.Sides[0].Combatants[0];
+            var victimSpec = scenario.Sides[1].Combatants[0];
+
+            // Pre-resolution — once per scenario, never per run (the hot path does no file/registry I/O).
+            var resolvedSubject = _combatantFactory.Resolve(subjectSpec);
+            var resolvedVictim = _combatantFactory.Resolve(victimSpec);
+
+            var runRecords = new ProgressionRunRecord[scenario.Iterations];
+            var parallelOptions = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = maxParallelism ?? Environment.ProcessorCount,
+                CancellationToken = cancellationToken,
+            };
+
+            Parallel.For(0, scenario.Iterations, parallelOptions, i =>
+            {
+                var runSeed = SimSeeds.DeriveRunSeed(scenario.Seed, i);
+                var random = new SeededRandom(runSeed);
+                var world = _sandboxWorldFactory.Create(random);
+
+                var subjectId = _combatantFactory.Materialize(world, resolvedSubject);
+                var victimId = _combatantFactory.Materialize(world, resolvedVictim);
+
+                var executor = new ProgressionScenarioExecutor();
+                runRecords[i] = executor.ExecuteRun(world, subjectId, victimId, settings, i);
+                onRunCompleted?.Invoke();
+            });
+
+            return ReduceProgression(scenario, settings, runRecords);
+        }
+
+        private SimulationReport ReduceProgression(
+            ScenarioDefinition scenario, ProgressionSettings settings, ProgressionRunRecord[] runRecords)
+        {
+            var reached = runRecords.Where(r => r.ReachedTarget).ToList();
+
+            var killsToTarget = DistributionStats.From(reached.Select(r => r.Kills).ToList());
+
+            // Per milestone index, average over whichever runs actually reached that milestone —
+            // early milestones have more data than the final one (fewer runs make it that far).
+            var meanMilestoneKills = new List<double>(settings.TargetImprovements);
+            for (var m = 0; m < settings.TargetImprovements; m++)
+            {
+                var atMilestone = runRecords.Where(r => r.MilestoneKills.Count > m).Select(r => (double)r.MilestoneKills[m]).ToList();
+                meanMilestoneKills.Add(atMilestone.Count > 0 ? atMilestone.Average() : 0.0);
+            }
+
+            var trackResults = ProgressionConstants.CombatTracks.Select(track => new ProgressionTrackResult(
+                track,
+                DistributionStats.From(runRecords.Select(r => r.FinalXp[track]).ToList()),
+                DistributionStats.From(runRecords.Select(r => r.FinalImprovements[track]).ToList()))).ToList();
+
+            DistributionStats? ticksToTarget = settings.TicksPerKill is { } ticksPerKill
+                ? DistributionStats.From(reached.Select(r => (int)Math.Round(r.Kills * ticksPerKill, MidpointRounding.AwayFromZero)).ToList())
+                : null;
+
+            var progressionResult = new ProgressionRateResult(
+                settings.TargetTrack,
+                settings.TargetImprovements,
+                reached.Count,
+                killsToTarget,
+                meanMilestoneKills,
+                trackResults,
+                settings.TicksPerKill,
+                ticksToTarget);
+
+            var verdicts = _outcomeEvaluator.EvaluateProgressionRate(reached.Count, runRecords.Length);
+            var empty = DistributionStats.From(Array.Empty<int>());
+
+            return new SimulationReport(
+                SchemaVersion: 1,
+                Scenario: scenario,
+                GeneratedAt: _clock.UtcNow,
+                SideAWins: 0,
+                SideBWins: 0,
+                Draws: 0,
+                SideAWinRate: 0.0,
+                SideBWinRate: 0.0,
+                TicksToKill: empty,
+                SideADamageDealt: empty,
+                SideBDamageDealt: empty,
+                Verdicts: verdicts,
+                ProgressionRate: progressionResult);
         }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Hedron.Core.Modules.Stats;
 
 namespace Hedron.Core.Modules.Simulation
 {
@@ -12,10 +13,30 @@ namespace Hedron.Core.Modules.Simulation
     /// </summary>
     public sealed record SimVerdict(string Name, bool? Passed, string Reason);
 
+    /// <summary>One <see cref="Progression.ProgressionConstants.CombatTracks"/> row's distribution over a progression-rate batch.</summary>
+    public sealed record ProgressionTrackResult(ScoreId Track, DistributionStats Xp, DistributionStats Improvements);
+
+    /// <summary>
+    /// A progression-rate batch's statistical payload (sim-4) — the additive section
+    /// <see cref="SimulationReport.ProgressionRate"/> carries. <see cref="TicksToTarget"/> is
+    /// <see langword="null"/> unless the scenario authored <see cref="ProgressionSettings.TicksPerKill"/>.
+    /// </summary>
+    public sealed record ProgressionRateResult(
+        ScoreId TargetTrack,
+        int TargetImprovements,
+        int RunsReachedTarget,
+        DistributionStats KillsToTarget,
+        IReadOnlyList<double> MeanMilestoneKills,
+        IReadOnlyList<ProgressionTrackResult> Tracks,
+        double? TicksPerKill,
+        DistributionStats? TicksToTarget);
+
     /// <summary>
     /// A completed batch run's statistical report — the artifact <see cref="Systems.ISimReportWriter"/>
     /// serializes to JSON. <see cref="SchemaVersion"/> starts at 1; additive fields never bump it,
-    /// breaking shape changes do (seed OQ4a) — old reports stay readable.
+    /// breaking shape changes do (seed OQ4a) — old reports stay readable. <see cref="ProgressionRate"/>
+    /// is populated only for <see cref="ScenarioKind.ProgressionRate"/> runs (sim-4); the combat
+    /// scalar fields above it hold their empty defaults on such reports.
     /// </summary>
     public sealed record SimulationReport(
         int SchemaVersion,
@@ -29,5 +50,6 @@ namespace Hedron.Core.Modules.Simulation
         DistributionStats TicksToKill,
         DistributionStats SideADamageDealt,
         DistributionStats SideBDamageDealt,
-        IReadOnlyList<SimVerdict> Verdicts);
+        IReadOnlyList<SimVerdict> Verdicts,
+        ProgressionRateResult? ProgressionRate = null);
 }

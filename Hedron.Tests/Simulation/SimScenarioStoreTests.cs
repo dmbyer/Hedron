@@ -206,6 +206,157 @@ namespace Hedron.Tests.Simulation
             Assert.Throws<FileNotFoundException>(() => store.Load(Path.Combine(_tempDir, "missing.yaml")));
         }
 
+        // ── progressionRate (sim-4) ──────────────────────────────────────────
+
+        private const string ValidProgressionScenario = """
+            kind: ProgressionRate
+            name: test-progression-scenario
+            seed: 5
+            iterations: 10
+            maxTicksPerRun: 1
+            progression:
+              targetTrack: body
+              targetImprovements: 3
+              maxKillsPerRun: 100
+              ticksPerKill: 5.5
+            sides:
+              - combatants:
+                  - source: ReferenceBuild
+                    tier: 1
+                    band: 1
+              - combatants:
+                  - source: ReferenceBuild
+                    tier: 1
+                    band: 1
+            """;
+
+        [Fact]
+        public void Load_ValidProgressionScenario_RoundTripsKindAndSettings_PolicyIdNotRequired()
+        {
+            var store = NewStore();
+            var path = WriteScenario(ValidProgressionScenario);
+
+            var scenario = store.Load(path);
+
+            Assert.Equal(ScenarioKind.ProgressionRate, scenario.Kind);
+            Assert.NotNull(scenario.Progression);
+            Assert.Equal(ScoreId.Body, scenario.Progression!.TargetTrack);
+            Assert.Equal(3, scenario.Progression.TargetImprovements);
+            Assert.Equal(100, scenario.Progression.MaxKillsPerRun);
+            Assert.Equal(5.5, scenario.Progression.TicksPerKill);
+            Assert.Equal(string.Empty, scenario.Sides[0].Combatants[0].PolicyId);
+        }
+
+        [Fact]
+        public void Load_ProgressionScenario_MissingProgressionSection_Throws()
+        {
+            var store = NewStore();
+            var body = ValidProgressionScenario.Replace(
+                """
+                progression:
+                  targetTrack: body
+                  targetImprovements: 3
+                  maxKillsPerRun: 100
+                  ticksPerKill: 5.5
+                """, "");
+            var path = WriteScenario(body);
+
+            Assert.Throws<InvalidOperationException>(() => store.Load(path));
+        }
+
+        [Fact]
+        public void Load_ProgressionSectionOnCombatScenario_Throws()
+        {
+            var store = NewStore();
+            var path = WriteScenario(ValidProgressionScenario.Replace("kind: ProgressionRate", "kind: Combat"));
+
+            Assert.Throws<InvalidOperationException>(() => store.Load(path));
+        }
+
+        [Fact]
+        public void Load_ProgressionUntrackedTargetTrack_Throws()
+        {
+            var store = NewStore();
+            var path = WriteScenario(ValidProgressionScenario.Replace("targetTrack: body", "targetTrack: mind"));
+
+            Assert.Throws<InvalidOperationException>(() => store.Load(path));
+        }
+
+        [Fact]
+        public void Load_ProgressionNonPositiveTargetImprovements_Throws()
+        {
+            var store = NewStore();
+            var path = WriteScenario(ValidProgressionScenario.Replace("targetImprovements: 3", "targetImprovements: 0"));
+
+            Assert.Throws<InvalidOperationException>(() => store.Load(path));
+        }
+
+        [Fact]
+        public void Load_ProgressionNonPositiveMaxKillsPerRun_Throws()
+        {
+            var store = NewStore();
+            var path = WriteScenario(ValidProgressionScenario.Replace("maxKillsPerRun: 100", "maxKillsPerRun: 0"));
+
+            Assert.Throws<InvalidOperationException>(() => store.Load(path));
+        }
+
+        [Fact]
+        public void Load_ProgressionNonPositiveTicksPerKill_Throws()
+        {
+            var store = NewStore();
+            var path = WriteScenario(ValidProgressionScenario.Replace("ticksPerKill: 5.5", "ticksPerKill: 0"));
+
+            Assert.Throws<InvalidOperationException>(() => store.Load(path));
+        }
+
+        [Fact]
+        public void Load_ProgressionScenario_SideCountNotTwo_Throws()
+        {
+            var store = NewStore();
+            const string body = """
+                kind: ProgressionRate
+                name: bad
+                seed: 1
+                iterations: 1
+                maxTicksPerRun: 1
+                progression:
+                  targetTrack: body
+                  targetImprovements: 1
+                  maxKillsPerRun: 10
+                sides:
+                  - combatants:
+                      - source: ReferenceBuild
+                        tier: 1
+                        band: 1
+                """;
+            var path = WriteScenario(body);
+
+            Assert.Throws<InvalidOperationException>(() => store.Load(path));
+        }
+
+        [Fact]
+        public async Task SaveAsync_ValidProgressionScenario_RoundTripsSettings()
+        {
+            var store = NewStore();
+            var definition = new ScenarioDefinition(
+                ScenarioKind.ProgressionRate, "progression-editor-scenario", Seed: 5, Iterations: 10, MaxTicksPerRun: 1,
+                Sides: new[]
+                {
+                    new ScenarioSide(new[] { new CombatantSpec(CombatantSourceKind.ReferenceBuild, string.Empty, Tier: 1, Band: 1) }),
+                    new ScenarioSide(new[] { new CombatantSpec(CombatantSourceKind.ReferenceBuild, string.Empty, Tier: 1, Band: 1) }),
+                },
+                Progression: new ProgressionSettings(ScoreId.Body, TargetImprovements: 3, MaxKillsPerRun: 100, TicksPerKill: 5.5));
+
+            var path = await store.SaveAsync(definition);
+            var reloaded = store.Load(path);
+
+            Assert.Equal(ScenarioKind.ProgressionRate, reloaded.Kind);
+            Assert.Equal(ScoreId.Body, reloaded.Progression!.TargetTrack);
+            Assert.Equal(3, reloaded.Progression.TargetImprovements);
+            Assert.Equal(100, reloaded.Progression.MaxKillsPerRun);
+            Assert.Equal(5.5, reloaded.Progression.TicksPerKill);
+        }
+
         // ── Save / List (Postcondition 7) ────────────────────────────────────
 
         private static ScenarioDefinition ValidDefinition(string name = "editor-scenario", int seed = 5) => new(

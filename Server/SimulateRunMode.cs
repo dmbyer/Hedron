@@ -102,12 +102,12 @@ namespace Hedron.Server
             Console.WriteLine($"  scenario:   {report.Scenario.Name}");
             Console.WriteLine($"  seed:       {report.Scenario.Seed}");
             Console.WriteLine($"  iterations: {report.Scenario.Iterations}");
-            Console.WriteLine($"  side A wins: {report.SideAWins} ({report.SideAWinRate:P1})");
-            Console.WriteLine($"  side B wins: {report.SideBWins} ({report.SideBWinRate:P1})");
-            Console.WriteLine($"  draws:       {report.Draws}");
-            Console.WriteLine(
-                $"  ticks-to-kill: mean {report.TicksToKill.Mean:F1}, median {report.TicksToKill.Median:F1}, " +
-                $"p10 {report.TicksToKill.P10:F1}, p90 {report.TicksToKill.P90:F1}");
+
+            if (report.ProgressionRate is { } progression)
+                PrintProgressionSummary(progression);
+            else
+                PrintCombatSummary(report);
+
             Console.WriteLine("  verdicts:");
             foreach (var verdict in report.Verdicts)
             {
@@ -115,6 +115,28 @@ namespace Hedron.Server
                 Console.WriteLine($"    [{status}] {verdict.Name}: {verdict.Reason}");
             }
             Console.WriteLine($"  report: {reportPath}");
+        }
+
+        private static void PrintCombatSummary(SimulationReport report)
+        {
+            Console.WriteLine($"  side A wins: {report.SideAWins} ({report.SideAWinRate:P1})");
+            Console.WriteLine($"  side B wins: {report.SideBWins} ({report.SideBWinRate:P1})");
+            Console.WriteLine($"  draws:       {report.Draws}");
+            Console.WriteLine(
+                $"  ticks-to-kill: mean {report.TicksToKill.Mean:F1}, median {report.TicksToKill.Median:F1}, " +
+                $"p10 {report.TicksToKill.P10:F1}, p90 {report.TicksToKill.P90:F1}");
+        }
+
+        private static void PrintProgressionSummary(ProgressionRateResult progression)
+        {
+            Console.WriteLine($"  target track:        {progression.TargetTrack}");
+            Console.WriteLine($"  target improvements: {progression.TargetImprovements}");
+            Console.WriteLine($"  runs reached target: {progression.RunsReachedTarget}");
+            Console.WriteLine(
+                $"  kills-to-target: mean {progression.KillsToTarget.Mean:F1}, median {progression.KillsToTarget.Median:F1}, " +
+                $"p10 {progression.KillsToTarget.P10:F1}, p90 {progression.KillsToTarget.P90:F1}");
+            if (progression.TicksToTarget is { } ticksToTarget)
+                Console.WriteLine($"  ticks-to-target: mean {ticksToTarget.Mean:F1} (ticksPerKill {progression.TicksPerKill:F1})");
         }
 
         private static void PrintUsage() =>
