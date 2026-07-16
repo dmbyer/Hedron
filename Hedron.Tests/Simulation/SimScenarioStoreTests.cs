@@ -1,30 +1,36 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Simulation;
 using Hedron.Core.Modules.Simulation.Systems;
 using Hedron.Core.Modules.Stats;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Hedron.Tests.Simulation
 {
     /// <summary>
     /// Tier 1 — <see cref="SimScenarioStore"/> load + fail-fast structural validation
-    /// (Postcondition 2).
+    /// (Postcondition 2) and editor save/list (Postcondition 7).
     /// </summary>
     public sealed class SimScenarioStoreTests : IDisposable
     {
         private readonly string _tempDir = Path.Combine(Path.GetTempPath(), "hedron-sim-" + Guid.NewGuid().ToString("N"));
+        private readonly string _scenarioDir = Path.Combine(Path.GetTempPath(), "hedron-sim-scenarios-" + Guid.NewGuid().ToString("N"));
 
         public SimScenarioStoreTests() => Directory.CreateDirectory(_tempDir);
 
         public void Dispose()
         {
             try { Directory.Delete(_tempDir, recursive: true); } catch { /* best-effort */ }
+            try { Directory.Delete(_scenarioDir, recursive: true); } catch { /* best-effort */ }
         }
 
-        private static SimScenarioStore NewStore() =>
-            new(new ISimCombatantPolicy[] { new MeleeOnlyPolicy(), new RoundRobinPolicy(), new CooldownFirstPolicy(new AbilityRegistry()) });
+        private SimScenarioStore NewStore() =>
+            new(new ISimCombatantPolicy[] { new MeleeOnlyPolicy(), new RoundRobinPolicy(), new CooldownFirstPolicy(new AbilityRegistry()) },
+                Options.Create(new SimulationOptions { ScenarioDirectory = _scenarioDir }));
 
         private string WriteScenario(string body)
         {
@@ -198,6 +204,87 @@ namespace Hedron.Tests.Simulation
         {
             var store = NewStore();
             Assert.Throws<FileNotFoundException>(() => store.Load(Path.Combine(_tempDir, "missing.yaml")));
+        }
+
+        // ── Save / List (Postcondition 7) ────────────────────────────────────
+
+        private static ScenarioDefinition ValidDefinition(string name = "editor-scenario", int seed = 5) => new(
+            ScenarioKind.Combat, name, seed, Iterations: 10, MaxTicksPerRun: 20,
+            Sides: new[]
+            {
+                new ScenarioSide(new[] { new CombatantSpec(
+                    CombatantSourceKind.Inline, "melee-only", Tier: 1, Band: 1,
+                    Inline: new InlineStatBlock(
+                        new System.Collections.Generic.Dictionary<ScoreId, int> { [ScoreId.Body] = 10, [ScoreId.HpMax] = 100 },
+                        new System.Collections.Generic.List<string>())) }),
+                new ScenarioSide(new[] { new CombatantSpec(
+                    CombatantSourceKind.Inline, "melee-only",
+                    Inline: new InlineStatBlock(
+                        new System.Collections.Generic.Dictionary<ScoreId, int> { [ScoreId.Body] = 10, [ScoreId.HpMax] = 100 },
+                        new System.Collections.Generic.List<string>())) }),
+            });
+
+        [Fact]
+        public async Task SaveAsync_ValidScenario_WritesAtomicallyAndLoadRoundTripsFieldEqualDefinition()
+        {
+            var store = NewStore();
+            var definition = ValidDefinition();
+
+            var path = await store.SaveAsync(definition);
+
+            Assert.Empty(Directory.EnumerateFiles(_scenarioDir, "*.tmp"));
+            Assert.True(File.Exists(path));
+
+            var reloaded = store.Load(path);
+            Assert.Equal(definition.Kind, reloaded.Kind);
+            Assert.Equal(definition.Name, reloaded.Name);
+            Assert.Equal(definition.Seed, reloaded.Seed);
+            Assert.Equal(definition.Iterations, reloaded.Iterations);
+            Assert.Equal(definition.MaxTicksPerRun, reloaded.MaxTicksPerRun);
+            Assert.Equal(2, reloaded.Sides.Count);
+            Assert.Equal(1, reloaded.Sides[0].Combatants[0].Tier);
+            Assert.Equal(1, reloaded.Sides[0].Combatants[0].Band);
+            Assert.Equal(10, reloaded.Sides[0].Combatants[0].Inline!.Scores[ScoreId.Body]);
+            Assert.Equal(100, reloaded.Sides[0].Combatants[0].Inline!.Scores[ScoreId.HpMax]);
+        }
+
+        [Fact]
+        public async Task SaveAsync_InvalidScenario_ThrowsWithNamedErrorsAndWritesNothing()
+        {
+            var store = NewStore();
+            var invalid = ValidDefinition() with { Iterations = 0 };
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => store.SaveAsync(invalid));
+
+            Assert.False(Directory.Exists(_scenarioDir) && Directory.EnumerateFileSystemEntries(_scenarioDir).Any());
+        }
+
+        [Fact]
+        public async Task List_ReturnsSavedFiles()
+        {
+            var store = NewStore();
+            await store.SaveAsync(ValidDefinition("scenario-one"));
+            await store.SaveAsync(ValidDefinition("scenario-two"));
+
+            var summaries = store.List();
+
+            Assert.Equal(2, summaries.Count);
+            Assert.Contains(summaries, s => s.Name == "scenario-one");
+            Assert.Contains(summaries, s => s.Name == "scenario-two");
+        }
+
+        [Fact]
+        public async Task SaveAsync_SameName_UpsertsRatherThanDuplicating()
+        {
+            var store = NewStore();
+            await store.SaveAsync(ValidDefinition("same-name", seed: 1));
+            await store.SaveAsync(ValidDefinition("same-name", seed: 2));
+
+            var summaries = store.List();
+
+            Assert.Single(summaries);
+            var reloaded = store.Load(summaries[0].Path);
+            Assert.Equal(2, reloaded.Seed);
         }
     }
 }

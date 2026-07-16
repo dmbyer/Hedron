@@ -1,0 +1,426 @@
+@page "/simulation"
+@implements IDisposable
+@using System.Linq
+@using Hedron.Core.Modules.BalanceInspection.Standards
+@using Hedron.Core.Modules.Items.Systems
+@using Hedron.Core.Modules.Items.Templates
+@using Hedron.Core.Modules.Mobs.Systems
+@using Hedron.Core.Modules.Mobs.Templates
+@using Hedron.Core.Modules.Simulation
+@using Hedron.Core.Modules.Simulation.Systems
+@using Hedron.Core.Modules.Stats
+@using Hedron.Core.Systems
+@using Hedron.Web.Services
+@inject ISimScenarioStore ScenarioStore
+@inject ISimReportReader ReportReader
+@inject IEnumerable<ISimCombatantPolicy> Policies
+@inject IContentDefinitionCatalog Catalog
+@inject IBalanceStandardsRegistry StandardsRegistry
+@inject IPowerBudgetSystem PowerBudget
+@inject IMobPowerProjectionSystem MobProjection
+@inject IItemPowerProjectionSystem ItemProjection
+@inject SimulationRunService RunService
+
+<PageTitle>Simulation</PageTitle>
+
+<h1>Simulation</h1>
+
+<p class="hint">
+    Composes and runs the sim-2 combat engine against a saved or ad-hoc scenario. Validation,
+    verdict math, and the JSON report artifact are identical to the <span class="mono">simulate</span>
+    CLI — this page is a thin caller, never a second copy of the engine.
+</p>
+
+<fieldset class="scenario-load">
+    <legend>Load a saved scenario</legend>
+    <div class="field-row">
+        <div class="field">
+            <label>Saved scenarios</label>
+            <select @bind="_selectedScenarioPath">
+                <option value="">-- none --</option>
+                @foreach (var s in _savedScenarios)
+                {
+                    <option value="@s.Path">@s.Name</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <button @onclick="LoadSelectedScenario" disabled="@string.IsNullOrEmpty(_selectedScenarioPath)">Load</button>
+        </div>
+    </div>
+</fieldset>
+
+<fieldset class="scenario-composer">
+    <legend>Scenario</legend>
+    <div class="field-row">
+        <div class="field">
+            <label>Name</label>
+            <input @bind="_name" />
+        </div>
+        <div class="field">
+            <label>Seed</label>
+            <input type="number" @bind="_seed" />
+        </div>
+        <div class="field">
+            <label>Iterations</label>
+            <input type="number" min="1" @bind="_iterations" />
+        </div>
+        <div class="field">
+            <label>Max ticks per run</label>
+            <input type="number" min="1" @bind="_maxTicksPerRun" />
+        </div>
+    </div>
+
+    <p class="hint-inline">
+        Cell table: tiers 0&ndash;@StandardsRegistry.Tunables.MaxTier, bands 1&ndash;@StandardsRegistry.Tunables.BandsPerTier.
+    </p>
+
+    <CombatantSideEditor Label="Side A" Form="_sideA" Policies="Policies" Mobs="_mobs" />
+    <CombatantSideEditor Label="Side B" Form="_sideB" Policies="Policies" Mobs="_mobs" />
+
+    @if (_formErrors.Count > 0)
+    {
+        <div class="error-box">
+            <strong>Cannot run &mdash; validation failed:</strong>
+            <ul>
+                @foreach (var err in _formErrors)
+                {
+                    <li>@err</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (_saved)
+    {
+        <p class="success">Scenario saved.</p>
+    }
+
+    <div class="actions">
+        <button @onclick="SaveScenario">Save scenario</button>
+        <button class="primary" @onclick="Run">Run</button>
+    </div>
+</fieldset>
+
+<fieldset class="run-status">
+    <legend>Runs</legend>
+    @if (_statuses.Count == 0)
+    {
+        <p class="empty">No runs yet.</p>
+    }
+    else
+    {
+        <table class="grid">
+            <thead>
+                <tr><th>Scenario</th><th>State</th><th>Progress</th><th>Started</th><th>Finished</th><th>Result</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var status in _statuses)
+                {
+                    <tr>
+                        <td>@status.ScenarioName</td>
+                        <td>@status.State</td>
+                        <td>@status.CompletedRuns / @status.TotalRuns</td>
+                        <td class="mono">@(status.StartedAt?.ToString("HH:mm:ss") ?? "—")</td>
+                        <td class="mono">@(status.FinishedAt?.ToString("HH:mm:ss") ?? "—")</td>
+                        <td>
+                            @if (status.State == SimRunState.Failed)
+                            {
+                                <span class="error">@status.ErrorMessage</span>
+                            }
+                            else if (status.State == SimRunState.Completed && status.Verdicts is not null)
+                            {
+                                @string.Join(", ", status.Verdicts.Select(v => $"{(v.Passed switch { true => "PASS", false => "FAIL", null => "SKIP" })} {v.Name}"))
+                            }
+                        </td>
+                        <td>
+                            @if (status.State is SimRunState.Queued or SimRunState.Running)
+                            {
+                                <button @onclick="() => Cancel(status.Id)">Cancel</button>
+                            }
+                            else if (status.ReportPath is not null)
+                            {
+                                <button @onclick="() => OpenReport(status.ReportPath)">Open report</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</fieldset>
+
+<fieldset class="run-history">
+    <legend>Run history</legend>
+    @if (_history.Count == 0)
+    {
+        <p class="empty">No report artifacts yet.</p>
+    }
+    else
+    {
+        <table class="grid">
+            <thead>
+                <tr><th>Generated</th><th>Scenario</th><th>File</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var report in _history)
+                {
+                    <tr>
+                        <td class="mono">@(report.GeneratedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</td>
+                        <td>@(report.Readable ? report.ScenarioName : "—")</td>
+                        <td class="mono">@report.FileName</td>
+                        <td>
+                            @if (report.Readable)
+                            {
+                                <button @onclick="() => OpenReport(report.Path)">Open</button>
+                            }
+                            else
+                            {
+                                <span class="error" title="@report.Error">unreadable</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</fieldset>
+
+@if (_openedReport is not null)
+{
+    <fieldset class="report-view">
+        <legend>Report: @_openedReport.Scenario.Name (seed @_openedReport.Scenario.Seed)</legend>
+        <p>
+            Side A wins: <strong>@_openedReport.SideAWins</strong> (@_openedReport.SideAWinRate.ToString("P1")) &mdash;
+            Side B wins: <strong>@_openedReport.SideBWins</strong> (@_openedReport.SideBWinRate.ToString("P1")) &mdash;
+            Draws: <strong>@_openedReport.Draws</strong>
+        </p>
+        <p class="hint">
+            Ticks to kill: mean @_openedReport.TicksToKill.Mean.ToString("F1"), median @_openedReport.TicksToKill.Median.ToString("F1"),
+            p10 @_openedReport.TicksToKill.P10.ToString("F1"), p90 @_openedReport.TicksToKill.P90.ToString("F1")
+        </p>
+        <table class="grid">
+            <thead><tr><th>Verdict</th><th>Result</th><th>Reason</th></tr></thead>
+            <tbody>
+                @foreach (var verdict in _openedReport.Verdicts)
+                {
+                    <tr>
+                        <td>@verdict.Name</td>
+                        <td>@(verdict.Passed switch { true => "PASS", false => "FAIL", null => "SKIP" })</td>
+                        <td>@verdict.Reason</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </fieldset>
+}
+
+@code {
+    [Parameter, SupplyParameterFromQuery(Name = "source")] public string? Source { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "id")] public string? Id { get; set; }
+
+    private bool _prefillApplied;
+
+    private string _name = "editor-scenario";
+    private int _seed = 1234;
+    private int _iterations = 200;
+    private int _maxTicksPerRun = 100;
+    private readonly CombatantForm _sideA = new();
+    private readonly CombatantForm _sideB = new();
+
+    private IReadOnlyList<ScenarioFileSummary> _savedScenarios = Array.Empty<ScenarioFileSummary>();
+    private string _selectedScenarioPath = string.Empty;
+    private IReadOnlyList<ContentSummary> _mobs = Array.Empty<ContentSummary>();
+    private IReadOnlyList<string> _formErrors = Array.Empty<string>();
+    private bool _saved;
+
+    private IReadOnlyList<SimRunStatus> _statuses = Array.Empty<SimRunStatus>();
+    private IReadOnlyList<SimReportSummary> _history = Array.Empty<SimReportSummary>();
+    private SimulationReport? _openedReport;
+
+    private Timer? _pollTimer;
+
+    protected override void OnInitialized()
+    {
+        _sideA.PolicyId = _sideB.PolicyId = Policies.Select(p => p.PolicyId).FirstOrDefault() ?? string.Empty;
+        RefreshLists();
+        _pollTimer = new Timer(_ => InvokeAsync(Poll), null, TimeSpan.FromMilliseconds(750), TimeSpan.FromMilliseconds(750));
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (_prefillApplied || string.IsNullOrEmpty(Source) || string.IsNullOrEmpty(Id))
+            return;
+
+        _prefillApplied = true;
+        ApplyPrefill(Source, Id);
+    }
+
+    // Entry-point prefill (sim-3 WP3): reads the last-saved template via the catalog — the same
+    // load path every other cross-page editor link uses — and never auto-runs (prefill-only).
+    private void ApplyPrefill(string source, string id)
+    {
+        if (source == "mob" && Catalog.Load(ContentKind.Mob, id)?.Template is MobTemplate mobTemplate)
+        {
+            ApplyDefinition(SimulationPrefill.ForMob(mobTemplate, PowerBudget, MobProjection));
+        }
+        else if (source == "item" && Catalog.Load(ContentKind.Item, id)?.Template is ItemTemplate itemTemplate)
+        {
+            ApplyDefinition(SimulationPrefill.ForItem(itemTemplate, StandardsRegistry, PowerBudget, ItemProjection));
+        }
+    }
+
+    private void Poll()
+    {
+        var previousActive = _statuses.Any(s => s.State is SimRunState.Queued or SimRunState.Running);
+        _statuses = RunService.Snapshot();
+        var stillActive = _statuses.Any(s => s.State is SimRunState.Queued or SimRunState.Running);
+
+        if (previousActive || stillActive)
+        {
+            if (!stillActive)
+                _history = ReportReader.List();
+            StateHasChanged();
+        }
+    }
+
+    private void RefreshLists()
+    {
+        _savedScenarios = ScenarioStore.List();
+        _history = ReportReader.List();
+        _mobs = Catalog.List(ContentKind.Mob);
+        _statuses = RunService.Snapshot();
+    }
+
+    private void LoadSelectedScenario()
+    {
+        if (string.IsNullOrEmpty(_selectedScenarioPath))
+            return;
+
+        var definition = ScenarioStore.Load(_selectedScenarioPath);
+        ApplyDefinition(definition);
+    }
+
+    private void ApplyDefinition(ScenarioDefinition definition)
+    {
+        _name = definition.Name;
+        _seed = definition.Seed;
+        _iterations = definition.Iterations;
+        _maxTicksPerRun = definition.MaxTicksPerRun;
+
+        if (definition.Sides.Count > 0 && definition.Sides[0].Combatants.Count > 0)
+            ApplyCombatant(_sideA, definition.Sides[0].Combatants[0]);
+        if (definition.Sides.Count > 1 && definition.Sides[1].Combatants.Count > 0)
+            ApplyCombatant(_sideB, definition.Sides[1].Combatants[0]);
+    }
+
+    private static void ApplyCombatant(CombatantForm form, CombatantSpec spec)
+    {
+        form.Source = spec.Source;
+        form.PolicyId = spec.PolicyId;
+        form.MobBlueprintId = spec.MobBlueprintId ?? string.Empty;
+        form.Tier = spec.Tier;
+        form.Band = spec.Band;
+        form.InlineScoresCsv = spec.Inline is null ? string.Empty : ScoresCsv(spec.Inline.Scores);
+        form.InlineAbilityKitCsv = spec.Inline is null ? string.Empty : string.Join(", ", spec.Inline.AbilityKit);
+    }
+
+    private static string ScoresCsv(IReadOnlyDictionary<ScoreId, int> scores) =>
+        string.Join(", ", scores.Select(kv => $"{kv.Key.ToString().ToLowerInvariant()}:{kv.Value}"));
+
+    private static Dictionary<ScoreId, int> ParseScoresCsv(string? raw)
+    {
+        var dict = new Dictionary<ScoreId, int>();
+        foreach (var pair in (raw ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var parts = pair.Split(':', 2);
+            if (parts.Length == 2 &&
+                Enum.TryParse<ScoreId>(parts[0].Trim(), ignoreCase: true, out var score) &&
+                int.TryParse(parts[1].Trim(), out var value))
+            {
+                dict[score] = value;
+            }
+        }
+        return dict;
+    }
+
+    private static List<string> ParseCsv(string? raw) =>
+        (raw ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+    private static CombatantSpec BuildSpec(CombatantForm form)
+    {
+        InlineStatBlock? inline = form.Source == CombatantSourceKind.Inline
+            ? new InlineStatBlock(ParseScoresCsv(form.InlineScoresCsv), ParseCsv(form.InlineAbilityKitCsv))
+            : null;
+
+        return new CombatantSpec(
+            form.Source,
+            form.PolicyId,
+            form.Source == CombatantSourceKind.MobTemplate ? form.MobBlueprintId : null,
+            form.Tier,
+            form.Band,
+            inline);
+    }
+
+    private ScenarioDefinition BuildScenario() => new(
+        ScenarioKind.Combat,
+        _name,
+        _seed,
+        _iterations,
+        _maxTicksPerRun,
+        new[]
+        {
+            new ScenarioSide(new[] { BuildSpec(_sideA) }),
+            new ScenarioSide(new[] { BuildSpec(_sideB) }),
+        });
+
+    private static IReadOnlyList<string> SplitErrors(Exception ex) =>
+        ex.Message.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+    private async Task SaveScenario()
+    {
+        _saved = false;
+        _formErrors = Array.Empty<string>();
+        try
+        {
+            await ScenarioStore.SaveAsync(BuildScenario());
+            _saved = true;
+            _savedScenarios = ScenarioStore.List();
+        }
+        catch (Exception ex)
+        {
+            _formErrors = SplitErrors(ex);
+        }
+    }
+
+    private void Run()
+    {
+        _saved = false;
+        _formErrors = Array.Empty<string>();
+        try
+        {
+            RunService.Enqueue(BuildScenario());
+            _statuses = RunService.Snapshot();
+        }
+        catch (Exception ex)
+        {
+            _formErrors = SplitErrors(ex);
+        }
+    }
+
+    private void Cancel(Guid id)
+    {
+        RunService.Cancel(id);
+        _statuses = RunService.Snapshot();
+    }
+
+    private void OpenReport(string path)
+    {
+        _openedReport = ReportReader.Read(path);
+    }
+
+    public void Dispose()
+    {
+        _pollTimer?.Dispose();
+    }
+}

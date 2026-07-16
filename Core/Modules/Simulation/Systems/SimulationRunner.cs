@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Hedron.Core.Systems;
 
@@ -31,7 +32,11 @@ namespace Hedron.Core.Modules.Simulation.Systems
             _clock = clock;
         }
 
-        public SimulationReport Run(ScenarioDefinition scenario, int? maxParallelism = null)
+        public SimulationReport Run(
+            ScenarioDefinition scenario,
+            int? maxParallelism = null,
+            CancellationToken cancellationToken = default,
+            Action? onRunCompleted = null)
         {
             if (scenario.Kind != ScenarioKind.Combat)
                 throw new NotSupportedException(
@@ -57,6 +62,7 @@ namespace Hedron.Core.Modules.Simulation.Systems
             var parallelOptions = new ParallelOptions
             {
                 MaxDegreeOfParallelism = maxParallelism ?? Environment.ProcessorCount,
+                CancellationToken = cancellationToken,
             };
 
             Parallel.For(0, scenario.Iterations, parallelOptions, i =>
@@ -70,6 +76,7 @@ namespace Hedron.Core.Modules.Simulation.Systems
 
                 var executor = new CombatScenarioExecutor();
                 runRecords[i] = executor.ExecuteRun(world, entityA, entityB, policyA, policyB, scenario.MaxTicksPerRun, i);
+                onRunCompleted?.Invoke();
             });
 
             return Reduce(scenario, resolvedA, resolvedB, runRecords);

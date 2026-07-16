@@ -61,10 +61,11 @@ These are the same constraints the `architecture-reviewer` applies to a `Hedron.
 |---|---|
 | `Hedron.Web.csproj` (`Microsoft.NET.Sdk.Web`) | The web host project; references `Server` (for `CompositionRoot` + bootstrap types), transitively `Core`. |
 | `Program.cs` | Boots the engine via `CompositionRoot.Register` + `AddContentBootstrapHostedServices`, adds Blazor Server, binds loopback (`Web:BindUrl`). |
-| `Components/` | Blazor pages/components — the content browser and per-kind editors (area/room/item/mob), each a thin caller of `IContentDefinitionCatalog`. |
+| `Components/` | Blazor pages/components — the content browser and per-kind editors (area/room/item/mob), the Standards page, and the Simulation page, each a thin caller of a `Core/` system. |
+| `Services/` | Web-host-only supporting code that is not presentation — a background-job registry (`SimulationRunService`) and scenario/prefill composers (`BaselineSweep`, `SimulationPrefill`, sim-3). See [Background tooling jobs](#background-tooling-jobs-sim-3) below. |
 | `appsettings.json` | The same engine config the telnet host reads, plus `Web:BindUrl`. |
 
-The authoring backend — `IContentDefinitionCatalog`, `IContentValidator`, `IContentGenerationSystem` — lives in `Core/` (modules `Authoring` and `World`), not in the web project. The web project is presentation only.
+The authoring backend — `IContentDefinitionCatalog`, `IContentValidator`, `IContentGenerationSystem` — lives in `Core/` (modules `Authoring` and `World`), not in the web project. Most of the web project is presentation only; `Services/` is the one deliberate exception (below), and it is still not *authoring* logic — no YAML write, no live-world touch.
 
 ---
 
@@ -75,6 +76,20 @@ The authoring backend — `IContentDefinitionCatalog`, `IContentValidator`, `ICo
 - **Hosted services.** Exactly two — `WorldContentBootstrap` (so the catalog and validator have content to work against) and `RegistryValidationBootstrap` (fail-fast on invalid content at boot). The split is guarded by `Hedron.Tests/Composition/HostCompositionTests`.
 
 The authoring edit loop (browse → load → edit → validate → save → apply) is traced as the offline-edit leg of **Flow 29** (content-tooling journey) in [flows/README.md](flows/README.md); it reuses Flow 5 (content reload) as its apply leg.
+
+---
+
+## Background tooling jobs (sim-3)
+
+The Simulation page (`/simulation`) introduced the web host's **first background-job pattern** — a designer launches a batch simulation run that takes real wall-clock time, wants live progress, and wants to cancel it, all without blocking the Blazor circuit or re-introducing live-world concurrency concerns. The shape, generalizable to a second instance before it earns a shared framework (INV-19's bar):
+
+- **A host-singleton registry, not a hosted service.** `SimulationRunService` is `AddSingleton`-registered in `Hedron.Web/Program.cs` (not the shared `CompositionRoot`, since it is a web-host UI concern, not engine composition). It owns an in-memory FIFO queue and per-run status records; a plain background `Task` drains the queue one run at a time (the engine already saturates cores per batch — concurrent batches would oversubscribe). It needs no `IHostedService` lifecycle: it does no work when the queue is empty.
+- **Polling, not push.** Pages read current state via `Snapshot()` on a timer (~750 ms) rather than a SignalR/callback push. Rationale: a singleton survives circuit navigation/disconnect/reconnect (unlike state scoped to one circuit); the read is in-memory (no I/O per tick); and batches are short enough that sub-second polling is indistinguishable from streaming — so no additional push machinery earns its cost.
+- **Cancellation is cooperative**, wired through to the engine's own `CancellationToken` parameter (an additive engine seam, not a web-side abort) — the engine is the only place a running batch can actually stop between iterations.
+- **No bus events, no live-world touch.** Run completion is `SimRunStatus` state inside the singleton — there is no live-world observer for an offline simulation, so publishing would have no subscriber and no purpose (INV-5/INV-10 still hold: the engine itself publishes nothing; the web host is not an Initiator in the bus sense here).
+- **The engine stays a pure callee.** `SimulationRunService` calls `ISimulationRunner.Run`/`ISimScenarioStore`/`ISimReportWriter` exactly as the CLI `simulate` run-mode does — same validation, same verdict math, same report artifact (INV-19). The service adds queueing/status/cancellation around the call, not a second copy of the engine.
+
+**Promotion trigger (recorded, not built speculatively):** if a second long-running editor job wants the same queue/progress/cancel shape (candidate: sim-5's bulk conformance apply), generalize `SimulationRunService` into a shared web-job service rather than hand-rolling a second one — see [`../roadmap/backlog.md`](../roadmap/backlog.md).
 
 ---
 
@@ -96,7 +111,8 @@ The seam was pre-shaped: `ISession` already reserves `TransportKey = "signalr"` 
 
 - [01-layers.md](01-layers.md) — the four layers + the Initiators tier the UI feeds.
 - [05-configuration.md](05-configuration.md) — how settings bind; `Web:BindUrl` and the `HEDRON_` override.
-- [flows/README.md](flows/README.md) — Flow 29 (content-tooling journey: bulk generate + offline edit); Flow 5 (content reload).
+- [flows/README.md](flows/README.md) — Flow 29 (content-tooling journey: bulk generate + offline edit); Flow 33 (simulation run journey, incl. the editor legs); Flow 5 (content reload).
 - [../features/admin-authoring/admin-authoring.md](../features/admin-authoring/admin-authoring.md) · [content-authoring.md](../features/admin-authoring/content-authoring.md) · [content-tooling.md](../features/admin-authoring/content-tooling.md) — the feature docs for this tier; durable seam rationale in their design notes.
-- [../reference/systems.md](../reference/systems.md) — `IContentDefinitionCatalog`, `IContentValidator`, `IContentGenerationSystem`.
+- [../features/simulation/simulation.md](../features/simulation/simulation.md) — the sim-3 editor surface the background-tooling-job section above documents.
+- [../reference/systems.md](../reference/systems.md) — `IContentDefinitionCatalog`, `IContentValidator`, `IContentGenerationSystem`, `SimulationRunService`.
 - [checklist.md](checklist.md) — invariants this tier answers to: INV-5, INV-8, INV-12, INV-15, INV-19, INV-22, INV-23.

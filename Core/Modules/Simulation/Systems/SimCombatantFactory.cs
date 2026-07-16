@@ -75,7 +75,14 @@ namespace Hedron.Core.Modules.Simulation.Systems
                 [ScoreId.AstraMax] = template.MaxAstra > 0 ? template.MaxAstra : 10,
             };
 
-            var cell = template.Band >= 1 ? new PowerBand(template.Tier, template.Band) : (PowerBand?)null;
+            // Authored template tag wins when banded; an unbanded template falls back to the
+            // scenario spec's own Tier/Band annotation (sim-3 Postcondition 9) — a hand-authored
+            // verdict-cell hint for content that has no formal band yet.
+            PowerBand? cell = template.Band >= 1
+                ? new PowerBand(template.Tier, template.Band)
+                : spec.Tier.HasValue && spec.Band.HasValue
+                    ? new PowerBand(spec.Tier.Value, spec.Band.Value)
+                    : null;
 
             return new ResolvedCombatant(
                 template.Name, scores, Array.Empty<string>(), template.Tier, spec.PolicyId, cell);

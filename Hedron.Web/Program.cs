@@ -1,5 +1,6 @@
 using Hedron.Server;
 using Hedron.Web.Components;
+using Hedron.Web.Services;
 
 namespace Hedron.Web;
 
@@ -32,6 +33,10 @@ public static class Program
         // Shared engine DI (pure) + this host's trimmed hosted-service set (bootstraps only).
         builder.Services.Register(builder.Configuration);
         builder.Services.AddContentBootstrapHostedServices();
+
+        // Web-only background-job registry (sim-3) — not part of the shared engine composition
+        // root since it is a Hedron.Web-specific UI concern (no bus events, no hosted service).
+        builder.Services.AddSingleton<SimulationRunService>();
 
         // Blazor Server stack.
         builder.Services.AddRazorComponents()

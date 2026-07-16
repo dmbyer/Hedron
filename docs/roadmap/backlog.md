@@ -263,6 +263,14 @@ The aspect-foundation generic is built to keep this additive: rows are **instanc
 
 **Update (sim-1, 2026-07-13).** The balance-standards registry (`IBalanceStandardsStore`/`IBalanceStandardsRegistry`, [`../features/progression/power-budget-system.md`](../features/progression/power-budget-system.md)) is **instance #1** of this pattern: a focused, hand-rolled YAML load/validate/save path outside `IContentDefinitionCatalog` (a single-document criteria file, not a per-blueprint family) and outside the compiled-rows `DefinitionRegistry` construction. Its Load/Validate/Save shape was written to be extractable when instance #2/#3 (Ability/Effect definitions going YAML) prove the ≥3-instance trigger — still not yet crossed (one real instance).
 
+**Update (sim-3, 2026-07-16).** `SimScenarioStore` gaining `SaveAsync`/`List` ([`../features/simulation/simulation-engine.md`](../features/simulation/simulation-engine.md)) is **instance #2**: a second hand-rolled per-family YAML save path, same posture as instance #1. Still two families — below the ≥3 trigger; this entry still stands.
+
+### 🔵 Web background-job service generalization (promotion trigger recorded, sim-3)
+
+`SimulationRunService` (`Hedron.Web/Services/`, [`../architecture/08-blazor.md`](../architecture/08-blazor.md) "Background tooling jobs") is the web host's first background-job pattern: a singleton FIFO queue with per-run status, progress, and cooperative cancellation over a long-running engine call. It is deliberately sim-specific — a generic web-job framework now would be premature (INV-19's bar is ≥3 instances, or a new player-facing surface *framework* need; this is one designer-facing instance).
+
+**Promotion trigger:** if sim-5's bulk conformance apply (or any second long-running editor job) wants the same queue/progress/cancel shape, generalize `SimulationRunService` into a shared web-job service rather than hand-rolling a second one. Until then, leave it as-is.
+
 ### 🔵 `EffectParams.Aspect` migration to `AspectComposition?` (deferred from aspect-foundation)
 
 `EffectParams.Aspect` (in `Core/Modules/Effects/Effect.cs`) remains a `string? Aspect = null` stub. The aspect-foundation slice migrated `AbilityDefinition.Aspect` to `AspectComposition?` but deferred `EffectParams.Aspect` to avoid diff expansion; a `// TODO migrate` comment marks the site. Migrate when an effect-based aspect consumer is introduced — the field is currently unused for damage typing.

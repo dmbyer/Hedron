@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.csproj" />
     <ProjectReference Include="..\Server\Server.csproj" />
+    <ProjectReference Include="..\Hedron.Web\Hedron.Web.csproj" />
   </ItemGroup>
 
 </Project>

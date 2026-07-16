@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
@@ -12,12 +11,6 @@ namespace Hedron.Core.Modules.Simulation.Systems
     public sealed class SimReportWriter : ISimReportWriter
     {
         private readonly string _reportDirectory;
-        private static readonly JsonSerializerOptions SerializerOptions = new()
-        {
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
-        };
 
         public SimReportWriter(IOptions<SimulationOptions> options)
         {
@@ -33,7 +26,7 @@ namespace Hedron.Core.Modules.Simulation.Systems
             var fileName = $"{timestamp}-{safeName}-{report.Scenario.Seed}.json";
             var path = Path.Combine(_reportDirectory, fileName);
 
-            var body = JsonSerializer.Serialize(report, SerializerOptions);
+            var body = JsonSerializer.Serialize(report, SimReportJson.Options);
 
             var tmpPath = path + ".tmp";
             await File.WriteAllTextAsync(tmpPath, body, ct).ConfigureAwait(false);
