@@ -1,3 +1,4 @@
+using System.Threading;
 using Hedron.Tests.Harness;
 using Xunit;
 
@@ -64,6 +65,27 @@ namespace Hedron.Tests.Simulation
             var verdict = Assert.Single(report.Verdicts);
             Assert.Equal("higherBandWinRateFloor", verdict.Name);
             Assert.False(verdict.Passed, "expected to currently miss the 65% floor — see the calibration-gap remarks above");
+        }
+
+        /// <summary>
+        /// sim-3 Test 9 — determinism cross-surface pin: the extended <c>Run</c> signature (CT +
+        /// progress callback, as the editor calls it) reproduces the same golden expectations as
+        /// the bare CLI call above at the identical (scenario, seed) — CLI and editor byte-identity.
+        /// </summary>
+        [Fact]
+        public void EqualCell_ReferenceBuild_ExtendedRunSignature_MatchesCliGoldenExpectations()
+        {
+            var runner = SimulationTestFixtures.NewRunner(new FakeClock());
+            var scenario = SimulationTestFixtures.ReferenceBuildScenario(
+                "ci-equal-cell", seed: 2026, iterations: 200, maxTicksPerRun: 100, tierA: 2, bandA: 2, tierB: 2, bandB: 2);
+            var completed = 0;
+
+            var report = runner.Run(scenario, cancellationToken: CancellationToken.None, onRunCompleted: () => Interlocked.Increment(ref completed));
+
+            Assert.Equal(106, report.SideAWins);
+            Assert.Equal(94, report.SideBWins);
+            Assert.Equal(0, report.Draws);
+            Assert.Equal(200, completed);
         }
     }
 }

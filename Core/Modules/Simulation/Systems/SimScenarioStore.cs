@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Hedron.Core.Modules.Stats;
+using Microsoft.Extensions.Options;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -16,14 +19,20 @@ namespace Hedron.Core.Modules.Simulation.Systems
     public sealed class SimScenarioStore : ISimScenarioStore
     {
         private readonly IReadOnlyCollection<string> _knownPolicyIds;
+        private readonly string _scenarioDirectory;
         private readonly IDeserializer _yamlDeserializer;
+        private readonly ISerializer _yamlSerializer;
 
-        public SimScenarioStore(IEnumerable<ISimCombatantPolicy> policies)
+        public SimScenarioStore(IEnumerable<ISimCombatantPolicy> policies, IOptions<SimulationOptions> options)
         {
             _knownPolicyIds = policies.Select(p => p.PolicyId).ToList();
+            _scenarioDirectory = options.Value.ScenarioDirectory;
             _yamlDeserializer = new DeserializerBuilder()
                 .WithNamingConvention(CamelCaseNamingConvention.Instance)
                 .IgnoreUnmatchedProperties()
+                .Build();
+            _yamlSerializer = new SerializerBuilder()
+                .WithNamingConvention(CamelCaseNamingConvention.Instance)
                 .Build();
         }
 
@@ -105,6 +114,91 @@ namespace Hedron.Core.Modules.Simulation.Systems
                 throw new InvalidOperationException(
                     $"scenario '{scenario.Name}' failed validation:\n" + string.Join("\n", errors.Select(e => "  • " + e)));
         }
+
+        public async Task<string> SaveAsync(ScenarioDefinition scenario, CancellationToken ct = default)
+        {
+            Validate(scenario);
+
+            Directory.CreateDirectory(_scenarioDirectory);
+
+            var fileName = Sanitize(scenario.Name) + ".yaml";
+            var path = Path.Combine(_scenarioDirectory, fileName);
+
+            var body = _yamlSerializer.Serialize(ToDto(scenario));
+
+            var tmpPath = path + ".tmp";
+            await File.WriteAllTextAsync(tmpPath, body, ct).ConfigureAwait(false);
+            File.Move(tmpPath, path, overwrite: true);
+
+            return path;
+        }
+
+        public IReadOnlyList<ScenarioFileSummary> List()
+        {
+            if (!Directory.Exists(_scenarioDirectory))
+                return Array.Empty<ScenarioFileSummary>();
+
+            var summaries = new List<ScenarioFileSummary>();
+            foreach (var path in Directory.EnumerateFiles(_scenarioDirectory, "*.yaml").OrderBy(p => p, StringComparer.Ordinal))
+            {
+                var name = Path.GetFileNameWithoutExtension(path);
+                try
+                {
+                    var dto = _yamlDeserializer.Deserialize<ScenarioFileDto>(File.ReadAllText(path));
+                    if (!string.IsNullOrWhiteSpace(dto?.Name))
+                        name = dto!.Name!;
+                }
+                catch
+                {
+                    // Unparseable file: fall back to the filename-derived name (list, never throw).
+                }
+
+                summaries.Add(new ScenarioFileSummary(path, Path.GetFileName(path), name));
+            }
+
+            return summaries;
+        }
+
+        private static string CamelCase(string pascalCase) =>
+            pascalCase.Length == 0 ? pascalCase : char.ToLowerInvariant(pascalCase[0]) + pascalCase[1..];
+
+        private static string Sanitize(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return "scenario";
+
+            var invalid = Path.GetInvalidFileNameChars();
+            return new string(name.Select(c => invalid.Contains(c) || c == ' ' ? '-' : c).ToArray());
+        }
+
+        private static ScenarioFileDto ToDto(ScenarioDefinition scenario) => new()
+        {
+            Kind = scenario.Kind.ToString(),
+            Name = scenario.Name,
+            Seed = scenario.Seed,
+            Iterations = scenario.Iterations,
+            MaxTicksPerRun = scenario.MaxTicksPerRun,
+            Sides = scenario.Sides.Select(side => new SideDto
+            {
+                Combatants = side.Combatants.Select(ToDto).ToList(),
+            }).ToList(),
+        };
+
+        private static CombatantDto ToDto(CombatantSpec combatant) => new()
+        {
+            Source = combatant.Source.ToString(),
+            PolicyId = combatant.PolicyId,
+            MobBlueprintId = combatant.MobBlueprintId,
+            Tier = combatant.Tier,
+            Band = combatant.Band,
+            Inline = combatant.Inline is null
+                ? null
+                : new InlineDto
+                {
+                    Scores = combatant.Inline.Scores.ToDictionary(kv => CamelCase(kv.Key.ToString()), kv => kv.Value),
+                    AbilityKit = combatant.Inline.AbilityKit.ToList(),
+                },
+        };
 
         private void ValidateCombatant(CombatantSpec combatant, string label, List<string> errors)
         {

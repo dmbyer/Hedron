@@ -136,6 +136,56 @@ namespace Hedron.Tests.Simulation
         }
 
         [Fact]
+        public void Resolve_UnbandedMobTemplate_WithSpecAnnotation_ResolvesAnnotationAsCell()
+        {
+            var (factory, catalog, _, _) = NewFixture();
+            var template = new MobTemplate("mob.test.unbanded")
+            {
+                Name = "wisp", Body = 10, Tier = 0, Band = 0,
+            };
+            catalog.AddMob(template);
+
+            var spec = new CombatantSpec(
+                CombatantSourceKind.MobTemplate, "melee-only", MobBlueprintId: "mob.test.unbanded", Tier: 3, Band: 2);
+            var resolved = factory.Resolve(spec);
+
+            Assert.Equal(new PowerBand(3, 2), resolved.Cell);
+        }
+
+        [Fact]
+        public void Resolve_BandedMobTemplate_IgnoresSpecAnnotation_AuthoredTagWins()
+        {
+            var (factory, catalog, _, _) = NewFixture();
+            var template = new MobTemplate("mob.test.banded")
+            {
+                Name = "guard", Body = 10, Tier = 1, Band = 2,
+            };
+            catalog.AddMob(template);
+
+            var spec = new CombatantSpec(
+                CombatantSourceKind.MobTemplate, "melee-only", MobBlueprintId: "mob.test.banded", Tier: 5, Band: 3);
+            var resolved = factory.Resolve(spec);
+
+            Assert.Equal(new PowerBand(1, 2), resolved.Cell);
+        }
+
+        [Fact]
+        public void Resolve_UnbandedMobTemplate_NoSpecAnnotation_ResolvesNoCell()
+        {
+            var (factory, catalog, _, _) = NewFixture();
+            var template = new MobTemplate("mob.test.plain")
+            {
+                Name = "rat", Body = 10, Tier = 0, Band = 0,
+            };
+            catalog.AddMob(template);
+
+            var spec = new CombatantSpec(CombatantSourceKind.MobTemplate, "melee-only", MobBlueprintId: "mob.test.plain");
+            var resolved = factory.Resolve(spec);
+
+            Assert.Null(resolved.Cell);
+        }
+
+        [Fact]
         public void Resolve_UnknownMobBlueprintId_Throws()
         {
             var (factory, _, _, _) = NewFixture();

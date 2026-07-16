@@ -11,5 +11,12 @@ namespace Hedron.Core.Modules.Simulation
         /// May be an absolute path or relative to the working directory. Default: <c>data/sim/reports</c>.
         /// </summary>
         public string ReportDirectory { get; set; } = "data/sim/reports";
+
+        /// <summary>
+        /// Directory <see cref="Systems.ISimScenarioStore.SaveAsync"/> writes editor-composed
+        /// scenario YAML into (sim-3). May be an absolute path or relative to the working
+        /// directory. Default: <c>data/sim/scenarios</c>.
+        /// </summary>
+        public string ScenarioDirectory { get; set; } = "data/sim/scenarios";
     }
 }

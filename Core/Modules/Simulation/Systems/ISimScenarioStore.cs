@@ -1,5 +1,12 @@
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
 namespace Hedron.Core.Modules.Simulation.Systems
 {
+    /// <summary>One saved scenario file's listing row (sim-3 composer's load/save dropdown).</summary>
+    public sealed record ScenarioFileSummary(string Path, string FileName, string Name);
+
     /// <summary>
     /// YAML load + fail-fast structural validation of <see cref="ScenarioDefinition"/>. Posture
     /// mirrors <c>BalanceStandardsStore</c>: validate-then-use, named violations thrown as a single
@@ -26,5 +33,17 @@ namespace Hedron.Core.Modules.Simulation.Systems
         /// violation found; a valid scenario returns normally.
         /// </summary>
         void Validate(ScenarioDefinition scenario);
+
+        /// <summary>
+        /// Validates <paramref name="scenario"/> (throwing on any structural violation, writing
+        /// nothing), then atomically writes it as camelCase YAML into <c>Simulation:ScenarioDirectory</c>
+        /// — upsert-by-sanitized-name, so re-saving a scenario with the same <see cref="ScenarioDefinition.Name"/>
+        /// overwrites its file. Returns the written file's path. A page-saved scenario is
+        /// CLI-runnable via <c>simulate --scenario &lt;path&gt;</c> with no changes (sim-3 Postcondition 7).
+        /// </summary>
+        Task<string> SaveAsync(ScenarioDefinition scenario, CancellationToken ct = default);
+
+        /// <summary>Lists every saved scenario file in <c>Simulation:ScenarioDirectory</c>.</summary>
+        IReadOnlyList<ScenarioFileSummary> List();
     }
 }

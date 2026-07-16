@@ -1,9 +1,10 @@
 # Simulation engine
 
-> The deterministic batch-combat engine behind the `simulate` run-mode: scenario model, sandbox
-> world factory, two-phase combatant resolution, the parallel batch runner, expected-vs-actual
-> outcome evaluation, and the JSON report artifact. **Authoring checkpoint:** slice sim-2. Living
-> document.
+> The deterministic batch-combat engine behind the `simulate` run-mode and the sim-3 Simulation
+> editor page: scenario model, sandbox world factory, two-phase combatant resolution, the parallel
+> batch runner, expected-vs-actual outcome evaluation, and the JSON report artifact.
+> **Authoring checkpoint:** slice sim-2; four additive seams (cancellation/progress, report reader,
+> scenario save/list, verdict-cell fallback) added sim-3. Living document.
 
 ## What it is / does
 
@@ -30,7 +31,9 @@ A `CombatantSpec` resolves through one of three sources:
 
 - **`MobTemplate`** — an authored mob blueprint id, read via `IContentDefinitionCatalog.Load` (no
   live spawn, no `TemplateRegistry`). Its cell for verdict purposes is the template's own
-  `Tier`/`Band` tag when `Band >= 1`.
+  `Tier`/`Band` tag when `Band >= 1`; when the template is unbanded, the scenario spec's own
+  `Tier`/`Band` annotation resolves as the verdict cell instead (sim-3 fallback — the authored tag
+  still wins whenever it exists).
 - **`ReferenceBuild`** — a `(Tier, Band)` cell from the sim-1 `IBalanceStandardsRegistry`. This *is*
   the cell for verdict purposes.
 - **`Inline`** — a caller-authored `ScoreId → int` map plus an ability-kit list, taken as-is. The
@@ -41,7 +44,10 @@ A `CombatantSpec` resolves through one of three sources:
 empty/wrong-count side, non-positive iteration/tick counts, unresolvable source discriminator) —
 posture mirrors `BalanceStandardsStore`: validate-then-use, every violation named in one thrown
 exception. The known-policy-id set is DI-collected from every registered `ISimCombatantPolicy`,
-never hardcoded.
+never hardcoded. **Sim-3 addition:** the same store gained `SaveAsync` (validate-then-write,
+atomic tmp→rename, camelCase YAML — the identical hand-authored shape, upsert by sanitized scenario
+name) and `List` (the editor's load dropdown) — the store owns the YAML DTO shape, so this is the
+only place a scenario is ever serialized, never a second page-side dialect.
 
 ### Sandbox worlds — hand-built, isolated, never the live world
 
@@ -116,7 +122,14 @@ a stable SplitMix64-style mix, deliberately **not** `HashCode.Combine` (process-
 `Random.Shared` — so a fixed `(scenario, seed)` pair reproduces byte-identically regardless of
 `maxParallelism`. Runs land in an array slot keyed by run index; the reduce into win counts and
 `DistributionStats` (mean/median/p10/p90/min/max for time-to-kill and per-side damage) iterates that
-array in order, so the report is independent of completion scheduling.
+array in order, so the report is independent of completion scheduling. **Sim-3 addition:** `Run`
+gained an optional `CancellationToken` (wired directly into `ParallelOptions.CancellationToken` — an
+already-canceled token throws before any run executes; a live cancel is checked cooperatively between
+per-iteration runs) and an optional `onRunCompleted` callback invoked once per completed iteration
+from worker threads (thread-safe, cheap, non-throwing by contract — it carries no data, so it cannot
+perturb the seed, the scheduling, or the reduced report; pinned by
+`SimulationRunnerTests.Run_WithAndWithoutCallback_ProducesEquivalentReports_DeterminismUnperturbed`).
+Both parameters default to inert, so `SimulateRunMode` and every sim-2 call site are unchanged.
 
 ### Outcome evaluation — one function, every surface
 
@@ -135,7 +148,10 @@ the scenario, the win/draw counts and rates, the two `DistributionStats`, and th
 `ISimReportWriter` serializes it to JSON (atomic tmp→rename) under `Simulation:ReportDirectory`,
 filename `{timestamp}-{scenarioName}-{seed}.json`. Run history is the directory listing — the same
 posture as the `generate` run-mode's output, deliberately outside SQLite (INV-14 is for live entity
-state) and world YAML.
+state) and world YAML. **Sim-3 addition:** `ISimReportReader` (`List`/`Read`) is the read-side
+counterpart, sharing the writer's extracted `SimReportJson` serializer options so a report reads back
+identically whether the CLI or the editor wrote it — `List` never throws on an unparseable file
+(flags it `Readable: false` instead), since a bad file must not break the whole history listing.
 
 ## Interface
 
@@ -162,12 +178,22 @@ state) and world YAML.
 - [`SimulationReport.cs`](../../../Core/Modules/Simulation/SimulationReport.cs) — `SimVerdict`, `SimulationReport`.
 - [`DistributionStats.cs`](../../../Core/Modules/Simulation/DistributionStats.cs).
 - [`ISimReportWriter.cs`](../../../Core/Modules/Simulation/Systems/ISimReportWriter.cs) /
-  [`SimReportWriter.cs`](../../../Core/Modules/Simulation/Systems/SimReportWriter.cs).
-- [`SimulationOptions.cs`](../../../Core/Modules/Simulation/SimulationOptions.cs) — `Simulation:ReportDirectory`.
+  [`SimReportWriter.cs`](../../../Core/Modules/Simulation/Systems/SimReportWriter.cs) /
+  [`SimReportJson.cs`](../../../Core/Modules/Simulation/Systems/SimReportJson.cs) (sim-3, shared serializer options).
+- [`ISimReportReader.cs`](../../../Core/Modules/Simulation/Systems/ISimReportReader.cs) /
+  [`SimReportReader.cs`](../../../Core/Modules/Simulation/Systems/SimReportReader.cs) — sim-3, `List`/`Read`.
+- [`SimulationOptions.cs`](../../../Core/Modules/Simulation/SimulationOptions.cs) — `Simulation:ReportDirectory`,
+  `Simulation:ScenarioDirectory` (sim-3).
 - [`SimulationModule.cs`](../../../Core/Modules/Simulation/SimulationModule.cs) — registered from
-  `Server/CompositionRoot.Register` (not `Program.cs`), so `Hedron.Web` can resolve `ISimulationRunner`
-  directly at sim-3.
+  `Server/CompositionRoot.Register` (not `Program.cs`), so `Hedron.Web` resolves `ISimulationRunner`
+  directly (sim-3).
 - [`Server/SimulateRunMode.cs`](../../../Server/SimulateRunMode.cs) — the CLI Initiator.
+- [`Hedron.Web/Services/SimulationRunService.cs`](../../../Hedron.Web/Services/SimulationRunService.cs) /
+  [`BaselineSweep.cs`](../../../Hedron.Web/Services/BaselineSweep.cs) /
+  [`SimulationPrefill.cs`](../../../Hedron.Web/Services/SimulationPrefill.cs) — sim-3, the editor's
+  background-run registry + scenario/prefill composers (this engine's second caller, alongside the CLI).
+- [`Hedron.Web/Components/Pages/Simulation.razor`](../../../Hedron.Web/Components/Pages/Simulation.razor) —
+  sim-3, the editor page.
 
 ## Considerations
 
@@ -187,11 +213,17 @@ state) and world YAML.
   promoted one-band-higher CI invariant pins today's actual number (53% at the fixed seed) rather
   than asserting the standards' 65% floor, which the mechanic can't currently clear. See
   [`../../roadmap/backlog.md`](../../roadmap/backlog.md#-ascension-tier-baseline-has-no-real-combat-effect-calibration-gap-found-by-sim-2).
-- **Acknowledged debt (carried from the seed):** `SimScenarioStore`'s hand-rolled YAML load/validate
-  is a second instance of the backlogged "YAML-authored definition pipeline for registry families"
-  generalization (`BalanceStandardsStore` was the first). The sandbox factory deliberately mirrors,
-  rather than shares, the `Hedron.Tests` harness composition — unification is shape-for-later on a
-  real ≥3 duplication signal.
+- **Acknowledged debt (carried from the seed, deepened sim-3):** `SimScenarioStore`'s hand-rolled
+  YAML load/validate/save is a second instance of the backlogged "YAML-authored definition pipeline
+  for registry families" generalization (`BalanceStandardsStore` was the first); sim-3's `SaveAsync`
+  is a second hand-rolled serializer, not a third family — still below the ≥3 trigger. The sandbox
+  factory deliberately mirrors, rather than shares, the `Hedron.Tests` harness composition —
+  unification is shape-for-later on a real ≥3 duplication signal.
+- **Background execution in `Hedron.Web` (sim-3, watch item):** `SimulationRunService` is the web
+  host's first background-job pattern (queue/progress/cancel over a long-running call). It is
+  deliberately sim-specific, not a generic web-job framework — see
+  [`../../architecture/08-blazor.md`](../../architecture/08-blazor.md) "Background tooling jobs" for
+  the shape and the named promotion trigger (a second long-running editor job generalizes it).
 
 ## Extensibility
 
@@ -215,8 +247,11 @@ state) and world YAML.
   calibration-gap note above.
 - Reference rows: [`systems.md`](../../reference/systems.md).
 - [`../../implementation-plans/balance-simulator.md`](../../implementation-plans/balance-simulator.md) —
-  the five-sub-slice program brief this is `sim-2` of.
-- [`../../roadmap/completed/simulation-engine-core.md`](../../roadmap/completed/simulation-engine-core.md) —
-  as-built history and decisions.
+  the five-sub-slice program brief this is `sim-2` of (`sim-3` — this editor integration — is next).
+- [`../../roadmap/completed/simulation-engine-core.md`](../../roadmap/completed/simulation-engine-core.md) ·
+  [`../../roadmap/completed/simulation-editor-integration.md`](../../roadmap/completed/simulation-editor-integration.md) —
+  as-built history and decisions for sim-2 and sim-3.
+- [`../../architecture/08-blazor.md`](../../architecture/08-blazor.md) — the background-tooling-job
+  shape sim-3's `SimulationRunService` introduced.
 - [`../../architecture/checklist.md`](../../architecture/checklist.md) — INV-2, INV-5, INV-10, INV-12
   (named sandbox-world nuance), INV-19, INV-22 (by absence), INV-25/26.

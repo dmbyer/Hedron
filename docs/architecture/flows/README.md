@@ -29,7 +29,7 @@
 | 30 | [Shopping journey (list · buy · sell · buy-back; restock & expiry sweeps)](flow-30-shopping.md) | Player sends `list`/`buy`/`sell`; heartbeat drives restock + buy-back expiry | Phase 3 slice 12c; source: [../../features/economy/shop-system.md](../../features/economy/shop-system.md) |
 | 31 | [Progression journey (combat XP award · threshold improve · contribute-on-read)](flow-31-progression-award.md) | `MobDiedEvent` fires (mob kill) | Phase 3 slice prog-1; source: [../../features/progression/progression.md](../../features/progression/progression.md) |
 | 32 | [Ascension journey (tier-up · unlock-record · baseline fold)](flow-32-ascension.md) | Privileged session issues `ascend` | Phase 3 slice prog-2; source: [../../features/progression/progression.md](../../features/progression/progression.md) |
-| 33 | [Simulation run journey](flow-33-simulation-run.md) | `dotnet run --project Server -- simulate --scenario <path>` | Phase 3 slice sim-2; source: [../../features/progression/power-budget-system.md](../../features/progression/power-budget-system.md) |
+| 33 | [Simulation run journey](flow-33-simulation-run.md) | `dotnet run --project Server -- simulate --scenario <path>` **or** the Simulation page in `Hedron.Web` | Phase 3 slice sim-2; editor legs sim-3; source: [../../features/progression/power-budget-system.md](../../features/progression/power-budget-system.md) |
 
 Flows that don't yet exist (mob wander tick, etc.) get added by the slice that introduces them.
 

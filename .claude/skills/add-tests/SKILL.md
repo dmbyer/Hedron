@@ -75,6 +75,7 @@ A test must be able to control every source of variation. If the system reaches 
 ## Where tests live & how to run
 
 - `Hedron.Tests/<MirroredNamespace>/...` — mirror the `Core` namespace of the thing under test.
+- `Hedron.Tests/Web/<Type>Tests.cs` — non-presentation `Hedron.Web/Services/*` logic (a background-job registry, a scenario/prefill composer — e.g. `SimulationRunService`, `BaselineSweep`, `SimulationPrefill`, sim-3). `Hedron.Tests` references `Hedron.Web` for exactly this. Test it Tier-1-style, against interface fakes — never a real Blazor render. Razor markup/pages stay presentation-skip-tier (no bUnit harness in the repo; a bug there is obvious on first page load).
 - `dotnet test Hedron.sln` — must be green before the code-review gate (INV-25). "Ship green" = build green **and** tests green.
 
 ## Cross-references

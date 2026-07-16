@@ -3,7 +3,11 @@
 @using Hedron.Core.Modules.BalanceInspection.Standards
 @using Hedron.Core.Modules.Stats
 @using Hedron.Core.Systems
+@using Hedron.Web.Services
 @inject IBalanceStandardsStore Store
+@inject IBalanceStandardsRegistry Registry
+@inject SimulationRunService RunService
+@inject NavigationManager Nav
 
 <PageTitle>Balance standards</PageTitle>
 
@@ -191,6 +195,15 @@ else
         <button class="primary" disabled="@_saving" @onclick="Save">
             @(_saving ? "Saving..." : "Save")
         </button>
+        <button @onclick="RunBaselineSweep" disabled="@_sweeping">
+            @(_sweeping ? "Enqueuing..." : "Re-run baseline sweep")
+        </button>
+        @if (_sweepEnqueuedCount is int count)
+        {
+            <span class="hint-inline">
+                Enqueued @count runs &mdash; <a href="simulation">watch status</a>.
+            </span>
+        }
     </div>
 }
 
@@ -235,6 +248,8 @@ else
     private string? _loadError;
     private bool _saving;
     private bool _saved;
+    private bool _sweeping;
+    private int? _sweepEnqueuedCount;
     private IReadOnlyList<string> _errors = Array.Empty<string>();
     private IReadOnlyList<string> _warnings = Array.Empty<string>();
 
@@ -443,5 +458,25 @@ else
         }
 
         return new BalanceStandardsDocument(tunables, _bandDriftTolerance, outcomes, cells);
+    }
+
+    // ── Baseline sweep (sim-3) ───────────────────────────────────────────────
+    // Enqueues through the same SimulationRunService the Simulation page uses — scenario
+    // selection lives web-side (BaselineSweep), validation/verdicts stay in the untouched engine.
+    private void RunBaselineSweep()
+    {
+        _sweeping = true;
+        _sweepEnqueuedCount = null;
+        try
+        {
+            var scenarios = BaselineSweep.Compose(Registry.Tunables);
+            foreach (var scenario in scenarios)
+                RunService.Enqueue(scenario);
+            _sweepEnqueuedCount = scenarios.Count;
+        }
+        finally
+        {
+            _sweeping = false;
+        }
     }
 }

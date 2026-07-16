@@ -1,4 +1,6 @@
+using System;
 using System.Linq;
+using System.Threading;
 using Hedron.Core.Modules.Simulation;
 using Hedron.Tests.Harness;
 using Xunit;
@@ -45,6 +47,45 @@ namespace Hedron.Tests.Simulation
 
             Assert.Equal(1, report.SchemaVersion);
             Assert.Equal(10, report.SideAWins + report.SideBWins + report.Draws);
+        }
+
+        [Fact]
+        public void Run_PreCanceledToken_ThrowsWithoutCompletingBatch()
+        {
+            var runner = SimulationTestFixtures.NewRunner(new FakeClock());
+            var scenario = SimulationTestFixtures.ReferenceBuildScenario(
+                "cancel-pre", seed: 1, iterations: 50, maxTicksPerRun: 100, tierA: 2, bandA: 2, tierB: 2, bandB: 2);
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            Assert.ThrowsAny<OperationCanceledException>(
+                () => runner.Run(scenario, cancellationToken: cts.Token));
+        }
+
+        [Fact]
+        public void Run_OnRunCompleted_FiresExactlyIterationsTimes()
+        {
+            var runner = SimulationTestFixtures.NewRunner(new FakeClock());
+            var scenario = SimulationTestFixtures.ReferenceBuildScenario(
+                "progress-count", seed: 3, iterations: 37, maxTicksPerRun: 100, tierA: 2, bandA: 2, tierB: 2, bandB: 2);
+            var completed = 0;
+
+            runner.Run(scenario, onRunCompleted: () => Interlocked.Increment(ref completed));
+
+            Assert.Equal(37, completed);
+        }
+
+        [Fact]
+        public void Run_WithAndWithoutCallback_ProducesEquivalentReports_DeterminismUnperturbed()
+        {
+            var runner = SimulationTestFixtures.NewRunner(new FakeClock());
+            var scenario = SimulationTestFixtures.ReferenceBuildScenario(
+                "callback-determinism", seed: 11, iterations: 40, maxTicksPerRun: 100, tierA: 2, bandA: 2, tierB: 2, bandB: 2);
+
+            var withoutCallback = runner.Run(scenario);
+            var withCallback = runner.Run(scenario, onRunCompleted: () => { });
+
+            AssertReportsEquivalent(withoutCallback, withCallback);
         }
 
         /// <summary>

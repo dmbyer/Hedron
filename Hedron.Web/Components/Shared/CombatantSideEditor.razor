@@ -1,0 +1,103 @@
+@using Hedron.Core.Modules.Authoring
+@using Hedron.Core.Modules.Simulation
+@using Hedron.Core.Modules.Simulation.Systems
+@using Hedron.Core.Modules.Stats
+@using Hedron.Web.Services
+
+<fieldset class="combatant-side">
+    <legend>@Label</legend>
+    <div class="field-row">
+        <div class="field">
+            <label>Source</label>
+            <select value="@Form.Source" @onchange="e => SetSource(e.Value?.ToString())">
+                @foreach (var source in Enum.GetValues<CombatantSourceKind>())
+                {
+                    <option value="@source">@source</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label>Policy</label>
+            <select @bind="Form.PolicyId">
+                @foreach (var policy in Policies)
+                {
+                    <option value="@policy.PolicyId">@policy.PolicyId</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (Form.Source == CombatantSourceKind.MobTemplate)
+    {
+        <div class="field">
+            <label>Mob template</label>
+            <select @bind="Form.MobBlueprintId">
+                <option value="">-- select --</option>
+                @foreach (var mob in Mobs)
+                {
+                    <option value="@mob.BlueprintId">@mob.Name (@mob.BlueprintId)</option>
+                }
+            </select>
+        </div>
+        <div class="field-row">
+            <div class="field">
+                <label>Verdict-cell tier <span class="hint-inline">(unbanded fallback)</span></label>
+                <input type="number" min="0" value="@Form.Tier" @onchange="e => Form.Tier = ParseNullableInt(e.Value?.ToString())" />
+            </div>
+            <div class="field">
+                <label>Verdict-cell band</label>
+                <input type="number" min="0" value="@Form.Band" @onchange="e => Form.Band = ParseNullableInt(e.Value?.ToString())" />
+            </div>
+        </div>
+    }
+    else if (Form.Source == CombatantSourceKind.ReferenceBuild)
+    {
+        <div class="field-row">
+            <div class="field">
+                <label>Tier</label>
+                <input type="number" min="0" value="@Form.Tier" @onchange="e => Form.Tier = ParseNullableInt(e.Value?.ToString())" />
+            </div>
+            <div class="field">
+                <label>Band</label>
+                <input type="number" min="1" value="@Form.Band" @onchange="e => Form.Band = ParseNullableInt(e.Value?.ToString())" />
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="field-row">
+            <div class="field">
+                <label>Tier <span class="hint-inline">(optional verdict annotation)</span></label>
+                <input type="number" min="0" value="@Form.Tier" @onchange="e => Form.Tier = ParseNullableInt(e.Value?.ToString())" />
+            </div>
+            <div class="field">
+                <label>Band</label>
+                <input type="number" min="0" value="@Form.Band" @onchange="e => Form.Band = ParseNullableInt(e.Value?.ToString())" />
+            </div>
+        </div>
+        <div class="field">
+            <label>Scores</label>
+            <input class="csv" placeholder="attackPower:5, defense:2, hpMax:100" @bind="Form.InlineScoresCsv" />
+        </div>
+        <div class="field">
+            <label>Ability kit</label>
+            <input class="csv" placeholder="kick, empower" @bind="Form.InlineAbilityKitCsv" />
+        </div>
+    }
+</fieldset>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public CombatantForm Form { get; set; } = new();
+    [Parameter, EditorRequired] public IEnumerable<ISimCombatantPolicy> Policies { get; set; } = Array.Empty<ISimCombatantPolicy>();
+    [Parameter, EditorRequired] public IReadOnlyList<ContentSummary> Mobs { get; set; } = Array.Empty<ContentSummary>();
+
+    private void SetSource(string? raw)
+    {
+        if (Enum.TryParse<CombatantSourceKind>(raw, out var source))
+            Form.Source = source;
+    }
+
+    private static int? ParseNullableInt(string? raw) =>
+        int.TryParse(raw, out var v) ? v : null;
+}

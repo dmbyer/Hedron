@@ -25,6 +25,7 @@ namespace Hedron.Core.Modules.Simulation
             services.AddSingleton<ISimOutcomeEvaluator, SimOutcomeEvaluator>();
             services.AddSingleton<ISimulationRunner, SimulationRunner>();
             services.AddSingleton<ISimReportWriter, SimReportWriter>();
+            services.AddSingleton<ISimReportReader, SimReportReader>();
 
             return services;
         }

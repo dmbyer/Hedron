@@ -130,7 +130,7 @@ The use-case **Postconditions are the coverage contract** — each postcondition
 
 ## The test harness
 
-A single `Hedron.Tests` project (xUnit) referencing `Core` (and `Server` for the DI-smoke guard). Shared helpers keep fixtures terse:
+A single `Hedron.Tests` project (xUnit) referencing `Core`, `Server` (for the DI-smoke guard), and — since sim-3 — `Hedron.Web` (so its non-presentation services are directly testable). Shared helpers keep fixtures terse:
 
 | Helper | Purpose |
 |---|---|
@@ -142,6 +142,8 @@ A single `Hedron.Tests` project (xUnit) referencing `Core` (and `Server` for the
 | synthetic tick factory | Builds `HeartbeatTickEvent`s with controlled `TickId`/`Elapsed`. |
 
 > The harness and the test project are stood up as a dedicated follow-up; this section is its spec. Until then, the strategy and invariants are in force for *new* work and the backfill is queued in [`../roadmap/backlog.md`](../roadmap/backlog.md).
+
+**Web-host services (`Hedron.Web/Services/*`).** A background-job registry or a scenario/prefill composer (e.g. `SimulationRunService`, `BaselineSweep`, `SimulationPrefill`, sim-3) is non-presentation logic that happens to live in the web host — it gets Tier-1-style decision tests, in `Hedron.Tests/Web/`, against interface fakes (never a real Blazor render). Razor markup/pages themselves stay presentation-skip-tier (no bUnit harness in the repo; see [08-blazor.md](08-blazor.md)) — the discriminator is *where the decision lives*, not *which project the file sits in*.
 
 ## Determinism (INV-26)
 

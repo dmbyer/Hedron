@@ -41,7 +41,7 @@ Listens on `Server:Port` (default `4000`). Connect with any telnet client, e.g. 
 dotnet run --project Hedron.Web
 ```
 
-Serves the Blazor authoring editor at `Web:BindUrl` (default `http://127.0.0.1:5050`, loopback only). Edits write YAML to the content directory; use the editor's **Apply** action (or restart the game server) to load changes into a live world.
+Serves the Blazor authoring editor at `Web:BindUrl` (default `http://127.0.0.1:5050`, loopback only). Edits write YAML to the content directory; use the editor's **Apply** action (or restart the game server) to load changes into a live world. The editor's **Simulation** page (`/simulation`) composes, launches, and inspects sim-2 batch combat runs in the background — the same engine and report artifact the headless `simulate` run-mode below produces — with "Simulate vs reference" entry points on the mob/item editors and a "Re-run baseline sweep" affordance on the Standards page.
 
 ### Bulk content generation (headless)
 
@@ -82,7 +82,7 @@ Each host reads an `appsettings.json` next to its project — [`Server/appsettin
 | `Heartbeat` | Game-loop tick interval |
 | `Admin` | Privileged account names |
 | `Balance` | Balance-standards YAML file path (`data/balance/standards.yaml`) |
-| `Simulation` | Simulation report output directory (`data/sim/reports/`) |
+| `Simulation` | Simulation report output directory (`data/sim/reports/`) + editor-saved scenario directory (`data/sim/scenarios/`) |
 | `CharacterDefaults` · `Death` · `Output` · `Logging` · `Shop` | Starting stats/abilities, death tuning, output color, log levels, shop buy/sell ratios |
 
 The concrete keys and defaults live in the `appsettings.json` files and are not duplicated here.

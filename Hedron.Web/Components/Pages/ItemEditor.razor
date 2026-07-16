@@ -185,6 +185,9 @@ else if (_template is not null)
     @if (!IsNew)
     {
         <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)">
+            <button @onclick="SimulateVsReference" title="Simulates the last-saved version">Simulate vs reference</button>
+        </div>
+        <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)">
             @if (_confirmDelete)
             {
                 <span class="confirm-inline">
@@ -372,5 +375,13 @@ else if (_template is not null)
         {
             _deleting = false;
         }
+    }
+
+    // Navigates to the Simulation page's prefilled composer (sim-3) — reads the last-saved
+    // template, never the in-progress form edits (matches every other cross-page editor link).
+    private void SimulateVsReference()
+    {
+        if (_template is null || IsNew) return;
+        Nav.NavigateTo($"simulation?source=item&id={Uri.EscapeDataString(_template.BlueprintId)}");
     }
 }
