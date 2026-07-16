@@ -57,6 +57,7 @@ using Hedron.Core.Modules.Ascension;
 using Hedron.Core.Modules.BalanceInspection;
 using Hedron.Core.Modules.Progression;
 using Hedron.Core.Modules.Shopping;
+using Hedron.Core.Modules.Simulation;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.Time;
 using Hedron.Core.Modules.Time.Events;
@@ -89,6 +90,8 @@ public static class CompositionRoot
             configuration.GetSection("Shop"));
         services.Configure<BalanceOptions>(
             configuration.GetSection("Balance"));
+        services.Configure<SimulationOptions>(
+            configuration.GetSection("Simulation"));
         // ECS world
         var world = new EntityService();
         EcsManager.SetWorld(world);
@@ -165,6 +168,7 @@ public static class CompositionRoot
         services.AddProgressionModule();
         services.AddAscensionModule();
         services.AddBalanceInspectionModule();
+        services.AddSimulationModule();
 
         return services;
     }

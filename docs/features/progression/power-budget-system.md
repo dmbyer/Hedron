@@ -185,14 +185,18 @@ already suffices with no interface change.
   effect on the **next host start**, not immediately — both hosts' `RegistryValidationBootstrap`
   eagerly resolves `IBalanceStandardsRegistry` at boot (fail-fast on structural violations); the
   Standards page states the restart requirement. Live-reload is a backlog entry, not built here.
-- **Acknowledged debt:** the player-facing `consider` danger-gauge is deferred (backlog); the
-  sim-2 simulation engine (`balance-simulator.md` program) is the standards registry's next
-  consumer (expected-vs-actual outcome comparisons against the now-data-backed outcome
-  tolerances); a headless/admin bulk-audit command is deferred (the Blazor Integrity report is the
-  primary surface; `Audit()` being one shared method makes a later command a thin caller); the
-  standards store's hand-rolled YAML load/validate/save path is acknowledged debt against a future
+- **Acknowledged debt:** the player-facing `consider` danger-gauge is deferred (backlog); a
+  headless/admin bulk-audit command is deferred (the Blazor Integrity report is the primary
+  surface; `Audit()` being one shared method makes a later command a thin caller); the standards
+  store's hand-rolled YAML load/validate/save path is acknowledged debt against a future
   "YAML-authored definition pipeline for registry families" generalization (≥3-instance trigger,
-  backlogged).
+  backlogged; the sim-2 `SimScenarioStore` is now the second instance).
+- **Shipped consumer (sim-2):** the [simulation engine](../simulation/simulation-engine.md) reads
+  `ReferenceSnapshot`/`OutcomesFor` as its default combatants and expected-outcome oracle. It
+  surfaced a real calibration gap — the tier baseline this doc's oracle projects has no measurable
+  effect on actual combat outcomes today (see the simulation-engine doc's Considerations and
+  [`../../roadmap/backlog.md`](../../roadmap/backlog.md#-ascension-tier-baseline-has-no-real-combat-effect-calibration-gap-found-by-sim-2)) —
+  tracked as backlog, not fixed by sim-2.
 
 ## Related
 

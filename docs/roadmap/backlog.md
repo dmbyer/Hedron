@@ -198,11 +198,31 @@ As the gameplay-model spines land (effect Power-scaling, ability costs, rarity/s
 
 Not a runtime "module" — balance math stays co-located with its owning system (Category 3); this item is the *documentation + promotion discipline* around it. Becomes worthwhile once 2–3 spines (effects, abilities, scaling) have introduced enough knobs to justify the catalog — likely around slices 11–13.
 
-**Update (2026-07).** The [`progression-and-balance`](../implementation-plans/progression-and-balance.md) program schedules this as its **slice 5** (balance catalog at `design/balance.md` + `balance-tuning` / `run-simulation` skills + the INV-20 `add-*` / advisor-planner-reviewer tooling updates). Two program deliverables give the catalog *live* data rather than a static table: the `IPowerBudgetSystem` estimator (shipped slice prog-3 — see [`../features/progression/power-budget-system.md`](../features/progression/power-budget-system.md)) that projects any item/mob/loadout onto tier power bands, and the `Hedron.Sim` harness (slice 4) that validates real combat outcomes against those bands. This item is fulfilled when that program's slice 5 ships.
+**Update (2026-07).** The [`progression-and-balance`](../implementation-plans/progression-and-balance.md) program schedules this as its **slice 5** (balance catalog at `design/balance.md` + `balance-tuning` / `run-simulation` skills + the INV-20 `add-*` / advisor-planner-reviewer tooling updates). Two program deliverables give the catalog *live* data rather than a static table: the `IPowerBudgetSystem` estimator (shipped slice prog-3 — see [`../features/progression/power-budget-system.md`](../features/progression/power-budget-system.md)) that projects any item/mob/loadout onto tier power bands, and the sim-2 simulation engine (`Core/Modules/Simulation/`, shipped — see [`completed/simulation-engine-core.md`](completed/simulation-engine-core.md)) that validates real combat outcomes against those bands. This item is fulfilled when that program's slice 5 ships.
 
 ### 🔵 Simulation harness → real mob-AI adapter (deferred from the progression-and-balance program)
 
-The [`progression-and-balance`](../implementation-plans/progression-and-balance.md) program's **slice 4** builds `Hedron.Sim`, an offline batch-combat simulator, with a **combatant-policy seam** (`ISimCombatantPolicy`) driving each actor's per-round choice. Slice 4 ships **simple built-in policies only** — round-robin, cooldown-first — sufficient for balance sweeps against the current shallow combat model. When mob AI lands (threat tables, behavior trees — see [`../design/feature-horizon.md`](../design/feature-horizon.md) §6), a thin adapter binds the real `IAISystem` behind the same `ISimCombatantPolicy` seam so simulated combatants behave like live ones. Additive by construction (the seam exists from slice 4); premature before any `IAISystem` exists. Lands alongside or after the mob-AI slice.
+The [`balance-simulator`](../implementation-plans/balance-simulator.md) program's **sim-2 simulation engine** (`Core/Modules/Simulation/`, shipped) drives each actor's per-round choice through a **combatant-policy seam** (`ISimCombatantPolicy`). Sim-2 ships **simple built-in policies only** — `melee-only`, `round-robin`, `cooldown-first` — sufficient for balance sweeps against the current shallow combat model. When mob AI lands (threat tables, behavior trees — see [`../design/feature-horizon.md`](../design/feature-horizon.md) §6), a thin adapter binds the real `IAISystem` behind the same `ISimCombatantPolicy` seam so simulated combatants behave like live ones. Additive by construction (the seam exists from sim-2); premature before any `IAISystem` exists. Lands alongside or after the mob-AI slice.
+
+### 🔵 Ascension tier baseline has no real combat effect (calibration gap found by sim-2)
+
+Discovered 2026-07-15, the first time the tier baseline was ever exercised through a real
+simulated fight (`SimulationInvariantTests.OneBandHigher_ReferenceBuild_WinRate_PinnedPendingBalanceTuning`,
+`Hedron.Tests/Simulation/`): `AscensionEffectContributor` folds the tier baseline onto
+`ScoreId.Body`/`HpMax` via `IStatSystem.Get` (`AscensionConstants.TrackedScores`), but
+`StatSystem.GetEffectiveAttackPower`/`GetEffectiveDefense` read the **raw** `AttributesComponent.Body`
+(not `Get(Body)`), and `CombatSystem`'s HP/death check reads the **raw** `PoolsComponent` values (not
+`Get(HpMax)`). So a reference build's tier baseline currently has **zero** measurable effect on real
+combat outcomes — a one-tier-higher reference build wins at the same rate as an equal-cell fight
+(pinned at 53% against a design-target 65% floor at the fixed CI seed). This is pre-existing shipped
+behavior (Ascension, prog-2/prog-3b), not a sim-2 regression; sim-2 pinned today's number rather than
+silently recalibrating `AscensionConstants`/`PowerBudgetTunables` or patching `StatSystem`, since
+either fix is a live-gameplay balance decision outside a plumbing slice's scope. A future
+balance-tuning slice must decide: (a) extend `AscensionConstants.TrackedScores`/the contributor so
+the baseline also folds into `AttackPower`/`Defense` (and reads `Get(HpMax)` for the death/pool
+check), or (b) recalibrate `HigherBandWinRateFloor` down to a value the current mechanic can actually
+clear, or (c) some combination. See [`completed/simulation-engine-core.md`](completed/simulation-engine-core.md)
+for the discovery record.
 
 ### 🔵 Live balance-standards reload (deferred from balance-standards-registry, sim-1)
 
@@ -214,7 +234,7 @@ INV-21's default is correct: admin template mutations never retroactively update
 
 ### 🔵 Balance-reviewer agent (stretch — from the progression-and-balance program)
 
-A `.claude/agents/balance-reviewer.md` (analogous to `architecture-reviewer`) that, when a slice touches balance-affecting numbers (a new ability, item affix, mob scaling, progression curve), runs the relevant `Hedron.Sim` sweep and flags outcome outliers against the tier power bands — the automated backstop that keeps balance a living featureset through content expansion. Floated in the [`progression-and-balance`](../implementation-plans/progression-and-balance.md) program (slice 5 agentic layer) as a **stretch candidate**, not committed: it depends on `Hedron.Sim` (slice 4) and the balance catalog (slice 5) existing first, and on enough content to make the sweeps meaningful. Build when balance regressions from expansion become a real, recurring cost. Kin to the on-demand architectural-debt-sweep agent below (heavy-context, out of the per-slice loop).
+A `.claude/agents/balance-reviewer.md` (analogous to `architecture-reviewer`) that, when a slice touches balance-affecting numbers (a new ability, item affix, mob scaling, progression curve), runs the relevant sim-2 simulation-engine sweep and flags outcome outliers against the tier power bands — the automated backstop that keeps balance a living featureset through content expansion. Floated in the [`progression-and-balance`](../implementation-plans/progression-and-balance.md) program (slice 5 agentic layer) as a **stretch candidate**, not committed: it depends on the sim-2 engine (shipped) and the balance catalog (slice 5) existing first, and on enough content to make the sweeps meaningful. Build when balance regressions from expansion become a real, recurring cost. Kin to the on-demand architectural-debt-sweep agent below (heavy-context, out of the per-slice loop).
 
 ### 🔵 `setprogress` admin mutation (deferred from progression-substrate, slice 1)
 

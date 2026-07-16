@@ -493,6 +493,60 @@ namespace Hedron.Tests.Architecture
                 string.Join("\n", violations));
         }
 
+        // ── sim-2: simulation engine touches neither the event bus nor the live world ──
+
+        /// <summary>
+        /// Sim-2 Postcondition 1/4: the simulation engine publishes nothing and never resolves the
+        /// host's live world. No type in <c>Core/Modules/Simulation/</c> may reference
+        /// <see cref="IEventBus"/> (constructor parameter or field) or reference
+        /// <c>Hedron.Core.ECS.EcsManager</c> anywhere in its source (a static class, so a source
+        /// scan — reflection can't enumerate arbitrary static-member reads).
+        /// </summary>
+        [Fact]
+        public void Simulation_module_does_not_reference_EventBus_or_EcsManager()
+        {
+            var violations = new List<string>();
+
+            foreach (var type in CoreAssembly.GetTypes().Where(t =>
+                t.Namespace != null && t.Namespace.StartsWith("Hedron.Core.Modules.Simulation", StringComparison.Ordinal)))
+            {
+                foreach (var ctor in type.GetConstructors(BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic))
+                {
+                    foreach (var param in ctor.GetParameters())
+                    {
+                        if (typeof(IEventBus).IsAssignableFrom(param.ParameterType))
+                            violations.Add($"{type.FullName}: constructor parameter '{param.Name}' is IEventBus");
+                    }
+                }
+
+                foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+                {
+                    if (typeof(IEventBus).IsAssignableFrom(field.FieldType))
+                        violations.Add($"{type.FullName}: field '{field.Name}' is IEventBus");
+                }
+            }
+
+            var coreDir = FindCoreSourceDirectory();
+            Assert.True(coreDir != null, "sim-2 pre-check: could not locate the Core/ source directory.");
+
+            var simulationDir = Path.Combine(coreDir!, "Modules", "Simulation");
+            Assert.True(Directory.Exists(simulationDir), "sim-2 pre-check: Core/Modules/Simulation/ not found.");
+
+            foreach (var file in Directory.EnumerateFiles(simulationDir, "*.cs", SearchOption.AllDirectories))
+            {
+                foreach (var line in File.ReadAllLines(file))
+                {
+                    if (line.Contains("EcsManager", StringComparison.Ordinal))
+                        violations.Add($"{Path.GetRelativePath(coreDir!, file)}: references EcsManager");
+                }
+            }
+
+            Assert.True(
+                violations.Count == 0,
+                "Sim-2 Postcondition 1/4 violated — the simulation engine must not reference IEventBus " +
+                "or EcsManager. Violations:\n" + string.Join("\n", violations));
+        }
+
         // ── DI smoke test ─────────────────────────────────────────────────────
 
         /// <summary>

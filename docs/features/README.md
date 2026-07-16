@@ -27,6 +27,7 @@ Holistic, **player-facing** documentation — one folder per capability. A featu
 | [`communication/`](communication/) | Chat, Help | chat-system, help-system |
 | [`output/`](output/) | Prompt, `Core/Output/` | output-framework, prompt |
 | [`commands/`](commands/) | `Core/Commands/` | command-framework |
+| [`simulation/`](simulation/) | Simulation | simulation-engine |
 
 **Infrastructure that stays foundational (no feature folder):** Persistence → [`../architecture/06-persistence.md`](../architecture/06-persistence.md) + [`../reference/systems.md`](../reference/systems.md). The ECS substrate, event bus, and registry/serializer infrastructure under `Core/Systems/` are catalogued in [`../reference/`](../reference/) and explained in [`../architecture/`](../architecture/) `00`–`08`.
 

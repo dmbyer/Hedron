@@ -264,6 +264,13 @@ __pycache__/
 .claude/settings.local.json
 
 # Hedron runtime + local content (per-developer; not committed)
-/data/
 /Server/data/
+
+# ...except the shipped example simulation scenario (INV-18 content-tooling example, sim-2)
+/data/*
+!/data/sim/
+/data/sim/*
+!/data/sim/scenarios/
+/data/sim/scenarios/*
+!/data/sim/scenarios/example-equal-cell.yaml
 

@@ -672,3 +672,45 @@ Registered as a singleton in `AscensionModule.AddAscensionModule`. Implemented (
 **Location:** `Core/Modules/Ascension/AscensionEffectContributor.cs`
 **Dependencies:** `IAscensionSystem`.
 Registered as a singleton `IEffectContributor` in `AscensionModule.AddAscensionModule`; folded automatically by `EffectSystem.GetModifiers`/`GetActive` with **no interface change** to `IStatSystem` or `EffectSystem`. Implemented (ascension slice prog-2).
+
+### ISimScenarioStore / SimScenarioStore (Simulation module)
+**Purpose:** YAML load + fail-fast structural validation of a `ScenarioDefinition` (kind, name, seed, iterations, maxTicksPerRun, sides→combatants). Posture mirrors `BalanceStandardsStore`: validate-then-use, every violation named in one thrown `InvalidOperationException`. `Validate` is also callable directly on an in-memory definition (the sim-3 editor and a future generator candidate-check reuse it without a disk round-trip). The known-policy-id set is DI-collected from `IEnumerable<ISimCombatantPolicy>`, never a hardcoded list.
+**Location:** `Core/Modules/Simulation/Systems/ISimScenarioStore.cs` · `SimScenarioStore.cs` · `Core/Modules/Simulation/ScenarioDefinition.cs`
+**Dependencies:** `IEnumerable<ISimCombatantPolicy>` (for policy-id validation only).
+Registered as a singleton in `SimulationModule.AddSimulationModule`. Implemented (simulation-engine-core slice sim-2).
+
+### ISandboxWorldFactory / SandboxWorldFactory (Simulation module)
+**Purpose:** Hand-builds one isolated `SandboxWorld` per run — a fresh `EntityService` plus the full combat/stats/effects/aspects/abilities/entity-state/regeneration/progression/ascension system graph, mirroring `Hedron.Tests`' harness composition (resolved decision: no per-run scoped DI container). Never touches the host's live world — never calls `EcsManager.SetWorld`, never resolves the host `EntityService` (INV-12 nuance, guard-tested). Shares only immutable, `EntityService`-free singletons across every world it creates (`IAbilityRegistry`, `IEffectRegistry`, `IPowerBudgetSystem`, `IOptions<DeathOptions>`).
+**Location:** `Core/Modules/Simulation/Systems/ISandboxWorldFactory.cs` · `SandboxWorldFactory.cs` · `SandboxWorld.cs`
+**Dependencies:** `IAbilityRegistry`, `IEffectRegistry`, `IPowerBudgetSystem`, `IOptions<DeathOptions>`.
+Registered as a singleton in `SimulationModule.AddSimulationModule`. Implemented (simulation-engine-core slice sim-2).
+
+### ISimCombatantFactory / SimCombatantFactory (Simulation module)
+**Purpose:** Two-phase combatant resolution over the three day-one `CombatantSpec` sources — an authored mob-template id (via `IContentDefinitionCatalog`), a sim-1 standards reference build (via `IBalanceStandardsRegistry.ReferenceSnapshot`/`Get`), or an inline stat block. `Resolve` reads the catalog/registry once per scenario (never per run); `Materialize` stamps the resolved scores/ability-kit/tier into a specific run's `SandboxWorld`. Gear-equivalent bonuses on computed scores (`AttackPower`/`Defense`, which `StatSystem` derives from raw `Body` rather than storing directly) fold through a synthetic permanent `StatModifier` effect via `IEffectSystem.Apply` — the same seam worn gear rides, so `IStatSystem.Get` is the only path a value reaches the combatant. Fails fast on an unresolvable mob-template id, unknown ability id, or undefined score id.
+**Location:** `Core/Modules/Simulation/Systems/ISimCombatantFactory.cs` · `SimCombatantFactory.cs`
+**Dependencies:** `IContentDefinitionCatalog`, `IBalanceStandardsRegistry`, `IAbilityRegistry`.
+Registered as a singleton in `SimulationModule.AddSimulationModule`. Implemented (simulation-engine-core slice sim-2).
+
+### ISimCombatantPolicy + built-ins (Simulation module)
+**Purpose:** "What does this actor do this round" — a pure, stateless decision seam (no mutable instance state; a policy instance is shared across every concurrently-running sandbox world, so any per-actor memory derives from the passed `roundIndex`, never stored on the policy). Three built-ins ship day one: `MeleeOnlyPolicy` (always melee), `RoundRobinPolicy` (cycles known abilities by `roundIndex % count`, melee on an empty kit), `CooldownFirstPolicy` (first known ability that is off cooldown, `Activation.Active`, and affordable; melee otherwise). A future `IAISystem` adapter binds behind this same seam (already backlogged, not built).
+**Location:** `Core/Modules/Simulation/Systems/ISimCombatantPolicy.cs` · `MeleeOnlyPolicy.cs` · `RoundRobinPolicy.cs` · `CooldownFirstPolicy.cs`
+**Dependencies:** `CooldownFirstPolicy` takes `IAbilityRegistry`; the other two, none.
+DI-collected as `IEnumerable<ISimCombatantPolicy>` in `SimulationModule.AddSimulationModule`, keyed by `PolicyId` where consumed (`SimScenarioStore`, `SimulationRunner`). Implemented (simulation-engine-core slice sim-2).
+
+### ISimulationRunner / SimulationRunner (Simulation module)
+**Purpose:** Runs a validated `ScenarioDefinition` end to end: kind dispatch (only `Combat` has an executor; any other kind throws — the sim-4 seam), one-time combatant pre-resolution, parallel fan-out across isolated `SandboxWorld` instances (`CombatScenarioExecutor` drives each run), deterministic index-ordered reduce into `DistributionStats` (mean/median/p10/p90/min/max) for time-to-kill and per-side damage, and verdict attachment via `ISimOutcomeEvaluator`. Publishes nothing (INV-5). Per-run seeds derive from `SimSeeds.DeriveRunSeed(scenarioSeed, runIndex)` — a stable SplitMix64-style mix, never `HashCode.Combine`/`Random.Shared` (INV-26) — so a fixed (scenario, seed) pair reproduces byte-identically regardless of `maxParallelism`.
+**Location:** `Core/Modules/Simulation/Systems/ISimulationRunner.cs` · `SimulationRunner.cs` · `CombatScenarioExecutor.cs` · `SimSeeds.cs`
+**Dependencies:** `ISimCombatantFactory`, `ISandboxWorldFactory`, `IEnumerable<ISimCombatantPolicy>`, `ISimOutcomeEvaluator`, `IClock` (report timestamp only — never run outcomes).
+Registered as a singleton in `SimulationModule.AddSimulationModule`. Implemented (simulation-engine-core slice sim-2).
+
+### ISimOutcomeEvaluator / SimOutcomeEvaluator (Simulation module)
+**Purpose:** Pure aggregation over caller-supplied win/draw counts against `IBalanceStandardsRegistry`'s expected-outcome tolerances — an equal-cell win-rate check when both sides share a (Tier, Band) cell, a one-band-higher win-rate-floor check when their global band indexes differ by exactly one, or a skipped-with-reason verdict otherwise (no cell, no decisive runs, or an undefined band-index gap). Win rate excludes draws from the ratio (decisive-run share). Reads the same tolerances the CLI, the sim-3 editor, and the promoted CI invariants all read (INV-19 — the math can never fork per surface).
+**Location:** `Core/Modules/Simulation/Systems/ISimOutcomeEvaluator.cs` · `SimOutcomeEvaluator.cs` · `Core/Modules/Simulation/SimulationReport.cs` (`SimVerdict`)
+**Dependencies:** `IBalanceStandardsRegistry`.
+Registered as a singleton in `SimulationModule.AddSimulationModule`. Implemented (simulation-engine-core slice sim-2).
+
+### ISimReportWriter / SimReportWriter (Simulation module)
+**Purpose:** Serializes a `SimulationReport` (schema version 1; additive fields never bump it) to a JSON artifact — a third durable class deliberately outside SQLite (INV-14 is for live entity state) and world YAML, the same posture as the `generate` run-mode's output. Atomic tmp→rename write into the configured `Simulation:ReportDirectory`; filename is `{yyyyMMdd-HHmmss}Z-{scenarioName}-{seed}.json`. Run history is the reports directory listing.
+**Location:** `Core/Modules/Simulation/Systems/ISimReportWriter.cs` · `SimReportWriter.cs` · `Core/Modules/Simulation/SimulationOptions.cs`
+**Dependencies:** `IOptions<SimulationOptions>`.
+Registered as a singleton in `SimulationModule.AddSimulationModule`. Implemented (simulation-engine-core slice sim-2).
