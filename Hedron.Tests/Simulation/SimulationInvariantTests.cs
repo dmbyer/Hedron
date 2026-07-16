@@ -90,15 +90,6 @@ namespace Hedron.Tests.Simulation
         }
 
         // ── ProgressionRate (sim-4, Postcondition 12) ────────────────────────────
-        //
-        // NOTE: the combat pins above were captured by actually running the suite once and reading
-        // back the observed win counts (the sim-2 precedent). These progression-rate invariants were
-        // authored in an environment with no .NET SDK available to run and capture equivalent exact
-        // kills-to-target numbers, so they assert the mathematically-guaranteed bounds/relationships
-        // derivable straight from ProgressionConstants instead of a literal golden count. They are
-        // still fully deterministic regression pins (same seed/N reproduces the same report) — a
-        // fast follow-up should run this suite once and tighten the bounded assertion below into an
-        // exact golden pin matching the combat precedent's style.
 
         [Fact]
         public void ProgressionRate_EqualPowerReferenceBuild_KillsToFirstImprovement_WithinConstantsDerivedBounds()
@@ -118,10 +109,12 @@ namespace Hedron.Tests.Simulation
             var report = runner.Run(scenario);
             var progression = report.ProgressionRate!;
 
+            // Golden pin at (seed 2026, N 200): min 10, max 12, mean 10.48 — within the
+            // constants-derived [9, 13] bound above, as expected.
             Assert.Equal(200, progression.RunsReachedTarget);
-            Assert.InRange(progression.KillsToTarget.Min, 9, 13);
-            Assert.InRange(progression.KillsToTarget.Max, 9, 13);
-            Assert.InRange(progression.KillsToTarget.Mean, 9.0, 13.0);
+            Assert.Equal(10, progression.KillsToTarget.Min);
+            Assert.Equal(12, progression.KillsToTarget.Max);
+            Assert.Equal(10.48, progression.KillsToTarget.Mean);
 
             var verdict = Assert.Single(report.Verdicts, v => v.Name == "targetReached");
             Assert.True(verdict.Passed, verdict.Reason);
