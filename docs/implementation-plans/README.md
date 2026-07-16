@@ -49,8 +49,7 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 | `planned` | [`admin-area-authoring.md`](admin-area-authoring.md) | `mkarea` + `listents <type>` |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C) |
 | `planned` | [`progression-and-balance.md`](progression-and-balance.md) | Progression & Balance — program brief (slices 4–5 remain) |
-| `planned` | [`balance-simulator.md`](balance-simulator.md) | Balance Simulator & Workbench — program seed (prog-4, sub-slices sim-4…sim-5 remain; sim-1/sim-2/sim-3 shipped) |
-| `planned` | [`progression-rate-scenarios.md`](progression-rate-scenarios.md) | sim-4 — Progression-rate scenarios (second `ScenarioKind` on the sim-2 runner) |
+| `planned` | [`balance-simulator.md`](balance-simulator.md) | Balance Simulator & Workbench — program seed (prog-4, sub-slice sim-5 remains; sim-1…sim-4 shipped) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 
 > The legacy `implemented` plans that predated disintegrate-on-ship have all been disintegrated into the living docs ([`../features/`](../features/), [`../architecture/flows/`](../architecture/flows/), [`../reference/`](../reference/)) and removed — see the completed docs-refinement program in [`../roadmap/backlog.md`](../roadmap/backlog.md). This folder now holds only the in-flight plans listed above.
