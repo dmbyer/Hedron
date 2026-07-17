@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hedron.Core.Modules.Progression;
 using Hedron.Core.Modules.Stats;
 using Microsoft.Extensions.Options;
 using YamlDotNet.Serialization;
@@ -68,13 +69,27 @@ namespace Hedron.Core.Modules.Simulation.Systems
                 }
             }
 
+            ProgressionSettings? progression = null;
+            if (dto.Progression is not null)
+            {
+                if (!Enum.TryParse<ScoreId>(dto.Progression.TargetTrack, ignoreCase: true, out var targetTrack))
+                    errors.Add($"progression.targetTrack: unknown score id '{dto.Progression.TargetTrack}'.");
+
+                progression = new ProgressionSettings(
+                    targetTrack,
+                    dto.Progression.TargetImprovements,
+                    dto.Progression.MaxKillsPerRun,
+                    dto.Progression.TicksPerKill);
+            }
+
             var scenario = new ScenarioDefinition(
                 kind,
                 dto.Name ?? string.Empty,
                 seedOverride ?? dto.Seed,
                 dto.Iterations,
                 dto.MaxTicksPerRun,
-                sides);
+                sides,
+                progression);
 
             if (errors.Count > 0)
                 throw new InvalidOperationException(
@@ -93,26 +108,60 @@ namespace Hedron.Core.Modules.Simulation.Systems
             if (scenario.MaxTicksPerRun <= 0)
                 errors.Add($"maxTicksPerRun must be > 0 (was {scenario.MaxTicksPerRun}).");
 
+            // Both shipped kinds are 1v1 (subject/victim for progressionRate, side A/B for combat) —
+            // enumerated explicitly rather than blanket-enforced so a future N-vs-N kind opts in.
+            var requiresOneVOne = scenario.Kind is ScenarioKind.Combat or ScenarioKind.ProgressionRate;
+
             if (scenario.Sides.Count == 0)
                 errors.Add("scenario must have at least one side.");
-            else if (scenario.Kind == ScenarioKind.Combat && scenario.Sides.Count != 2)
-                errors.Add($"combat scenarios require exactly 2 sides (had {scenario.Sides.Count}).");
+            else if (requiresOneVOne && scenario.Sides.Count != 2)
+                errors.Add($"{scenario.Kind} scenarios require exactly 2 sides (had {scenario.Sides.Count}).");
 
             foreach (var (side, index) in scenario.Sides.Select((s, i) => (s, i)))
             {
                 var label = $"sides[{index}]";
                 if (side.Combatants.Count == 0)
                     errors.Add($"{label}: side has no combatants.");
-                else if (scenario.Kind == ScenarioKind.Combat && side.Combatants.Count != 1)
-                    errors.Add($"{label}: combat scenarios require exactly 1 combatant per side (had {side.Combatants.Count}).");
+                else if (requiresOneVOne && side.Combatants.Count != 1)
+                    errors.Add($"{label}: {scenario.Kind} scenarios require exactly 1 combatant per side (had {side.Combatants.Count}).");
 
                 foreach (var (combatant, cIndex) in side.Combatants.Select((c, i) => (c, i)))
-                    ValidateCombatant(combatant, $"{label}.combatants[{cIndex}]", errors);
+                    ValidateCombatant(combatant, $"{label}.combatants[{cIndex}]", scenario.Kind, errors);
             }
+
+            ValidateProgressionSection(scenario, errors);
 
             if (errors.Count > 0)
                 throw new InvalidOperationException(
                     $"scenario '{scenario.Name}' failed validation:\n" + string.Join("\n", errors.Select(e => "  • " + e)));
+        }
+
+        private static void ValidateProgressionSection(ScenarioDefinition scenario, List<string> errors)
+        {
+            if (scenario.Kind != ScenarioKind.ProgressionRate)
+            {
+                if (scenario.Progression is not null)
+                    errors.Add($"'progression' section is only valid for progressionRate scenarios (kind was {scenario.Kind}).");
+                return;
+            }
+
+            if (scenario.Progression is null)
+            {
+                errors.Add("progressionRate scenarios require a 'progression' section.");
+                return;
+            }
+
+            var p = scenario.Progression;
+            if (!ProgressionConstants.CombatTracks.Contains(p.TargetTrack))
+                errors.Add(
+                    $"progression.targetTrack '{p.TargetTrack}' is not a tracked combat track " +
+                    $"({string.Join(", ", ProgressionConstants.CombatTracks)}).");
+            if (p.TargetImprovements <= 0)
+                errors.Add($"progression.targetImprovements must be > 0 (was {p.TargetImprovements}).");
+            if (p.MaxKillsPerRun <= 0)
+                errors.Add($"progression.maxKillsPerRun must be > 0 (was {p.MaxKillsPerRun}).");
+            if (p.TicksPerKill is <= 0)
+                errors.Add($"progression.ticksPerKill must be > 0 when present (was {p.TicksPerKill}).");
         }
 
         public async Task<string> SaveAsync(ScenarioDefinition scenario, CancellationToken ct = default)
@@ -182,6 +231,13 @@ namespace Hedron.Core.Modules.Simulation.Systems
             {
                 Combatants = side.Combatants.Select(ToDto).ToList(),
             }).ToList(),
+            Progression = scenario.Progression is null ? null : new ProgressionDto
+            {
+                TargetTrack = CamelCase(scenario.Progression.TargetTrack.ToString()),
+                TargetImprovements = scenario.Progression.TargetImprovements,
+                MaxKillsPerRun = scenario.Progression.MaxKillsPerRun,
+                TicksPerKill = scenario.Progression.TicksPerKill,
+            },
         };
 
         private static CombatantDto ToDto(CombatantSpec combatant) => new()
@@ -200,9 +256,11 @@ namespace Hedron.Core.Modules.Simulation.Systems
                 },
         };
 
-        private void ValidateCombatant(CombatantSpec combatant, string label, List<string> errors)
+        private void ValidateCombatant(CombatantSpec combatant, string label, ScenarioKind kind, List<string> errors)
         {
-            if (!_knownPolicyIds.Contains(combatant.PolicyId))
+            // Policy id selects an action-choice strategy — meaningless for a kind that never
+            // executes actions (progressionRate). Combat-only, per the scenario-shape design note.
+            if (kind == ScenarioKind.Combat && !_knownPolicyIds.Contains(combatant.PolicyId))
                 errors.Add($"{label}: unknown policy id '{combatant.PolicyId}'.");
 
             switch (combatant.Source)
@@ -269,6 +327,15 @@ namespace Hedron.Core.Modules.Simulation.Systems
             public int Iterations { get; set; }
             public int MaxTicksPerRun { get; set; }
             public List<SideDto>? Sides { get; set; }
+            public ProgressionDto? Progression { get; set; }
+        }
+
+        private sealed class ProgressionDto
+        {
+            public string? TargetTrack { get; set; }
+            public int TargetImprovements { get; set; }
+            public int MaxKillsPerRun { get; set; }
+            public double? TicksPerKill { get; set; }
         }
 
         private sealed class SideDto

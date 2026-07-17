@@ -32,7 +32,8 @@ This skill is how you **extend or tune** that system: add an XP source, adjust t
 ## Recipe: tune progression
 
 - `PowerPerImprovement` (linear step), the growing-threshold curve, base awards, and the anti-grind floor/cap ratio thresholds all live in `ProgressionConstants` ([Category 3](../../../docs/architecture/05-configuration.md)); the *power* that ratio is computed from comes from `PowerBudgetTunables.Weights` — an injected plain-data record (`PowerBudgetSystem`'s single constructor parameter), composed by the host from the balance-standards registry (`IBalanceStandardsRegistry`, sim-1) or its compiled `Default` fallback, not a static constants class. The **threshold curve is the "slowing rate" knob**; the power step stays **linear** — don't curve the power to slow gains, curve the threshold.
-- Validate a tuning change at scale with the balance-simulator program's sim engine (sim-2+), not by hand.
+- Validate a tuning change at scale by running a `kind: progressionRate` scenario through the balance-simulator program's sim engine (sim-4 — `ProgressionScenarioExecutor` sweeps the real `AwardCombatExperience`/`TryImprove` seam via `dotnet run --project Server -- simulate` or the Simulation editor page), not by hand.
+- **`SimulationInvariantTests` CI-pins progression golden numbers** (kills-to-first-improvement at a fixed seed, milestone-gap monotonicity) at the compiled `ProgressionConstants` values — a deliberate tuning change to `ThresholdBase`/`ThresholdIncrement`/`CombatAwardMin`/`CombatAwardMax`/`AntiGrindFloorRatio` must re-pin those tests **in the same commit** (the sim-2 regression-pin posture, same as the combat win-rate pins).
 - Need recompile-free / per-mob / per-area tuning? Promote those constants to YAML content (OD-2) — don't scatter `IConfiguration` reads.
 
 ## Recipe: add a track

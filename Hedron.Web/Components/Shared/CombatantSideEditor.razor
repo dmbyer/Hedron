@@ -16,15 +16,18 @@
                 }
             </select>
         </div>
-        <div class="field">
-            <label>Policy</label>
-            <select @bind="Form.PolicyId">
-                @foreach (var policy in Policies)
-                {
-                    <option value="@policy.PolicyId">@policy.PolicyId</option>
-                }
-            </select>
-        </div>
+        @if (ShowPolicy)
+        {
+            <div class="field">
+                <label>Policy</label>
+                <select @bind="Form.PolicyId">
+                    @foreach (var policy in Policies)
+                    {
+                        <option value="@policy.PolicyId">@policy.PolicyId</option>
+                    }
+                </select>
+            </div>
+        }
     </div>
 
     @if (Form.Source == CombatantSourceKind.MobTemplate)
@@ -91,6 +94,8 @@
     [Parameter, EditorRequired] public CombatantForm Form { get; set; } = new();
     [Parameter, EditorRequired] public IEnumerable<ISimCombatantPolicy> Policies { get; set; } = Array.Empty<ISimCombatantPolicy>();
     [Parameter, EditorRequired] public IReadOnlyList<ContentSummary> Mobs { get; set; } = Array.Empty<ContentSummary>();
+    /// <summary>Hides the policy selector for scenario kinds that never choose actions (progressionRate, sim-4).</summary>
+    [Parameter] public bool ShowPolicy { get; set; } = true;
 
     private void SetSource(string? raw)
     {

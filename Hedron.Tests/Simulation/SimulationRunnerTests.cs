@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using Hedron.Core.Modules.Simulation;
+using Hedron.Core.Modules.Stats;
 using Hedron.Tests.Harness;
 using Xunit;
 
@@ -109,6 +110,154 @@ namespace Hedron.Tests.Simulation
             Assert.Equal(
                 a.Verdicts.Select(v => (v.Name, v.Passed, v.Reason)),
                 b.Verdicts.Select(v => (v.Name, v.Passed, v.Reason)));
+        }
+
+        // ── ProgressionRate (sim-4, Postconditions 5, 6) ─────────────────────────
+
+        private static void AssertProgressionReportsEquivalent(SimulationReport a, SimulationReport b)
+        {
+            var pa = a.ProgressionRate!;
+            var pb = b.ProgressionRate!;
+            Assert.Equal(pa.TargetTrack, pb.TargetTrack);
+            Assert.Equal(pa.TargetImprovements, pb.TargetImprovements);
+            Assert.Equal(pa.RunsReachedTarget, pb.RunsReachedTarget);
+            Assert.Equal(pa.KillsToTarget, pb.KillsToTarget);
+            Assert.Equal(pa.MeanMilestoneKills, pb.MeanMilestoneKills);
+            Assert.Equal(
+                pa.Tracks.Select(t => (t.Track, t.Xp, t.Improvements)),
+                pb.Tracks.Select(t => (t.Track, t.Xp, t.Improvements)));
+            Assert.Equal(pa.TicksPerKill, pb.TicksPerKill);
+            Assert.Equal(pa.TicksToTarget, pb.TicksToTarget);
+        }
+
+        [Fact]
+        public void Run_ProgressionRate_SameScenarioAndSeed_ProducesIdenticalReport()
+        {
+            var runner = SimulationTestFixtures.NewRunner(new FakeClock());
+            var scenario = SimulationTestFixtures.ProgressionScenario(
+                "progression-repeat", seed: 42, iterations: 20, maxKillsPerRun: 200,
+                targetTrack: ScoreId.Body, targetImprovements: 2,
+                subjectTier: 2, subjectBand: 2, victimTier: 2, victimBand: 2);
+
+            var reportA = runner.Run(scenario);
+            var reportB = runner.Run(scenario);
+
+            Assert.NotNull(reportA.ProgressionRate);
+            Assert.NotNull(reportB.ProgressionRate);
+            AssertProgressionReportsEquivalent(reportA, reportB);
+        }
+
+        [Fact]
+        public void Run_ProgressionRate_Parallelism1VsN_ProducesIdenticalReport()
+        {
+            var runner = SimulationTestFixtures.NewRunner(new FakeClock());
+            var scenario = SimulationTestFixtures.ProgressionScenario(
+                "progression-parallelism", seed: 99, iterations: 24, maxKillsPerRun: 200,
+                targetTrack: ScoreId.Body, targetImprovements: 2,
+                subjectTier: 2, subjectBand: 2, victimTier: 2, victimBand: 2);
+
+            var sequential = runner.Run(scenario, maxParallelism: 1);
+            var parallel = runner.Run(scenario, maxParallelism: 8);
+
+            AssertProgressionReportsEquivalent(sequential, parallel);
+        }
+
+        [Fact]
+        public void Run_ProgressionRate_CombatScalarsAtEmptyDefaults_PayloadPopulated()
+        {
+            var runner = SimulationTestFixtures.NewRunner(new FakeClock());
+            var scenario = SimulationTestFixtures.ProgressionScenario(
+                "progression-payload", seed: 7, iterations: 10, maxKillsPerRun: 200,
+                targetTrack: ScoreId.Body, targetImprovements: 2,
+                subjectTier: 2, subjectBand: 2, victimTier: 2, victimBand: 2);
+
+            var report = runner.Run(scenario);
+
+            Assert.Equal(1, report.SchemaVersion);
+            Assert.Equal(0, report.SideAWins);
+            Assert.Equal(0, report.SideBWins);
+            Assert.Equal(0, report.Draws);
+            Assert.Equal(new DistributionStats(0, 0, 0, 0, 0, 0), report.TicksToKill);
+            Assert.Equal(new DistributionStats(0, 0, 0, 0, 0, 0), report.SideADamageDealt);
+            Assert.Equal(new DistributionStats(0, 0, 0, 0, 0, 0), report.SideBDamageDealt);
+
+            Assert.NotNull(report.ProgressionRate);
+            Assert.Equal(ScoreId.Body, report.ProgressionRate!.TargetTrack);
+            Assert.Equal(2, report.ProgressionRate.TargetImprovements);
+            Assert.Equal(2, report.ProgressionRate.Tracks.Count);
+            Assert.Equal(2, report.ProgressionRate.MeanMilestoneKills.Count);
+            Assert.Equal(2, report.Verdicts.Count);
+            Assert.Contains(report.Verdicts, v => v.Name == "targetReached");
+            Assert.Contains(report.Verdicts, v => v.Name == "progressionRateExpectation" && v.Passed == null);
+        }
+
+        [Fact]
+        public void Run_ProgressionRate_ExtendedRunSignature_MatchesBareCallAndFiresCallbackPerIteration()
+        {
+            var runner = SimulationTestFixtures.NewRunner(new FakeClock());
+            var scenario = SimulationTestFixtures.ProgressionScenario(
+                "progression-extended-signature", seed: 11, iterations: 16, maxKillsPerRun: 200,
+                targetTrack: ScoreId.Body, targetImprovements: 2,
+                subjectTier: 2, subjectBand: 2, victimTier: 2, victimBand: 2);
+            var completed = 0;
+
+            var bare = runner.Run(scenario);
+            var extended = runner.Run(scenario, cancellationToken: CancellationToken.None, onRunCompleted: () => Interlocked.Increment(ref completed));
+
+            Assert.Equal(16, completed);
+            AssertProgressionReportsEquivalent(bare, extended);
+        }
+
+        [Fact]
+        public void Run_Combat_ProgressionRateFieldStaysNull()
+        {
+            var runner = SimulationTestFixtures.NewRunner(new FakeClock());
+            var scenario = SimulationTestFixtures.ReferenceBuildScenario(
+                "combat-regression-null-progression", seed: 1, iterations: 5, maxTicksPerRun: 50, tierA: 2, bandA: 2, tierB: 2, bandB: 2);
+
+            var report = runner.Run(scenario);
+
+            Assert.Null(report.ProgressionRate);
+        }
+
+        [Fact]
+        public void Run_ProgressionRate_WithTicksPerKill_TicksToTarget_TracksKillsToTargetLinearly()
+        {
+            const double ticksPerKill = 12.4;
+            var runner = SimulationTestFixtures.NewRunner(new FakeClock());
+            var scenario = SimulationTestFixtures.ProgressionScenario(
+                "progression-ticks-per-kill", seed: 5, iterations: 30, maxKillsPerRun: 200,
+                targetTrack: ScoreId.Body, targetImprovements: 1,
+                subjectTier: 2, subjectBand: 2, victimTier: 2, victimBand: 2, ticksPerKill: ticksPerKill);
+
+            var report = runner.Run(scenario);
+
+            var progression = report.ProgressionRate!;
+            Assert.Equal(ticksPerKill, progression.TicksPerKill);
+            Assert.NotNull(progression.TicksToTarget);
+            // Math.Round is order-preserving for a positive multiplier, so the transformed
+            // distribution's min/max must equal the transform applied to the source min/max.
+            Assert.Equal(
+                (int)Math.Round(progression.KillsToTarget.Min * ticksPerKill, MidpointRounding.AwayFromZero),
+                progression.TicksToTarget!.Min);
+            Assert.Equal(
+                (int)Math.Round(progression.KillsToTarget.Max * ticksPerKill, MidpointRounding.AwayFromZero),
+                progression.TicksToTarget.Max);
+        }
+
+        [Fact]
+        public void Run_ProgressionRate_WithoutTicksPerKill_TicksToTargetIsNull()
+        {
+            var runner = SimulationTestFixtures.NewRunner(new FakeClock());
+            var scenario = SimulationTestFixtures.ProgressionScenario(
+                "progression-no-ticks-per-kill", seed: 5, iterations: 10, maxKillsPerRun: 200,
+                targetTrack: ScoreId.Body, targetImprovements: 1,
+                subjectTier: 2, subjectBand: 2, victimTier: 2, victimBand: 2);
+
+            var report = runner.Run(scenario);
+
+            Assert.Null(report.ProgressionRate!.TicksPerKill);
+            Assert.Null(report.ProgressionRate.TicksToTarget);
         }
     }
 }

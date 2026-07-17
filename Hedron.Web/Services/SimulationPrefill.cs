@@ -77,6 +77,21 @@ namespace Hedron.Web.Services
             return Compose($"vs-reference.{template.BlueprintId}", sideA, sideB);
         }
 
+        /// <summary>
+        /// Prefill for a progression-rate scenario's <c>ticksPerKill</c> field (sim-4): a chosen
+        /// combat report's mean time-to-kill, or <see langword="null"/> when the report isn't a
+        /// decisive combat report (wrong kind, or every run was a draw). Pure — the engine never
+        /// reads report files as input; this is an editor-side, prefill-only convenience.
+        /// </summary>
+        public static double? TicksPerKillFrom(SimulationReport report)
+        {
+            if (report.Scenario.Kind != ScenarioKind.Combat)
+                return null;
+
+            var decisiveRuns = report.SideAWins + report.SideBWins;
+            return decisiveRuns > 0 ? report.TicksToKill.Mean : null;
+        }
+
         private static ScenarioDefinition Compose(string name, CombatantSpec sideA, CombatantSpec sideB) => new(
             ScenarioKind.Combat, name, Seed, Iterations, MaxTicksPerRun,
             new[]

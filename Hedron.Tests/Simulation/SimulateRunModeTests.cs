@@ -129,5 +129,79 @@ namespace Hedron.Tests.Simulation
             Assert.False(SimulateRunMode.Matches(Array.Empty<string>()));
             Assert.False(SimulateRunMode.Matches(new[] { "generate" }));
         }
+
+        // ── progressionRate (sim-4, Postcondition 10) ────────────────────────
+
+        private const string ValidProgressionScenario = """
+            kind: ProgressionRate
+            name: run-mode-progression-probe
+            seed: 5
+            iterations: 10
+            maxTicksPerRun: 1
+            progression:
+              targetTrack: body
+              targetImprovements: 2
+              maxKillsPerRun: 200
+            sides:
+              - combatants:
+                  - source: ReferenceBuild
+                    tier: 2
+                    band: 2
+              - combatants:
+                  - source: ReferenceBuild
+                    tier: 2
+                    band: 2
+            """;
+
+        [Fact]
+        public async Task RunAsync_ValidProgressionScenario_ExitsZeroAndWritesReportWithProgressionPayload()
+        {
+            var scenarioPath = WriteScenario(ValidProgressionScenario);
+            var reportDir = NewTempDir();
+
+            var exit = await SimulateRunMode.RunAsync(
+                new[] { "simulate", "--scenario", scenarioPath }, ConfigFor(reportDir));
+
+            Assert.Equal(0, exit);
+            var reportFile = Directory.EnumerateFiles(reportDir, "*.json").Single();
+            var body = await File.ReadAllTextAsync(reportFile);
+            Assert.Contains("\"progressionRate\"", body);
+            Assert.Contains("\"targetReached\"", body);
+        }
+
+        [Fact]
+        public async Task RunAsync_ExampleProgressionRateScenarioFile_ExitsZero()
+        {
+            var repoRoot = FindRepoRoot();
+            var exampleScenario = Path.Combine(repoRoot, "data", "sim", "scenarios", "example-progression-rate.yaml");
+            var reportDir = NewTempDir();
+
+            var exit = await SimulateRunMode.RunAsync(
+                new[] { "simulate", "--scenario", exampleScenario }, ConfigFor(reportDir));
+
+            Assert.Equal(0, exit);
+            Assert.Single(Directory.EnumerateFiles(reportDir, "*.json"));
+        }
+
+        [Fact]
+        public async Task RunAsync_StructurallyInvalidProgressionScenario_ExitsTwo()
+        {
+            var scenarioPath = WriteScenario(ValidProgressionScenario.Replace("targetImprovements: 2", "targetImprovements: 0"));
+
+            var exit = await SimulateRunMode.RunAsync(
+                new[] { "simulate", "--scenario", scenarioPath }, ConfigFor(NewTempDir()));
+
+            Assert.Equal(2, exit);
+        }
+
+        private static string FindRepoRoot()
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Hedron.sln")))
+                dir = dir.Parent;
+
+            return dir?.FullName
+                ?? throw new InvalidOperationException("could not locate repo root (Hedron.sln) from " + AppContext.BaseDirectory);
+        }
     }
 }

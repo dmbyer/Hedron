@@ -1,4 +1,5 @@
 using System.Threading;
+using Hedron.Core.Modules.Stats;
 using Hedron.Tests.Harness;
 using Xunit;
 
@@ -86,6 +87,84 @@ namespace Hedron.Tests.Simulation
             Assert.Equal(94, report.SideBWins);
             Assert.Equal(0, report.Draws);
             Assert.Equal(200, completed);
+        }
+
+        // ── ProgressionRate (sim-4, Postcondition 12) ────────────────────────────
+
+        [Fact]
+        public void ProgressionRate_EqualPowerReferenceBuild_KillsToFirstImprovement_WithinConstantsDerivedBounds()
+        {
+            // Equal-power reference builds (tier 2 band 2 vs tier 2 band 2) give an anti-grind
+            // scale of exactly 1.0 -> the Body award every kill is the raw roll, uniformly in
+            // [CombatAwardMin, CombatAwardMax] = [8, 12] (ProgressionConstants). Reaching
+            // ThresholdBase (100) therefore takes between ceil(100/12)=9 and ceil(100/8)=13 kills,
+            // regardless of the actual random sequence -- and the cap (50) is far above the 13-kill
+            // worst case, so every run is guaranteed to reach the target.
+            var runner = SimulationTestFixtures.NewRunner(new FakeClock());
+            var scenario = SimulationTestFixtures.ProgressionScenario(
+                "ci-progression-first-improvement", seed: 2026, iterations: 200, maxKillsPerRun: 50,
+                targetTrack: ScoreId.Body, targetImprovements: 1,
+                subjectTier: 2, subjectBand: 2, victimTier: 2, victimBand: 2);
+
+            var report = runner.Run(scenario);
+            var progression = report.ProgressionRate!;
+
+            // Golden pin at (seed 2026, N 200): min 10, max 12, mean 10.48 — within the
+            // constants-derived [9, 13] bound above, as expected.
+            Assert.Equal(200, progression.RunsReachedTarget);
+            Assert.Equal(10, progression.KillsToTarget.Min);
+            Assert.Equal(12, progression.KillsToTarget.Max);
+            Assert.Equal(10.48, progression.KillsToTarget.Mean);
+
+            var verdict = Assert.Single(report.Verdicts, v => v.Name == "targetReached");
+            Assert.True(verdict.Passed, verdict.Reason);
+        }
+
+        [Fact]
+        public void ProgressionRate_MilestoneGapMonotonicity_KillsBetweenSuccessiveImprovementsNeverDecrease()
+        {
+            // Equal power + a generous cap (worst case ceil(200/8)=25 kills for 3 improvements,
+            // cap 50) guarantees every run reaches the full target, so every milestone's mean is
+            // averaged over the identical full run population. Each individual run's own kill
+            // counter is non-decreasing by construction (milestones are appended in encounter
+            // order), so the averaged sequence must be non-decreasing too -- a mathematical
+            // certainty here, not a statistical tendency, independent of the RNG sequence.
+            var runner = SimulationTestFixtures.NewRunner(new FakeClock());
+            var scenario = SimulationTestFixtures.ProgressionScenario(
+                "ci-progression-monotonicity", seed: 2026, iterations: 100, maxKillsPerRun: 50,
+                targetTrack: ScoreId.Body, targetImprovements: 3,
+                subjectTier: 2, subjectBand: 2, victimTier: 2, victimBand: 2);
+
+            var report = runner.Run(scenario);
+            var progression = report.ProgressionRate!;
+
+            Assert.Equal(100, progression.RunsReachedTarget);
+            Assert.Equal(3, progression.MeanMilestoneKills.Count);
+            for (var m = 0; m < progression.MeanMilestoneKills.Count - 1; m++)
+            {
+                Assert.True(
+                    progression.MeanMilestoneKills[m] <= progression.MeanMilestoneKills[m + 1],
+                    $"milestone {m} mean kills ({progression.MeanMilestoneKills[m]}) exceeded milestone {m + 1} ({progression.MeanMilestoneKills[m + 1]})");
+            }
+        }
+
+        [Fact]
+        public void ProgressionRate_ExtendedRunSignature_MatchesBareCallDeterministically()
+        {
+            var runner = SimulationTestFixtures.NewRunner(new FakeClock());
+            var scenario = SimulationTestFixtures.ProgressionScenario(
+                "ci-progression-determinism", seed: 2026, iterations: 50, maxKillsPerRun: 50,
+                targetTrack: ScoreId.Body, targetImprovements: 1,
+                subjectTier: 2, subjectBand: 2, victimTier: 2, victimBand: 2);
+            var completed = 0;
+
+            var bare = runner.Run(scenario);
+            var extended = runner.Run(
+                scenario, cancellationToken: CancellationToken.None, onRunCompleted: () => Interlocked.Increment(ref completed));
+
+            Assert.Equal(50, completed);
+            Assert.Equal(bare.ProgressionRate!.RunsReachedTarget, extended.ProgressionRate!.RunsReachedTarget);
+            Assert.Equal(bare.ProgressionRate.KillsToTarget, extended.ProgressionRate.KillsToTarget);
         }
     }
 }

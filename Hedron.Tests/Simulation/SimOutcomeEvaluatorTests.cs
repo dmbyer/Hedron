@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Hedron.Core.Modules.BalanceInspection.Standards;
 using Hedron.Core.Modules.Simulation;
 using Hedron.Core.Modules.Simulation.Systems;
@@ -116,6 +117,43 @@ namespace Hedron.Tests.Simulation
             var verdict = Assert.Single(verdicts);
             Assert.Null(verdict.Passed);
             Assert.Contains("no defined tolerance", verdict.Reason);
+        }
+
+        // ── EvaluateProgressionRate (sim-4, Postcondition 7) ─────────────────────
+
+        [Fact]
+        public void EvaluateProgressionRate_AllRunsReachedTarget_TargetReachedPasses()
+        {
+            var evaluator = NewEvaluator();
+            var verdicts = evaluator.EvaluateProgressionRate(runsReachedTarget: 50, totalRuns: 50);
+
+            Assert.Equal(2, verdicts.Count);
+            var targetReached = verdicts.Single(v => v.Name == "targetReached");
+            Assert.True(targetReached.Passed);
+            Assert.Contains("50/50", targetReached.Reason);
+        }
+
+        [Fact]
+        public void EvaluateProgressionRate_SomeRunsMissedTarget_TargetReachedFailsWithShareInReason()
+        {
+            var evaluator = NewEvaluator();
+            var verdicts = evaluator.EvaluateProgressionRate(runsReachedTarget: 30, totalRuns: 50);
+
+            var targetReached = verdicts.Single(v => v.Name == "targetReached");
+            Assert.False(targetReached.Passed);
+            Assert.Contains("30/50", targetReached.Reason);
+            Assert.Contains("60", targetReached.Reason);
+        }
+
+        [Fact]
+        public void EvaluateProgressionRate_ProgressionRateExpectation_AlwaysSkippedNamingMissingStandardsFamily()
+        {
+            var evaluator = NewEvaluator();
+            var verdicts = evaluator.EvaluateProgressionRate(runsReachedTarget: 50, totalRuns: 50);
+
+            var expectation = verdicts.Single(v => v.Name == "progressionRateExpectation");
+            Assert.Null(expectation.Passed);
+            Assert.Contains("standards", expectation.Reason);
         }
     }
 }

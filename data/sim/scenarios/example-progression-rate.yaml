@@ -1,0 +1,19 @@
+kind: ProgressionRate
+name: example-progression-rate
+seed: 1234
+iterations: 200
+maxTicksPerRun: 1
+progression:
+  targetTrack: body
+  targetImprovements: 5
+  maxKillsPerRun: 500
+  ticksPerKill: 12.4
+sides:
+  - combatants:
+      - source: ReferenceBuild
+        tier: 2
+        band: 2
+  - combatants:
+      - source: ReferenceBuild
+        tier: 2
+        band: 1

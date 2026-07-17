@@ -10,6 +10,7 @@ using Hedron.Core.Modules.Death;
 using Hedron.Core.Modules.Effects;
 using Hedron.Core.Modules.Simulation;
 using Hedron.Core.Modules.Simulation.Systems;
+using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
 using Hedron.Tests.Harness;
@@ -61,5 +62,19 @@ namespace Hedron.Tests.Simulation
                 new ScenarioSide(new[] { new CombatantSpec(CombatantSourceKind.ReferenceBuild, policyId, Tier: tierA, Band: bandA) }),
                 new ScenarioSide(new[] { new CombatantSpec(CombatantSourceKind.ReferenceBuild, policyId, Tier: tierB, Band: bandB) }),
             });
+
+        /// <summary>Subject = side 0, victim = side 1 — both <see cref="CombatantSourceKind.ReferenceBuild"/>, policy id omitted (unused by this kind).</summary>
+        public static ScenarioDefinition ProgressionScenario(
+            string name, int seed, int iterations, int maxKillsPerRun,
+            ScoreId targetTrack, int targetImprovements,
+            int subjectTier, int subjectBand, int victimTier, int victimBand,
+            double? ticksPerKill = null) => new(
+            ScenarioKind.ProgressionRate, name, seed, iterations, MaxTicksPerRun: 1,
+            Sides: new[]
+            {
+                new ScenarioSide(new[] { new CombatantSpec(CombatantSourceKind.ReferenceBuild, string.Empty, Tier: subjectTier, Band: subjectBand) }),
+                new ScenarioSide(new[] { new CombatantSpec(CombatantSourceKind.ReferenceBuild, string.Empty, Tier: victimTier, Band: victimBand) }),
+            },
+            Progression: new ProgressionSettings(targetTrack, targetImprovements, maxKillsPerRun, ticksPerKill));
     }
 }

@@ -41,7 +41,7 @@ Listens on `Server:Port` (default `4000`). Connect with any telnet client, e.g. 
 dotnet run --project Hedron.Web
 ```
 
-Serves the Blazor authoring editor at `Web:BindUrl` (default `http://127.0.0.1:5050`, loopback only). Edits write YAML to the content directory; use the editor's **Apply** action (or restart the game server) to load changes into a live world. The editor's **Simulation** page (`/simulation`) composes, launches, and inspects sim-2 batch combat runs in the background — the same engine and report artifact the headless `simulate` run-mode below produces — with "Simulate vs reference" entry points on the mob/item editors and a "Re-run baseline sweep" affordance on the Standards page.
+Serves the Blazor authoring editor at `Web:BindUrl` (default `http://127.0.0.1:5050`, loopback only). Edits write YAML to the content directory; use the editor's **Apply** action (or restart the game server) to load changes into a live world. The editor's **Simulation** page (`/simulation`) composes, launches, and inspects batch combat or progression-rate runs in the background — the same engine and report artifact the headless `simulate` run-mode below produces — with "Simulate vs reference" entry points on the mob/item editors and a "Re-run baseline sweep" affordance on the Standards page.
 
 ### Bulk content generation (headless)
 

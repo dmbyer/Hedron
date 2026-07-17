@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Abilities;
@@ -125,6 +126,97 @@ namespace Hedron.Tests.Web
             Assert.Equal(expectedCell.Band, sideA.Band);
 
             NewValidatingStore().Validate(scenario);
+        }
+
+        // ── TicksPerKillFrom (sim-4, Postcondition 11 / Test plan 8) ─────────────
+
+        private static SimulationReport CombatReport(int sideAWins, int sideBWins, int draws, DistributionStats ticksToKill) => new(
+            SchemaVersion: 1,
+            Scenario: new ScenarioDefinition(
+                ScenarioKind.Combat, "probe", Seed: 1, Iterations: sideAWins + sideBWins + draws, MaxTicksPerRun: 50,
+                Sides: new[]
+                {
+                    new ScenarioSide(new[] { new CombatantSpec(CombatantSourceKind.ReferenceBuild, "cooldown-first", Tier: 2, Band: 2) }),
+                    new ScenarioSide(new[] { new CombatantSpec(CombatantSourceKind.ReferenceBuild, "cooldown-first", Tier: 2, Band: 2) }),
+                }),
+            GeneratedAt: DateTime.UtcNow,
+            SideAWins: sideAWins, SideBWins: sideBWins, Draws: draws,
+            SideAWinRate: 0.0, SideBWinRate: 0.0,
+            TicksToKill: ticksToKill,
+            SideADamageDealt: new DistributionStats(0, 0, 0, 0, 0, 0),
+            SideBDamageDealt: new DistributionStats(0, 0, 0, 0, 0, 0),
+            Verdicts: Array.Empty<SimVerdict>());
+
+        private static SimulationReport ProgressionReport() => new(
+            SchemaVersion: 1,
+            Scenario: new ScenarioDefinition(
+                ScenarioKind.ProgressionRate, "probe-progression", Seed: 1, Iterations: 10, MaxTicksPerRun: 1,
+                Sides: new[]
+                {
+                    new ScenarioSide(new[] { new CombatantSpec(CombatantSourceKind.ReferenceBuild, string.Empty, Tier: 2, Band: 2) }),
+                    new ScenarioSide(new[] { new CombatantSpec(CombatantSourceKind.ReferenceBuild, string.Empty, Tier: 2, Band: 2) }),
+                },
+                Progression: new ProgressionSettings(ScoreId.Body, TargetImprovements: 1, MaxKillsPerRun: 50)),
+            GeneratedAt: DateTime.UtcNow,
+            SideAWins: 0, SideBWins: 0, Draws: 0,
+            SideAWinRate: 0.0, SideBWinRate: 0.0,
+            TicksToKill: new DistributionStats(0, 0, 0, 0, 0, 0),
+            SideADamageDealt: new DistributionStats(0, 0, 0, 0, 0, 0),
+            SideBDamageDealt: new DistributionStats(0, 0, 0, 0, 0, 0),
+            Verdicts: Array.Empty<SimVerdict>());
+
+        [Fact]
+        public void TicksPerKillFrom_DecisiveCombatReport_ReturnsTicksToKillMean()
+        {
+            var report = CombatReport(sideAWins: 6, sideBWins: 4, draws: 0, ticksToKill: new DistributionStats(12.4, 12, 8, 16, 5, 20));
+
+            var prefill = SimulationPrefill.TicksPerKillFrom(report);
+
+            Assert.Equal(12.4, prefill);
+        }
+
+        [Fact]
+        public void TicksPerKillFrom_ProgressionReport_ReturnsNull()
+        {
+            var prefill = SimulationPrefill.TicksPerKillFrom(ProgressionReport());
+
+            Assert.Null(prefill);
+        }
+
+        [Fact]
+        public void TicksPerKillFrom_ZeroDecisiveCombatReport_ReturnsNull()
+        {
+            var report = CombatReport(sideAWins: 0, sideBWins: 0, draws: 10, ticksToKill: new DistributionStats(0, 0, 0, 0, 0, 0));
+
+            var prefill = SimulationPrefill.TicksPerKillFrom(report);
+
+            Assert.Null(prefill);
+        }
+
+        // ── ProgressionSettingsForm round-trip fidelity (Postcondition 11's must-not-mangle) ────
+
+        [Fact]
+        public void ProgressionSettingsForm_ApplyFromThenToSettings_RoundTripsFieldEqualOriginal()
+        {
+            var original = new ProgressionSettings(ScoreId.HpMax, TargetImprovements: 4, MaxKillsPerRun: 250, TicksPerKill: 9.75);
+            var form = new ProgressionSettingsForm();
+
+            form.ApplyFrom(original);
+            var roundTripped = form.ToSettings();
+
+            Assert.Equal(original, roundTripped);
+        }
+
+        [Fact]
+        public void ProgressionSettingsForm_ApplyFromNoTicksPerKill_RoundTripsNull()
+        {
+            var original = new ProgressionSettings(ScoreId.Body, TargetImprovements: 1, MaxKillsPerRun: 100);
+            var form = new ProgressionSettingsForm { TicksPerKill = 99 };
+
+            form.ApplyFrom(original);
+
+            Assert.Null(form.TicksPerKill);
+            Assert.Equal(original, form.ToSettings());
         }
     }
 }

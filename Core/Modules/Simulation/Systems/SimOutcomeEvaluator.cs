@@ -81,5 +81,23 @@ namespace Hedron.Core.Modules.Simulation.Systems
                 passed,
                 $"higher-band side win rate {winRate:P1} vs floor {tolerances.HigherBandWinRateFloor:P1}");
         }
+
+        public IReadOnlyList<SimVerdict> EvaluateProgressionRate(int runsReachedTarget, int totalRuns)
+        {
+            var reachedShare = totalRuns > 0 ? (double)runsReachedTarget / totalRuns : 0.0;
+            var passed = runsReachedTarget == totalRuns;
+
+            var targetReached = new SimVerdict(
+                "targetReached",
+                passed,
+                $"{runsReachedTarget}/{totalRuns} runs reached the target before the cap ({reachedShare:P1})");
+
+            var expectation = new SimVerdict(
+                "progressionRateExpectation",
+                null,
+                "skipped — no progression-rate tolerance family defined in the balance standards yet");
+
+            return new[] { targetReached, expectation };
+        }
     }
 }

@@ -57,9 +57,21 @@ namespace Hedron.Core.Modules.Simulation
     public sealed record ScenarioSide(IReadOnlyList<CombatantSpec> Combatants);
 
     /// <summary>
+    /// Kind-gated settings for a <see cref="ScenarioKind.ProgressionRate"/> scenario (sim-4).
+    /// <see cref="TargetTrack"/> must be one of <see cref="Progression.ProgressionConstants.CombatTracks"/>.
+    /// </summary>
+    public sealed record ProgressionSettings(
+        ScoreId TargetTrack,
+        int TargetImprovements,
+        int MaxKillsPerRun,
+        double? TicksPerKill = null);
+
+    /// <summary>
     /// The whole run recipe: kind, iteration/termination knobs, and the two sides. YAML-authorable,
     /// editor-composable (sim-3), generator-constructable (later). Validated by
     /// <see cref="Systems.ISimScenarioStore"/> before any run executes.
+    /// <see cref="Progression"/> is populated only for <see cref="ScenarioKind.ProgressionRate"/>
+    /// (sim-4, additive optional member — existing call sites compile unchanged).
     /// </summary>
     public sealed record ScenarioDefinition(
         ScenarioKind Kind,
@@ -67,5 +79,6 @@ namespace Hedron.Core.Modules.Simulation
         int Seed,
         int Iterations,
         int MaxTicksPerRun,
-        IReadOnlyList<ScenarioSide> Sides);
+        IReadOnlyList<ScenarioSide> Sides,
+        ProgressionSettings? Progression = null);
 }

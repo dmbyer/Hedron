@@ -266,11 +266,12 @@ __pycache__/
 # Hedron runtime + local content (per-developer; not committed)
 /Server/data/
 
-# ...except the shipped example simulation scenario (INV-18 content-tooling example, sim-2)
+# ...except the shipped example simulation scenarios (INV-18 content-tooling example, sim-2/sim-4)
 /data/*
 !/data/sim/
 /data/sim/*
 !/data/sim/scenarios/
 /data/sim/scenarios/*
 !/data/sim/scenarios/example-equal-cell.yaml
+!/data/sim/scenarios/example-progression-rate.yaml
 
