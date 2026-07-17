@@ -34,7 +34,7 @@ namespace Hedron.Tests.Modules.BalanceInspection
     /// <c>Hedron.Tests/Authoring/ContentDefinitionCatalogTests.cs</c>'s harness): author out-of-band
     /// YAML → <see cref="ITemplateConformanceSystem.Preview"/> → <c>ApplyAsync</c> → re-<c>Load</c>
     /// from disk → re-project/classify in range. Catches YAML field-fidelity regressions a fake
-    /// catalog can't (docs/implementation-plans/conformance-tooling.md Test plan Tier 3).
+    /// catalog can't (docs/roadmap/completed/conformance-tooling.md Test plan Tier 3).
     /// </summary>
     public sealed class ConformanceRoundTripTests : IDisposable
     {

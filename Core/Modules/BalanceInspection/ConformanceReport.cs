@@ -11,6 +11,8 @@ namespace Hedron.Core.Modules.BalanceInspection
         Fitted,
         AlreadyInRange,
         NotFittable,
+        /// <summary>A fit was found but <c>IContentDefinitionCatalog.SaveAsync</c> refused the write (validation failure).</summary>
+        WriteRefused,
     }
 
     /// <summary>Why a template could not be fitted. <see cref="None"/> outside <see cref="ConformanceStatus.NotFittable"/>.</summary>
@@ -70,7 +72,7 @@ namespace Hedron.Core.Modules.BalanceInspection
 
         public static ConformanceApplyResult Failed(
             BalanceAuditKind kind, string blueprintId, IReadOnlyList<string> errors) =>
-            new(kind, blueprintId, false, ConformanceStatus.Fitted, ConformanceNotFittableReason.None,
+            new(kind, blueprintId, false, ConformanceStatus.WriteRefused, ConformanceNotFittableReason.None,
                 errors, Array.Empty<string>());
     }
 

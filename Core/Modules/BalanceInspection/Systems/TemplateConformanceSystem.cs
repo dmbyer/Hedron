@@ -21,7 +21,7 @@ namespace Hedron.Core.Modules.BalanceInspection.Systems
     /// is the only source of target math — this system exploits its documented weighted-sum
     /// linearity to compute a closed-form scale factor, then verifies with the real projection
     /// seams and corrects, so a future oracle change degrades to more correction steps, never to
-    /// silent drift (see docs/implementation-plans/conformance-tooling.md Design notes).
+    /// silent drift (see docs/roadmap/completed/conformance-tooling.md Decisions).
     /// </summary>
     public sealed class TemplateConformanceSystem : ITemplateConformanceSystem
     {

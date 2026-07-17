@@ -23,7 +23,7 @@ namespace Hedron.Tests.Modules.BalanceInspection
     /// <summary>
     /// Tier 1 — system-unit tests for <see cref="TemplateConformanceSystem"/>.
     ///
-    /// Coverage contract: docs/implementation-plans/conformance-tooling.md Test plan Tier 1 items
+    /// Coverage contract: docs/roadmap/completed/conformance-tooling.md Test plan Tier 1 items
     /// 1-9 — item fit, mob fit, midpoint/determinism, rounding-correction convergence (and its
     /// non-convergent counterpart), AlreadyInRange, NotFittable guards, apply re-derives from
     /// disk, validation-refusal propagation, bulk-equals-loop-of-singles.
@@ -396,6 +396,7 @@ namespace Hedron.Tests.Modules.BalanceInspection
             var applyResult = await system.ApplyAsync(BalanceAuditKind.Item, item.BlueprintId);
 
             Assert.False(applyResult.Success);
+            Assert.Equal(ConformanceStatus.WriteRefused, applyResult.Status);
             Assert.Contains("forced validation failure", applyResult.Errors);
             Assert.Single(catalog.SaveCalls);
         }

@@ -335,9 +335,9 @@ identically whether the CLI or the editor wrote it — `List` never throws on an
 - [`../progression/progression-system.md`](../progression/progression-system.md) — the
   `IProgressionSystem` seam the sim-4 progression-rate executor sweeps directly.
 - Reference rows: [`systems.md`](../../reference/systems.md).
-- [`../../implementation-plans/balance-simulator.md`](../../implementation-plans/balance-simulator.md) —
-  the five-sub-slice program brief this is `sim-2`/`sim-3`/`sim-4` of (`sim-5` conformance tooling
-  remains).
+- The `prog-4` balance-simulator program (five sub-slices, `sim-1`–`sim-5`, all shipped) this engine
+  is `sim-2`/`sim-3`/`sim-4` of; `sim-5` (template conformance tooling) lives in
+  [`power-budget-system.md`](../progression/power-budget-system.md).
 - [`../../roadmap/completed/simulation-engine-core.md`](../../roadmap/completed/simulation-engine-core.md) ·
   [`../../roadmap/completed/simulation-editor-integration.md`](../../roadmap/completed/simulation-editor-integration.md) ·
   [`../../roadmap/completed/progression-rate-scenarios.md`](../../roadmap/completed/progression-rate-scenarios.md) —
