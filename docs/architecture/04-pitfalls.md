@@ -266,6 +266,23 @@ Handlers orchestrate; they call one of the above. They do not themselves call `C
 
 ---
 
+## Threading Model & Cross-Thread State
+
+**The runtime is multi-threaded at its edges, single-logical-world in the middle.** The threads that execute engine code:
+
+- **Session read-loop threads** — one per connected telnet client; commands run on the caller's session thread (there is no command queue marshaling onto a game loop).
+- **`BackgroundService` initiators** — the heartbeat (`HeartbeatBackgroundService`), the persistence flush timer; each runs on its own background thread and drives combat/effects/regen/restock through handlers.
+- **Blazor circuit threads** (`Hedron.Web`) — the offline authoring editor and tooling pages; the `SimulationRunService` drain loop runs sim jobs on a background task.
+- **Sim worker threads** — `SimulationRunner` parallelizes runs, but each run owns an **isolated sandbox `EntityService`** — confinement by construction, never the live world.
+
+**The rule (INV-31, [checklist.md](checklist.md)):** state reachable from more than one of those threads is either **guarded** by its owning infrastructure type or **confined** to one thread/world, and new cross-thread surfaces declare which, in the plan, before implementation.
+
+**Guarded sites (precedents):** `EventBus` (subscription/dispatch), `SessionOutputBuffer` + `SessionBufferRegistry` (three writer threads: own commands, other players' broadcasts, heartbeat output — drain-then-prompt is atomic under the buffer lock), `SessionManager`, `TelnetSession` (write lock), `TemplateRegistry`, `EcsManager` (world-instance assignment), `SimScenarioStore`.
+
+**The acknowledged gap — ECS component storage.** `ComponentRepository`'s nested `Dictionary` storage is **unguarded**, while session threads and the heartbeat thread both read and mutate live world components concurrently. It has not bitten because structural mutations (add/remove component, create/destroy entity) cluster at startup, login, and admin actions while steady-state traffic is mostly value mutation — but it is a real latent race, not a proven-safe design. The bounded decision — guard the repository vs. marshal world mutation onto a single game-loop/queue — is tracked in [`../roadmap/backlog.md`](../roadmap/backlog.md). Until it is made, **new work must not widen the exposure**: no new thread or timer that mutates live world components outside the existing session-command and heartbeat-handler paths (a new background initiator that only *publishes events* consumed on existing paths is fine; one that reaches into `EntityService` directly is a finding).
+
+---
+
 ## Summary Checklist
 
 Before merging a change that adds or modifies a system/handler/event, verify:
@@ -280,3 +297,4 @@ Before merging a change that adds or modifies a system/handler/event, verify:
 - [ ] Component queries (not `is`/`as`) identify entity type
 - [ ] Entities and templates are not confused at system boundaries
 - [ ] Persistence shape is correct — entities that must survive restart carry `PersistentEntity`; `[Persistent]` on component types controls snapshot inclusion, not entity-level opt-in (see [06-persistence.md](06-persistence.md))
+- [ ] Any new cross-thread surface declares its concurrency posture — guarded or confined (INV-31)

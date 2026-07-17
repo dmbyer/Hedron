@@ -11,7 +11,7 @@ This skill is how you **extend or tune** that system: add an XP source, adjust t
 
 > **Status.** Documents the as-built pattern from slice `prog-1` of the Progression & Balance program (durable design: [`docs/features/progression/progression.md`](../../../docs/features/progression/progression.md) · [`progression-system.md`](../../../docs/features/progression/progression-system.md); as-built history: [`docs/roadmap/completed/progression-substrate.md`](../../../docs/roadmap/completed/progression-substrate.md)). Symbol names (`IProgressionSystem`, `XpSource`, `ProgressionConstants`, `ProgressionEffectContributor`) match the shipped code.
 
-**Authoritative:** [progression-system.md](../../../docs/features/progression/progression-system.md) · [program brief → Design notes](../../../docs/implementation-plans/progression-and-balance.md#design-notes) (slices 2–5) · [checklist](../../../docs/architecture/checklist.md) (INV-24 contribute-on-read, INV-5/INV-8 return-vs-publish, INV-19 framework-at-3, INV-26 determinism) · [config Category 3](../../../docs/architecture/05-configuration.md) (balance constants).
+**Authoritative:** [progression-system.md](../../../docs/features/progression/progression-system.md) · [balance catalog](../../../docs/design/balance.md) (knob homes + maintenance contract) · [checklist](../../../docs/architecture/checklist.md) (INV-24 contribute-on-read, INV-5/INV-8 return-vs-publish, INV-19 framework-at-3, INV-26 determinism) · [config Category 3](../../../docs/architecture/05-configuration.md) (balance constants).
 
 ## The three layers (how progression is extended)
 
@@ -60,6 +60,6 @@ When 3+ XP sources exist, collapse the bespoke handlers into **one** thin advanc
 ## Related
 
 - [progression-system.md](../../../docs/features/progression/progression-system.md) — the as-built design; [progression.md](../../../docs/features/progression/progression.md) — the feature doc.
-- [program brief](../../../docs/implementation-plans/progression-and-balance.md) — the durable design for slices 2–5 (mechanism/tuning/generalization, the five-slice map).
+- [balance-tuning](../balance-tuning/SKILL.md) — the numbers-and-validation loop (knob homes, sim sweeps, CI re-pins); [balance catalog](../../../docs/design/balance.md) — where every tunable lives. The Progression & Balance program's map and dispositions live in [`completed/balance-doc-layer.md`](../../../docs/roadmap/completed/balance-doc-layer.md).
 - [add-handler](../add-handler/SKILL.md) · [add-event](../add-event/SKILL.md) · [add-command](../add-command/SKILL.md) · [add-domain-system](../add-domain-system/SKILL.md) · [add-tests](../add-tests/SKILL.md) — the sub-patterns each recipe composes.
 - [checklist](../../../docs/architecture/checklist.md) — INV-24 / INV-5 / INV-8 / INV-19 / INV-26 (the rules; cite, don't restate).

@@ -20,6 +20,7 @@ Invoke via model-selected skill triggers or directly in prompts. Each one docume
 | [`add-command`](skills/add-command/SKILL.md) | Adding a player or admin command |
 | [`add-tests`](skills/add-tests/SKILL.md) | Writing tests for a slice — picking the tier, the shared harness, the test-vs-skip rubric (INV-25/26) |
 | [`edit-progression-system`](skills/edit-progression-system/SKILL.md) | Extending or tuning experience-driven progression — adding an XP source, adjusting curves/anti-grind, adding a track, or promoting triggers to a rule table |
+| [`balance-tuning`](skills/balance-tuning/SKILL.md) | Changing any balance number or balance-affecting mechanic — knob homes, new power sources, landing content in a (Tier, Band) cell, sim-sweep validation, re-pinning CI goldens |
 | [`implement-plan`](skills/implement-plan/SKILL.md) | Implementing a full use case end-to-end |
 | [`sync-roadmap`](skills/sync-roadmap/SKILL.md) | Updating plan.md, done.md, and completed/ after a slice merges; disintegrating the shipped plan into the living docs |
 | [`manage-docs`](skills/manage-docs/SKILL.md) | Creating/updating/moving any docs — the taxonomy, the templates, the disintegrate-on-ship lifecycle, link discipline |

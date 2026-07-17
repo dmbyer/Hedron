@@ -1176,7 +1176,7 @@ client is where they shine."
 ## Related
 
 - [`gameplay-model.md`](gameplay-model.md) — the spine model (A–F) most of these features instance.
-- [`../roadmap/plan.md`](../roadmap/plan.md) — current focus + slice queue (what's actually scheduled).
+- [`../roadmap/plan.md`](../roadmap/plan.md) — current focus + phase strategy (what's actually scheduled).
 - [`../roadmap/backlog.md`](../roadmap/backlog.md) — deferred work already tracked (don't re-brainstorm it).
 - [`../reference/components-planned.md`](../reference/components-planned.md) /
   [`../reference/systems-planned.md`](../reference/systems-planned.md) — idealized APIs for unbuilt pieces.
