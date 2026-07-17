@@ -1,0 +1,8 @@
+# Dev/CI container for building and testing Hedron (.NET 8).
+# Usage:
+#   docker build -f Dockerfile.dev -t hedron-dev .
+#   docker run --rm -v "$PWD":/src -w /src hedron-dev dotnet build Hedron.sln
+#   docker run --rm -v "$PWD":/src -w /src hedron-dev dotnet test Hedron.sln
+FROM mcr.microsoft.com/dotnet/sdk:8.0
+
+WORKDIR /src

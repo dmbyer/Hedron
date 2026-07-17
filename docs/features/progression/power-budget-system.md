@@ -5,7 +5,8 @@
 > backs its tunables, and the consumers that read it (admin inspectors, the Blazor editor readout,
 > the bulk drift audit, the anti-grind proxy).
 > **Authoring checkpoint:** slice prog-3 (one-axis), revised prog-3b (Tier×Band), tunables promoted
-> to injected data + the balance-standards registry sim-1. Living document.
+> to injected data + the balance-standards registry sim-1, the template conformance fitter sim-5.
+> Living document.
 
 ## What it is / does
 
@@ -129,10 +130,65 @@ history for the promotion itself.
    for the DI-cycle guard this preserves. Unaffected by the prog-3b classify/inverse revision —
    only `Estimate`'s *raw output* shifted with the recalibrated `Weights`, and the anti-grind
    *ratio* is invariant to that rescaling.
+5. **`ITemplateConformanceSystem`** (sim-5, `Core/Modules/BalanceInspection/Systems/`) — the fitter
+   the Blazor Integrity page drives to correct what `IBalanceAuditSystem` flags. See "Template
+   conformance (sim-5)" below.
 
 A future player-facing `consider` danger-gauge (self-vs-target `Estimate`/`Classify` → a coarse
 diegetic label, no raw numbers) remains a **deferred, decoupled** consumer — the public interface
 already suffices with no interface change.
+
+### Template conformance (sim-5) — scaling toward a target, not synthesis
+
+`ITemplateConformanceSystem` (`Core/Modules/BalanceInspection/Systems/`) is the fifth consumer, and
+closes the loop `IBalanceAuditSystem.Audit()` opens: given a template the audit flagged, it **scales
+the template's existing stat vector** — items: `StatBonuses` magnitudes; mobs: `Mind`/`Body`/
+`Spirit`/`Attunement`/`MaxHp`/`MaxMana`/`MaxStamina`/`MaxAstra` (exactly the fields the item/mob
+projection seams read; derived `AttackPower`/`Defense` follow scaled `Body` through the real
+projection) — until it re-classifies inside `TargetRange(authoredTier, authoredBand)`. It never
+invents a stat block from a target range; that remains procedural-generation scope. This is why
+ratio preservation is the natural policy: the designer's authored *shape* (a glass-cannon mob, a
+defense-heavy item) survives, only its *magnitude* conforms.
+
+**The oracle is the only source of target math.** The fitter calls `Estimate`/`Classify`/
+`TargetRange` and exploits `Estimate`'s documented weighted-sum linearity to compute a closed-form
+scale factor toward the target cell's **midpoint** — `k = (targetMid − tierTerm) / variablePower`,
+where `tierTerm = Estimate(emptySnapshot, tier)` and `variablePower = Estimate(currentSnapshot, 0)`
+— rounds each field half-away-from-zero, then **verifies with the real projection seam** (never a
+hand-rolled snapshot) and, if the rounded result still misses the target cell, nudges the field
+with the largest *measured* per-unit power contribution (probed via the real seam, not a raw
+`PowerBudgetTunables.Weights` lookup — this is what makes the correction sensitive to a mob's
+`Body`-driven derived-field nonlinearity) by ±1, re-verifies, and caps at 8 iterations. A future
+oracle change degrades this to more correction steps, never to silent drift. "Classifies inside the
+target range" is `Classify(power) == (tier, band)` — the same zero-drift definition the audit uses,
+not raw `PowerRange` containment (the two diverge exactly at `Classify`'s documented
+tier-boundary-overlap and below-every-anchor fallbacks).
+
+**Preview and apply both re-derive the fit from disk**, never trusting a stale in-memory result:
+`Preview`/`ApplyAsync` both call `IContentDefinitionCatalog.Load` fresh. This resolves the
+audit-vs-disk staleness the flagged set inherits (the audit reads the boot-time `ITemplateRegistry`;
+the fitter reads current disk) — a stale flagged row triggers a no-op (`AlreadyInRange`) at worst,
+never a stale overwrite. `ApplyAsync` writes only a `Fitted` outcome, through the identical
+`IContentDefinitionCatalog.SaveAsync` validate-then-write, warn-but-allow path the offline editors
+use; `AlreadyInRange`/`NotFittable` write nothing. `PreviewFlagged`/`ApplyFlaggedAsync` loop the
+single-template path over the audit's flagged set — one code path for single and bulk (INV-19).
+
+**INV-21 posture.** Conformance mutates the **template definition only** — YAML in, YAML out. Unlike
+`setitem`/`setmob` (which mutate a *live* entity and mirror to YAML), the fitter starts and ends at
+the template; live entities re-apply from it on the existing `reload`/respawn step, so "update both
+template and entity" is satisfied through that established path, not by touching entities directly.
+Player-owned instances are never read or written — bringing already-owned items into conformance
+when their blueprint is rebalanced is a **named, deferred INV-21 exception** (an explicit,
+admin-triggered, audited "reconform owned instances" sweep, in the same spirit as INV-22's named
+boundary saves), tracked in
+[`../../roadmap/backlog.md`](../../roadmap/backlog.md#-player-owned-instance-reconform-sweep-deferred-from-the-balance-simulator-program-prog-4) —
+nothing here builds toward it.
+
+The Blazor Integrity page is the initiating surface: per-row **Preview fit**/**Apply** plus bulk
+**Preview all flagged**/**Apply all flagged**, with an "applied — pending reload" row state pointing
+at the existing Apply-to-live page (the same restart/reload-to-apply model sim-1's Standards page
+uses). No event is published anywhere in this leg (INV-5) — the page consumes the returned records
+directly.
 
 ## Interface
 
@@ -166,11 +222,20 @@ already suffices with no interface change.
   document/defaults data shapes.
 - [`BalanceOptions.cs`](../../../Core/Modules/BalanceInspection/BalanceOptions.cs) —
   `Balance:StandardsPath` (Category 1 config key, default `data/balance/standards.yaml`).
+- [`ITemplateConformanceSystem.cs`](../../../Core/Modules/BalanceInspection/Systems/ITemplateConformanceSystem.cs) /
+  [`TemplateConformanceSystem.cs`](../../../Core/Modules/BalanceInspection/Systems/TemplateConformanceSystem.cs) —
+  the sim-5 fitter: `Preview`/`PreviewFlagged`/`ApplyAsync`/`ApplyFlaggedAsync`. Ctor-shape
+  guard-tested to exactly five seams: `IContentDefinitionCatalog`, `IPowerBudgetSystem`,
+  `IItemPowerProjectionSystem`, `IMobPowerProjectionSystem`, `IBalanceAuditSystem`.
+- [`ConformanceReport.cs`](../../../Core/Modules/BalanceInspection/ConformanceReport.cs) —
+  `ConformancePreview`/`ConformanceFieldChange`/`ConformanceApplyResult`/`ConformanceBulkResult`/
+  `ConformanceStatus`/`ConformanceNotFittableReason`, mirroring `BalanceAuditReport.cs`'s placement.
 - [`BalanceInspectionModule.cs`](../../../Core/Modules/BalanceInspection/BalanceInspectionModule.cs) —
   registers the standards store/registry (load-once factory, warning logging), projects
-  `PowerBudgetTunables` from the registry, then the oracle, the audit system, and the two
-  inspector commands; called from `Server/CompositionRoot.Register` (not `Program.cs`) so
-  `Hedron.Web` can resolve them for the editor readout, the Standards page, and the Integrity page.
+  `PowerBudgetTunables` from the registry, then the oracle, the audit system, the conformance
+  fitter, and the two inspector commands; called from `Server/CompositionRoot.Register` (not
+  `Program.cs`) so `Hedron.Web` can resolve them for the editor readout, the Standards page, and the
+  Integrity page.
 
 ## Considerations
 
@@ -179,7 +244,9 @@ already suffices with no interface change.
 - **Persistence:** the oracle, inspectors, and audit perform no persistence; `setitem`/`setmob`
   `tier`/`band` are world-content admin commands (YAML write only, no `SaveEntityAsync`), matching
   every existing `setitem`/`setmob` branch. The standards document is likewise YAML-side only —
-  no SQLite, no entities.
+  no SQLite, no entities. The sim-5 conformance fitter is the same: `IContentDefinitionCatalog.SaveAsync`
+  only, never `EntityService`/`PersistentEntity`/`SaveEntityAsync` (guard-tested via the fitter's
+  pinned ctor shape, see above).
 - **Registration:** `BalanceInspectionModule.AddBalanceInspectionModule` — see Interface above.
 - **Restart-to-apply (sim-1):** the oracle's ctor-injection means a saved standards edit takes
   effect on the **next host start**, not immediately — both hosts' `RegistryValidationBootstrap`
@@ -230,3 +297,8 @@ already suffices with no interface change.
   the prog-3b Tier×Band revision history.
 - [`../../roadmap/completed/balance-standards-registry.md`](../../roadmap/completed/balance-standards-registry.md) —
   the sim-1 tunables-as-injected-data promotion + standards registry history.
+- [`../../roadmap/completed/conformance-tooling.md`](../../roadmap/completed/conformance-tooling.md) —
+  the sim-5 template-conformance-fitter history and design decisions; the final sub-slice of the
+  `prog-4` balance-simulator program (now fully shipped).
+- [flow-29 — Content-tooling journey](../../architecture/flows/flow-29-bulk-content-generation.md)
+  B3 — the conformance fitter's Integrity-page preview/apply leg.

@@ -1,4 +1,5 @@
 using Hedron.Core.Commands;
+using Hedron.Core.Modules.Authoring.Systems;
 using Hedron.Core.Modules.BalanceInspection.Commands;
 using Hedron.Core.Modules.BalanceInspection.Standards;
 using Hedron.Core.Modules.BalanceInspection.Systems;
@@ -11,10 +12,12 @@ using Microsoft.Extensions.Logging;
 namespace Hedron.Core.Modules.BalanceInspection
 {
     /// <summary>
-    /// DI composition entry-point for the balance-inspection surface (prog-3/3b, revised sim-1):
-    /// the balance-standards store/registry, the core-tier <see cref="IPowerBudgetSystem"/> oracle
-    /// (composed from the registry's <see cref="PowerBudgetTunables"/>), its admin inspector
-    /// commands, and the <see cref="IBalanceAuditSystem"/> band-drift sweep.
+    /// DI composition entry-point for the balance-inspection surface (prog-3/3b, revised sim-1,
+    /// conformance sim-5): the balance-standards store/registry, the core-tier
+    /// <see cref="IPowerBudgetSystem"/> oracle (composed from the registry's
+    /// <see cref="PowerBudgetTunables"/>), its admin inspector commands, the
+    /// <see cref="IBalanceAuditSystem"/> band-drift sweep, and the
+    /// <see cref="ITemplateConformanceSystem"/> fitter that corrects what the audit flags.
     /// Call <see cref="AddBalanceInspectionModule"/> from <c>CompositionRoot.Register</c> (NOT
     /// <c>Program.cs</c>) so the <c>Hedron.Web</c> content-authoring host can resolve
     /// <see cref="IPowerBudgetSystem"/>/<see cref="IBalanceAuditSystem"/>/<see cref="IBalanceStandardsRegistry"/>
@@ -63,6 +66,12 @@ namespace Hedron.Core.Modules.BalanceInspection
                 sp.GetRequiredService<IMobPowerProjectionSystem>(),
                 sp.GetRequiredService<PowerBudgetTunables>(),
                 sp.GetRequiredService<IBalanceStandardsRegistry>().BandDriftTolerance));
+
+            // sim-5: the conformance fitter. Depends on IContentDefinitionCatalog (Authoring
+            // module) — both hosts register AuthoringModule alongside this one, so resolution
+            // order across AddXModule calls doesn't matter (DI resolves lazily).
+            services.AddSingleton<ITemplateConformanceSystem, TemplateConformanceSystem>();
+
             services.AddSingleton<ICommand, PowerCommand>();
             services.AddSingleton<ICommand, PowerbandCommand>();
             return services;

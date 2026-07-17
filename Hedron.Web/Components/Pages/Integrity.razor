@@ -3,6 +3,7 @@
 @using Hedron.Core.Modules.BalanceInspection.Systems
 @inject IContentReferenceIndex RefIndex
 @inject IBalanceAuditSystem BalanceAudit
+@inject ITemplateConformanceSystem Conformance
 
 <PageTitle>Content integrity</PageTitle>
 
@@ -11,7 +12,9 @@
 <p class="hint">
     Sweeps all on-disk YAML definitions for broken cross-references &mdash; targets that no
     longer exist. Fix each referrer in its editor before running <strong>Apply to live</strong>.
-    This page is read-only; it never writes files.
+    This page is read-only, with one exception: the power-balance conformance fitter below writes
+    YAML through the same validated <span class="mono">SaveAsync</span> path the editors use, and
+    only after an explicit <strong>Apply</strong> click.
 </p>
 
 <div class="actions" style="margin-top:0.5rem">
@@ -75,6 +78,13 @@
     {
         <p class="integrity-summary">Found <strong>@_auditReport.Drifted.Count</strong> item@(_auditReport.Drifted.Count == 1 ? "" : "s")/mob@(_auditReport.Drifted.Count == 1 ? "" : "s") past the drift tolerance.</p>
 
+        <div class="actions" style="margin-top:0">
+            <button disabled="@_bulkConforming" @onclick="PreviewAllFlagged">Preview all flagged</button>
+            <button class="primary" disabled="@_bulkConforming" @onclick="ApplyAllFlagged">
+                @(_bulkConforming ? "Applying..." : "Apply all flagged")
+            </button>
+        </div>
+
         <table class="grid">
             <thead>
                 <tr>
@@ -83,6 +93,7 @@
                     <th>Authored</th>
                     <th>Computed</th>
                     <th>Drift</th>
+                    <th></th>
                     <th></th>
                 </tr>
             </thead>
@@ -98,10 +109,89 @@
                         <td>
                             <a href="@(entry.Kind == BalanceAuditKind.Item ? "item" : "mob")/@Uri.EscapeDataString(entry.BlueprintId)">Edit</a>
                         </td>
+                        <td>
+                            @if (_appliedPendingReload.Contains(entry.BlueprintId))
+                            {
+                                <span class="pending-badge">applied &mdash; pending reload</span>
+                            }
+                            else
+                            {
+                                <button disabled="@_conforming.Contains(entry.BlueprintId)"
+                                        @onclick="() => PreviewFit(entry.Kind, entry.BlueprintId)">
+                                    @(_previews.ContainsKey(entry.BlueprintId) ? "Refresh preview" : "Preview fit")
+                                </button>
+                            }
+                        </td>
                     </tr>
+                    @if (_previews.TryGetValue(entry.BlueprintId, out var preview) && !_appliedPendingReload.Contains(entry.BlueprintId))
+                    {
+                        <tr class="conformance-preview-row">
+                            <td colspan="7">
+                                <div class="conformance-preview">
+                                    <p>
+                                        <span class="kind-badge">@preview.Status</span>
+                                        @if (preview.Status == ConformanceStatus.NotFittable)
+                                        {
+                                            <span class="hint-inline">(@preview.NotFittableReason)</span>
+                                        }
+                                    </p>
+                                    <p class="hint-inline">
+                                        Power @preview.PowerBefore &rarr; @preview.PowerAfter
+                                        &middot; Cell @preview.CellBefore.Tier/@preview.CellBefore.Band
+                                        &rarr; @preview.CellAfter.Tier/@preview.CellAfter.Band
+                                    </p>
+                                    @if (preview.FieldChanges.Count > 0)
+                                    {
+                                        <table class="grid result">
+                                            <thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead>
+                                            <tbody>
+                                                @foreach (var change in preview.FieldChanges)
+                                                {
+                                                    <tr><td>@change.Field</td><td>@change.Before</td><td>@change.After</td></tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    }
+                                    @if (preview.Status == ConformanceStatus.Fitted)
+                                    {
+                                        <div class="actions" style="margin-top:0.5rem">
+                                            <button class="primary" disabled="@_conforming.Contains(entry.BlueprintId)"
+                                                    @onclick="() => ApplyFit(entry.Kind, entry.BlueprintId)">
+                                                @(_conforming.Contains(entry.BlueprintId) ? "Applying..." : "Apply")
+                                            </button>
+                                        </div>
+                                    }
+                                    @if (_applyResults.TryGetValue(entry.BlueprintId, out var applied) && !applied.Success)
+                                    {
+                                        <div class="error-box">
+                                            <ul>
+                                                @foreach (var err in applied.Errors)
+                                                {
+                                                    <li>@err</li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
                 }
             </tbody>
         </table>
+
+        @if (_conformanceError is not null)
+        {
+            <p class="error" style="margin-top:0.5rem">Conformance fit failed: @_conformanceError</p>
+        }
+
+        @if (_appliedPendingReload.Count > 0)
+        {
+            <p class="hint" style="margin-top:0.5rem">
+                @_appliedPendingReload.Count applied and pending reload &mdash; run
+                <a href="apply">Apply to live</a> to pick up the conformed templates, then re-sweep.
+            </p>
+        }
     }
 
     <p class="hint" style="margin-top:1rem">Content count by computed (Tier, Band) &mdash; "how much content exists at power level X":</p>
@@ -138,6 +228,13 @@
     private BalanceAuditReport? _auditReport;
     private string? _error;
 
+    private readonly Dictionary<string, ConformancePreview> _previews = new();
+    private readonly Dictionary<string, ConformanceApplyResult> _applyResults = new();
+    private readonly HashSet<string> _appliedPendingReload = new();
+    private readonly HashSet<string> _conforming = new();
+    private bool _bulkConforming;
+    private string? _conformanceError;
+
     protected override void OnInitialized() => RunSweep();
 
     private void Sweep() => RunSweep();
@@ -163,6 +260,81 @@
         finally
         {
             _sweeping = false;
+        }
+    }
+
+    // ── Conformance fitter (sim-5) — per-row preview/apply, thin caller of ITemplateConformanceSystem ──
+
+    private void PreviewFit(BalanceAuditKind kind, string blueprintId)
+    {
+        _conformanceError = null;
+        try
+        {
+            _previews[blueprintId] = Conformance.Preview(kind, blueprintId);
+            _applyResults.Remove(blueprintId);
+        }
+        catch (Exception ex)
+        {
+            _conformanceError = ex.Message;
+        }
+    }
+
+    private async Task ApplyFit(BalanceAuditKind kind, string blueprintId)
+    {
+        _conforming.Add(blueprintId);
+        _conformanceError = null;
+        try
+        {
+            var result = await Conformance.ApplyAsync(kind, blueprintId);
+            _applyResults[blueprintId] = result;
+            if (result.Success && result.Status == ConformanceStatus.Fitted)
+                _appliedPendingReload.Add(blueprintId);
+        }
+        catch (Exception ex)
+        {
+            _conformanceError = ex.Message;
+        }
+        finally
+        {
+            _conforming.Remove(blueprintId);
+        }
+    }
+
+    private void PreviewAllFlagged()
+    {
+        _conformanceError = null;
+        try
+        {
+            foreach (var preview in Conformance.PreviewFlagged())
+                _previews[preview.BlueprintId] = preview;
+        }
+        catch (Exception ex)
+        {
+            _conformanceError = ex.Message;
+        }
+    }
+
+    private async Task ApplyAllFlagged()
+    {
+        _bulkConforming = true;
+        _conformanceError = null;
+        try
+        {
+            var bulk = await Conformance.ApplyFlaggedAsync();
+            foreach (var result in bulk.Results)
+            {
+                _applyResults[result.BlueprintId] = result;
+                if (result.Success && result.Status == ConformanceStatus.Fitted)
+                    _appliedPendingReload.Add(result.BlueprintId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _conformanceError = ex.Message;
+        }
+        finally
+        {
+            _bulkConforming = false;
         }
     }
 

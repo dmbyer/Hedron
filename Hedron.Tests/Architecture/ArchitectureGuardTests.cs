@@ -493,6 +493,41 @@ namespace Hedron.Tests.Architecture
                 string.Join("\n", violations));
         }
 
+        // ── sim-5: conformance fitter ctor shape stays pinned to its five named seams ──
+
+        /// <summary>
+        /// Sim-5 spec-gate finding: pins <c>TemplateConformanceSystem</c>'s constructor to exactly
+        /// its five named seams (<c>IContentDefinitionCatalog</c>, <c>IPowerBudgetSystem</c>,
+        /// <c>IItemPowerProjectionSystem</c>, <c>IMobPowerProjectionSystem</c>,
+        /// <c>IBalanceAuditSystem</c>) — precedent <see cref="PowerBudgetSystem_has_no_domain_module_dependency"/>.
+        /// No existing guard would catch the fitter quietly gaining an <c>EntityService</c> or
+        /// <c>IPersistenceSystem</c> dependency, which would be scope creep into live-entity
+        /// mutation (this slice is YAML-side only, INV-22/23).
+        /// </summary>
+        [Fact]
+        public void TemplateConformanceSystem_has_exactly_the_five_named_seam_dependencies()
+        {
+            var type = typeof(Hedron.Core.Modules.BalanceInspection.Systems.TemplateConformanceSystem);
+
+            var ctor = Assert.Single(type.GetConstructors());
+            var parameterTypes = ctor.GetParameters().Select(p => p.ParameterType).ToArray();
+
+            var expected = new[]
+            {
+                typeof(Hedron.Core.Modules.Authoring.Systems.IContentDefinitionCatalog),
+                typeof(Hedron.Core.Systems.IPowerBudgetSystem),
+                typeof(Hedron.Core.Modules.Items.Systems.IItemPowerProjectionSystem),
+                typeof(Hedron.Core.Modules.Mobs.Systems.IMobPowerProjectionSystem),
+                typeof(Hedron.Core.Modules.BalanceInspection.Systems.IBalanceAuditSystem),
+            };
+
+            Assert.True(
+                expected.Length == parameterTypes.Length && expected.All(parameterTypes.Contains),
+                "Sim-5 finding violated — TemplateConformanceSystem's constructor must take exactly " +
+                $"{expected.Length} parameters, one per named seam. Actual: " +
+                string.Join(", ", parameterTypes.Select(t => t.Name)));
+        }
+
         // ── sim-2: simulation engine touches neither the event bus nor the live world ──
 
         /// <summary>

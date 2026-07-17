@@ -20,7 +20,8 @@ bonuses + a shaped-but-inert ability-kit field), the band-drift audit tolerance,
 tolerances, with a live derived-target-range preview (a throwaway oracle instance) and a refuse-vs-warn
 save (restart-to-apply). `IBalanceAuditSystem`, `powerband`, and both content editors' band-mismatch
 flags now read tolerance/index math from the registry instead of a compiled constant. First sub-slice
-of the expanded `prog-4` [balance-simulator](../../implementation-plans/balance-simulator.md) program.
+of the expanded `prog-4` balance-simulator program (all five sub-slices now shipped — see
+[`conformance-tooling.md`](conformance-tooling.md) for the final one).
 
 ## Behavior digest
 
