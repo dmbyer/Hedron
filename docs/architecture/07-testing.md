@@ -1,6 +1,6 @@
 # Testing & Verification
 
-> The **canonical** testing reference: *how* Hedron is tested and *what* is worth testing. The two enforceable rules — **INV-25** (verification discipline) and **INV-26** (determinism seam) — live in [checklist.md](checklist.md). This doc *explains* them; it does not restate them (INV-27). Workflow obligations (the per-slice test gate) live in [`../roadmap/plan.md`](../roadmap/plan.md) "Phase 3 ground rules"; this doc does not duplicate the loop.
+> The **canonical** testing reference: *how* Hedron is tested and *what* is worth testing. The two enforceable rules — **INV-25** (verification discipline) and **INV-26** (determinism seam) — live in [checklist.md](checklist.md). This doc *explains* them; it does not restate them (INV-27). Workflow obligations (the per-slice test gate) live in [`../roadmap/plan.md`](../roadmap/plan.md) "The per-slice loop"; this doc does not duplicate the loop.
 
 ---
 

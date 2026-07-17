@@ -1,6 +1,6 @@
 # Backlog
 
-> Living list of follow-up work that doesn't belong on the active phase plan. For the sequenced rebuild, see [`plan.md`](plan.md). For what's already shipped, see [`done.md`](done.md).
+> Living list of follow-up work that doesn't belong on the active phase plan. For the phase strategy and current focus, see [`plan.md`](plan.md). For what's already shipped, see [`done.md`](done.md).
 
 Status markers: 🟢 ready · 🟡 blocked · 🔵 deferred
 
@@ -27,30 +27,36 @@ Multi-session program restructuring the docs into the feature/system taxonomy, c
   - [x] **communication** (4.6) — `features/communication/` (communication + chat-system + help-system); no plans/flows; reference trimmed. **All 13 features migrated.**
 - [x] **WP-Z — Closing sweep.** `subsystems/` removed (all 3 docs migrated into `features/`); `Core/Sessions` reference home added; the 3 implemented infra plans (persistence-substrate, persistence-two-level-model, testing-harness-and-backfill) disintegrated into `06-persistence.md`/`07-testing.md` + their `completed/` records and deleted; transient `docs-refinement-manifests.md` removed; `flows/README.md` finalized (feature journeys retitled). Repo-wide link check clean (only the deliberate `plan.md → shopping.md` "to be authored" placeholder remains). The 5 cross-cutting runtime-infra flows (`flow-01/02/04/05/16`) were de-detailed to the systems/events altitude (kept numbered, titles unchanged).
 
-## Phase 4 — Hardening
+## Phase 4 — Hardening (residual items)
 
-These are tracked for Phase 4. Most become useful only after a handful of Phase 3 slices have stressed the architecture; **testing is the exception — it is active now** (first item below).
-
+Phase 4's standing concerns resolved into per-slice discipline: **testing + CI shipped and are enforced on every PR** (INV-25, [`../architecture/07-testing.md`](../architecture/07-testing.md)); the **thread-safety review was closed 2026-07-17** by converting it into the standing invariant **INV-31** (declared concurrency posture, reviewer-enforced — see [`../architecture/checklist.md`](../architecture/checklist.md) and [`04-pitfalls.md` "Threading Model"](../architecture/04-pitfalls.md#threading-model--cross-thread-state); the per-session output buffer's three-writer concurrency shipped guarded with output-batching and is a named INV-31 precedent). What remains here are the two bounded engineering items:
 
 ### 🟡 Performance: LINQ in hot paths
 
-Becomes meaningful once `LocationSystem` and `CombatSystem` exist and profiling shows real cost. The current hot path is too small to measure usefully.
+Becomes meaningful when profiling shows real cost — likely once content volume and population make `LocationSystem`/`CombatSystem` sweeps non-trivial. Nothing measured yet.
 
-### 🟡 Thread-safety review
+### 🟡 World-state threading model (ECS component storage)
 
-Evaluate after `TimeSystem` exists and concurrency shape is known. May not be needed if the heartbeat stays single-threaded with an event queue.
+The one open decision left from the retired thread-safety review (the rest became INV-31): live ECS component storage (`ComponentRepository`'s nested `Dictionary`s) is **unguarded**, while per-session command threads and the heartbeat thread both read and mutate live world state concurrently. It hasn't bitten because structural mutations cluster at startup/login/admin actions — but it is a latent race, not a proven-safe design. Two candidate fixes, one decision:
 
-**Concrete site — per-session output buffer.** The prompt/output-batching slice ([`../implementation-plans/prompt-and-output-batching.md`](../features/output/output.md)) introduces a session-scoped output buffer that three threads can touch concurrently: the player's own command read-loop, *other* players' read-loops (a `say` broadcasting into this session), and the heartbeat background thread (combat/effect/tick output). The buffer must guard its pending list and perform drain-then-append-prompt atomically. This is a known concurrency site to fold into the review (it ships with its own buffer-level lock; the review confirms it composes correctly with the session write lock and the event bus under background-service access).
+- **Guard:** make `ComponentRepository` internally thread-safe (fine-grained locks or `ConcurrentDictionary`), accepting that logical read-modify-write races (two threads both damaging HP) remain and are handled per-system.
+- **Marshal:** funnel all live-world mutation onto a single game-loop/queue (commands enqueue; the heartbeat thread drains), making world state single-writer by construction — the classic MUD model, also the enabler for the deferred live-edit content editor.
+
+Decide before any feature that adds a *new* concurrent writer to world state (mob AI on its own scheduler, live web editing, instanced-content workers); until then INV-31's "don't widen the exposure" clause holds the line. Marshal is the architecturally cleaner endpoint; guard is the cheaper patch.
 
 ## Phase 3+ ideas (not yet a slice)
 
+### 🔵 Crafting & potions (punted out of the MVP, 2026-07-17)
+
+Formerly Phase 3 slice 13 ("Crafting, potions" — content depth on items + inventory). **Deliberately punted out of the MVP scope** when the content-baseline → MVP strategy was set ([`plan.md`](plan.md) Phase 5/6): crafting is content *depth* that doesn't gate the core play loop (explore → fight → progress → trade → die/recover), and its real fan-out (gathering, materials, stacking, recipes, stations — see [`../design/feature-horizon.md`](../design/feature-horizon.md) §9) deserves its own advisor-framed program rather than a single squeezed slice. Potions themselves remain the canonical cheap Spine-C consumer and could ship earlier as a consumables-only slice if healing economy needs them. Re-frame with `/advise` when scheduled — likely during or after Phase 6 (it pairs naturally with loot/salvage and the economy sinks).
+
 ### ~~🔵 Heartbeat / TimeSystem~~ — promoted to slice 9-b
 
-Promoted to an active slice. `IHeartbeatService` + `HeartbeatTickEvent` land as Phase 3 slice 9-b. See [`plan.md`](plan.md) slice queue.
+Promoted to an active slice and shipped. `IHeartbeatService` + `HeartbeatTickEvent` landed as Phase 3 slice 9-b — see [`done.md`](done.md).
 
 ### 🔵 Web / SignalR dual client
 
-If a web client becomes a goal, unify telnet sessions and web sessions behind the existing `ISession` abstraction so handlers don't care about transport. Listed as the deferred slice in [`plan.md`](plan.md). The admin-tooling resolution (in-game commands, not a web UI) makes this strictly optional rather than blocking.
+If a web client becomes a goal, unify telnet sessions and web sessions behind the existing `ISession` abstraction so handlers don't care about transport. Deferred to the Phase-7 scale-out in [`plan.md`](plan.md). The admin-tooling resolution (in-game commands, not a web UI) makes this strictly optional rather than blocking.
 
 ### 🔵 Broadcast channel mode (global / newbie chat)
 
@@ -189,7 +195,7 @@ The deferred work is the general `LootComponent` + `ILootSystem` (weighted table
 
 The sell / buy-back price ratio ships as an app-wide `ShopOptions` value — every shop applies the same spread over an item's `Value`. A per-shop override (a luxury vendor that pays less, a black-market fence that pays more) is an optional field on `ShopComponent` the price calc prefers over the global default. Deferred to keep the shopping slice's config surface flat; `ShopComponent` is shaped to carry the override unused. Revisit when shops need to differ economically. See [`../features/economy/shop-system.md`](../features/economy/shop-system.md) and [`completed/shopping.md`](completed/shopping.md).
 
-### 🔵 Balance & tuning surface + reference doc
+### ✅ Balance & tuning surface + reference doc — shipped (Progression & Balance program, closed by `prog-5`)
 
 As the gameplay-model spines land (effect Power-scaling, ability costs, rarity/scaling budgets, progression XP curves, character defaults), each introduces tunable numbers — [`../architecture/05-configuration.md`](../architecture/05-configuration.md) **Category 3 (System Math / Balance)**. Today these live as co-located `*Constants` per the config strategy (and `CharacterDefaults`, slice 9-d, is the first set surfaced as settings under the OD-2 promotion trigger). Worth describing as a standalone concern because the knobs accumulate across systems:
 
@@ -198,7 +204,7 @@ As the gameplay-model spines land (effect Power-scaling, ability costs, rarity/s
 
 Not a runtime "module" — balance math stays co-located with its owning system (Category 3); this item is the *documentation + promotion discipline* around it. Becomes worthwhile once 2–3 spines (effects, abilities, scaling) have introduced enough knobs to justify the catalog — likely around slices 11–13.
 
-**Update (2026-07).** The [`progression-and-balance`](../implementation-plans/progression-and-balance.md) program schedules this as its **slice 5** (balance catalog at `design/balance.md` + `balance-tuning` / `run-simulation` skills + the INV-20 `add-*` / advisor-planner-reviewer tooling updates). Two program deliverables give the catalog *live* data rather than a static table: the `IPowerBudgetSystem` estimator (shipped slice prog-3 — see [`../features/progression/power-budget-system.md`](../features/progression/power-budget-system.md)) that projects any item/mob/loadout onto tier power bands, and the sim-2 simulation engine (`Core/Modules/Simulation/`, shipped — see [`completed/simulation-engine-core.md`](completed/simulation-engine-core.md)) that validates real combat outcomes against those bands. This item is fulfilled when that program's slice 5 ships.
+**Resolved (2026-07-17).** Fulfilled by slice `prog-5` ([`completed/balance-doc-layer.md`](completed/balance-doc-layer.md)): the balance catalog shipped at [`../design/balance.md`](../design/balance.md) (every tunable knob by home, observability surfaces, the maintenance contract) with the `balance-tuning` skill as the operational how-to. The OD-2 promotion-tracking discipline is the catalog's maintenance contract; a planned `run-simulation` skill was deliberately dropped (sim runs are a designer/admin surface — the dev-loop case is a `balance-tuning` recipe).
 
 ### 🔵 Simulation harness → real mob-AI adapter (deferred from the progression-and-balance program)
 
@@ -240,7 +246,7 @@ INV-21's default is correct: admin template mutations never retroactively update
 
 Sim-4, as shipped ([`completed/progression-rate-scenarios.md`](completed/progression-rate-scenarios.md)), models exactly one XP event kind: combat kill → one call to the real `IProgressionSystem.AwardCombatExperience` per modeled event, victim = `Sides[1]`, cap = `maxKillsPerRun`. Captured at planning time (2026-07-16) so later progression work lands additively — no course correction is needed now; the kill-specific shape is the deliberate single-source special case (scenario YAML has one serializer, `SimScenarioStore`, and is transient designer data — cheap to evolve at the second source).
 
-- **New XP sources (skill/ability use, crafting, books/trainers).** The executor's kill-event loop generalizes to a modeled-event-source list on `ProgressionSettings` (per-source rate + parameters; the victim side becomes the *combat source's* parameter, since only combat needs an opponent for the anti-grind ratio), each event dispatched to the same real seam the live handler calls. Because the sweep executes the real `IProgressionSystem` — never re-derived math — award-amount, anti-grind, and threshold changes inside Progression are swept correctly with **zero** sim changes. **Alignment trigger:** when the ≥3-source advancement-**rule table** lands in Progression ([`../implementation-plans/progression-and-balance.md`](../implementation-plans/progression-and-balance.md) "Advancement triggers" layer 3), repoint the sweep's event model at the same `XpSource`/rule vocabulary **in the same slice** — bespoke per-source executor branches drifting from the rule table is the one real drift risk. At that point the `TargetTrack ∈ ProgressionConstants.CombatTracks` validation also becomes source-derived ("awardable by the scenario's modeled sources") — a one-line relaxation.
+- **New XP sources (skill/ability use, crafting, books/trainers).** The executor's kill-event loop generalizes to a modeled-event-source list on `ProgressionSettings` (per-source rate + parameters; the victim side becomes the *combat source's* parameter, since only combat needs an opponent for the anti-grind ratio), each event dispatched to the same real seam the live handler calls. Because the sweep executes the real `IProgressionSystem` — never re-derived math — award-amount, anti-grind, and threshold changes inside Progression are swept correctly with **zero** sim changes. **Alignment trigger:** when the ≥3-source advancement-**rule table** lands in Progression (the three-layer advancement-triggers model — [`edit-progression-system`](../../.claude/skills/edit-progression-system/SKILL.md) layer 3), repoint the sweep's event model at the same `XpSource`/rule vocabulary **in the same slice** — bespoke per-source executor branches drifting from the rule table is the one real drift risk. At that point the `TargetTrack ∈ ProgressionConstants.CombatTracks` validation also becomes source-derived ("awardable by the scenario's modeled sources") — a one-line relaxation.
 - **Time-to-tier targets.** Already pre-shaped in the plan: a second target discriminator on `ProgressionSettings`, activating when an XP/objective-based ascension gate exists (`IAscensionSystem.CanAscend` is the named seam — see the unlock-grant entry above). The sandbox graph already composes `AscensionSystem`; whatever gate lands is measured as implemented, not modeled.
 - **Non-combat domains (crafting-rate, gathering, …).** A domain whose award path reads new systems needs those composed into `SandboxWorldFactory` (additive — it already hand-builds the graph). If a domain's rate question outgrows the `ProgressionRate` kind, the plan's recorded third-kind trigger (executor-strategy seam in the runner + per-kind report payload sections, `SchemaVersion` 2) is the landing zone.
 
@@ -250,11 +256,11 @@ Sim-4, as shipped ([`completed/progression-rate-scenarios.md`](completed/progres
 
 ### 🔵 Balance-reviewer agent (stretch — from the progression-and-balance program)
 
-A `.claude/agents/balance-reviewer.md` (analogous to `architecture-reviewer`) that, when a slice touches balance-affecting numbers (a new ability, item affix, mob scaling, progression curve), runs the relevant sim-2 simulation-engine sweep and flags outcome outliers against the tier power bands — the automated backstop that keeps balance a living featureset through content expansion. Floated in the [`progression-and-balance`](../implementation-plans/progression-and-balance.md) program (slice 5 agentic layer) as a **stretch candidate**, not committed: it depends on the sim-2 engine (shipped) and the balance catalog (slice 5) existing first, and on enough content to make the sweeps meaningful. Build when balance regressions from expansion become a real, recurring cost. Kin to the on-demand architectural-debt-sweep agent below (heavy-context, out of the per-slice loop).
+A `.claude/agents/balance-reviewer.md` (analogous to `architecture-reviewer`) that, when a slice touches balance-affecting numbers (a new ability, item affix, mob scaling, progression curve), runs the relevant sim-2 simulation-engine sweep and flags outcome outliers against the tier power bands — the automated backstop that keeps balance a living featureset through content expansion. Floated in the Progression & Balance program (agentic layer — see [`completed/balance-doc-layer.md`](completed/balance-doc-layer.md)) as a **stretch candidate**, not committed: its prerequisites now exist (the sim engine and the [`../design/balance.md`](../design/balance.md) catalog); what's still missing is enough content to make the sweeps meaningful. Build when balance regressions from expansion become a real, recurring cost. Kin to the on-demand architectural-debt-sweep agent below (heavy-context, out of the per-slice loop).
 
 ### 🔵 `setprogress` admin mutation (deferred from progression-substrate, slice 1)
 
-The [`progression-substrate`](../implementation-plans/progression-substrate.md) slice ships the accrual path + the `progress` inspector, which fully exercise and observe per-track XP/improvement — but **no admin command to hand-set** a player's progression. A `setprogress`-style verb (set a track's XP / improvement count) is the admin **boundary save** pattern (mutate via `IProgressionSystem` → `SaveEntityAsync` → audit event, INV-22), mirroring `setplayer`/`setrespawn`. Deferred because nothing in slice 1 needs hand-set progression; lands when a designer needs to seed a fixture (e.g. a mid-progression test character) without grinding — likely alongside the slice-4 sim / balance-tuning work. See [`../implementation-plans/progression-substrate.md`](../implementation-plans/progression-substrate.md) §Content tooling impact.
+The [`progression-substrate`](completed/progression-substrate.md) slice ships the accrual path + the `progress` inspector, which fully exercise and observe per-track XP/improvement — but **no admin command to hand-set** a player's progression. A `setprogress`-style verb (set a track's XP / improvement count) is the admin **boundary save** pattern (mutate via `IProgressionSystem` → `SaveEntityAsync` → audit event, INV-22), mirroring `setplayer`/`setrespawn`. Deferred because nothing in slice 1 needs hand-set progression; lands when a designer needs to seed a fixture (e.g. a mid-progression test character) without grinding. See [`completed/progression-substrate.md`](completed/progression-substrate.md).
 
 ### 🔵 Ascension unlock-grant execution seam + Objective gate (deferred from ascension, slice prog-2)
 
@@ -263,7 +269,7 @@ The [`ascension`](completed/ascension.md) slice ships only the unlock-*record* s
 1. **Grant-execution seam.** `GrantFlag`/`GrantAbility` are unimplemented `EffectKind` enum values (`Core/Modules/Effects/Effect.cs`) — there is no callable "grant X to entity" path yet. When concrete unlock content is designed (aspects/abilities/flags), it wires into `TryAscend`/`AscendedEvent` without changing this slice's shape.
 2. **Player-facing Ascension-Objective gate.** The only trigger today is the admin `ascend` command; `IAscensionSystem.CanAscend` is deliberately shaped as the seam a future objectives slice (`IObjectiveSystem`, currently unbuilt) will call.
 
-Also deferred: the **selection UX** for specialization-on-ascend. (Item tier-bands, mobs-only in prog-2, shipped alongside the power-budget oracle in prog-3 — see [`../features/progression/power-budget-system.md`](../features/progression/power-budget-system.md).) See [`../implementation-plans/progression-and-balance.md`](../implementation-plans/progression-and-balance.md) for the program-level disposition.
+Also deferred: the **selection UX** for specialization-on-ascend. (Item tier-bands, mobs-only in prog-2, shipped alongside the power-budget oracle in prog-3 — see [`../features/progression/power-budget-system.md`](../features/progression/power-budget-system.md).) See [`completed/balance-doc-layer.md`](completed/balance-doc-layer.md) for the program-level disposition.
 
 ### 🔵 Player-facing `consider` danger-gauge (deferred from prog-3 power model)
 

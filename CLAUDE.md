@@ -4,9 +4,9 @@ Primary entry point for Claude Code (and any agent) working in this repository. 
 
 ## What Hedron is
 
-C# MUD (Multi-User Dungeon) game engine targeting .NET 8. The codebase is under active rebuild — the [roadmap](docs/roadmap/plan.md) supersedes any legacy code you encounter.
+C# MUD (Multi-User Dungeon) game engine targeting .NET 8. The Phase 1–3 salvage rebuild is complete — the [roadmap](docs/roadmap/plan.md) now tracks the content-baseline → MVP phases; any stray legacy code you encounter is superseded by the docs.
 
-Project layout (as projects are rebuilt, see [`docs/roadmap/plan.md`](docs/roadmap/plan.md) for the keep list):
+Project layout:
 
 - **Core** (`Core/`) — components, ECS primitives, systems, handlers, events, commands
 - **Server** (`Server/`) — generic-host console app that runs the telnet listener and owns DI composition
@@ -22,7 +22,7 @@ dotnet run --project Server
 dotnet test Hedron.sln          # verification gate (INV-25) — live; enforced on every PR via CI
 ```
 
-The project is under active rebuild, but since Phase 3 began every merged branch leaves the build **and** `dotnet test` green (INV-25). See [`docs/roadmap/plan.md`](docs/roadmap/plan.md). The testing strategy is defined ([`docs/architecture/07-testing.md`](docs/architecture/07-testing.md)); the `Hedron.Tests` suite is **live** — full harness + architecture-guard tiers, enforced on every PR via CI — with remaining backfill draining via the on-touch ratchet ([`docs/roadmap/backlog.md`](docs/roadmap/backlog.md)).
+Every merged branch leaves the build **and** `dotnet test` green (INV-25). See [`docs/roadmap/plan.md`](docs/roadmap/plan.md). The testing strategy is defined ([`docs/architecture/07-testing.md`](docs/architecture/07-testing.md)); the `Hedron.Tests` suite is **live** — full harness + architecture-guard tiers, enforced on every PR via CI — with remaining backfill draining via the on-touch ratchet ([`docs/roadmap/backlog.md`](docs/roadmap/backlog.md)).
 
 ## Where to read next
 
@@ -62,6 +62,7 @@ Read these in order the first time:
 9. **Infrastructure-discipline parity** — a new player-facing surface, or a pattern repeated ≥3×, lands its supporting framework in the same or an adjacent slice; any runtime flow it changes updates the canonical flows doc (INV-19, INV-17).
 10. **Blueprint/instance separation** — a blueprint template is the durable spawn definition; a blueprint instance is the live entity it seeds. When a player interaction makes an instance independent (e.g. item pickup), clear `BlueprintComponent` on the entity so the blueprint slot is free to re-spawn. Admin mutations update both template and entity (INV-21).
 11. **Verification discipline** — a slice that adds/changes a system, persistence shape, validation, or Main Flow ships tests for it (the implementation plan's **Test plan** section), per the rubric in [`docs/architecture/07-testing.md`](docs/architecture/07-testing.md); chance/time-dependent system logic resolves through an injected seam (`IRandom`, heartbeat timestamp), never `Random.Shared`/`DateTime.Now` (INV-25, INV-26). "Ship green" = build **and** `dotnet test` green.
+12. **Declared concurrency posture** — cross-thread state is guarded or confined; a slice adding a background initiator, web-host call path, or shared singleton state names which in its plan, and no new thread mutates live world components outside the established session/heartbeat paths (INV-31).
 
 When adding a new feature:
 - New component → `Core/ECS/Components/<Feature>Component.cs` or `Core/Modules/<Feature>/Components/`
@@ -78,7 +79,7 @@ When adding a new feature:
 
 The `.claude/` directory provides Claude-Code-native helpers (skills, subagents, slash commands) tuned for this codebase. See [`.claude/README.md`](.claude/README.md) for the index.
 
-The per-slice loop runs **two** `architecture-reviewer` gates: spec-mode (against the implementation plan, before any code) and code-mode (against the diff, before merge). Both enforce [`docs/architecture/checklist.md`](docs/architecture/checklist.md). The full loop is in [`docs/roadmap/plan.md`](docs/roadmap/plan.md) "Phase 3 ground rules".
+The per-slice loop runs **two** `architecture-reviewer` gates: spec-mode (against the implementation plan, before any code) and code-mode (against the diff, before merge). Both enforce [`docs/architecture/checklist.md`](docs/architecture/checklist.md). The full loop is in [`docs/roadmap/plan.md`](docs/roadmap/plan.md) "The per-slice loop".
 
 ## If docs and code disagree
 

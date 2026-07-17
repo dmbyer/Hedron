@@ -87,6 +87,8 @@ Rows marked *(target)* describe locations that are rebuilt as part of Phase 2. T
 | [../reference/archetypes.md](../reference/archetypes.md) | Target archetype catalog (the archetype system is not yet built) |
 | [../implementation-plans/](../implementation-plans/) | Transient per-slice build artifacts (behavior spec + build plan); deleted on ship |
 | [../design/gameplay-model.md](../design/gameplay-model.md) | Forward design north-star for gameplay systems (Aspects, Abilities, Effects, Scaling, Progression) — feeds the roadmap; draft, not yet built |
+| [../design/power-model.md](../design/power-model.md) | The power oracle's snapshot-only extensibility rule — how future power inputs fold in without a domain import |
+| [../design/balance.md](../design/balance.md) | Balance catalog: every tunable knob by home, observability surfaces, and the maintenance contract |
 | [../roadmap/plan.md](../roadmap/plan.md) | Strategy, end goal, phase summary, current focus |
 | [../roadmap/done.md](../roadmap/done.md) | Short ledger of completed phases / slices |
 | [../roadmap/completed/](../roadmap/completed/) | Per-slice history: what shipped, the as-built record, and the design decisions (the durable home for shipped-slice rationale) |

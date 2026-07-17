@@ -11,16 +11,13 @@ Run this skill whenever a slice is complete — either as the final step of `imp
 
 ### 1. `docs/roadmap/plan.md`
 
-**Phase summary table** (near the top):
-- Change the Phase 3 row's parenthetical to name the *next* unstarted slice, not the one just completed.
+`plan.md` no longer carries a per-slice queue — completed-slice detail lives in `done.md`/`completed/` only (the Phase 3 historical table retired there at the Phase-5 pivot).
 
-**Slice queue table**:
-- Change the completed slice's `Status` cell from `🟢 next` → `✅ done`.
-- If the slice was an unplanned insertion (e.g. an enhancement that arrived between two numbered slices), add a new row with a label like `Xa` between the adjacent rows.
-- Advance the *next* slice's status to `🟢 next`.
+**Phase summary table** (near the top):
+- Update the active phase's `Status` cell if the slice materially advances it (e.g. a program completing).
 
 **Current focus section**:
-- Replace the description with the next slice. Name its implementation plan, state what the slice unlocks, and note any immediate prerequisites.
+- If the completed slice changes what is "next," update the current-focus prose to point at the next body of work (name its implementation plan once framed, what it unlocks, prerequisites). Keep it at strategy altitude — the per-slice spec is the single source of "what is being built right now."
 
 ### 2. `docs/roadmap/done.md`
 
@@ -62,9 +59,7 @@ A small quick-fix that warranted no plan simply updates the living docs directly
 
 ## Checklist
 
-- [ ] `plan.md` phase summary updated
-- [ ] `plan.md` slice queue status changed to ✅ done; next slice advanced to 🟢 next
-- [ ] `plan.md` current focus section updated
+- [ ] `plan.md` phase summary / current focus updated if the slice advances them
 - [ ] `done.md` row added (points at `completed/` + the live feature doc)
 - [ ] `completed/<slug>.md` created from the template, **including Behavior digest, Tests shipped, and Decisions**
 - [ ] `dotnet test` green and the plan's Test-plan tests are present (INV-25) — "ship green" = build green **and** tests green
