@@ -4,7 +4,7 @@
 
 **Source:** [`../../features/admin-authoring/admin-authoring.md`](../../features/admin-authoring/admin-authoring.md)
 
-**Summary.** Three offline authoring paths share the loopback `Hedron.Web` host (two share the same content-definition layer). (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline Blazor editor** browses/loads/edits/saves definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`. (B2) The **Standards page** (sim-1) edits the balance-standards document via `IBalanceStandardsStore` — a single criteria file deliberately outside the catalog (seed OQ1), with no `reload` leg (restart-to-apply instead). No path mutates the live world directly (INV-12/23).
+**Summary.** Three offline authoring paths share the loopback `Hedron.Web` host (two share the same content-definition layer). (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline Blazor editor** browses/loads/edits/saves definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`. (B2) The **Standards page** (sim-1) edits the balance-standards document via `IBalanceStandardsStore` — a single criteria file deliberately outside the catalog (seed OQ1), with no `reload` leg (restart-to-apply instead). (B3) The **Integrity page's conformance fitter** (sim-5) closes the observation→correction loop: it scales a flagged template's stat vector into its target (Tier, Band) range and writes it through the same `SaveAsync` path as B. No path mutates the live world directly (INV-12/23).
 
 ---
 
@@ -155,6 +155,49 @@ sequenceDiagram
    (tmp → rename), even when mirror-drift or unknown-ability-kit warnings are present
    (warn-but-allow).
 5. The page renders errors distinctly from warnings and shows the restart-to-apply notice.
+
+---
+
+## B3 — Conformance fitter (Integrity page, sim-5)
+
+**Trigger:** Designer clicks **Preview fit** / **Apply** (or the bulk **Preview all flagged** / **Apply all flagged**) on a drifted row of the Integrity page's power-balance table.
+
+```mermaid
+sequenceDiagram
+    participant UI as Integrity.razor
+    participant Fit as ITemplateConformanceSystem
+    participant PB as IPowerBudgetSystem
+    participant Proj as I{Item,Mob}PowerProjectionSystem
+    participant Cat as IContentDefinitionCatalog
+
+    UI->>Fit: Preview(kind, blueprintId)
+    Fit->>Cat: Load(kind, blueprintId)  [disk truth]
+    Cat-->>Fit: ContentDefinition
+    Fit->>Proj: Project(template)
+    Fit->>PB: Estimate / Classify / TargetRange
+    alt already on target
+        Fit-->>UI: ConformancePreview(AlreadyInRange)
+    else scales toward the cell midpoint, verifies + bounded ±1 correction via Proj/PB
+        Fit-->>UI: ConformancePreview(Fitted | NotFittable[reason])
+    end
+    UI->>Fit: ApplyAsync(kind, blueprintId)  [re-derives the fit from disk — never trusts the preview]
+    Fit->>Cat: Load(kind, blueprintId)
+    Fit->>Cat: SaveAsync(fittedDefinition)  [only when Fitted]
+    Cat-->>Fit: ContentWriteResult
+    Fit-->>UI: ConformanceApplyResult
+    Note over UI: row marked "applied — pending reload"
+    UI->>UI: designer runs Apply-to-live (Flow 5) separately
+```
+
+**Steps.**
+1. Designer clicks **Preview fit** on a row the audit sweep flagged (or **Preview all flagged**, which loops this same call over every flagged entry). The page calls `ITemplateConformanceSystem.Preview(kind, blueprintId)` (or `PreviewFlagged()`).
+2. The fitter loads the template **from disk** via `IContentDefinitionCatalog.Load` — never the audit's boot-time registry — projects it, and classifies its current power. Already on target → `AlreadyInRange`, no further work.
+3. Otherwise it computes a closed-form uniform scale factor toward the target cell's midpoint (the oracle's `Estimate`/`Classify`/`TargetRange` are the only source of target math), rounds per field, and verifies/corrects via the real projection seam — `Fitted` with a field-by-field diff, or `NotFittable` with a reason.
+4. The page renders the preview inline under the row: status, power/cell before→after, per-field diff.
+5. Designer clicks **Apply** (or **Apply all flagged**). The page calls `ApplyAsync`/`ApplyFlaggedAsync`, which **re-derives the fit from disk** (idempotent — a stale preview is never trusted) and, for a `Fitted` outcome, calls `IContentDefinitionCatalog.SaveAsync` — the identical validate-then-write, warn-but-allow path Flow B's editor save uses. `AlreadyInRange`/`NotFittable` write nothing.
+6. The row is marked **applied — pending reload**; the audit table itself does not refresh (it still reflects the boot-time registry) until the designer runs the existing **Apply to live** page ([Flow 5](flow-05-content-reload.md)) — the same restart/reload-to-apply model as B2.
+
+No event is published anywhere in this leg (INV-5) — the fitter and the catalog are domain systems that return results; the Blazor page is the initiating surface and consumes them directly.
 
 ---
 

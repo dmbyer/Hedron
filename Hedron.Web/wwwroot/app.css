@@ -254,6 +254,17 @@ table.grid .kind-badge {
 }
 table.grid .missing-id { color: var(--delete); font-weight: 600; }
 
+.conformance-preview { padding: 0.5rem 0; }
+.pending-badge {
+    display: inline-block;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+    border-radius: 3px;
+    padding: 0.1rem 0.45rem;
+    font-size: 0.78rem;
+    color: var(--warn);
+}
+
 /* --- Bidirectional toggle --- */
 .bidir-toggle { display: flex; gap: 0.6rem; align-items: center; margin: 0.25rem 0 0.1rem; }
 .bidir-toggle input[type="checkbox"] { accent-color: var(--accent); width: 1rem; height: 1rem; }
