@@ -1,0 +1,74 @@
+@using Hedron.Core
+@using Hedron.Core.Modules.World.Templates
+
+<fieldset class="exits">
+    <legend>Exits</legend>
+    @foreach (var dir in AllDirections)
+    {
+        var dir_ = dir;
+        <div class="exit-picker">
+            <label class="exit-label">@dir</label>
+            <div class="room-picker">
+                <input class="room-picker-filter" placeholder="filter by name or id"
+                       value="@_exitFilters[dir_]"
+                       @oninput="e => SetExitFilter(dir_, e.Value?.ToString())" />
+                <select value="@ExitFor(dir_)"
+                        @onchange="e => SetExit(dir_, e.Value?.ToString())">
+                    <option value="">-- no exit --</option>
+                    @foreach (var room in FilteredRoomsFor(dir_))
+                    {
+                        <option value="@room.BlueprintId">@room.Name (@room.BlueprintId)</option>
+                    }
+                </select>
+            </div>
+        </div>
+    }
+    <p class="hint">Leave a direction with no exit selected to omit that exit.</p>
+</fieldset>
+
+@code {
+    [Parameter, EditorRequired] public RoomTemplate Room { get; set; } = null!;
+    [Parameter, EditorRequired] public IReadOnlyList<ContentSummary> Rooms { get; set; } = Array.Empty<ContentSummary>();
+
+    private static readonly Direction[] AllDirections = Enum.GetValues<Direction>();
+
+    private RoomTemplate? _lastRoom;
+    private Dictionary<Direction, string> _exitFilters = new();
+
+    protected override void OnParametersSet()
+    {
+        // Reset per-direction filters whenever the bound room instance changes (new page load
+        // or a different selection) — mirrors the page-level reset RoomEditor used to own.
+        if (!ReferenceEquals(_lastRoom, Room))
+        {
+            _lastRoom = Room;
+            _exitFilters = AllDirections.ToDictionary(d => d, _ => string.Empty);
+        }
+    }
+
+    private string ExitFor(Direction dir) =>
+        Room.Exits.TryGetValue(dir, out var target) ? target : string.Empty;
+
+    private void SetExitFilter(Direction dir, string? value) =>
+        _exitFilters[dir] = value ?? string.Empty;
+
+    private IEnumerable<ContentSummary> FilteredRoomsFor(Direction dir)
+    {
+        var filter = _exitFilters.TryGetValue(dir, out var f) ? f : string.Empty;
+        if (string.IsNullOrWhiteSpace(filter))
+            return Rooms;
+        return Rooms.Where(r =>
+            r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+            r.BlueprintId.Contains(filter, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void SetExit(Direction dir, string? raw)
+    {
+        var target = raw?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrEmpty(target))
+            Room.Exits.Remove(dir);
+        else
+            Room.Exits[dir] = target;
+    }
+}

@@ -4,7 +4,7 @@
 
 **Source:** [`../../features/admin-authoring/admin-authoring.md`](../../features/admin-authoring/admin-authoring.md)
 
-**Summary.** Three offline authoring paths share the loopback `Hedron.Web` host (two share the same content-definition layer). (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline Blazor editor** browses/loads/edits/saves definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`. (B2) The **Standards page** (sim-1) edits the balance-standards document via `IBalanceStandardsStore` — a single criteria file deliberately outside the catalog (seed OQ1), with no `reload` leg (restart-to-apply instead). (B3) The **Integrity page's conformance fitter** (sim-5) closes the observation→correction loop: it scales a flagged template's stat vector into its target (Tier, Band) range and writes it through the same `SaveAsync` path as B. No path mutates the live world directly (INV-12/23).
+**Summary.** Four offline authoring paths share the loopback `Hedron.Web` host (three share the same content-definition layer). (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline Blazor editor** browses/loads/edits/saves definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`. (B2) The **Standards page** (sim-1) edits the balance-standards document via `IBalanceStandardsStore` — a single criteria file deliberately outside the catalog (seed OQ1), with no `reload` leg (restart-to-apply instead). (B3) The **Integrity page's conformance fitter** (sim-5) closes the observation→correction loop: it scales a flagged template's stat vector into its target (Tier, Band) range and writes it through the same `SaveAsync` path as B. (B4) The **visual grid area editor** (world-editor-grid) is a click-driven extension of leg B: it renders one area's rooms on a 2-D grid, seeded by `IAreaLayoutSystem.Propose`, and every action (create/connect/disconnect/edit/delete) composes the same catalog verbs B already uses, plus one earned bidirectional-disconnect verb. No path mutates the live world directly (INV-12/23).
 
 ---
 
@@ -201,9 +201,61 @@ No event is published anywhere in this leg (INV-5) — the fitter and the catalo
 
 ---
 
+## B4 — Visual grid area editor (`/area/{id}/grid`, world-editor-grid)
+
+**Trigger:** Designer opens `/area/{blueprintId}/grid` (linked from `AreaEditor` and the browser's area rows).
+
+```mermaid
+sequenceDiagram
+    participant UI as AreaGridEditor.razor
+    participant Cat as IContentDefinitionCatalog
+    participant Layout as IAreaLayoutSystem
+
+    UI->>Cat: RoomsInArea(areaId) + Load(Room, id) per room
+    Cat-->>UI: RoomTemplate[]
+    UI->>Layout: Propose(areaId)
+    Layout->>Cat: RoomsInArea(areaId) + Load(Room, id) per room
+    Layout-->>UI: AreaLayoutProposal(Anchored, Proposed, Collisions)
+    Note over UI: renders one Z-layer — solid (anchored) / dashed (ghost) cells,<br/>adjacent exits as edge tabs, vertical/non-adjacent exits as badges
+
+    alt create (click empty cell)
+        UI->>Cat: CreateNew(Room, name); set AreaId + cell coords
+        UI->>Cat: SaveRoomAsync(room, bidirectional: false)
+    else connect (select room, click adjacent occupied cell)
+        UI->>UI: DirectionExtensions.FromOffset(dx, dy, 0)
+        UI->>Cat: SaveRoomAsync(sourceRoom, bidirectional: true)
+    else disconnect (click an edge tab or exit badge)
+        UI->>Cat: RemoveRoomExitAsync(roomId, direction, bidirectional: true)
+    else edit (detail panel: RoomBasicsFields + RoomExitsEditor)
+        UI->>Cat: SaveAsync(definition) or SaveRoomAsync(room, bidirectional)
+    else delete
+        UI->>Cat: DeleteAsync(Room, id)
+    else apply layout (shown while ghosts exist)
+        UI->>Layout: ApplyProposalAsync(areaId)
+        Layout->>Cat: SaveRoomAsync(room, bidirectional: false) per coordless room
+        Layout-->>UI: AreaLayoutApplyResult(Written, Warnings)
+    end
+    UI->>UI: reload (re-derive rooms + proposal from disk)
+```
+
+**Steps.**
+1. The page loads the area's rooms (`RoomsInArea` + `Load` per room) and calls `IAreaLayoutSystem.Propose(areaId)` — a pure, deterministic BFS proposal over the exit graph (never writes).
+2. The grid renders the selected Z-layer: anchored rooms as solid cells, proposal-only rooms as dashed ghost cells, adjacent-cell exits as clickable edge tabs, Up/Down and non-adjacent/cross-area exits as clickable badge chips, coordinate collisions (from `proposal.Collisions`) as a flagged red cell. A Z-layer switcher steps through the layers present plus one above/below.
+3. **Create:** click an empty cell → inline name panel → `CreateNew(Room, name)`, set `AreaId` + the clicked cell's coordinates, `SaveRoomAsync(bidirectional: false)`.
+4. **Connect:** select a room, click an orthogonally adjacent occupied cell → direction derived via `DirectionExtensions.FromOffset`, source exit set, `SaveRoomAsync(bidirectional: true)`.
+5. **Disconnect:** click an edge tab or exit badge → `RemoveRoomExitAsync(roomId, direction, bidirectional: true)` — the mirror of step 4's bidirectional add.
+6. **Detail panel:** selecting a cell shows the shared `RoomBasicsFields` + `RoomExitsEditor` components (the same ones `RoomEditor` uses) — full-fidelity, including non-adjacent/vertical/cross-area exits; Save uses `SaveAsync`/`SaveRoomAsync` exactly like `RoomEditor`.
+7. **Delete:** confirm in the detail panel → `DeleteAsync(Room, id)` — the existing cascade clears referrers.
+8. **Apply layout:** shown while any ghost cells exist → `ApplyProposalAsync(areaId)`, which re-derives the proposal from disk and writes coordinates for every still-coordless room, best-effort per room.
+9. Every action ends with a full reload (rooms + a fresh `Propose` call) so the grid always reflects on-disk truth. Apply-to-live remains the existing, unchanged reload leg ([Flow 5](flow-05-content-reload.md)).
+
+No event is published anywhere in this leg (INV-5) — `IAreaLayoutSystem` and the catalog are domain systems that return results; the Blazor page is the initiating surface. The registry-validation sweep's coordinate-collision **warning** (warn-but-allow, `ValidationReport.Warnings`) is a separate boot-time check backed by the same `RoomCoordinateCollisions` helper the proposal's `Collisions` field uses — see [`docs/architecture/checklist.md`](../checklist.md) INV-19 and [Flow 1](flow-01-server-startup.md).
+
+---
+
 ## Invariants
 
-- INV-5: `IContentGenerationSystem`, `IContentDefinitionCatalog`, and `IContentReferenceIndex` return results; they never touch the event bus.
+- INV-5: `IContentGenerationSystem`, `IContentDefinitionCatalog`, `IAreaLayoutSystem`, and `IContentReferenceIndex` return results; they never touch the event bus.
 - INV-8: no authoring logic in the run-mode CLI or Blazor components — everything lives in the Core systems.
 - INV-10: the `generate` run-mode is a no-chain Initiator: composes, runs one operation, writes files, exits; publishes nothing.
 - INV-12 / INV-23: YAML only — no `EntityService.CreateEntity`, no `PersistentEntity`, no SQLite in either path. **`DeleteAsync` is YAML-file-only**: it calls `File.Delete` + `I*ContentWriter` rewrites and never invokes `EntityService.DestroyEntity`, no SQLite delete, and no live-world mutation.
@@ -215,6 +267,6 @@ No event is published anywhere in this leg (INV-5) — the fitter and the catalo
 
 ## Cross-references
 
-- Systems: [`../../reference/systems.md`](../../reference/systems.md) — `IContentGenerationSystem`, `IContentDefinitionCatalog`, `IContentValidator`, the four `I*ContentWriter`s, `IBalanceStandardsStore`/`IBalanceStandardsRegistry`.
+- Systems: [`../../reference/systems.md`](../../reference/systems.md) — `IContentGenerationSystem`, `IContentDefinitionCatalog`, `IContentValidator`, `IAreaLayoutSystem`, the four `I*ContentWriter`s, `IBalanceStandardsStore`/`IBalanceStandardsRegistry`.
 - Feature: [`../../features/admin-authoring/content-tooling.md`](../../features/admin-authoring/content-tooling.md) · [`../../features/admin-authoring/content-authoring.md`](../../features/admin-authoring/content-authoring.md) · [`../../features/progression/power-budget-system.md`](../../features/progression/power-budget-system.md) (the standards registry the B2 leg edits).
 - Related flow: [Flow 5 — content reload](flow-05-content-reload.md) (the apply leg the Blazor editor reuses) · [Flow 1 — server startup](flow-01-server-startup.md) (where a B2 save takes effect on next boot) · [Flow 33 — simulation run journey](flow-33-simulation-run.md) editor leg (sim-3) — a second content-tooling journey carrying an editor-surface trigger alongside its headless run-mode, mirroring this flow's own CLI/editor duality.

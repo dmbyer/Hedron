@@ -1,0 +1,503 @@
+@page "/area/{BlueprintId}/grid"
+@using Hedron.Core
+@using Hedron.Core.Modules.World.Systems
+@using Hedron.Core.Modules.World.Templates
+@inject IContentDefinitionCatalog Catalog
+@inject IAreaLayoutSystem LayoutSystem
+@inject NavigationManager Nav
+
+<PageTitle>Grid: @BlueprintId</PageTitle>
+
+<h1>Area grid &mdash; <span class="mono">@BlueprintId</span></h1>
+
+@if (_notFound)
+{
+    <p class="error">No area definition with id <span class="mono">@BlueprintId</span> was found.</p>
+    <a href="">Back to browser</a>
+}
+else
+{
+    <p class="hint">
+        Click an empty cell to create a room there. Select a room, then click an orthogonally
+        adjacent occupied cell to connect them. Click a cell's edge tab or an exit badge to
+        disconnect that exit.
+    </p>
+    <p class="actions" style="margin-top:0">
+        <a class="cancel" href="@($"area/{Uri.EscapeDataString(BlueprintId)}")">Back to area</a>
+    </p>
+
+    <div class="z-switcher">
+        <span class="filter-label">Layer (Z):</span>
+        @foreach (var z in AllZLayers())
+        {
+            var z_ = z;
+            <button class="tab @(z == _currentZ ? "active" : "")" @onclick="() => SelectZ(z_)">@z</button>
+        }
+    </div>
+
+    @if (_proposal.Proposed.Count > 0)
+    {
+        <div class="callout">
+            @_proposal.Proposed.Count room(s) have no authored coordinates and are shown as dashed
+            ghost cells with a proposed layout.
+            <button class="primary" disabled="@_applyingLayout" @onclick="ApplyLayout">
+                @(_applyingLayout ? "Applying..." : "Apply layout")
+            </button>
+        </div>
+    }
+
+    @if (_errors.Count > 0)
+    {
+        <div class="error-box">
+            <strong>Action failed:</strong>
+            <ul>
+                @foreach (var err in _errors)
+                {
+                    <li>@err</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (_warnings.Count > 0)
+    {
+        <div class="warning-box">
+            <strong>Notices:</strong>
+            <ul>
+                @foreach (var w in _warnings)
+                {
+                    <li>@w</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (_pendingCreateCell is { } cell)
+    {
+        <div class="create-panel">
+            <strong>New room at (@cell.X, @cell.Y, @cell.Z)</strong>
+            <div class="field-row" style="margin-top:0.5rem">
+                <div class="field">
+                    <label>Name</label>
+                    <input @bind="_newRoomName" @bind:event="oninput" />
+                </div>
+                <button class="primary" disabled="@(_creating || string.IsNullOrWhiteSpace(_newRoomName))" @onclick="ConfirmCreate">
+                    @(_creating ? "Creating..." : "Create")
+                </button>
+                <button class="cancel" @onclick="CancelCreate">Cancel</button>
+            </div>
+        </div>
+    }
+
+    <div class="grid-wrap">
+        <div class="grid-layer" style="grid-template-columns: repeat(@ColumnCount, 120px);">
+            @foreach (var y in RowsTopDown())
+            {
+                @foreach (var x in ColumnsLeftRight())
+                {
+                    var x_ = x;
+                    var y_ = y;
+                    var occupants = _cellIndex.TryGetValue((x_, y_, _currentZ), out var list) ? list : null;
+
+                    if (occupants is null || occupants.Count == 0)
+                    {
+                        <div class="cell empty" title="Create a room at (@x_, @y_, @_currentZ)" @onclick="() => CellClicked(x_, y_)">
+                            <span class="hint">+</span>
+                        </div>
+                    }
+                    else
+                    {
+                        var primary = occupants[0];
+                        var room = _rooms.TryGetValue(primary.Id, out var r) ? r : null;
+                        var isSelected = primary.Id == _selectedRoomId;
+                        var isCollision = occupants.Any(o => _collidingRoomIds.Contains(o.Id));
+
+                        <div class="cell @(primary.Anchored ? "" : "ghost") @(isSelected ? "selected" : "") @(isCollision ? "collision" : "")"
+                             @onclick="() => CellClicked(x_, y_)">
+                            @if (room is not null)
+                            {
+                                @foreach (var dir in AdjacentDirectionsWithExit(room))
+                                {
+                                    var dir_ = dir;
+                                    <button class="edge-tab @DirClass(dir_)" title="Disconnect @dir_"
+                                            @onclick:stopPropagation="true" @onclick="() => DisconnectEdge(primary.Id, dir_)"></button>
+                                }
+                            }
+                            <span class="cell-name">@(room?.Name ?? primary.Id)</span>
+                            <span class="cell-id">@primary.Id</span>
+                            @if (!primary.Anchored)
+                            {
+                                <span class="ghost-badge">proposed</span>
+                            }
+                            @if (isCollision)
+                            {
+                                <span class="collision-badge" title="@string.Join(", ", occupants.Select(o => o.Id))">
+                                    &#9888; @occupants.Count rooms here
+                                </span>
+                            }
+                            @if (room is not null)
+                            {
+                                <div class="badge-row">
+                                    @foreach (var dir in BadgeDirectionsWithExit(room))
+                                    {
+                                        var dir_ = dir;
+                                        var target = room.Exits[dir_];
+                                        <span class="exit-badge" title="Disconnect @dir_"
+                                              @onclick:stopPropagation="true" @onclick="() => DisconnectEdge(primary.Id, dir_)">
+                                            @dir_ &rarr; @target
+                                        </span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            }
+        </div>
+    </div>
+
+    @if (_selectedRoomId is not null && _rooms.TryGetValue(_selectedRoomId, out var selected))
+    {
+        <div class="detail-panel">
+            <h2>@selected.Name <span class="mono blueprint-id">@selected.BlueprintId</span></h2>
+
+            <RoomBasicsFields Room="selected" Areas="_areasForPicker" />
+            <RoomExitsEditor Room="selected" Rooms="_roomsForPicker" />
+
+            <div class="bidir-toggle">
+                <input type="checkbox" id="grid-bidir" @bind="_bidirectional" />
+                <label for="grid-bidir">Write inverse exits (bidirectional) &mdash; also writes the reverse exit on each target room; skips with a warning if the target already has a different exit in that direction.</label>
+            </div>
+
+            <div class="actions">
+                <button class="primary" disabled="@_saving" @onclick="SaveSelected">@(_saving ? "Saving..." : "Save")</button>
+                <button class="cancel" @onclick="() => _selectedRoomId = null">Deselect</button>
+                @if (_confirmDeleteId == _selectedRoomId)
+                {
+                    <span class="confirm-inline">
+                        <span>Permanently delete this room?</span>
+                        <button class="danger-confirm" disabled="@_deleting" @onclick="DeleteSelected">Yes, delete</button>
+                        <button class="danger" @onclick="() => _confirmDeleteId = null">Cancel</button>
+                    </span>
+                }
+                else
+                {
+                    <button class="danger" @onclick="() => _confirmDeleteId = _selectedRoomId">Delete room</button>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public string BlueprintId { get; set; } = string.Empty;
+
+    private AreaTemplate? _areaTemplate;
+    private bool _notFound;
+    private Dictionary<string, RoomTemplate> _rooms = new(StringComparer.Ordinal);
+    private AreaLayoutProposal _proposal = EmptyProposal();
+    private Dictionary<(int X, int Y, int Z), List<(string Id, bool Anchored)>> _cellIndex = new();
+    private HashSet<string> _collidingRoomIds = new(StringComparer.Ordinal);
+
+    private int _currentZ;
+    private bool _currentZInitialized;
+    private string? _selectedRoomId;
+    private bool _bidirectional;
+    private bool _saving;
+    private bool _applyingLayout;
+    private string? _confirmDeleteId;
+    private bool _deleting;
+    private IReadOnlyList<string> _errors = Array.Empty<string>();
+    private IReadOnlyList<string> _warnings = Array.Empty<string>();
+    private IReadOnlyList<ContentSummary> _roomsForPicker = Array.Empty<ContentSummary>();
+    private IReadOnlyList<ContentSummary> _areasForPicker = Array.Empty<ContentSummary>();
+    private (int X, int Y, int Z)? _pendingCreateCell;
+    private string _newRoomName = string.Empty;
+    private bool _creating;
+
+    private static AreaLayoutProposal EmptyProposal() =>
+        new(new Dictionary<string, RoomPosition>(), new Dictionary<string, RoomPosition>(), Array.Empty<CoordinateCollision>());
+
+    protected override void OnParametersSet()
+    {
+        _errors = Array.Empty<string>();
+        _warnings = Array.Empty<string>();
+        _selectedRoomId = null;
+        _confirmDeleteId = null;
+        _pendingCreateCell = null;
+        _bidirectional = false;
+        _currentZInitialized = false;
+        Reload();
+    }
+
+    private void Reload()
+    {
+        var areaDef = Catalog.Load(ContentKind.Area, BlueprintId);
+        _areaTemplate = areaDef?.Template as AreaTemplate;
+        _notFound = _areaTemplate is null;
+        if (_notFound)
+            return;
+
+        _rooms = new Dictionary<string, RoomTemplate>(StringComparer.Ordinal);
+        foreach (var summary in Catalog.RoomsInArea(BlueprintId))
+        {
+            if (Catalog.Load(ContentKind.Room, summary.BlueprintId)?.Template is RoomTemplate room)
+                _rooms[room.BlueprintId] = room;
+        }
+
+        _proposal = LayoutSystem.Propose(BlueprintId);
+        _roomsForPicker = Catalog.List(ContentKind.Room);
+        _areasForPicker = Catalog.List(ContentKind.Area);
+
+        _cellIndex = new Dictionary<(int X, int Y, int Z), List<(string Id, bool Anchored)>>();
+        foreach (var (id, pos) in _proposal.Anchored)
+            AddToCellIndex(pos, id, anchored: true);
+        foreach (var (id, pos) in _proposal.Proposed)
+            AddToCellIndex(pos, id, anchored: false);
+
+        _collidingRoomIds = _proposal.Collisions
+            .SelectMany(c => c.RoomBlueprintIds)
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (!_currentZInitialized)
+        {
+            var zLayers = AllZLayers();
+            _currentZ = zLayers.Contains(0) ? 0 : zLayers.FirstOrDefault();
+            _currentZInitialized = true;
+        }
+
+        if (_selectedRoomId is not null && !_rooms.ContainsKey(_selectedRoomId))
+            _selectedRoomId = null;
+    }
+
+    private void AddToCellIndex(RoomPosition pos, string id, bool anchored)
+    {
+        var key = (pos.X, pos.Y, pos.Z);
+        if (!_cellIndex.TryGetValue(key, out var list))
+            _cellIndex[key] = list = new List<(string, bool)>();
+        list.Add((id, anchored));
+    }
+
+    private List<int> AllZLayers()
+    {
+        var zs = new SortedSet<int>();
+        foreach (var key in _cellIndex.Keys)
+            zs.Add(key.Z);
+        if (zs.Count == 0)
+        {
+            zs.Add(0);
+            return zs.ToList();
+        }
+        zs.Add(zs.Min - 1);
+        zs.Add(zs.Max + 1);
+        return zs.ToList();
+    }
+
+    private void SelectZ(int z) => _currentZ = z;
+
+    private (int MinX, int MaxX, int MinY, int MaxY) Bounds()
+    {
+        var cellsAtZ = _cellIndex.Keys.Where(k => k.Z == _currentZ).ToList();
+        if (cellsAtZ.Count == 0)
+            return (-2, 2, -2, 2);
+        return (
+            cellsAtZ.Min(c => c.X) - 1,
+            cellsAtZ.Max(c => c.X) + 1,
+            cellsAtZ.Min(c => c.Y) - 1,
+            cellsAtZ.Max(c => c.Y) + 1);
+    }
+
+    private int ColumnCount => Bounds().MaxX - Bounds().MinX + 1;
+
+    private IEnumerable<int> ColumnsLeftRight()
+    {
+        var b = Bounds();
+        for (var x = b.MinX; x <= b.MaxX; x++)
+            yield return x;
+    }
+
+    private IEnumerable<int> RowsTopDown()
+    {
+        var b = Bounds();
+        for (var y = b.MaxY; y >= b.MinY; y--) // +Y renders toward the top of the screen.
+            yield return y;
+    }
+
+    private bool TryGetPosition(string roomId, out RoomPosition pos)
+    {
+        if (_proposal.Anchored.TryGetValue(roomId, out var a)) { pos = a; return true; }
+        if (_proposal.Proposed.TryGetValue(roomId, out var p)) { pos = p; return true; }
+        pos = null!;
+        return false;
+    }
+
+    private static string DirClass(Direction d) => d switch
+    {
+        Direction.North => "north",
+        Direction.South => "south",
+        Direction.East => "east",
+        Direction.West => "west",
+        _ => string.Empty,
+    };
+
+    /// <summary>Exits whose target is another room in this area at the exact adjacent-offset cell — rendered as edge tabs.</summary>
+    private IEnumerable<Direction> AdjacentDirectionsWithExit(RoomTemplate room)
+    {
+        if (!TryGetPosition(room.BlueprintId, out var pos))
+            yield break;
+
+        foreach (var (dir, targetId) in room.Exits)
+        {
+            if (dir is Direction.Up or Direction.Down)
+                continue;
+            if (!TryGetPosition(targetId, out var targetPos))
+                continue;
+
+            var offset = dir.Offset();
+            if (targetPos.X == pos.X + offset.Dx && targetPos.Y == pos.Y + offset.Dy && targetPos.Z == pos.Z + offset.Dz)
+                yield return dir;
+        }
+    }
+
+    /// <summary>Every other exit (vertical, non-adjacent, or cross-area) — rendered as a badge chip.</summary>
+    private IEnumerable<Direction> BadgeDirectionsWithExit(RoomTemplate room)
+    {
+        var adjacent = AdjacentDirectionsWithExit(room).ToHashSet();
+        foreach (var dir in room.Exits.Keys)
+        {
+            if (!adjacent.Contains(dir))
+                yield return dir;
+        }
+    }
+
+    private async Task CellClicked(int x, int y)
+    {
+        _pendingCreateCell = null;
+        _errors = Array.Empty<string>();
+
+        if (!_cellIndex.TryGetValue((x, y, _currentZ), out var occupants) || occupants.Count == 0)
+        {
+            _pendingCreateCell = (x, y, _currentZ);
+            _newRoomName = string.Empty;
+            return;
+        }
+
+        var clickedId = occupants[0].Id;
+
+        if (_selectedRoomId is null)
+        {
+            _selectedRoomId = clickedId;
+            return;
+        }
+
+        if (_selectedRoomId == clickedId)
+        {
+            _selectedRoomId = null;
+            return;
+        }
+
+        if (_rooms.TryGetValue(_selectedRoomId, out var selectedRoom) && TryGetPosition(_selectedRoomId, out var selPos))
+        {
+            var dir = DirectionExtensions.FromOffset(x - selPos.X, y - selPos.Y, 0);
+            if (dir is { } direction)
+            {
+                selectedRoom.Exits[direction] = clickedId;
+                var result = await Catalog.SaveRoomAsync(selectedRoom, bidirectional: true);
+                ApplyResult(result);
+                Reload();
+                return;
+            }
+        }
+
+        // Not adjacent to the current selection — switch selection instead of erroring.
+        _selectedRoomId = clickedId;
+    }
+
+    private async Task DisconnectEdge(string roomId, Direction direction)
+    {
+        var result = await Catalog.RemoveRoomExitAsync(roomId, direction, bidirectional: true);
+        ApplyResult(result);
+        Reload();
+    }
+
+    private async Task ConfirmCreate()
+    {
+        if (_pendingCreateCell is not { } cell || string.IsNullOrWhiteSpace(_newRoomName))
+            return;
+
+        _creating = true;
+        var def = Catalog.CreateNew(ContentKind.Room, _newRoomName.Trim());
+        var room = (RoomTemplate)def.Template;
+        room.AreaId = BlueprintId;
+        room.X = cell.X;
+        room.Y = cell.Y;
+        room.Z = cell.Z;
+
+        var result = await Catalog.SaveRoomAsync(room, bidirectional: false);
+        _creating = false;
+        ApplyResult(result);
+        if (result.Success)
+        {
+            _pendingCreateCell = null;
+            _selectedRoomId = room.BlueprintId;
+            Reload();
+        }
+    }
+
+    private void CancelCreate() => _pendingCreateCell = null;
+
+    private async Task ApplyLayout()
+    {
+        _applyingLayout = true;
+        var result = await LayoutSystem.ApplyProposalAsync(BlueprintId);
+        _applyingLayout = false;
+        _errors = Array.Empty<string>();
+        _warnings = result.Warnings;
+        Reload();
+    }
+
+    private async Task SaveSelected()
+    {
+        if (_selectedRoomId is null || !_rooms.TryGetValue(_selectedRoomId, out var room))
+            return;
+
+        _saving = true;
+        var result = _bidirectional
+            ? await Catalog.SaveRoomAsync(room, bidirectional: true)
+            : await Catalog.SaveAsync(new ContentDefinition(ContentKind.Room, room));
+        _saving = false;
+
+        ApplyResult(result);
+        if (result.Success)
+            Reload();
+    }
+
+    private async Task DeleteSelected()
+    {
+        if (_selectedRoomId is null)
+            return;
+
+        _deleting = true;
+        _confirmDeleteId = null;
+        try
+        {
+            await Catalog.DeleteAsync(ContentKind.Room, _selectedRoomId);
+            _selectedRoomId = null;
+            Reload();
+        }
+        catch (Exception ex)
+        {
+            _errors = new[] { $"Delete failed: {ex.Message}" };
+        }
+        finally
+        {
+            _deleting = false;
+        }
+    }
+
+    private void ApplyResult(ContentWriteResult result)
+    {
+        _errors = result.Success ? Array.Empty<string>() : result.Errors;
+        _warnings = result.Warnings;
+    }
+}

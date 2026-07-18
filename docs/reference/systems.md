@@ -212,10 +212,10 @@ Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RoomBuil
 **Interface:** [`IAreaContentWriter.cs`](../../Core/Modules/World/Systems/IAreaContentWriter.cs) — `WriteAsync(AreaTemplate, CancellationToken)`. Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `MkareaCommand` after `IAreaBuilderSystem.CreateArea` returns (INV-5: the system never calls persistence). Implemented (Phase 3 admin-area-authoring WP-1).
 
 ### IContentValidator
-**Purpose:** On-demand content validator, factored out of `RegistryValidationBootstrap` so the same referential-integrity rules run in two call modes. `ValidateRegistry` is the whole-registry sweep (ability→effect/aspect cross-refs, aspect-composition normalization, starting-ability cross-refs, live area-entity affinity normalization) used at boot. `Validate(IEntityTemplate)` is the single in-memory definition check used by the authoring editor per edit and the bulk generator pre-write. Returns a structured `ValidationReport` and **never throws** (INV-5) — the host decides fail-fast policy.
-**Location:** `Core/Modules/World/Systems/IContentValidator.cs` (interface) · `ContentValidator.cs` (implementation) · `ValidationReport.cs`
-**Dependencies:** `IAbilityRegistry`, `IEffectRegistry`, `IAspectRegistry`, `EntityService`.
-**Interface:** [`IContentValidator.cs`](../../Core/Modules/World/Systems/IContentValidator.cs) — `ValidateRegistry(startingAbilityIds)` / `Validate(IEntityTemplate)`. Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RegistryValidationBootstrap` (boot) and `IContentDefinitionCatalog.SaveAsync` (per-edit). Implemented (Phase 3 content-tooling WP-1).
+**Purpose:** On-demand content validator, factored out of `RegistryValidationBootstrap` so the same referential-integrity rules run in two call modes. `ValidateRegistry` is the whole-registry sweep (ability→effect/aspect cross-refs, aspect-composition normalization, starting-ability cross-refs, live area-entity affinity normalization, and a warn-not-error room-coordinate-collision check sourced from `ITemplateRegistry`) used at boot. `Validate(IEntityTemplate)` is the single in-memory definition check used by the authoring editor per edit and the bulk generator pre-write. Returns a structured `ValidationReport` (`Errors` + `Warnings`; `IsValid` is errors-only) and **never throws** (INV-5) — the host decides fail-fast policy, logging warnings without aborting.
+**Location:** `Core/Modules/World/Systems/IContentValidator.cs` (interface) · `ContentValidator.cs` (implementation) · `ValidationReport.cs` · `RoomCoordinateCollisions.cs` (shared collision-detection helper, also consumed by `IAreaLayoutSystem.Propose`).
+**Dependencies:** `IAbilityRegistry`, `IEffectRegistry`, `IAspectRegistry`, `EntityService`, `ITemplateRegistry`.
+**Interface:** [`IContentValidator.cs`](../../Core/Modules/World/Systems/IContentValidator.cs) — `ValidateRegistry(startingAbilityIds)` / `Validate(IEntityTemplate)`. Registered as a singleton in `WorldModule.AddWorldModule`. Consumed by `RegistryValidationBootstrap` (boot) and `IContentDefinitionCatalog.SaveAsync` (per-edit). Implemented (Phase 3 content-tooling WP-1; coordinate-collision warning added world-editor-grid WP1).
 
 ### IContentReferenceIndex (Authoring module)
 **Purpose:** Declared-edge reference model over the on-disk YAML definition set. Answers three read questions without applying any policy: *does this target exist?*, *who points at this id?*, and *what is broken across all definitions?* Pure read — returns structured results, publishes nothing, holds no live entities (INV-5). The declared edge set drives all four consumers (delete-cascade, warn-but-allow save, integrity sweep, and save-time cross-ref check) without per-edge code paths (INV-19).
@@ -246,7 +246,7 @@ Data records (`Core/Modules/Authoring/ContentReference.cs`): `ReferenceEdge(Sour
 **Purpose:** The shared content-definition layer both content-tooling tracks call — the offline Blazor editor and the headless bulk generator. Reads/lists/loads/creates/validates/writes/deletes the YAML content-definition families (area, room, item, mob). **Writes and deletes YAML only** — never creates or destroys a live entity, adds `PersistentEntity`, or calls `SaveEntityAsync` ([INV-12](../architecture/checklist.md)/[INV-22/23](../architecture/checklist.md)); applying content changes to the live world is a separate `reload` step. `SaveAsync` validates before writing. `CreateNew` mints an ad-hoc blueprint id without touching the registry or the world.
 **Location:** `Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs` (interface) · `ContentDefinitionCatalog.cs` (implementation).
 **Dependencies:** `IContentSerializer`, `IContentValidator`, `ITemplateRegistry`, `IContentReferenceIndex`, per-kind content writers, `IOptions<WorldOptions>`, `ILogger`.
-**Interface:** [`IContentDefinitionCatalog.cs`](../../Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs) — `List` / `RoomsInArea` / `Load` / `SaveAsync` / `SaveRoomAsync` / `DeleteAsync` / `CreateNew`. Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling WP-1; area-association read-model added in Slice A; `Delete`, warn-but-allow save, bidirectional room save added in Slice B WP-2). The Blazor host and the bulk-generation system are thin callers. See [`../features/admin-authoring/content-tooling.md`](../features/admin-authoring/content-tooling.md) for the full design.
+**Interface:** [`IContentDefinitionCatalog.cs`](../../Core/Modules/Authoring/Systems/IContentDefinitionCatalog.cs) — `List` / `RoomsInArea` / `Load` / `SaveAsync` / `SaveRoomAsync` / `DeleteAsync` / `CreateNew` / `RemoveRoomExitAsync`. Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Implemented (Phase 3 content-tooling WP-1; area-association read-model added in Slice A; `Delete`, warn-but-allow save, bidirectional room save added in Slice B WP-2; `RemoveRoomExitAsync` added world-editor-grid WP1). The Blazor host, the bulk-generation system, and the visual grid area editor are thin callers. See [`../features/admin-authoring/content-tooling.md`](../features/admin-authoring/content-tooling.md) for the full design.
 
 `List(kind)` returns `ContentSummary` rows; each row carries a resolved `AreaBlueprintId`:
 - **Room** — one hop: its own `RoomTemplate.AreaId` (`null` if blank).
@@ -265,6 +265,28 @@ The two-hop resolution builds a single room→area map per `List` call (O(N) fil
 `ContentWriteResult` shape (Slice B addition): `record(bool Success, string BlueprintId, IReadOnlyList<string> Errors, IReadOnlyList<string> Warnings)`. A `Success` result may carry non-empty `Warnings`. Factories: `Ok(id)` · `OkWithWarnings(id, warnings)` · `Failed(id, errors)`.
 
 `ContentDeleteResult` shape: `record(string DeletedPath, string DeletedBlueprintId, IReadOnlyList<ReferrerEdit> CascadeEdits)` (`Core/Modules/Authoring/ContentDeleteResult.cs`).
+
+`RemoveRoomExitAsync(roomBlueprintId, direction, bidirectional, ct)` removes one exit — the mirror of `SaveRoomAsync`'s bidirectional *add* policy. Removing an absent exit is a no-op success (no file write). When `bidirectional = true`, also removes the target room's inverse exit, but only when it still points back at the source; an inverse pointing elsewhere (or already absent) is left untouched. Added world-editor-grid WP1.
+
+### IAreaLayoutSystem (Authoring module)
+**Purpose:** Deterministic auto-layout for an area's rooms that lack authored `X/Y/Z` coordinates — the visual grid area editor's ghost-cell proposal and its "Apply layout" bulk write. `Propose(areaBlueprintId)` loads the area's rooms via the catalog and runs a pure BFS placement (anchored rooms fixed and never moved; seeded from anchors in ordinal blueprint-id order; exits iterated in `Direction` enum order; an occupied target cell spills to the nearest free cell via an expanding Chebyshev ring scan with a deterministic tie-break; a component with no anchor is placed at the next deterministic free origin). Never writes; the same disk state always yields the same proposal. `ApplyProposalAsync` re-derives the proposal from disk and writes coordinates only for rooms that still lack them (best-effort per room — one room's failure does not stop the rest). **Returns results; never publishes** (INV-5); no RNG or wall-clock (INV-26 moot).
+**Location:** `Core/Modules/Authoring/Systems/IAreaLayoutSystem.cs` (interface) · `AreaLayoutSystem.cs` (implementation).
+**Dependencies:** `IContentDefinitionCatalog`.
+**Interface:**
+```csharp
+public interface IAreaLayoutSystem
+{
+    AreaLayoutProposal Propose(string areaBlueprintId);
+    Task<AreaLayoutApplyResult> ApplyProposalAsync(string areaBlueprintId, CancellationToken ct = default);
+}
+public sealed record RoomPosition(int X, int Y, int Z);
+public sealed record AreaLayoutProposal(
+    IReadOnlyDictionary<string, RoomPosition> Anchored,
+    IReadOnlyDictionary<string, RoomPosition> Proposed,
+    IReadOnlyList<CoordinateCollision> Collisions);
+public sealed record AreaLayoutApplyResult(int Written, IReadOnlyList<string> Warnings);
+```
+Registered as a singleton in `AuthoringModule.AddAuthoringModule`. Consumed by `AreaGridEditor.razor`. Implemented (world-editor-grid WP2).
 
 ### IContentGenerationSystem (Authoring module)
 **Purpose:** Headless bulk content generator (content-tooling track T1). Composes the four existing per-kind content writers + `*Template` types to emit a connected, walkable swath of world-content YAML from a `GenerationProfile` (area count, rooms-per-area range, level range, mob/item density, aspect mix, scaling curve, seed, blueprint prefix). Each area's rooms are wired into an east/west chain and consecutive areas are joined up/down, so the generated world is one reachable graph (Resolved Decision 3). All randomness flows through a per-run `SeededRandom` constructed from `profile.Seed`, and blueprint ids are derived deterministically from `prefix + a per-kind counter` (never `Guid`), so a fixed-seed run is byte-reproducible within a runtime image (INV-26). **Writes YAML only** — creates no live entities, registers nothing in `TemplateRegistry`, never calls persistence (INV-12/22/23). **Returns a `GenerationResult`; never publishes** (INV-5); validation is the caller's (run-mode's) concern.
