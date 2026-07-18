@@ -71,6 +71,15 @@ namespace Hedron.Server
                 throw new InvalidOperationException(message);
             }
 
+            if (report.Warnings.Count > 0)
+            {
+                var builder = new StringBuilder();
+                builder.AppendLine($"Registry validation — {report.Warnings.Count} warning(s):");
+                foreach (var w in report.Warnings)
+                    builder.AppendLine($"  • {w}");
+                _logger.LogWarning("{Report}", builder.ToString());
+            }
+
             _logger.LogInformation("RegistryValidationBootstrap: all content cross-refs valid.");
             return Task.CompletedTask;
         }

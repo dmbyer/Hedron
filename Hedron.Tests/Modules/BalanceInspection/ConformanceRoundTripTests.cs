@@ -76,7 +76,7 @@ namespace Hedron.Tests.Modules.BalanceInspection
             var ecs = new EntityService();
             var registry = new TemplateRegistry(ecs);
             var validator = new ContentValidator(
-                new StubAbilityRegistry(), new StubEffectRegistry(), new StubAspectRegistry(), ecs);
+                new StubAbilityRegistry(), new StubEffectRegistry(), new StubAspectRegistry(), ecs, registry);
 
             var catalog = new ContentDefinitionCatalog(
                 serializer,

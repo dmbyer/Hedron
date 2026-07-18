@@ -37,13 +37,34 @@ namespace Hedron.Core.Modules.World.Systems
             foreach (var (direction, targetBlueprintId) in template.Exits)
                 exitDtos[direction.ToString()] = targetBlueprintId;
 
+            List<SpawnRuleDto>? spawnRuleDtos = null;
+            if (template.SpawnRules.Count > 0)
+            {
+                spawnRuleDtos = new List<SpawnRuleDto>(template.SpawnRules.Count);
+                foreach (var rule in template.SpawnRules)
+                {
+                    spawnRuleDtos.Add(new SpawnRuleDto
+                    {
+                        BlueprintId = rule.BlueprintId,
+                        MinCount = rule.MinCount,
+                        MaxCount = rule.MaxCount,
+                        RespawnDelaySeconds = rule.RespawnDelaySeconds,
+                    });
+                }
+            }
+
             var dto = new RoomDto
             {
+                SchemaVersion = template.SchemaVersion,
                 Id          = template.BlueprintId,
                 Name        = template.Name,
                 Description = template.Description,
                 AreaId      = string.IsNullOrEmpty(template.AreaId) ? null : template.AreaId,
+                X           = template.X,
+                Y           = template.Y,
+                Z           = template.Z,
                 Exits       = exitDtos.Count > 0 ? exitDtos : null,
+                SpawnRules  = spawnRuleDtos,
             };
 
             var body     = _yaml.Serialize(dto);
@@ -57,11 +78,25 @@ namespace Hedron.Core.Modules.World.Systems
         // DTO shape must stay in sync with RoomTemplateDeserializer.RoomDto.
         private sealed class RoomDto
         {
+            public int? SchemaVersion { get; set; }
             public string Id { get; set; } = string.Empty;
             public string Name { get; set; } = string.Empty;
             public string Description { get; set; } = string.Empty;
             public string? AreaId { get; set; }
+            public int? X { get; set; }
+            public int? Y { get; set; }
+            public int? Z { get; set; }
             public Dictionary<string, string>? Exits { get; set; }
+            public List<SpawnRuleDto>? SpawnRules { get; set; }
+        }
+
+        // DTO shape must stay in sync with RoomTemplateDeserializer.SpawnRuleDto.
+        private sealed class SpawnRuleDto
+        {
+            public string BlueprintId { get; set; } = string.Empty;
+            public int MinCount { get; set; }
+            public int MaxCount { get; set; }
+            public int RespawnDelaySeconds { get; set; }
         }
     }
 }

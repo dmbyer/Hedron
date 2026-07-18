@@ -30,12 +30,14 @@ All files are `*.yaml` under `data/content/` (the path is `World:ContentDirector
 
 | Kind | Path | Key fields |
 |---|---|---|
-| `room` | `rooms/<id>.yaml` | `id`, `name`, `description`, `exits` (`east: room.east_end`), `areaId`, `isSafe`, `lightLevel` |
+| `room` | `rooms/<id>.yaml` | `id`, `name`, `description`, `exits` (`east: room.east_end`), `areaId`, `isSafe`, `lightLevel`, `x`/`y`/`z` (optional `int`, authoring-side grid coordinates — see below) |
 | `area` | `areas/<id>.yaml` | `id`, `name`, `description`, `respawnRate`, `pvp`, room-id list, `aspectAffinities` |
 | `item` | `items/<id>.yaml` | `id`, `name`, `description`, `keywords`, `type`, `spawnRoomId` |
 | `mob` | `mobs/<id>.yaml` | `id`, `name`, `description`, `keywords`, `type`, `spawnRoomBlueprintId`, attributes, pools |
 
 A reserved `schemaVersion: 1` key is logged on mismatch but not enforced.
+
+`x`/`y`/`z` (nullable `int`, omitted when unset) are optional authoring-side grid coordinates — the authored half of the backlogged runtime coordinate system (see [`../../roadmap/backlog.md`](../../roadmap/backlog.md)). East = X+1, North = Y+1, Up = Z+1. They are advisory: `RoomTemplate.Apply` attaches no coordinate-bearing runtime component this slice, and an exit may target a non-adjacent cell or another area without being an error. Authored and visualized by the visual grid area editor (`/area/{id}/grid`) — see [`../admin-authoring/content-tooling.md`](../admin-authoring/content-tooling.md).
 
 ### Template registry
 

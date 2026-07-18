@@ -61,6 +61,10 @@ else
                     <td>
                         <div style="display:flex;gap:0.6rem;align-items:center;justify-content:flex-end">
                             <a href="@EditHref(s.BlueprintId)">Edit</a>
+                            @if (_kind == ContentKind.Area)
+                            {
+                                <a href="@($"area/{Uri.EscapeDataString(s.BlueprintId)}/grid")">Grid</a>
+                            }
                             @if (_confirmDeleteId == id)
                             {
                                 <span class="confirm-inline">

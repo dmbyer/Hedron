@@ -273,6 +273,49 @@ namespace Hedron.Core.Modules.Authoring.Systems
             return new ContentDefinition(kind, template);
         }
 
+        public async Task<ContentWriteResult> RemoveRoomExitAsync(
+            string roomBlueprintId,
+            Direction direction,
+            bool bidirectional,
+            CancellationToken ct = default)
+        {
+            var def = Load(ContentKind.Room, roomBlueprintId);
+            if (def is null)
+                return ContentWriteResult.Failed(roomBlueprintId, new[] { $"Room '{roomBlueprintId}' not found." });
+
+            var room = (RoomTemplate)def.Template;
+
+            if (!room.Exits.Remove(direction, out var targetBlueprintId))
+                return ContentWriteResult.Ok(roomBlueprintId);
+
+            var report = _validator.Validate(room);
+            if (!report.IsValid)
+                return ContentWriteResult.Failed(roomBlueprintId, report.Errors);
+
+            await _roomWriter.WriteAsync(room, ct).ConfigureAwait(false);
+
+            if (bidirectional
+                && !string.IsNullOrEmpty(targetBlueprintId)
+                && !string.Equals(targetBlueprintId, roomBlueprintId, StringComparison.Ordinal))
+            {
+                var targetDef = Load(ContentKind.Room, targetBlueprintId);
+                if (targetDef is not null)
+                {
+                    var targetRoom = (RoomTemplate)targetDef.Template;
+                    var inverseDir = direction.Opposite();
+
+                    if (targetRoom.Exits.TryGetValue(inverseDir, out var inverseTarget)
+                        && string.Equals(inverseTarget, roomBlueprintId, StringComparison.Ordinal))
+                    {
+                        targetRoom.Exits.Remove(inverseDir);
+                        await _roomWriter.WriteAsync(targetRoom, ct).ConfigureAwait(false);
+                    }
+                }
+            }
+
+            return ContentWriteResult.Ok(roomBlueprintId);
+        }
+
         // ── Cascade-clear helpers ────────────────────────────────────────────────────
 
         /// <summary>

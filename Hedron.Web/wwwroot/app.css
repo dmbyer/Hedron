@@ -269,3 +269,51 @@ table.grid .missing-id { color: var(--delete); font-weight: 600; }
 .bidir-toggle { display: flex; gap: 0.6rem; align-items: center; margin: 0.25rem 0 0.1rem; }
 .bidir-toggle input[type="checkbox"] { accent-color: var(--accent); width: 1rem; height: 1rem; }
 .bidir-toggle label { font-size: 0.9rem; color: var(--fg); cursor: pointer; }
+
+/* --- Area grid editor --- */
+.grid-wrap { overflow: auto; margin: 1rem 0; max-width: 100%; }
+.grid-layer { display: grid; gap: 8px; width: max-content; }
+.cell {
+    position: relative;
+    width: 120px;
+    min-height: 74px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.35rem 0.4rem;
+    background: var(--bg-panel);
+    cursor: pointer;
+    font-size: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    overflow: hidden;
+}
+.cell.empty { background: transparent; border-style: dashed; align-items: center; justify-content: center; color: var(--muted); }
+.cell.empty:hover { border-color: var(--accent); color: var(--accent-fg); }
+.cell.ghost { border-style: dashed; opacity: 0.8; }
+.cell.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+.cell.collision { border-color: var(--delete); }
+.cell .cell-name { font-weight: 600; color: var(--fg); }
+.cell .cell-id { color: var(--muted); font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 0.7rem; }
+.cell .ghost-badge { color: var(--warn); font-size: 0.68rem; }
+.cell .collision-badge { color: var(--delete); font-size: 0.68rem; cursor: help; }
+.edge-tab { position: absolute; background: var(--accent); border: none; cursor: pointer; opacity: 0.65; padding: 0; }
+.edge-tab:hover { opacity: 1; }
+.edge-tab.north { top: -5px; left: 50%; transform: translateX(-50%); width: 22px; height: 8px; border-radius: 3px; }
+.edge-tab.south { bottom: -5px; left: 50%; transform: translateX(-50%); width: 22px; height: 8px; border-radius: 3px; }
+.edge-tab.east  { right: -5px; top: 50%; transform: translateY(-50%); width: 8px; height: 22px; border-radius: 3px; }
+.edge-tab.west  { left: -5px; top: 50%; transform: translateY(-50%); width: 8px; height: 22px; border-radius: 3px; }
+.badge-row { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: auto; }
+.exit-badge {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0 0.3rem;
+    font-size: 0.66rem;
+    color: var(--muted);
+    cursor: pointer;
+}
+.exit-badge:hover { border-color: var(--delete); color: var(--delete); }
+.z-switcher { display: flex; gap: 0.4rem; align-items: center; margin: 0.75rem 0; flex-wrap: wrap; }
+.create-panel { border: 1px solid var(--border); background: var(--bg-panel); border-radius: 6px; padding: 0.75rem 1rem; margin: 1rem 0; }
+.detail-panel { border-top: 2px solid var(--accent); margin-top: 1.5rem; padding-top: 1rem; }

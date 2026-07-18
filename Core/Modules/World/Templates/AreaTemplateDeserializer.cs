@@ -45,6 +45,7 @@ namespace Hedron.Core.Modules.World.Templates
 
             var template = new AreaTemplate(dto.Id)
             {
+                SchemaVersion = dto.SchemaVersion,
                 AreaId = dto.Id,
                 Name = dto.Name ?? string.Empty,
                 Description = dto.Description ?? string.Empty,

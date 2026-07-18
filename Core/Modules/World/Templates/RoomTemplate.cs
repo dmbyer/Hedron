@@ -29,6 +29,22 @@ namespace Hedron.Core.Modules.World.Templates
         public string Description { get; set; } = string.Empty;
         public string AreaId { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Declared schema version, as authored in YAML. <c>null</c> when the file omits it.
+        /// Round-tripped as-is (no rewriting to <c>CurrentSchemaVersion</c>) — the deserializer's
+        /// mismatch warning is a read-time concern, not a write-time normalization.
+        /// </summary>
+        public int? SchemaVersion { get; set; }
+
+        /// <summary>
+        /// Optional authoring-side grid coordinates (visual grid editor). East = X+1, North = Y+1,
+        /// Up = Z+1. Advisory only — <see cref="Apply"/> attaches no coordinate-bearing runtime
+        /// component this slice.
+        /// </summary>
+        public int? X { get; set; }
+        public int? Y { get; set; }
+        public int? Z { get; set; }
+
         /// <summary>Exits keyed by direction; values are target room blueprint ids.</summary>
         public Dictionary<Direction, string> Exits { get; } = new();
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hedron.Core;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Ascension.Components;
@@ -42,6 +43,7 @@ namespace Hedron.Tests.Simulation
             public Task<ContentWriteResult> SaveRoomAsync(RoomTemplate room, bool bidirectional, CancellationToken ct = default) => throw new NotImplementedException();
             public Task<ContentDeleteResult> DeleteAsync(ContentKind kind, string blueprintId, CancellationToken ct = default) => throw new NotImplementedException();
             public ContentDefinition CreateNew(ContentKind kind, string name) => throw new NotImplementedException();
+            public Task<ContentWriteResult> RemoveRoomExitAsync(string roomBlueprintId, Direction direction, bool bidirectional, CancellationToken ct = default) => throw new NotImplementedException();
         }
 
         private static (SimCombatantFactory Factory, FakeCatalog Catalog, IBalanceStandardsRegistry Registry, SandboxWorld World) NewFixture()

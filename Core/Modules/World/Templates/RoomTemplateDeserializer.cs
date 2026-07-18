@@ -49,6 +49,10 @@ namespace Hedron.Core.Modules.World.Templates
                 Name = dto.Name ?? string.Empty,
                 Description = dto.Description ?? string.Empty,
                 AreaId = dto.AreaId ?? string.Empty,
+                SchemaVersion = dto.SchemaVersion,
+                X = dto.X,
+                Y = dto.Y,
+                Z = dto.Z,
             };
 
             if (dto.Exits is { Count: > 0 })
@@ -95,6 +99,9 @@ namespace Hedron.Core.Modules.World.Templates
             public string? Name { get; set; }
             public string? Description { get; set; }
             public string? AreaId { get; set; }
+            public int? X { get; set; }
+            public int? Y { get; set; }
+            public int? Z { get; set; }
             public Dictionary<string, string>? Exits { get; set; }
             public List<SpawnRuleDto>? SpawnRules { get; set; }
         }

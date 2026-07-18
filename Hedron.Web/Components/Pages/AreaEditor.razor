@@ -18,6 +18,11 @@ else if (_template is not null)
 {
     <p class="mono blueprint-id">@_template.BlueprintId</p>
 
+    @if (!IsNew)
+    {
+        <p><a href="@($"area/{Uri.EscapeDataString(_template.BlueprintId)}/grid")">Open grid editor</a></p>
+    }
+
     <div class="field">
         <label>Name</label>
         <input @bind="_template.Name" />

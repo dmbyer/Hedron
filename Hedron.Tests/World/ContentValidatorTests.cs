@@ -53,12 +53,17 @@ namespace Hedron.Tests.World
             IAbilityRegistry? abilities = null,
             IEffectRegistry? effects = null,
             IAspectRegistry? aspects = null,
-            EntityService? ecs = null)
-            => new ContentValidator(
+            EntityService? ecs = null,
+            ITemplateRegistry? templateRegistry = null)
+        {
+            var entityService = ecs ?? new EntityService();
+            return new ContentValidator(
                 abilities ?? new StubAbilityRegistry(Array.Empty<AbilityDefinition>()),
                 effects ?? new StubEffectRegistry(Array.Empty<EffectDefinition>()),
                 aspects ?? new StubAspectRegistry(new[] { FireAspect }),
-                ecs ?? new EntityService());
+                entityService,
+                templateRegistry ?? new TemplateRegistry(entityService));
+        }
 
         // ── ValidateRegistry mode ─────────────────────────────────────────────────
 
@@ -163,6 +168,61 @@ namespace Hedron.Tests.World
         {
             var room = new RoomTemplate("room.test") { Name = "Test" };
             Assert.True(Build().Validate(room).IsValid);
+        }
+
+        // ── ValidateRegistry: coordinate-collision warning (world-editor-grid Postcondition 9) ──
+
+        [Fact]
+        public void ValidateRegistry_SameAreaSameCell_ProducesWarning_ReportStillValid()
+        {
+            var ecs = new EntityService();
+            var registry = new TemplateRegistry(ecs);
+            registry.Register("room.a", new RoomTemplate("room.a") { AreaId = "area.1", X = 1, Y = 1, Z = 0 });
+            registry.Register("room.b", new RoomTemplate("room.b") { AreaId = "area.1", X = 1, Y = 1, Z = 0 });
+
+            var validator = Build(ecs: ecs, templateRegistry: registry);
+            var report = validator.ValidateRegistry(Array.Empty<string>());
+
+            Assert.True(report.IsValid);
+            Assert.Empty(report.Errors);
+            Assert.Contains(report.Warnings, w => w.Contains("room.a") && w.Contains("room.b"));
+        }
+
+        [Fact]
+        public void ValidateRegistry_DifferentArea_SameCell_NoWarning()
+        {
+            var ecs = new EntityService();
+            var registry = new TemplateRegistry(ecs);
+            registry.Register("room.a", new RoomTemplate("room.a") { AreaId = "area.1", X = 1, Y = 1, Z = 0 });
+            registry.Register("room.b", new RoomTemplate("room.b") { AreaId = "area.2", X = 1, Y = 1, Z = 0 });
+
+            var validator = Build(ecs: ecs, templateRegistry: registry);
+            var report = validator.ValidateRegistry(Array.Empty<string>());
+
+            Assert.True(report.IsValid);
+            Assert.Empty(report.Warnings);
+        }
+
+        [Fact]
+        public void ValidateRegistry_SameArea_DifferentZ_NoWarning()
+        {
+            var ecs = new EntityService();
+            var registry = new TemplateRegistry(ecs);
+            registry.Register("room.a", new RoomTemplate("room.a") { AreaId = "area.1", X = 1, Y = 1, Z = 0 });
+            registry.Register("room.b", new RoomTemplate("room.b") { AreaId = "area.1", X = 1, Y = 1, Z = 1 });
+
+            var validator = Build(ecs: ecs, templateRegistry: registry);
+            var report = validator.ValidateRegistry(Array.Empty<string>());
+
+            Assert.True(report.IsValid);
+            Assert.Empty(report.Warnings);
+        }
+
+        [Fact]
+        public void ValidateRegistry_NoCollisions_EmptyWarnings_AndOkIsValid()
+        {
+            Assert.True(Build().ValidateRegistry(Array.Empty<string>()).IsValid);
+            Assert.Empty(Build().ValidateRegistry(Array.Empty<string>()).Warnings);
         }
     }
 }

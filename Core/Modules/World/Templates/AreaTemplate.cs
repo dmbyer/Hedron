@@ -13,6 +13,13 @@ namespace Hedron.Core.Modules.World.Templates
     public sealed class AreaTemplate : IEntityTemplate
     {
         public string BlueprintId { get; }
+
+        /// <summary>
+        /// Declared schema version, as authored in YAML. <c>null</c> when the file omits it.
+        /// Round-tripped as-is (no rewriting to the deserializer's current version).
+        /// </summary>
+        public int? SchemaVersion { get; set; }
+
         public string AreaId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;

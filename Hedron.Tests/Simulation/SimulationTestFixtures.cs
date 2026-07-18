@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Hedron.Core;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Authoring;
 using Hedron.Core.Modules.Authoring.Systems;
@@ -34,6 +35,7 @@ namespace Hedron.Tests.Simulation
             public Task<ContentWriteResult> SaveRoomAsync(RoomTemplate room, bool bidirectional, CancellationToken ct = default) => throw new NotImplementedException();
             public Task<ContentDeleteResult> DeleteAsync(ContentKind kind, string blueprintId, CancellationToken ct = default) => throw new NotImplementedException();
             public ContentDefinition CreateNew(ContentKind kind, string name) => throw new NotImplementedException();
+            public Task<ContentWriteResult> RemoveRoomExitAsync(string roomBlueprintId, Direction direction, bool bidirectional, CancellationToken ct = default) => throw new NotImplementedException();
         }
 
         public static ISimulationRunner NewRunner(FakeClock clock)

@@ -1,6 +1,5 @@
 @page "/room/new"
 @page "/room/{BlueprintId}"
-@using Hedron.Core
 @using Hedron.Core.Modules.World.Templates
 @inject IContentDefinitionCatalog Catalog
 @inject NavigationManager Nav
@@ -18,51 +17,9 @@ else if (_template is not null)
 {
     <p class="mono blueprint-id">@_template.BlueprintId</p>
 
-    <div class="field">
-        <label>Name</label>
-        <input @bind="_template.Name" />
-    </div>
+    <RoomBasicsFields Room="_template" Areas="_areas" />
 
-    <div class="field">
-        <label>Area <span class="hint-inline">(target area blueprint id)</span></label>
-        <select value="@_template.AreaId" @onchange="e => _template.AreaId = e.Value?.ToString() ?? string.Empty">
-            <option value="">-- no area --</option>
-            @foreach (var area in _areas)
-            {
-                <option value="@area.BlueprintId">@area.Name (@area.BlueprintId)</option>
-            }
-        </select>
-    </div>
-
-    <div class="field">
-        <label>Description</label>
-        <textarea rows="4" @bind="_template.Description"></textarea>
-    </div>
-
-    <fieldset class="exits">
-        <legend>Exits</legend>
-        @foreach (var dir in AllDirections)
-        {
-            var dir_ = dir;
-            <div class="exit-picker">
-                <label class="exit-label">@dir</label>
-                <div class="room-picker">
-                    <input class="room-picker-filter" placeholder="filter by name or id"
-                           value="@_exitFilters[dir_]"
-                           @oninput="e => SetExitFilter(dir_, e.Value?.ToString())" />
-                    <select value="@ExitFor(dir_)"
-                            @onchange="e => SetExit(dir_, e.Value?.ToString())">
-                        <option value="">-- no exit --</option>
-                        @foreach (var room in FilteredRoomsFor(dir_))
-                        {
-                            <option value="@room.BlueprintId">@room.Name (@room.BlueprintId)</option>
-                        }
-                    </select>
-                </div>
-            </div>
-        }
-        <p class="hint">Leave a direction with no exit selected to omit that exit.</p>
-    </fieldset>
+    <RoomExitsEditor Room="_template" Rooms="_rooms" />
 
     <div class="bidir-toggle">
         <input type="checkbox" id="bidir" @bind="_bidirectional" />
@@ -129,8 +86,6 @@ else if (_template is not null)
 @code {
     [Parameter] public string? BlueprintId { get; set; }
 
-    private static readonly Direction[] AllDirections = Enum.GetValues<Direction>();
-
     private RoomTemplate? _template;
     private bool _notFound;
     private bool _saving;
@@ -142,7 +97,6 @@ else if (_template is not null)
     private IReadOnlyList<string> _warnings = Array.Empty<string>();
     private IReadOnlyList<ContentSummary> _areas = Array.Empty<ContentSummary>();
     private IReadOnlyList<ContentSummary> _rooms = Array.Empty<ContentSummary>();
-    private Dictionary<Direction, string> _exitFilters = new();
 
     private bool IsNew => string.IsNullOrEmpty(BlueprintId);
 
@@ -155,7 +109,6 @@ else if (_template is not null)
         _bidirectional = false;
         _areas = Catalog.List(ContentKind.Area);
         _rooms = Catalog.List(ContentKind.Room);
-        _exitFilters = AllDirections.ToDictionary(d => d, _ => string.Empty);
 
         if (IsNew)
         {
@@ -168,33 +121,6 @@ else if (_template is not null)
             _template = definition?.Template as RoomTemplate;
             _notFound = _template is null;
         }
-    }
-
-    private string ExitFor(Direction dir) =>
-        _template is not null && _template.Exits.TryGetValue(dir, out var target) ? target : string.Empty;
-
-    private void SetExitFilter(Direction dir, string? value) =>
-        _exitFilters[dir] = value ?? string.Empty;
-
-    private IEnumerable<ContentSummary> FilteredRoomsFor(Direction dir)
-    {
-        var filter = _exitFilters.TryGetValue(dir, out var f) ? f : string.Empty;
-        if (string.IsNullOrWhiteSpace(filter))
-            return _rooms;
-        return _rooms.Where(r =>
-            r.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
-            r.BlueprintId.Contains(filter, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private void SetExit(Direction dir, string? raw)
-    {
-        if (_template is null) return;
-        var target = raw?.Trim() ?? string.Empty;
-
-        if (string.IsNullOrEmpty(target))
-            _template.Exits.Remove(dir);
-        else
-            _template.Exits[dir] = target;
     }
 
     private async Task Save()

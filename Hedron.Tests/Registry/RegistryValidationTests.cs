@@ -9,6 +9,7 @@ using Hedron.Core.Modules.BalanceInspection.Standards;
 using Hedron.Core.Modules.Effects;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.World.Systems;
+using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
 using Hedron.Server;
 using Microsoft.Extensions.Configuration;
@@ -88,13 +89,15 @@ namespace Hedron.Tests.Registry
             IEffectRegistry effects,
             IAspectRegistry aspects,
             IConfiguration configuration,
-            EntityService? entityService = null)
+            EntityService? entityService = null,
+            ITemplateRegistry? templateRegistry = null)
         {
             // The bootstrap now delegates the rules to ContentValidator (factored out for the
             // authoring editor + bulk generator); this helper composes the same pieces so the
             // existing cases keep exercising the boot fail-fast contract end-to-end.
+            var ecs = entityService ?? new EntityService();
             var validator = new ContentValidator(
-                abilities, effects, aspects, entityService ?? new EntityService());
+                abilities, effects, aspects, ecs, templateRegistry ?? new TemplateRegistry(ecs));
 
             var bootstrap = new RegistryValidationBootstrap(
                 validator,
@@ -432,6 +435,32 @@ namespace Hedron.Tests.Registry
 
             // Must not throw.
             RunValidator(abilities, effects, aspects, config, ecs);
+        }
+
+        // ═════════════════════════════════════════════════════════════════════
+        // Case 7: Coordinate-collision warning does not abort boot
+        // ═════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Two rooms in the same area at the same X/Y/Z produce a warn-not-error
+        /// ValidationReport.Warnings entry; StartAsync must log and continue, not throw
+        /// (world-editor-grid Postcondition 9, exercised at the bootstrap level).
+        /// </summary>
+        [Fact]
+        public void RoomCoordinateCollision_Warning_DoesNotAbortBoot()
+        {
+            var ecs = new EntityService();
+            var registry = new TemplateRegistry(ecs);
+            registry.Register("room.a", new RoomTemplate("room.a") { AreaId = "area.1", X = 0, Y = 0, Z = 0 });
+            registry.Register("room.b", new RoomTemplate("room.b") { AreaId = "area.1", X = 0, Y = 0, Z = 0 });
+
+            var abilities = new StubAbilityRegistry(new[] { ValidAbility });
+            var effects   = new StubEffectRegistry(new[] { ValidEffect });
+            var aspects   = new StubAspectRegistry(new[] { ValidAspect });
+            var config    = BuildConfig("strike");
+
+            // Must not throw — a warnings-only report must not abort boot.
+            RunValidator(abilities, effects, aspects, config, ecs, registry);
         }
     }
 }

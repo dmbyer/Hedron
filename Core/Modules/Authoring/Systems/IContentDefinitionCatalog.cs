@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Hedron.Core;
 using Hedron.Core.Modules.World.Templates;
 
 namespace Hedron.Core.Modules.Authoring.Systems
@@ -85,5 +86,18 @@ namespace Hedron.Core.Modules.Authoring.Systems
         /// persist it.
         /// </summary>
         ContentDefinition CreateNew(ContentKind kind, string name);
+
+        /// <summary>
+        /// Removes one exit from a room — the mirror of <see cref="SaveRoomAsync"/>'s bidirectional
+        /// <em>add</em> policy. Removing an absent exit is a no-op success (no file write). When
+        /// <paramref name="bidirectional"/> is <c>true</c>, also removes the target room's inverse
+        /// exit, but only when it still points back at <paramref name="roomBlueprintId"/> — an
+        /// inverse pointing elsewhere (or already absent) is left untouched.
+        /// </summary>
+        Task<ContentWriteResult> RemoveRoomExitAsync(
+            string roomBlueprintId,
+            Direction direction,
+            bool bidirectional,
+            CancellationToken ct = default);
     }
 }

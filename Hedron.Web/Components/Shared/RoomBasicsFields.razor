@@ -1,0 +1,27 @@
+@using Hedron.Core.Modules.World.Templates
+
+<div class="field">
+    <label>Name</label>
+    <input @bind="Room.Name" />
+</div>
+
+<div class="field">
+    <label>Area <span class="hint-inline">(target area blueprint id)</span></label>
+    <select value="@Room.AreaId" @onchange="e => Room.AreaId = e.Value?.ToString() ?? string.Empty">
+        <option value="">-- no area --</option>
+        @foreach (var area in Areas)
+        {
+            <option value="@area.BlueprintId">@area.Name (@area.BlueprintId)</option>
+        }
+    </select>
+</div>
+
+<div class="field">
+    <label>Description</label>
+    <textarea rows="4" @bind="Room.Description"></textarea>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public RoomTemplate Room { get; set; } = null!;
+    [Parameter, EditorRequired] public IReadOnlyList<ContentSummary> Areas { get; set; } = Array.Empty<ContentSummary>();
+}
