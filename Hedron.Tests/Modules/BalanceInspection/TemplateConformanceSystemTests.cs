@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hedron.Core;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Authoring;
 using Hedron.Core.Modules.Authoring.Systems;
@@ -63,6 +64,10 @@ namespace Hedron.Tests.Modules.BalanceInspection
                 throw new NotSupportedException();
 
             public ContentDefinition CreateNew(ContentKind kind, string name) => throw new NotSupportedException();
+
+            public Task<ContentWriteResult> RemoveRoomExitAsync(
+                string roomBlueprintId, Direction direction, bool bidirectional, CancellationToken ct = default) =>
+                throw new NotSupportedException();
         }
 
         private sealed class FakeBalanceAuditSystem : IBalanceAuditSystem

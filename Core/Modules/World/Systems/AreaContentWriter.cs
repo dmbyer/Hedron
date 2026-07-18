@@ -44,6 +44,7 @@ namespace Hedron.Core.Modules.World.Systems
 
             var dto = new AreaDto
             {
+                SchemaVersion     = template.SchemaVersion,
                 Id                = template.BlueprintId,
                 Name              = template.Name,
                 Description       = template.Description,
@@ -64,6 +65,7 @@ namespace Hedron.Core.Modules.World.Systems
         // DTO shape must stay in sync with AreaTemplateDeserializer.AreaDto.
         private sealed class AreaDto
         {
+            public int? SchemaVersion { get; set; }
             public string Id { get; set; } = string.Empty;
             public string Name { get; set; } = string.Empty;
             public string Description { get; set; } = string.Empty;

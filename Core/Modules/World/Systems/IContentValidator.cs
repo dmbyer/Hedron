@@ -19,8 +19,10 @@ namespace Hedron.Core.Modules.World.Systems
         /// <summary>
         /// Registry / live-scan mode. Validates ability→effect and ability→aspect cross-refs,
         /// aspect-composition normalization, the supplied starting-ability ids against the
-        /// ability registry, and live area-entity aspect-affinity compositions. This is the
-        /// boot bootstrap's sweep.
+        /// ability registry, and live area-entity aspect-affinity compositions. Also emits a
+        /// warn-not-error <see cref="ValidationReport.Warnings"/> entry per room-coordinate
+        /// collision (two rooms in one area sharing X/Y/Z), sourced from the template registry.
+        /// This is the boot bootstrap's sweep.
         /// </summary>
         /// <param name="startingAbilityIds">
         /// Ability ids configured as character defaults; each must resolve in the ability

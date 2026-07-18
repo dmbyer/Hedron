@@ -74,7 +74,7 @@ namespace Hedron.Tests.Authoring
             var ecs = new EntityService();
             var registry = new TemplateRegistry(ecs);
             var validator = new ContentValidator(
-                new StubAbilityRegistry(), new StubEffectRegistry(), new StubAspectRegistry(), ecs);
+                new StubAbilityRegistry(), new StubEffectRegistry(), new StubAspectRegistry(), ecs, registry);
 
             var catalog = new ContentDefinitionCatalog(
                 serializer,
@@ -845,6 +845,99 @@ namespace Hedron.Tests.Authoring
             // B has no south exit.
             var reloadedB = (RoomTemplate)catalog.Load(ContentKind.Room, roomB.BlueprintId)!.Template;
             Assert.False(reloadedB.Exits.ContainsKey(Direction.South));
+        }
+
+        // ── RemoveRoomExitAsync policy matrix (world-editor-grid Postcondition 6) ─────
+
+        [Fact]
+        public async Task RemoveRoomExitAsync_RemovesSourceExit_AndWritesSource()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var roomB = catalog.CreateNew(ContentKind.Room, "East Room");
+            await catalog.SaveAsync(roomB);
+
+            var roomA = catalog.CreateNew(ContentKind.Room, "West Room");
+            ((RoomTemplate)roomA.Template).Exits[Direction.East] = roomB.BlueprintId;
+            await catalog.SaveAsync(roomA);
+
+            var result = await catalog.RemoveRoomExitAsync(roomA.BlueprintId, Direction.East, bidirectional: false);
+
+            Assert.True(result.Success);
+            var reloadedA = (RoomTemplate)catalog.Load(ContentKind.Room, roomA.BlueprintId)!.Template;
+            Assert.False(reloadedA.Exits.ContainsKey(Direction.East));
+        }
+
+        [Fact]
+        public async Task RemoveRoomExitAsync_Bidirectional_RemovesReciprocal_WhenItPointsBack()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var roomB = catalog.CreateNew(ContentKind.Room, "East Room");
+            var roomA = catalog.CreateNew(ContentKind.Room, "West Room");
+            ((RoomTemplate)roomA.Template).Exits[Direction.East] = roomB.BlueprintId;
+            ((RoomTemplate)roomB.Template).Exits[Direction.West] = roomA.BlueprintId;
+            await catalog.SaveAsync(roomB);
+            await catalog.SaveAsync(roomA);
+
+            var result = await catalog.RemoveRoomExitAsync(roomA.BlueprintId, Direction.East, bidirectional: true);
+
+            Assert.True(result.Success);
+            var reloadedA = (RoomTemplate)catalog.Load(ContentKind.Room, roomA.BlueprintId)!.Template;
+            var reloadedB = (RoomTemplate)catalog.Load(ContentKind.Room, roomB.BlueprintId)!.Template;
+            Assert.False(reloadedA.Exits.ContainsKey(Direction.East));
+            Assert.False(reloadedB.Exits.ContainsKey(Direction.West));
+        }
+
+        [Fact]
+        public async Task RemoveRoomExitAsync_Bidirectional_LeavesForeignInverseUntouched()
+        {
+            // B's west exit points at C, not A — removing A's east exit must not touch B's west exit.
+            var (catalog, _) = NewCatalog();
+
+            var roomC = catalog.CreateNew(ContentKind.Room, "Third Room");
+            await catalog.SaveAsync(roomC);
+
+            var roomB = catalog.CreateNew(ContentKind.Room, "East Room");
+            ((RoomTemplate)roomB.Template).Exits[Direction.West] = roomC.BlueprintId;
+            await catalog.SaveAsync(roomB);
+
+            var roomA = catalog.CreateNew(ContentKind.Room, "West Room");
+            ((RoomTemplate)roomA.Template).Exits[Direction.East] = roomB.BlueprintId;
+            await catalog.SaveAsync(roomA);
+
+            var result = await catalog.RemoveRoomExitAsync(roomA.BlueprintId, Direction.East, bidirectional: true);
+
+            Assert.True(result.Success);
+            var reloadedA = (RoomTemplate)catalog.Load(ContentKind.Room, roomA.BlueprintId)!.Template;
+            var reloadedB = (RoomTemplate)catalog.Load(ContentKind.Room, roomB.BlueprintId)!.Template;
+            Assert.False(reloadedA.Exits.ContainsKey(Direction.East));
+            Assert.Equal(roomC.BlueprintId, reloadedB.Exits[Direction.West]);
+        }
+
+        [Fact]
+        public async Task RemoveRoomExitAsync_AbsentExit_IsNoOpSuccess()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Empty Room");
+            await catalog.SaveAsync(room);
+
+            var result = await catalog.RemoveRoomExitAsync(room.BlueprintId, Direction.North, bidirectional: true);
+
+            Assert.True(result.Success);
+            Assert.Empty(result.Warnings);
+        }
+
+        [Fact]
+        public async Task RemoveRoomExitAsync_UnknownRoom_Fails()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var result = await catalog.RemoveRoomExitAsync("room.nonexistent", Direction.North, bidirectional: false);
+
+            Assert.False(result.Success);
+            Assert.NotEmpty(result.Errors);
         }
     }
 }

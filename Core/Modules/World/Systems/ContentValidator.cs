@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Abilities;
@@ -20,22 +21,26 @@ namespace Hedron.Core.Modules.World.Systems
         private readonly IEffectRegistry _effectRegistry;
         private readonly IAspectRegistry _aspectRegistry;
         private readonly EntityService _entityService;
+        private readonly ITemplateRegistry _templateRegistry;
 
         public ContentValidator(
             IAbilityRegistry abilityRegistry,
             IEffectRegistry effectRegistry,
             IAspectRegistry aspectRegistry,
-            EntityService entityService)
+            EntityService entityService,
+            ITemplateRegistry templateRegistry)
         {
             _abilityRegistry = abilityRegistry;
             _effectRegistry = effectRegistry;
             _aspectRegistry = aspectRegistry;
             _entityService = entityService;
+            _templateRegistry = templateRegistry;
         }
 
         public ValidationReport ValidateRegistry(IReadOnlyCollection<string> startingAbilityIds)
         {
             var errors = new List<string>();
+            var warnings = new List<string>();
 
             // 1. Ability → effect + aspect cross-refs and composition normalization.
             foreach (var abilityId in _abilityRegistry.AllIds)
@@ -72,7 +77,21 @@ namespace Hedron.Core.Modules.World.Systems
                 ValidateAspectComposition(composition, $"Area entity {entityId}", errors, checkKeysRegistered: false);
             }
 
-            return errors.Count == 0 ? ValidationReport.Ok : new ValidationReport(errors);
+            // 4. Coordinate-collision warning (warn-not-error): two rooms in one area sharing the
+            // same X/Y/Z. Sourced from the template registry, not the live world — this is an
+            // authoring-content sweep, not a live-entity check.
+            var roomTemplates = _templateRegistry.AllBlueprintIds()
+                .Select(id => _templateRegistry.TryGet(id, out var template) ? template : null)
+                .OfType<RoomTemplate>();
+            foreach (var collision in RoomCoordinateCollisions.Find(roomTemplates))
+            {
+                warnings.Add(
+                    $"Coordinate collision: area '{collision.AreaId}' has {collision.RoomBlueprintIds.Count} " +
+                    $"rooms at ({collision.X}, {collision.Y}, {collision.Z}): " +
+                    string.Join(", ", collision.RoomBlueprintIds));
+            }
+
+            return new ValidationReport(errors, warnings);
         }
 
         public ValidationReport Validate(IEntityTemplate template)

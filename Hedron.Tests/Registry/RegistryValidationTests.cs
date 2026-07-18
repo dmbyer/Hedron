@@ -93,8 +93,9 @@ namespace Hedron.Tests.Registry
             // The bootstrap now delegates the rules to ContentValidator (factored out for the
             // authoring editor + bulk generator); this helper composes the same pieces so the
             // existing cases keep exercising the boot fail-fast contract end-to-end.
+            var ecs = entityService ?? new EntityService();
             var validator = new ContentValidator(
-                abilities, effects, aspects, entityService ?? new EntityService());
+                abilities, effects, aspects, ecs, new TemplateRegistry(ecs));
 
             var bootstrap = new RegistryValidationBootstrap(
                 validator,
