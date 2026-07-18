@@ -15,6 +15,7 @@ namespace Hedron.Core.Modules.Authoring
             services.AddSingleton<IContentReferenceIndex, ContentReferenceIndex>();
             services.AddSingleton<IContentDefinitionCatalog, ContentDefinitionCatalog>();
             services.AddSingleton<IContentGenerationSystem, ContentGenerationSystem>();
+            services.AddSingleton<IAreaLayoutSystem, AreaLayoutSystem>();
             return services;
         }
     }
