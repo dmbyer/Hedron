@@ -4,6 +4,37 @@
 
 ---
 
+## Authoring Systems (planned — in-flight)
+
+### AreaLayoutSystem
+> **In-flight** — specified by [`../implementation-plans/world-editor-grid.md`](../implementation-plans/world-editor-grid.md) (visual grid area editor, WP2). Unlike the legacy sketches below, this signature is current design intent; it moves to [`systems.md`](systems.md) when the slice ships.
+
+**Purpose:** Deterministic auto-layout proposals for an area's rooms that lack authored `X/Y/Z` coordinates — BFS over the exit graph from anchored rooms, collision-avoiding, never moving an anchored room. Pure computation; returns results, never publishes (INV-5); no RNG or clock (INV-26 moot).
+**Dependencies:** `IContentDefinitionCatalog` (load rooms; `ApplyProposalAsync` writes via `SaveRoomAsync`), `DirectionExtensions.Offset`.
+```csharp
+public interface IAreaLayoutSystem
+{
+    AreaLayoutProposal Propose(string areaBlueprintId);
+    Task<AreaLayoutApplyResult> ApplyProposalAsync(string areaBlueprintId, CancellationToken ct = default);
+}
+public sealed record RoomPosition(int X, int Y, int Z);
+public sealed record AreaLayoutProposal(
+    IReadOnlyDictionary<string, RoomPosition> Anchored,
+    IReadOnlyDictionary<string, RoomPosition> Proposed,
+    IReadOnlyList<CoordinateCollision> Collisions);
+public sealed record AreaLayoutApplyResult(int Written, IReadOnlyList<string> Warnings);
+```
+
+### Planned extensions to existing (implemented) surfaces
+> Same slice ([`world-editor-grid.md`](../implementation-plans/world-editor-grid.md)); listed here so the implemented catalog stays truthful (INV-29) until they ship.
+
+- `IContentDefinitionCatalog.RemoveRoomExitAsync(string roomBlueprintId, Direction direction, bool bidirectional, CancellationToken ct = default)` — bidirectional exit *disconnect*, mirroring the existing `SaveRoomAsync(bidirectional: true)` add policy (removes the target's inverse exit only when it points back at the source).
+- `DirectionExtensions.Offset(this Direction)` → unit `(Dx, Dy, Dz)` and `DirectionExtensions.FromOffset(int dx, int dy, int dz)` → `Direction?` — the adjacency↔direction mapping (convention: East = X+1, North = Y+1, Up = Z+1).
+- `RoomTemplate.X/Y/Z` (`int?`) — optional authoring-side grid coordinates on room YAML (`x`/`y`/`z`, omitted when unset); no runtime component this slice.
+- `RoomCoordinateCollisions` (static helper, `Core/Modules/World/Systems/`) — pure grouping of room templates by `(AreaId, X, Y, Z)`; consumed by the `IContentValidator` registry-mode collision **warning** and the layout proposal.
+
+---
+
 ## Core Systems (planned)
 
 ### DiceSystem
