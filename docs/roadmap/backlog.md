@@ -100,14 +100,14 @@ The content-editor reference-integrity slice ([`completed/content-editor-integri
 
 Deferred from slice 5a (bare-bones content spawning). Remaining capabilities:
 
-- **Coordinate system** — a `CoordinateComponent` (`int X, int Y, int Z`) on room entities, enabling map generation and cardinal distance queries. The **authoring-side half** (optional `X/Y/Z` on `RoomTemplate` YAML) lands with the visual grid area editor ([`../implementation-plans/world-editor-grid.md`](../implementation-plans/world-editor-grid.md)); this item retains the runtime component (reading that same YAML field), cardinal-distance queries, and any exit↔coordinate consistency *enforcement* (the editor treats coordinates as advisory layout).
+- **Coordinate system** — a `CoordinateComponent` (`int X, int Y, int Z`) on room entities, enabling map generation and cardinal distance queries. The **authoring-side half** (optional `X/Y/Z` on `RoomTemplate` YAML) lands with the visual grid area editor ([`completed/world-editor-grid.md`](completed/world-editor-grid.md)); this item retains the runtime component (reading that same YAML field), cardinal-distance queries, and any exit↔coordinate consistency *enforcement* (the editor treats coordinates as advisory layout).
 - **Area-level properties enforcement** — PvP flag, respawn rate, ambient lighting — present on `AreaComponent` but not yet enforced by any slice.
 
 (Room-to-area membership — `RoomComponent.AreaEntityId`, `IAreaSystem`, `setarea`/`area` commands, aspect-affinity YAML, and `RegistryValidationBootstrap` area sweep — landed in the area-model WP-2 slice.)
 
 ### 🔵 Multi-area world-view grid editor (deferred from world-editor-grid)
 
-The visual grid area editor ([`../implementation-plans/world-editor-grid.md`](../implementation-plans/world-editor-grid.md)) is deliberately scoped to one area at a time, with each area its own local coordinate space. A cross-area "world view" — rendering multiple areas on one map with inter-area exits — needs the runtime coordinate system (above) plus an overworld/locale design decision (per-area origin offsets or a shared world space; see [feature-horizon §1](../design/feature-horizon.md)). Per-area local coordinates compose with a future per-area origin offset, so the deferral forecloses nothing. Revisit when overworld/wilderness travel or the world map is scheduled.
+The visual grid area editor ([`completed/world-editor-grid.md`](completed/world-editor-grid.md)) is deliberately scoped to one area at a time, with each area its own local coordinate space. A cross-area "world view" — rendering multiple areas on one map with inter-area exits — needs the runtime coordinate system (above) plus an overworld/locale design decision (per-area origin offsets or a shared world space; see [feature-horizon §1](../design/feature-horizon.md)). Per-area local coordinates compose with a future per-area origin offset, so the deferral forecloses nothing. Revisit when overworld/wilderness travel or the world map is scheduled.
 
 ### ✅ Equipment slot expansion — shipped (wearable-equipment-expansion)
 
