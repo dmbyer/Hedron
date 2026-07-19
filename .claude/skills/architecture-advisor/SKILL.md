@@ -18,6 +18,8 @@ You produce **an architectural brief** and **seed the implementation plan** with
 
 Skip it for a small, well-understood slice with an obvious home — go straight to `new-plan`. When in doubt, run; this is the cheapest point to move a seam.
 
+If the incoming outcome is still a 1–2 sentence idea with its requirements unresolved, run the [`requirements-detailing`](../requirements-detailing/SKILL.md) skill (`/refine`) first — it converges the *what* with the user and seeds the plan with a `## Requirements` section. When that seed exists, treat its Resolved decisions as settled intent (do not relitigate them) and its Open questions as intake input.
+
 ## The rules and the map are not in this prompt
 
 Like [`architecture-reviewer`](../../agents/architecture-reviewer.md), you carry **no inline copy** of the invariants or the feature catalog — a private copy drifts. Read them live at the start of every intake. Cite, link, do not restate.
@@ -73,7 +75,7 @@ Work the feature through these passes. Each pass is a question, not a form to fi
 
 When the intake converges:
 
-1. **Create `docs/implementation-plans/<slug>.md`** at `Status: planned` with the **architecture-tier** content only — the seed the planner extends:
+1. **Create `docs/implementation-plans/<slug>.md`** at `Status: planned` — or **extend it in place** if `requirements-detailing` already seeded it (keep its `## Requirements` section intact) — with the **architecture-tier** content only — the seed the planner extends:
    - `Status`, `Actors` (rough), `Module`, `Description` (one paragraph).
    - **`## Design notes`** — the *durable* seam rationale: where each seam landed and **why** (mechanism-vs-consequence, the family decision, the chosen breadth). This is exactly the non-obvious rationale the trim-on-ship lifecycle ([INV-28](../../../docs/architecture/checklist.md)) keeps in a shipped doc.
    - **`## Architecture brief`** *(in-flight; trimmed on ship)* — the forward-looking analysis: seams + recommended homes/layers, the family disposition, observers/contributors and the event-granularity call, ordering constraints, **invariants in tension** (cite IDs), and **resolved decisions** (what the user chose, so the planner does not relitigate).

@@ -10,6 +10,7 @@ Invoke via model-selected skill triggers or directly in prompts. Each one docume
 
 | Skill | Use when |
 |---|---|
+| [`requirements-detailing`](skills/requirements-detailing/SKILL.md) | Fleshing a high-level, low-detail outcome into concrete, doc-grounded requirements *before* any technical design; the interactive requirements-analyst intake |
 | [`architecture-advisor`](skills/architecture-advisor/SKILL.md) | Framing a feature's architecture *before* planning — where the seams belong, what future work pulls on them; the interactive principal-architect intake |
 | [`add-component`](skills/add-component/SKILL.md) | Adding a new ECS component |
 | [`add-archetype`](skills/add-archetype/SKILL.md) | Introducing a new entity archetype |
@@ -38,6 +39,7 @@ Launched via the `Agent` tool with `subagent_type` set to the agent's name.
 
 | Command | Effect |
 |---|---|
+| `/refine <outcome>` | Requirements intake: flesh a high-level outcome into a grounded requirements outline, seeding the implementation plan for `/advise` |
 | `/advise <description>` | Principal-architect intake: frame a feature's seams + future-proofing, seed its implementation plan |
 | `/new-plan <description>` | Spawn the implementation-planner on your idea |
 | `/check-layers [scope]` | Run architecture review on the current branch |
@@ -46,10 +48,11 @@ Launched via the `Agent` tool with `subagent_type` set to the agent's name.
 
 For a new feature end-to-end:
 
-1. `/advise <describe the feature>` → interactive principal-architect intake; frames the seams, weighs existing + planned work, and seeds `docs/implementation-plans/<x>.md` with an architectural brief (skip for a small, obvious slice)
-2. `/new-plan` → implementation-planner extends the seed into the full plan; then the spec-review gate (`architecture-reviewer` in spec mode)
-3. Use `implement-plan` skill → builds each layer using the other skills as sub-patterns (incl. `add-tests` for the plan's Test plan)
-4. `/check-layers` → architecture-reviewer flags any violations before merge (incl. INV-25 test presence + `dotnet test` green)
+1. `/refine <high-level outcome>` → interactive requirements intake; grounds the idea in the docs (never code), converges suppositions with the user, and seeds `docs/implementation-plans/<x>.md` with a requirements outline (skip when the requirements are already concrete)
+2. `/advise <describe the feature>` → interactive principal-architect intake; frames the seams, weighs existing + planned work, and extends the seed (or creates it) with an architectural brief (skip for a small, obvious slice)
+3. `/new-plan` → implementation-planner extends the seed into the full plan; then the spec-review gate (`architecture-reviewer` in spec mode)
+4. Use `implement-plan` skill → builds each layer using the other skills as sub-patterns (incl. `add-tests` for the plan's Test plan)
+5. `/check-layers` → architecture-reviewer flags any violations before merge (incl. INV-25 test presence + `dotnet test` green)
 
 For a bug fix or small change:
 

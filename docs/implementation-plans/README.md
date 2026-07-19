@@ -47,6 +47,7 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 | Status | Plan | Slice |
 |---|---|---|
 | `planned` | [`admin-area-authoring.md`](admin-area-authoring.md) | `mkarea` + `listents <type>` |
+| `planned` | [`tiered-overworld-program.md`](tiered-overworld-program.md) | Phase 6 world program (requirements seed — awaiting `/advise`) |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 
@@ -56,6 +57,6 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 
 ## Adding a new plan
 
-For a net-new feature or non-trivial change, **frame it first with the [`architecture-advisor`](../../.claude/skills/architecture-advisor/SKILL.md) skill (`/advise`)** — the interactive principal-architect intake seeds the plan with Description, Module, seam rationale, and an in-flight `## Architecture brief`. The planner then extends that seed into the full template above. For a small, well-understood slice, skip straight to planning.
+If the idea is still a high-level outcome with unresolved requirements, **detail it first with the [`requirements-detailing`](../../.claude/skills/requirements-detailing/SKILL.md) skill (`/refine`)** — the interactive requirements intake grounds it in the docs and seeds the plan with Description and an in-flight `## Requirements` outline. For a net-new feature or non-trivial change, **then frame it with the [`architecture-advisor`](../../.claude/skills/architecture-advisor/SKILL.md) skill (`/advise`)** — the interactive principal-architect intake seeds (or extends) the plan with Module, seam rationale, and an in-flight `## Architecture brief`. The planner then extends that seed into the full template above. For a small, well-understood slice, skip straight to planning.
 
 Use the `implement-plan` skill or the `/new-plan` command (see [`.claude/README.md`](../../.claude/README.md) for current tooling names). Every plan committed here must be authoritative — resolve open design questions (or park them on an explicit roadmap ticket) before merging. No `TODO` / "to be decided" language in merged plans.
