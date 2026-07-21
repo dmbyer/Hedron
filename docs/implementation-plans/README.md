@@ -46,6 +46,7 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 
 | Status | Plan | Slice |
 |---|---|---|
+| `planned` | [`blueprint-id-editing.md`](blueprint-id-editing.md) | Blueprint id rename + choose-at-creation (architecture seed) |
 | `planned` | [`admin-area-authoring.md`](admin-area-authoring.md) | `mkarea` + `listents <type>` |
 | `planned` | [`tiered-overworld-program.md`](tiered-overworld-program.md) | Phase 6 world program (requirements seed — awaiting `/advise`) |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C) |
