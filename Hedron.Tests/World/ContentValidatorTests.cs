@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Hedron.Core.ECS;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Aspects;
+using Hedron.Core.Modules.Authoring;
 using Hedron.Core.Modules.Effects;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.World.Systems;
@@ -223,6 +224,76 @@ namespace Hedron.Tests.World
         {
             Assert.True(Build().ValidateRegistry(Array.Empty<string>()).IsValid);
             Assert.Empty(Build().ValidateRegistry(Array.Empty<string>()).Warnings);
+        }
+
+        // ── ValidateBlueprintId (blueprint-id-editing, OQ2) ──────────────────────────
+
+        [Theory]
+        [InlineData("room.crossroads")]
+        [InlineData("area.starter_road")]
+        [InlineData("item.sword-of-truth")]
+        [InlineData("mob.Goblin.King")]
+        public void ValidateBlueprintId_AcceptsFilenameSafe(string id)
+        {
+            var report = Build().ValidateBlueprintId(ContentKind.Room, id);
+
+            Assert.True(report.IsValid);
+        }
+
+        [Theory]
+        [InlineData("room/crossroads")]
+        [InlineData("room\\crossroads")]
+        public void ValidateBlueprintId_RejectsPathSeparators(string id)
+        {
+            var report = Build().ValidateBlueprintId(ContentKind.Room, id);
+
+            Assert.False(report.IsValid);
+            Assert.NotEmpty(report.Errors);
+        }
+
+        [Fact]
+        public void ValidateBlueprintId_RejectsDotDot()
+        {
+            var report = Build().ValidateBlueprintId(ContentKind.Room, "room..crossroads");
+
+            Assert.False(report.IsValid);
+            Assert.NotEmpty(report.Errors);
+        }
+
+        [Fact]
+        public void ValidateBlueprintId_RejectsEmpty()
+        {
+            var report = Build().ValidateBlueprintId(ContentKind.Room, string.Empty);
+
+            Assert.False(report.IsValid);
+            Assert.NotEmpty(report.Errors);
+        }
+
+        [Fact]
+        public void ValidateBlueprintId_RejectsIllegalCharacter()
+        {
+            var report = Build().ValidateBlueprintId(ContentKind.Room, "room crossroads!");
+
+            Assert.False(report.IsValid);
+            Assert.NotEmpty(report.Errors);
+        }
+
+        [Fact]
+        public void ValidateBlueprintId_WarnsOnKindPrefixMismatch()
+        {
+            var report = Build().ValidateBlueprintId(ContentKind.Room, "not-a-room-prefix");
+
+            Assert.True(report.IsValid);
+            Assert.NotEmpty(report.Warnings);
+        }
+
+        [Fact]
+        public void ValidateBlueprintId_NoWarning_WhenPrefixMatches()
+        {
+            var report = Build().ValidateBlueprintId(ContentKind.Room, "room.crossroads");
+
+            Assert.True(report.IsValid);
+            Assert.Empty(report.Warnings);
         }
     }
 }

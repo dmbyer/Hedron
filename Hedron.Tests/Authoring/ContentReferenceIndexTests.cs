@@ -537,5 +537,102 @@ namespace Hedron.Tests.Authoring
             Assert.DoesNotContain(broken, b =>
                 b.SourceKind == ContentKind.Area && b.FieldLabel == "Rooms[]");
         }
+
+        // ── Sixth edge: (Room, SpawnRules[].BlueprintId) → Mob or Item (two-kind target) ──
+
+        [Fact]
+        public async Task Referrers_MatchesRoom_ViaSpawnRule_MobTarget()
+        {
+            var (index, catalog) = NewFixture();
+
+            var mob = catalog.CreateNew(ContentKind.Mob, "Goblin");
+            await catalog.SaveAsync(mob);
+
+            var room = catalog.CreateNew(ContentKind.Room, "Spawn Room");
+            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule(mob.BlueprintId, 1, 3, 60));
+            await catalog.SaveAsync(room);
+
+            var referrers = index.Referrers(ContentKind.Mob, mob.BlueprintId);
+
+            Assert.Contains(referrers, r =>
+                r.ReferrerKind == ContentKind.Room
+                && r.ReferrerBlueprintId == room.BlueprintId
+                && r.FieldLabel == $"SpawnRules[{mob.BlueprintId}]");
+        }
+
+        [Fact]
+        public async Task Referrers_MatchesRoom_ViaSpawnRule_ItemTarget()
+        {
+            var (index, catalog) = NewFixture();
+
+            var item = catalog.CreateNew(ContentKind.Item, "Gold Coin");
+            await catalog.SaveAsync(item);
+
+            var room = catalog.CreateNew(ContentKind.Room, "Spawn Room");
+            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule(item.BlueprintId, 1, 5, 30));
+            await catalog.SaveAsync(room);
+
+            var referrers = index.Referrers(ContentKind.Item, item.BlueprintId);
+
+            Assert.Contains(referrers, r =>
+                r.ReferrerKind == ContentKind.Room
+                && r.ReferrerBlueprintId == room.BlueprintId
+                && r.FieldLabel == $"SpawnRules[{item.BlueprintId}]");
+        }
+
+        [Fact]
+        public async Task SweepBroken_DoesNotFlag_SpawnRule_ResolvingAsItem_WhenSearchedAsMob()
+        {
+            // Resolve-against-either: a spawn-rule id present as an item file is not broken,
+            // even though the edge also declares Mob as a possible target kind.
+            var (index, catalog) = NewFixture();
+
+            var item = catalog.CreateNew(ContentKind.Item, "Healing Potion");
+            await catalog.SaveAsync(item);
+
+            var room = catalog.CreateNew(ContentKind.Room, "Potion Room");
+            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule(item.BlueprintId, 1, 2, 15));
+            await catalog.SaveAsync(room);
+
+            var broken = index.SweepBroken();
+
+            Assert.DoesNotContain(broken, b =>
+                b.SourceKind == ContentKind.Room
+                && b.FieldLabel == $"SpawnRules[{item.BlueprintId}]");
+        }
+
+        [Fact]
+        public async Task SweepBroken_FlagsSpawnRule_ResolvingAsNeither()
+        {
+            var (index, catalog) = NewFixture();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Ghost Room");
+            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule("mob.adhoc.nonexistent", 1, 1, 10));
+            await catalog.SaveAsync(room);
+
+            var broken = index.SweepBroken();
+
+            Assert.Contains(broken, b =>
+                b.SourceKind == ContentKind.Room
+                && b.SourceBlueprintId == room.BlueprintId
+                && b.FieldLabel == "SpawnRules[mob.adhoc.nonexistent]"
+                && b.MissingTargetId == "mob.adhoc.nonexistent");
+        }
+
+        [Fact]
+        public void BrokenFor_Room_FlagsDanglingSpawnRule()
+        {
+            var (index, _) = NewFixture();
+
+            var room = new RoomTemplate("room.adhoc.spawner") { Name = "Spawner Room" };
+            room.SpawnRules.Add(new SpawnRule("item.adhoc.missing", 1, 1, 20));
+
+            var broken = index.BrokenFor(room);
+
+            Assert.Single(broken);
+            Assert.Equal("SpawnRules[item.adhoc.missing]", broken[0].FieldLabel);
+            Assert.Equal("item.adhoc.missing", broken[0].MissingTargetId);
+            Assert.Equal(ContentKind.Room, broken[0].SourceKind);
+        }
     }
 }

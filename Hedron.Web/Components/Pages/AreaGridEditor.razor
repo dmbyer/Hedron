@@ -159,7 +159,8 @@ else
     @if (_selectedRoomId is not null && _rooms.TryGetValue(_selectedRoomId, out var selected))
     {
         <div class="detail-panel">
-            <h2>@selected.Name <span class="mono blueprint-id">@selected.BlueprintId</span></h2>
+            <h2>@selected.Name</h2>
+            <BlueprintIdField Kind="ContentKind.Room" IsNew="false" BlueprintId="@selected.BlueprintId" OnRenamed="OnRoomRenamed" />
 
             <RoomBasicsFields Room="selected" Areas="_areasForPicker" />
             <RoomExitsEditor Room="selected" Rooms="_roomsForPicker" />
@@ -499,5 +500,16 @@ else
     {
         _errors = result.Success ? Array.Empty<string>() : result.Errors;
         _warnings = result.Warnings;
+    }
+
+    private void OnRoomRenamed(ContentRenameResult result)
+    {
+        _errors = result.Success ? Array.Empty<string>() : result.Errors;
+        _warnings = result.Warnings;
+        if (result.Success)
+        {
+            _selectedRoomId = result.NewBlueprintId;
+            Reload();
+        }
     }
 }

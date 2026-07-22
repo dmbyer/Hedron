@@ -17,6 +17,9 @@ namespace Hedron.Core.Modules.Authoring.Systems
     ///   <item><c>(Item, SpawnRoomBlueprintId) → Room</c></item>
     ///   <item><c>(Mob, SpawnRoomBlueprintId) → Room</c></item>
     ///   <item><c>(Area, Rooms[]) → Room</c></item>
+    ///   <item><c>(Room, SpawnRules[].BlueprintId) → Mob or Item</c> — two-kind target; resolves
+    ///   against either kind (an id present as a mob file <em>or</em> an item file counts as
+    ///   resolved; broken only when it matches neither).</item>
     /// </list>
     /// Adding a new edge requires only a new <see cref="ReferenceEdge"/> declaration — no
     /// additional code paths needed (INV-19).

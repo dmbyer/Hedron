@@ -34,7 +34,10 @@ namespace Hedron.Tests.Simulation
             public Task<ContentWriteResult> SaveAsync(ContentDefinition definition, CancellationToken ct = default) => throw new NotImplementedException();
             public Task<ContentWriteResult> SaveRoomAsync(RoomTemplate room, bool bidirectional, CancellationToken ct = default) => throw new NotImplementedException();
             public Task<ContentDeleteResult> DeleteAsync(ContentKind kind, string blueprintId, CancellationToken ct = default) => throw new NotImplementedException();
+            public Task<ContentRenameResult> RenameAsync(ContentKind kind, string oldId, string newId, CancellationToken ct = default) => throw new NotImplementedException();
             public ContentDefinition CreateNew(ContentKind kind, string name) => throw new NotImplementedException();
+            public ContentDefinition CreateNew(ContentKind kind, string name, string? blueprintId) => throw new NotImplementedException();
+            public Task<ContentWriteResult> CreateAsync(ContentDefinition definition, CancellationToken ct = default) => throw new NotImplementedException();
             public Task<ContentWriteResult> RemoveRoomExitAsync(string roomBlueprintId, Direction direction, bool bidirectional, CancellationToken ct = default) => throw new NotImplementedException();
         }
 

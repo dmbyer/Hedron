@@ -15,7 +15,8 @@
 }
 else if (_template is not null)
 {
-    <p class="mono blueprint-id">@_template.BlueprintId</p>
+    <BlueprintIdField Kind="ContentKind.Room" IsNew="IsNew" BlueprintId="@_template.BlueprintId"
+                       BlueprintIdChanged="OnBlueprintIdChanged" OnRenamed="OnRenamed" />
 
     <RoomBasicsFields Room="_template" Areas="_areas" />
 
@@ -123,6 +124,20 @@ else if (_template is not null)
         }
     }
 
+    private void OnBlueprintIdChanged(string newId)
+    {
+        if (_template is null) return;
+        _template = (RoomTemplate)Catalog.CreateNew(ContentKind.Room, _template.Name, newId).Template;
+    }
+
+    private void OnRenamed(ContentRenameResult result)
+    {
+        _warnings = result.Warnings;
+        _errors = result.Errors;
+        if (result.Success)
+            Nav.NavigateTo($"room/{Uri.EscapeDataString(result.NewBlueprintId)}");
+    }
+
     private async Task Save()
     {
         if (_template is null) return;
@@ -132,9 +147,19 @@ else if (_template is not null)
         _errors = Array.Empty<string>();
         _warnings = Array.Empty<string>();
 
-        var result = _bidirectional
-            ? await Catalog.SaveRoomAsync(_template, bidirectional: true)
-            : await Catalog.SaveAsync(new ContentDefinition(ContentKind.Room, _template));
+        ContentWriteResult result;
+        if (IsNew)
+        {
+            result = await Catalog.CreateAsync(new ContentDefinition(ContentKind.Room, _template));
+            if (result.Success && _bidirectional)
+                result = await Catalog.SaveRoomAsync(_template, bidirectional: true);
+        }
+        else
+        {
+            result = _bidirectional
+                ? await Catalog.SaveRoomAsync(_template, bidirectional: true)
+                : await Catalog.SaveAsync(new ContentDefinition(ContentKind.Room, _template));
+        }
 
         _saving = false;
         if (result.Success)

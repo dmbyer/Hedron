@@ -63,7 +63,14 @@ namespace Hedron.Tests.Modules.BalanceInspection
             public Task<ContentDeleteResult> DeleteAsync(ContentKind kind, string blueprintId, CancellationToken ct = default) =>
                 throw new NotSupportedException();
 
+            public Task<ContentRenameResult> RenameAsync(ContentKind kind, string oldId, string newId, CancellationToken ct = default) =>
+                throw new NotSupportedException();
+
             public ContentDefinition CreateNew(ContentKind kind, string name) => throw new NotSupportedException();
+            public ContentDefinition CreateNew(ContentKind kind, string name, string? blueprintId) => throw new NotSupportedException();
+
+            public Task<ContentWriteResult> CreateAsync(ContentDefinition definition, CancellationToken ct = default) =>
+                throw new NotSupportedException();
 
             public Task<ContentWriteResult> RemoveRoomExitAsync(
                 string roomBlueprintId, Direction direction, bool bidirectional, CancellationToken ct = default) =>

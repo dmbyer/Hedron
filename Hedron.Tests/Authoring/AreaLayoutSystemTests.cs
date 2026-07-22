@@ -393,7 +393,10 @@ namespace Hedron.Tests.Authoring
             }
 
             public Task<ContentDeleteResult> DeleteAsync(ContentKind kind, string blueprintId, CancellationToken ct = default) => _inner.DeleteAsync(kind, blueprintId, ct);
+            public Task<ContentRenameResult> RenameAsync(ContentKind kind, string oldId, string newId, CancellationToken ct = default) => _inner.RenameAsync(kind, oldId, newId, ct);
             public ContentDefinition CreateNew(ContentKind kind, string name) => _inner.CreateNew(kind, name);
+            public ContentDefinition CreateNew(ContentKind kind, string name, string? blueprintId) => _inner.CreateNew(kind, name, blueprintId);
+            public Task<ContentWriteResult> CreateAsync(ContentDefinition definition, CancellationToken ct = default) => _inner.CreateAsync(definition, ct);
             public Task<ContentWriteResult> RemoveRoomExitAsync(string roomBlueprintId, Direction direction, bool bidirectional, CancellationToken ct = default) =>
                 _inner.RemoveRoomExitAsync(roomBlueprintId, direction, bidirectional, ct);
         }

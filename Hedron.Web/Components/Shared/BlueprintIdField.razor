@@ -1,0 +1,83 @@
+@* Shared blueprint-id surface for the four content editors: an editable id field on the New
+   form (falls back to an auto-generated adhoc id when left blank), or a read-only id plus a
+   Rename affordance on the Edit form. All logic beyond local UI state delegates to
+   IContentDefinitionCatalog — the catalog owns validation, uniqueness, and the cascade (INV-8). *@
+
+@if (IsNew)
+{
+    <div class="field">
+        <label>Blueprint id <span class="hint-inline">(blank = auto-generated @Kind.AdhocPrefix()&hellip;)</span></label>
+        <input value="@BlueprintId" @onchange="OnIdInput" placeholder="@Kind.AdhocPrefix()" />
+    </div>
+}
+else
+{
+    <p class="mono blueprint-id">
+        @BlueprintId
+        @if (!_renaming)
+        {
+            <button type="button" class="rename-trigger" @onclick="StartRename">Rename</button>
+        }
+    </p>
+
+    @if (_renaming)
+    {
+        <div class="rename-inline">
+            <input @bind="_newId" @bind:event="oninput" placeholder="new blueprint id" />
+            <button type="button" class="primary" disabled="@(_working || string.IsNullOrWhiteSpace(_newId))" @onclick="ConfirmRename">
+                @(_working ? "Renaming..." : "Confirm rename")
+            </button>
+            <button type="button" @onclick="CancelRename">Cancel</button>
+        </div>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public ContentKind Kind { get; set; }
+    [Parameter, EditorRequired] public bool IsNew { get; set; }
+    [Parameter, EditorRequired] public string BlueprintId { get; set; } = string.Empty;
+
+    /// <summary>New-mode only: fires as the author edits the candidate id field.</summary>
+    [Parameter] public EventCallback<string> BlueprintIdChanged { get; set; }
+
+    /// <summary>Edit-mode only: fires with the full result once a rename attempt completes (success or failure).</summary>
+    [Parameter] public EventCallback<ContentRenameResult> OnRenamed { get; set; }
+
+    [Inject] private IContentDefinitionCatalog Catalog { get; set; } = null!;
+
+    private bool _renaming;
+    private bool _working;
+    private string _newId = string.Empty;
+
+    private async Task OnIdInput(ChangeEventArgs e) =>
+        await BlueprintIdChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty);
+
+    private void StartRename()
+    {
+        _renaming = true;
+        // Start blank rather than pre-filled with the current id — the author is entering a new
+        // id (main flow step 1), and pre-filling invites an accidental old+new concatenation if
+        // they start typing without first clearing the field.
+        _newId = string.Empty;
+    }
+
+    private void CancelRename()
+    {
+        _renaming = false;
+        _newId = string.Empty;
+    }
+
+    private async Task ConfirmRename()
+    {
+        if (string.IsNullOrWhiteSpace(_newId))
+            return;
+
+        _working = true;
+        var result = await Catalog.RenameAsync(Kind, BlueprintId, _newId);
+        _working = false;
+        _renaming = false;
+        _newId = string.Empty;
+
+        await OnRenamed.InvokeAsync(result);
+    }
+}
