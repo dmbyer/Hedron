@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Items.Templates;
 using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.World;
@@ -33,7 +34,14 @@ namespace Hedron.Core.Modules.Authoring.Systems
         private sealed class EdgeDeclaration
         {
             public ContentKind SourceKind { get; }
-            public ContentKind TargetKind { get; }
+
+            /// <summary>
+            /// The kind(s) the reference resolves against. Most edges declare a single target
+            /// kind; <c>(Room, SpawnRules[]) → Mob/Item</c> declares two — the id carries no
+            /// kind discriminator, so it resolves against <em>either</em> kind (contains-match
+            /// for <see cref="Referrers"/>, resolve-against-none for broken detection).
+            /// </summary>
+            public IReadOnlyList<ContentKind> TargetKinds { get; }
 
             /// <summary>
             /// Extracts zero or more (fieldLabel, targetId) references from a source template.
@@ -45,9 +53,17 @@ namespace Hedron.Core.Modules.Authoring.Systems
                 ContentKind sourceKind,
                 ContentKind targetKind,
                 Func<IEntityTemplate, IEnumerable<(string FieldLabel, string TargetId)>> extract)
+                : this(sourceKind, new[] { targetKind }, extract)
+            {
+            }
+
+            public EdgeDeclaration(
+                ContentKind sourceKind,
+                IReadOnlyList<ContentKind> targetKinds,
+                Func<IEntityTemplate, IEnumerable<(string FieldLabel, string TargetId)>> extract)
             {
                 SourceKind = sourceKind;
-                TargetKind = targetKind;
+                TargetKinds = targetKinds;
                 Extract = extract;
             }
         }
@@ -55,7 +71,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
         // ── Declared edge set ────────────────────────────────────────────────────────
 
         /// <summary>
-        /// The five declared cross-definition reference edges. Adding a new edge is a one-line
+        /// The declared cross-definition reference edges. Adding a new edge is a one-line
         /// data change here — all consumers pick it up automatically (INV-19).
         /// </summary>
         private static readonly EdgeDeclaration[] DeclaredEdges = new[]
@@ -119,6 +135,25 @@ namespace Hedron.Core.Modules.Authoring.Systems
                     }
                     return refs;
                 }),
+
+            // (Room, SpawnRules[].BlueprintId) → Mob or Item — two-kind target, resolves against
+            // either kind since a SpawnRule id carries no kind discriminator.
+            new EdgeDeclaration(
+                ContentKind.Room,
+                new[] { ContentKind.Mob, ContentKind.Item },
+                t =>
+                {
+                    if (t is not RoomTemplate r)
+                        return Array.Empty<(string, string)>();
+
+                    var refs = new List<(string, string)>();
+                    foreach (SpawnRule rule in r.SpawnRules)
+                    {
+                        if (!string.IsNullOrEmpty(rule.BlueprintId))
+                            refs.Add(($"SpawnRules[{rule.BlueprintId}]", rule.BlueprintId));
+                    }
+                    return refs;
+                }),
         };
 
         // ── Dependencies ─────────────────────────────────────────────────────────────
@@ -156,7 +191,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
 
             foreach (var edge in DeclaredEdges)
             {
-                if (edge.TargetKind != targetKind)
+                if (!edge.TargetKinds.Contains(targetKind))
                     continue;
 
                 foreach (var template in LoadAllOfKind(edge.SourceKind))
@@ -183,7 +218,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
                 {
                     foreach (var (fieldLabel, targetId) in edge.Extract(template))
                     {
-                        if (!Resolves(edge.TargetKind, targetId))
+                        if (!ResolvesAny(edge.TargetKinds, targetId))
                         {
                             result.Add(new BrokenReference(
                                 edge.SourceKind,
@@ -215,7 +250,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
 
                 foreach (var (fieldLabel, targetId) in edge.Extract(definition))
                 {
-                    if (!Resolves(edge.TargetKind, targetId))
+                    if (!ResolvesAny(edge.TargetKinds, targetId))
                     {
                         result.Add(new BrokenReference(
                             edge.SourceKind,
@@ -230,6 +265,21 @@ namespace Hedron.Core.Modules.Authoring.Systems
         }
 
         // ── Private helpers ──────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Returns <c>true</c> if <paramref name="targetBlueprintId"/> resolves against
+        /// <em>any</em> kind in <paramref name="targetKinds"/> — the two-kind resolution rule
+        /// for edges like <c>(Room, SpawnRules[]) → Mob/Item</c>.
+        /// </summary>
+        private bool ResolvesAny(IReadOnlyList<ContentKind> targetKinds, string targetBlueprintId)
+        {
+            foreach (var kind in targetKinds)
+            {
+                if (Resolves(kind, targetBlueprintId))
+                    return true;
+            }
+            return false;
+        }
 
         /// <summary>
         /// Loads and deserializes all definition files of the given kind from disk. Skips

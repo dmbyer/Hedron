@@ -127,6 +127,22 @@ legend { font-weight: 600; padding: 0 0.4rem; color: var(--fg); }
 
 .blueprint-id { color: var(--muted); margin-top: -0.5rem; }
 
+/* --- Rename (non-destructive inline action) --- */
+button.rename-trigger {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 0.1rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    margin-left: 0.75rem;
+}
+button.rename-trigger:hover { border-color: var(--accent); color: var(--accent); }
+
+.rename-inline { display: flex; gap: 0.5rem; align-items: center; margin: 0.25rem 0 1rem; }
+.rename-inline input { flex: 1; max-width: 20rem; }
+
 /* --- Action buttons --- */
 .actions { display: flex; gap: 1rem; align-items: center; margin-top: 1.5rem; }
 button.primary, .tab.active { font-weight: 600; }

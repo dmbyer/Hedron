@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Hedron.Core.Modules.Authoring;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.World.Systems
@@ -37,5 +38,18 @@ namespace Hedron.Core.Modules.World.Systems
         /// empty report for kinds that carry no single-definition rules yet.
         /// </summary>
         ValidationReport Validate(IEntityTemplate template);
+
+        /// <summary>
+        /// Validates a candidate blueprint id — shared by the rename and choose-at-creation
+        /// paths on <c>IContentDefinitionCatalog</c>. <see cref="ValidationReport.Errors"/> is
+        /// non-empty when <paramref name="blueprintId"/> is empty, contains a path separator
+        /// (<c>/</c> or <c>\</c>), contains a <c>..</c> segment, contains a character outside
+        /// <c>[A-Za-z0-9._-]</c>, or matches a reserved Windows device name (<c>CON</c>,
+        /// <c>PRN</c>, <c>COM1</c>, …) — the id becomes a file name on disk. A kind-prefix
+        /// mismatch (e.g. a room id not starting with <c>room.</c>) is a non-blocking
+        /// <see cref="ValidationReport.Warnings"/> entry, not an error — the loader keys off the
+        /// kind subdirectory, not the prefix.
+        /// </summary>
+        ValidationReport ValidateBlueprintId(ContentKind kind, string blueprintId);
     }
 }

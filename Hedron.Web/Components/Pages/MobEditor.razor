@@ -26,7 +26,8 @@
 }
 else if (_template is not null)
 {
-    <p class="mono blueprint-id">@_template.BlueprintId</p>
+    <BlueprintIdField Kind="ContentKind.Mob" IsNew="IsNew" BlueprintId="@_template.BlueprintId"
+                       BlueprintIdChanged="OnBlueprintIdChanged" OnRenamed="OnRenamed" />
 
     <div class="field">
         <label>Name</label>
@@ -429,6 +430,20 @@ else if (_template is not null)
         _template.CurrencyLoot[CurrencyId.Coin] = (existing.Min, v);
     }
 
+    private void OnBlueprintIdChanged(string newId)
+    {
+        if (_template is null) return;
+        _template = (MobTemplate)Catalog.CreateNew(ContentKind.Mob, _template.Name, newId).Template;
+    }
+
+    private void OnRenamed(ContentRenameResult result)
+    {
+        _warnings = result.Warnings;
+        _errors = result.Errors;
+        if (result.Success)
+            Nav.NavigateTo($"mob/{Uri.EscapeDataString(result.NewBlueprintId)}");
+    }
+
     private async Task Save()
     {
         if (_template is null) return;
@@ -438,7 +453,9 @@ else if (_template is not null)
         _errors = Array.Empty<string>();
         _warnings = Array.Empty<string>();
 
-        var result = await Catalog.SaveAsync(new ContentDefinition(ContentKind.Mob, _template));
+        var result = IsNew
+            ? await Catalog.CreateAsync(new ContentDefinition(ContentKind.Mob, _template))
+            : await Catalog.SaveAsync(new ContentDefinition(ContentKind.Mob, _template));
 
         _saving = false;
         if (result.Success)

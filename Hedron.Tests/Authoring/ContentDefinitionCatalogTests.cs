@@ -56,11 +56,15 @@ namespace Hedron.Tests.Authoring
             public StubAspectRegistry() : base(Array.Empty<AspectDefinition>(), d => d.Id) { }
         }
 
-        private (ContentDefinitionCatalog catalog, EntityService ecs) NewCatalog()
+        private (ContentDefinitionCatalog catalog, EntityService ecs) NewCatalog() =>
+            NewCatalog(out _);
+
+        private (ContentDefinitionCatalog catalog, EntityService ecs) NewCatalog(out string contentDir)
         {
             var dir = Path.Combine(Path.GetTempPath(), "hedron-catalog-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(dir);
             _tempDirs.Add(dir);
+            contentDir = dir;
 
             var options = Options.Create(new WorldOptions { ContentDirectory = dir });
             var serializer = new YamlContentSerializer(new ITemplateDeserializer[]
@@ -935,6 +939,397 @@ namespace Hedron.Tests.Authoring
             var (catalog, _) = NewCatalog();
 
             var result = await catalog.RemoveRoomExitAsync("room.nonexistent", Direction.North, bidirectional: false);
+
+            Assert.False(result.Success);
+            Assert.NotEmpty(result.Errors);
+        }
+
+        // ── RenameAsync — own file + cascade (blueprint-id-editing) ─────────────────
+
+        [Fact]
+        public async Task Rename_WritesNewFile_DeletesOld()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Old Name");
+            ((RoomTemplate)room.Template).Description = "A cozy room.";
+            await catalog.SaveAsync(room);
+
+            var result = await catalog.RenameAsync(ContentKind.Room, room.BlueprintId, "room.new-id");
+
+            Assert.True(result.Success);
+            Assert.Null(catalog.Load(ContentKind.Room, room.BlueprintId));
+            var renamed = catalog.Load(ContentKind.Room, "room.new-id");
+            Assert.NotNull(renamed);
+            Assert.Equal("Old Name", ((RoomTemplate)renamed!.Template).Name);
+            Assert.Equal("A cozy room.", ((RoomTemplate)renamed.Template).Description);
+        }
+
+        [Fact]
+        public async Task Rename_RewritesReferrer_AreaId()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var area = catalog.CreateNew(ContentKind.Area, "Old Area");
+            await catalog.SaveAsync(area);
+
+            var room = catalog.CreateNew(ContentKind.Room, "Foyer");
+            ((RoomTemplate)room.Template).AreaId = area.BlueprintId;
+            await catalog.SaveAsync(room);
+
+            var result = await catalog.RenameAsync(ContentKind.Area, area.BlueprintId, "area.new-id");
+
+            Assert.True(result.Success);
+            var reloadedRoom = (RoomTemplate)catalog.Load(ContentKind.Room, room.BlueprintId)!.Template;
+            Assert.Equal("area.new-id", reloadedRoom.AreaId);
+            Assert.Contains(result.CascadeEdits, e =>
+                e.ReferrerKind == ContentKind.Room && e.ReferrerBlueprintId == room.BlueprintId && e.FieldLabel == "AreaId");
+        }
+
+        [Fact]
+        public async Task Rename_RewritesReferrer_ExitDirection()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var targetRoom = catalog.CreateNew(ContentKind.Room, "East Room");
+            await catalog.SaveAsync(targetRoom);
+
+            var sourceRoom = catalog.CreateNew(ContentKind.Room, "West Room");
+            ((RoomTemplate)sourceRoom.Template).Exits[Direction.East] = targetRoom.BlueprintId;
+            await catalog.SaveAsync(sourceRoom);
+
+            var result = await catalog.RenameAsync(ContentKind.Room, targetRoom.BlueprintId, "room.east-renamed");
+
+            Assert.True(result.Success);
+            var reloadedSource = (RoomTemplate)catalog.Load(ContentKind.Room, sourceRoom.BlueprintId)!.Template;
+            Assert.Equal("room.east-renamed", reloadedSource.Exits[Direction.East]);
+            Assert.Contains(result.CascadeEdits, e => e.FieldLabel == "Exits[East]");
+        }
+
+        [Fact]
+        public async Task Rename_RewritesReferrer_ItemSpawnRoom()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Armory");
+            await catalog.SaveAsync(room);
+
+            var item = catalog.CreateNew(ContentKind.Item, "Sword");
+            ((ItemTemplate)item.Template).SpawnRoomBlueprintId = room.BlueprintId;
+            await catalog.SaveAsync(item);
+
+            var result = await catalog.RenameAsync(ContentKind.Room, room.BlueprintId, "room.armory-2");
+
+            Assert.True(result.Success);
+            var reloadedItem = (ItemTemplate)catalog.Load(ContentKind.Item, item.BlueprintId)!.Template;
+            Assert.Equal("room.armory-2", reloadedItem.SpawnRoomBlueprintId);
+            Assert.Contains(result.CascadeEdits, e =>
+                e.ReferrerKind == ContentKind.Item && e.FieldLabel == "SpawnRoomBlueprintId");
+        }
+
+        [Fact]
+        public async Task Rename_RewritesReferrer_MobSpawnRoom()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Guard Post");
+            await catalog.SaveAsync(room);
+
+            var mob = catalog.CreateNew(ContentKind.Mob, "Guard");
+            ((MobTemplate)mob.Template).SpawnRoomBlueprintId = room.BlueprintId;
+            await catalog.SaveAsync(mob);
+
+            var result = await catalog.RenameAsync(ContentKind.Room, room.BlueprintId, "room.guardpost-2");
+
+            Assert.True(result.Success);
+            var reloadedMob = (MobTemplate)catalog.Load(ContentKind.Mob, mob.BlueprintId)!.Template;
+            Assert.Equal("room.guardpost-2", reloadedMob.SpawnRoomBlueprintId);
+            Assert.Contains(result.CascadeEdits, e =>
+                e.ReferrerKind == ContentKind.Mob && e.FieldLabel == "SpawnRoomBlueprintId");
+        }
+
+        [Fact]
+        public async Task Rename_RewritesReferrer_AreaRoomsList()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Cave Chamber");
+            await catalog.SaveAsync(room);
+
+            var area = catalog.CreateNew(ContentKind.Area, "The Cave");
+            ((AreaTemplate)area.Template).Rooms.Add(room.BlueprintId);
+            await catalog.SaveAsync(area);
+
+            var result = await catalog.RenameAsync(ContentKind.Room, room.BlueprintId, "room.cave-2");
+
+            Assert.True(result.Success);
+            var reloadedArea = (AreaTemplate)catalog.Load(ContentKind.Area, area.BlueprintId)!.Template;
+            Assert.Contains("room.cave-2", reloadedArea.Rooms);
+            Assert.DoesNotContain(room.BlueprintId, reloadedArea.Rooms);
+            Assert.Contains(result.CascadeEdits, e =>
+                e.ReferrerKind == ContentKind.Area && e.FieldLabel == "Rooms[]");
+        }
+
+        [Fact]
+        public async Task Rename_RewritesReferrer_RoomSpawnRule()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var mob = catalog.CreateNew(ContentKind.Mob, "Goblin");
+            await catalog.SaveAsync(mob);
+
+            var room = catalog.CreateNew(ContentKind.Room, "Spawn Room");
+            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule(mob.BlueprintId, 1, 3, 60));
+            await catalog.SaveAsync(room);
+
+            var result = await catalog.RenameAsync(ContentKind.Mob, mob.BlueprintId, "mob.goblin-2");
+
+            Assert.True(result.Success);
+            var reloadedRoom = (RoomTemplate)catalog.Load(ContentKind.Room, room.BlueprintId)!.Template;
+            Assert.Contains(reloadedRoom.SpawnRules, r => r.BlueprintId == "mob.goblin-2");
+            Assert.DoesNotContain(reloadedRoom.SpawnRules, r => r.BlueprintId == mob.BlueprintId);
+            Assert.Contains(result.CascadeEdits, e =>
+                e.ReferrerKind == ContentKind.Room && e.FieldLabel == $"SpawnRules[{mob.BlueprintId}]");
+        }
+
+        [Fact]
+        public async Task Rename_RewritesOwnSelfLoopExit()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Mirror Room");
+            ((RoomTemplate)room.Template).Exits[Direction.North] = room.BlueprintId;
+            await catalog.SaveAsync(room);
+
+            var result = await catalog.RenameAsync(ContentKind.Room, room.BlueprintId, "room.mirror-2");
+
+            Assert.True(result.Success);
+            var renamed = (RoomTemplate)catalog.Load(ContentKind.Room, "room.mirror-2")!.Template;
+            Assert.Equal("room.mirror-2", renamed.Exits[Direction.North]);
+            // No redundant external cascade edit for the self-reference (excluded per Design notes OQ4).
+            Assert.DoesNotContain(result.CascadeEdits, e => e.ReferrerBlueprintId == room.BlueprintId);
+        }
+
+        [Fact]
+        public async Task Rename_RefusesCollision_NoWrite_OldFileIntact()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var roomA = catalog.CreateNew(ContentKind.Room, "Room A");
+            await catalog.SaveAsync(roomA);
+
+            var roomB = catalog.CreateNew(ContentKind.Room, "Room B");
+            await catalog.SaveAsync(roomB);
+
+            var result = await catalog.RenameAsync(ContentKind.Room, roomA.BlueprintId, roomB.BlueprintId);
+
+            Assert.False(result.Success);
+            Assert.NotEmpty(result.Errors);
+            Assert.NotNull(catalog.Load(ContentKind.Room, roomA.BlueprintId));
+            var untouchedB = (RoomTemplate)catalog.Load(ContentKind.Room, roomB.BlueprintId)!.Template;
+            Assert.Equal("Room B", untouchedB.Name);
+        }
+
+        [Theory]
+        [InlineData("room/bad")]
+        [InlineData("room..bad")]
+        [InlineData("room#bad")]
+        public async Task Rename_RefusesMalformedId_NoWrite(string badId)
+        {
+            var (catalog, _) = NewCatalog();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Valid Room");
+            await catalog.SaveAsync(room);
+
+            var result = await catalog.RenameAsync(ContentKind.Room, room.BlueprintId, badId);
+
+            Assert.False(result.Success);
+            Assert.NotEmpty(result.Errors);
+            Assert.NotNull(catalog.Load(ContentKind.Room, room.BlueprintId));
+        }
+
+        [Fact]
+        public async Task Rename_MissingTarget_Fails()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var result = await catalog.RenameAsync(ContentKind.Room, "room.nonexistent", "room.new-id");
+
+            Assert.False(result.Success);
+            Assert.NotEmpty(result.Errors);
+        }
+
+        [Fact]
+        public async Task Rename_KindPrefixMismatch_Warns_NotRefuses()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Prefixed Room");
+            await catalog.SaveAsync(room);
+
+            var result = await catalog.RenameAsync(ContentKind.Room, room.BlueprintId, "not-prefixed-id");
+
+            Assert.True(result.Success);
+            Assert.NotEmpty(result.Warnings);
+            Assert.NotNull(catalog.Load(ContentKind.Room, "not-prefixed-id"));
+        }
+
+        [Fact]
+        public async Task Rename_StartingRoom_EmitsAdvisoryWarning_NoConfigOrSqliteWrite()
+        {
+            var (catalog, ecs) = NewCatalog();
+
+            // Default WorldOptions.StartingRoomBlueprintId is "room.crossroads".
+            var startingRoom = catalog.CreateNew(ContentKind.Room, "Crossroads", "room.crossroads");
+            await catalog.CreateAsync(startingRoom);
+
+            var entityCountBefore = ecs.GetAllComponents<RoomComponent>().Count();
+
+            var result = await catalog.RenameAsync(ContentKind.Room, "room.crossroads", "room.new-crossroads");
+
+            Assert.True(result.Success);
+            Assert.Contains(result.Warnings, w => w.Contains("StartingRoomBlueprintId"));
+            // Structural: no live entity mutation from rename (no SQLite/EntityService touch, INV-22/23).
+            Assert.Equal(entityCountBefore, ecs.GetAllComponents<RoomComponent>().Count());
+        }
+
+        [Fact]
+        public async Task Rename_BestEffort_ContinuesPastReferrerFailure()
+        {
+            var (catalog, _) = NewCatalog(out var contentDir);
+
+            var target = catalog.CreateNew(ContentKind.Room, "Target Room");
+            await catalog.SaveAsync(target);
+
+            var lockedReferrer = catalog.CreateNew(ContentKind.Room, "Locked Referrer");
+            ((RoomTemplate)lockedReferrer.Template).Exits[Direction.East] = target.BlueprintId;
+            await catalog.SaveAsync(lockedReferrer);
+
+            var healthyReferrer = catalog.CreateNew(ContentKind.Room, "Healthy Referrer");
+            ((RoomTemplate)healthyReferrer.Template).Exits[Direction.West] = target.BlueprintId;
+            await catalog.SaveAsync(healthyReferrer);
+
+            var lockedPath = Path.Combine(contentDir, "rooms", lockedReferrer.BlueprintId + ".yaml");
+
+            ContentRenameResult result;
+            using (new FileStream(lockedPath, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                result = await catalog.RenameAsync(ContentKind.Room, target.BlueprintId, "room.target-renamed");
+            }
+
+            // Best-effort: the rename overall still succeeds; the locked referrer is skipped.
+            Assert.True(result.Success);
+            Assert.DoesNotContain(result.CascadeEdits, e => e.ReferrerBlueprintId == lockedReferrer.BlueprintId);
+            Assert.Contains(result.CascadeEdits, e => e.ReferrerBlueprintId == healthyReferrer.BlueprintId);
+
+            var reloadedHealthy = (RoomTemplate)catalog.Load(ContentKind.Room, healthyReferrer.BlueprintId)!.Template;
+            Assert.Equal("room.target-renamed", reloadedHealthy.Exits[Direction.West]);
+
+            // Locked referrer's file was never touched — still points at the old id.
+            var reloadedLocked = (RoomTemplate)catalog.Load(ContentKind.Room, lockedReferrer.BlueprintId)!.Template;
+            Assert.Equal(target.BlueprintId, reloadedLocked.Exits[Direction.East]);
+        }
+
+        [Fact]
+        public async Task Rename_TouchesNoEntityService_NoSqlite()
+        {
+            // INV-22/23 structural guard, mirrors Delete_TouchesNoEntityService_NoSqlite.
+            var (catalog, ecs) = NewCatalog();
+
+            var room = catalog.CreateNew(ContentKind.Room, "Rename-Test Room");
+            await catalog.SaveAsync(room);
+
+            var entityCountBefore = ecs.GetAllComponents<RoomComponent>().Count();
+
+            await catalog.RenameAsync(ContentKind.Room, room.BlueprintId, "room.renamed");
+
+            Assert.Equal(entityCountBefore, ecs.GetAllComponents<RoomComponent>().Count());
+        }
+
+        // ── Delete parity — the spawn-rule edge fix applies to delete uniformly ──────
+
+        [Fact]
+        public async Task Delete_RemovesRoomSpawnRule_ReferencingDeletedMob()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var mob = catalog.CreateNew(ContentKind.Mob, "Goblin");
+            await catalog.SaveAsync(mob);
+
+            var room = catalog.CreateNew(ContentKind.Room, "Spawn Room");
+            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule(mob.BlueprintId, 1, 3, 60));
+            await catalog.SaveAsync(room);
+
+            var result = await catalog.DeleteAsync(ContentKind.Mob, mob.BlueprintId);
+
+            Assert.Null(catalog.Load(ContentKind.Mob, mob.BlueprintId));
+            var reloadedRoom = (RoomTemplate)catalog.Load(ContentKind.Room, room.BlueprintId)!.Template;
+            Assert.DoesNotContain(reloadedRoom.SpawnRules, r => r.BlueprintId == mob.BlueprintId);
+            Assert.Contains(result.CascadeEdits, e =>
+                e.ReferrerKind == ContentKind.Room && e.FieldLabel == $"SpawnRules[{mob.BlueprintId}]");
+        }
+
+        [Fact]
+        public async Task Delete_RemovesRoomSpawnRule_ReferencingDeletedItem()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var item = catalog.CreateNew(ContentKind.Item, "Healing Potion");
+            await catalog.SaveAsync(item);
+
+            var room = catalog.CreateNew(ContentKind.Room, "Spawn Room");
+            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule(item.BlueprintId, 1, 2, 15));
+            await catalog.SaveAsync(room);
+
+            var result = await catalog.DeleteAsync(ContentKind.Item, item.BlueprintId);
+
+            Assert.Null(catalog.Load(ContentKind.Item, item.BlueprintId));
+            var reloadedRoom = (RoomTemplate)catalog.Load(ContentKind.Room, room.BlueprintId)!.Template;
+            Assert.DoesNotContain(reloadedRoom.SpawnRules, r => r.BlueprintId == item.BlueprintId);
+            Assert.Contains(result.CascadeEdits, e =>
+                e.ReferrerKind == ContentKind.Room && e.FieldLabel == $"SpawnRules[{item.BlueprintId}]");
+        }
+
+        // ── Create-with-id (choose-at-creation) ──────────────────────────────────────
+
+        [Fact]
+        public async Task CreateWithId_UsesDeliberateId_RoundTrips()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var def = catalog.CreateNew(ContentKind.Area, "Chosen Area", "area.deliberate");
+            var result = await catalog.CreateAsync(def);
+
+            Assert.True(result.Success);
+            var loaded = catalog.Load(ContentKind.Area, "area.deliberate");
+            Assert.NotNull(loaded);
+            Assert.Equal("Chosen Area", ((AreaTemplate)loaded!.Template).Name);
+        }
+
+        [Fact]
+        public async Task CreateWithId_RefusesTakenId()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var first = catalog.CreateNew(ContentKind.Area, "First", "area.dup");
+            await catalog.CreateAsync(first);
+
+            var second = catalog.CreateNew(ContentKind.Area, "Second", "area.dup");
+            var result = await catalog.CreateAsync(second);
+
+            Assert.False(result.Success);
+            Assert.NotEmpty(result.Errors);
+            var loaded = (AreaTemplate)catalog.Load(ContentKind.Area, "area.dup")!.Template;
+            Assert.Equal("First", loaded.Name);
+        }
+
+        [Fact]
+        public async Task CreateWithId_RefusesMalformedId()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var def = catalog.CreateNew(ContentKind.Area, "Bad Id Area", "area/bad");
+            var result = await catalog.CreateAsync(def);
 
             Assert.False(result.Success);
             Assert.NotEmpty(result.Errors);

@@ -4,7 +4,7 @@
 
 **Source:** [`../../features/admin-authoring/admin-authoring.md`](../../features/admin-authoring/admin-authoring.md)
 
-**Summary.** Four offline authoring paths share the loopback `Hedron.Web` host (three share the same content-definition layer). (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline Blazor editor** browses/loads/edits/saves definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`. (B2) The **Standards page** (sim-1) edits the balance-standards document via `IBalanceStandardsStore` — a single criteria file deliberately outside the catalog (seed OQ1), with no `reload` leg (restart-to-apply instead). (B3) The **Integrity page's conformance fitter** (sim-5) closes the observation→correction loop: it scales a flagged template's stat vector into its target (Tier, Band) range and writes it through the same `SaveAsync` path as B. (B4) The **visual grid area editor** (world-editor-grid) is a click-driven extension of leg B: it renders one area's rooms on a 2-D grid, seeded by `IAreaLayoutSystem.Propose`, and every action (create/connect/disconnect/edit/delete) composes the same catalog verbs B already uses, plus one earned bidirectional-disconnect verb. No path mutates the live world directly (INV-12/23).
+**Summary.** Four offline authoring paths share the loopback `Hedron.Web` host (three share the same content-definition layer). (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline Blazor editor** browses/loads/edits/saves/renames definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`; blueprint-id-editing added a **rename leg** (`RenameAsync`, cascading `oldId → newId` through the content graph, structural sibling of the existing delete cascade) and a **choose-at-creation** path (`CreateAsync`, a deliberate id on the New form) to this leg. (B2) The **Standards page** (sim-1) edits the balance-standards document via `IBalanceStandardsStore` — a single criteria file deliberately outside the catalog (seed OQ1), with no `reload` leg (restart-to-apply instead). (B3) The **Integrity page's conformance fitter** (sim-5) closes the observation→correction loop: it scales a flagged template's stat vector into its target (Tier, Band) range and writes it through the same `SaveAsync` path as B. (B4) The **visual grid area editor** (world-editor-grid) is a click-driven extension of leg B: it renders one area's rooms on a 2-D grid, seeded by `IAreaLayoutSystem.Propose`, and every action (create/connect/disconnect/edit/delete/rename) composes the same catalog verbs B already uses, plus one earned bidirectional-disconnect verb. No path mutates the live world directly (INV-12/23).
 
 ---
 
@@ -80,6 +80,21 @@ sequenceDiagram
     end
     Cat->>Cat: File.Delete(target YAML)  [no EntityService / no SQLite]
     Cat-->>UI: ContentDeleteResult(DeletedPath, DeletedBlueprintId, CascadeEdits)
+    UI->>Cat: RenameAsync(kind, oldId, newId)
+    Cat->>Val: ValidateBlueprintId(kind, newId)
+    alt malformed or already-taken
+        Cat-->>UI: ContentRenameResult.Failed(errors)  [oldId file intact, nothing written]
+    else valid
+        Cat->>Cat: build fresh template(newId), copy state, rewrite self-refs
+        Cat->>W: WriteAsync(newTemplate)
+        Cat->>Idx: Referrers(kind, oldId)  [self-reference excluded]
+        Idx-->>Cat: ReferrerEdit[]
+        loop per external referrer
+            Cat->>W: WriteAsync(referrer with field rewritten oldId→newId)
+        end
+        Cat->>Cat: File.Delete(oldId YAML)
+        Cat-->>UI: ContentRenameResult.Ok(CascadeEdits, Warnings)  [out-of-YAML advisories, no SQLite/config write]
+    end
     UI->>Idx: SweepBroken()  [integrity page only]
     Idx-->>UI: BrokenReference[] (all broken edges across all kinds)
     UI->>WCL: ReloadAsync()  (see Flow 5)
@@ -88,7 +103,11 @@ sequenceDiagram
 
 **Steps.**
 1. Page calls `IContentDefinitionCatalog.List(kind)` and renders the definition table.
-2. Page calls `Load(kind, blueprintId)` or `CreateNew(kind, name)`. No live entity created.
+2. Page calls `Load(kind, blueprintId)` or `CreateNew(kind, name)`. No live entity created. On the
+   New form, the author may instead type a deliberate id into the shared `BlueprintIdField`
+   component (`CreateNew(kind, name, blueprintId)`); a blank id still falls back to the adhoc
+   generator. A create-mode save routes through `CreateAsync` (step 4a) rather than the unguarded
+   `SaveAsync` edits use.
 3. Designer edits form fields; form holds a working copy (no catalog call yet).
 4. On save: `SaveAsync(definition)` (or `SaveRoomAsync(room, bidirectional)` for rooms) validates,
    then writes YAML via `I*ContentWriter`. The live world is untouched. Invalid definitions block
@@ -97,15 +116,28 @@ sequenceDiagram
    With `bidirectional: true`, the catalog also writes the inverse exit on each target room; if a
    target already has a *different* exit in the inverse direction, that paired write is skipped and
    a warning is added (warn-and-skip; no silent overwrite).
+4a. On a create-mode save (step 2's deliberate-id path): `CreateAsync(definition)` runs
+   `IContentValidator.ValidateBlueprintId` + a `IContentReferenceIndex.Resolves` uniqueness check
+   before delegating to `SaveAsync` — refuses (no write) a malformed or already-taken id.
 5. On delete: `DeleteAsync(kind, blueprintId)` queries `IContentReferenceIndex.Referrers` for every
    definition pointing at the target, rewrites each via the matching writer (clearing the dangling
    field), then calls `File.Delete` on the target YAML. **YAML-file-only — no `EntityService`,
    no SQLite delete, no live-world mutation (INV-22/23).** Returns `ContentDeleteResult` with the
    deleted path and each cascade edit; the UI renders a summary.
-6. Integrity page: calls `IContentReferenceIndex.SweepBroken()` directly (injected as
+6. On rename: the editor's blueprint-id display offers a **Rename** action; confirming calls
+   `RenameAsync(kind, oldId, newId)` — `IContentValidator.ValidateBlueprintId(kind, newId)` refuses
+   a malformed id (no write); `IContentReferenceIndex.Resolves(kind, newId)` refuses a collision (no
+   merge). On pass, a fresh `newId` file is written (state copied, self-referential fields rewritten
+   `oldId → newId`), every external referrer found via `Referrers(kind, oldId)` is cascade-*rewritten*
+   through the same writer path delete uses (best-effort, matching delete's posture), and the `oldId`
+   file is deleted. **YAML-file-only** (INV-22/23) — out-of-YAML advisories (persistent player/item
+   locations re-keying on `reload`; a specific note when the room matches
+   `World:StartingRoomBlueprintId`) surface as `Warnings`, never a SQLite or config write. Returns
+   `ContentRenameResult`; the page navigates to the new id's edit route on success.
+7. Integrity page: calls `IContentReferenceIndex.SweepBroken()` directly (injected as
    `IContentReferenceIndex`). Returns every broken edge across all kinds; UI tabulates them with
    edit links back to each offending definition's editor.
-7. "Apply to live": page calls `IWorldContentLoader.ReloadAsync()` — [Flow 5](flow-05-content-reload.md).
+8. "Apply to live": page calls `IWorldContentLoader.ReloadAsync()` — [Flow 5](flow-05-content-reload.md).
    Counts rendered. No live entities mutated.
 
 The `Hedron.Web` host runs `AddContentBootstrapHostedServices` only (content load + registry validation; no telnet/heartbeat/persistence). Loopback-only for v1.
@@ -226,8 +258,10 @@ sequenceDiagram
         UI->>Cat: SaveRoomAsync(sourceRoom, bidirectional: true)
     else disconnect (click an edge tab or exit badge)
         UI->>Cat: RemoveRoomExitAsync(roomId, direction, bidirectional: true)
-    else edit (detail panel: RoomBasicsFields + RoomExitsEditor)
+    else edit (detail panel: BlueprintIdField + RoomBasicsFields + RoomExitsEditor)
         UI->>Cat: SaveAsync(definition) or SaveRoomAsync(room, bidirectional)
+    else rename (Rename action in detail panel)
+        UI->>Cat: RenameAsync(Room, oldId, newId)
     else delete
         UI->>Cat: DeleteAsync(Room, id)
     else apply layout (shown while ghosts exist)
@@ -244,8 +278,9 @@ sequenceDiagram
 3. **Create:** click an empty cell → inline name panel → `CreateNew(Room, name)`, set `AreaId` + the clicked cell's coordinates, `SaveRoomAsync(bidirectional: false)`.
 4. **Connect:** select a room, click an orthogonally adjacent occupied cell → direction derived via `DirectionExtensions.FromOffset`, source exit set, `SaveRoomAsync(bidirectional: true)`.
 5. **Disconnect:** click an edge tab or exit badge → `RemoveRoomExitAsync(roomId, direction, bidirectional: true)` — the mirror of step 4's bidirectional add.
-6. **Detail panel:** selecting a cell shows the shared `RoomBasicsFields` + `RoomExitsEditor` components (the same ones `RoomEditor` uses) — full-fidelity, including non-adjacent/vertical/cross-area exits; Save uses `SaveAsync`/`SaveRoomAsync` exactly like `RoomEditor`.
+6. **Detail panel:** selecting a cell shows the shared `BlueprintIdField` + `RoomBasicsFields` + `RoomExitsEditor` components (the same ones `RoomEditor` uses) — full-fidelity, including non-adjacent/vertical/cross-area exits; Save uses `SaveAsync`/`SaveRoomAsync` exactly like `RoomEditor`.
 7. **Delete:** confirm in the detail panel → `DeleteAsync(Room, id)` — the existing cascade clears referrers.
+7a. **Rename:** the detail panel's `BlueprintIdField` offers the same Rename action `RoomEditor` does → `RenameAsync(Room, oldId, newId)`; on success the selected room id updates to `newId` and the grid reloads (blueprint-id-editing).
 8. **Apply layout:** shown while any ghost cells exist → `ApplyProposalAsync(areaId)`, which re-derives the proposal from disk and writes coordinates for every still-coordless room, best-effort per room.
 9. Every action ends with a full reload (rooms + a fresh `Propose` call) so the grid always reflects on-disk truth. Apply-to-live remains the existing, unchanged reload leg ([Flow 5](flow-05-content-reload.md)).
 
@@ -258,15 +293,17 @@ No event is published anywhere in this leg (INV-5) — `IAreaLayoutSystem` and t
 - INV-5: `IContentGenerationSystem`, `IContentDefinitionCatalog`, `IAreaLayoutSystem`, and `IContentReferenceIndex` return results; they never touch the event bus.
 - INV-8: no authoring logic in the run-mode CLI or Blazor components — everything lives in the Core systems.
 - INV-10: the `generate` run-mode is a no-chain Initiator: composes, runs one operation, writes files, exits; publishes nothing.
-- INV-12 / INV-23: YAML only — no `EntityService.CreateEntity`, no `PersistentEntity`, no SQLite in either path. **`DeleteAsync` is YAML-file-only**: it calls `File.Delete` + `I*ContentWriter` rewrites and never invokes `EntityService.DestroyEntity`, no SQLite delete, and no live-world mutation.
-- INV-19: the four cross-definition reference edges (room→area, exit→room, item→spawnRoom, mob→spawnRoom, area→room) are declared once in `IContentReferenceIndex`'s edge set and drive all four consumers (delete-cascade, save-warn, integrity sweep, filter-association) without per-edge code paths.
+- INV-12 / INV-23: YAML only — no `EntityService.CreateEntity`, no `PersistentEntity`, no SQLite in either path. **`DeleteAsync`/`RenameAsync` are YAML-file-only**: they call `File.Delete`/`File.Move` + `I*ContentWriter` rewrites and never invoke `EntityService.DestroyEntity`, no SQLite write, and no live-world mutation. `RenameAsync`'s out-of-YAML advisories (persistent player/item locations, `World:StartingRoomBlueprintId`) surface as warnings, never a write.
+- INV-19: the six cross-definition reference edges (room→area, exit→room, item→spawnRoom, mob→spawnRoom, area→room, room.spawnRules→{mob,item}) are declared once in `IContentReferenceIndex`'s edge set and drive all consumers (delete-cascade, rename-cascade, save-warn, integrity sweep, filter-association) without per-edge code paths. The spawn-rule edge is two-kind — `Referrers` matches either target kind; `SweepBroken`/`BrokenFor` flag broken only when neither resolves (blueprint-id-editing).
 - INV-26: all randomness in `ContentGenerationSystem` flows through `SeededRandom`; blueprint ids are counter-derived; no wall clock read. Fixed-seed run is byte-reproducible.
 - **Warn-but-allow:** a `SaveAsync`/`SaveRoomAsync` result with `Success = true` may carry a non-empty `Warnings` list — these are cross-reference notices, not errors; the file was still written. Structural failures are still `Success = false` / no write.
 - **Bidirectional warn-and-skip:** when `SaveRoomAsync(bidirectional: true)` encounters a target room that already has a *different* exit in the inverse direction, that paired write is skipped and a warning is added. The source room's own file is always written. No silent overwrite.
+- **Rename refuse-on-collision (blueprint-id-editing):** `RenameAsync`/`CreateAsync` never merge — a malformed or already-taken `newId` refuses with no write at all (the `oldId` file, if any, is left untouched). The cascade itself stays best-effort/non-transactional, matching `DeleteAsync`'s existing posture (a per-referrer failure is logged and skipped, not fatal).
 - **B2 refuse-vs-warn (sim-1):** `IBalanceStandardsStore.SaveAsync` mirrors the same posture at the document level — structural failure refuses the write entirely (`Success = false`, no file), never a partial file; mirror-drift and unknown-ability-kit notices warn but allow the write.
 
 ## Cross-references
 
 - Systems: [`../../reference/systems.md`](../../reference/systems.md) — `IContentGenerationSystem`, `IContentDefinitionCatalog`, `IContentValidator`, `IAreaLayoutSystem`, the four `I*ContentWriter`s, `IBalanceStandardsStore`/`IBalanceStandardsRegistry`.
+- Roadmap: [`../../roadmap/completed/blueprint-id-editing.md`](../../roadmap/completed/blueprint-id-editing.md) — as-built record for the rename leg, choose-at-creation, and the two-kind spawn-rule edge.
 - Feature: [`../../features/admin-authoring/content-tooling.md`](../../features/admin-authoring/content-tooling.md) · [`../../features/admin-authoring/content-authoring.md`](../../features/admin-authoring/content-authoring.md) · [`../../features/progression/power-budget-system.md`](../../features/progression/power-budget-system.md) (the standards registry the B2 leg edits).
 - Related flow: [Flow 5 — content reload](flow-05-content-reload.md) (the apply leg the Blazor editor reuses) · [Flow 1 — server startup](flow-01-server-startup.md) (where a B2 save takes effect on next boot) · [Flow 33 — simulation run journey](flow-33-simulation-run.md) editor leg (sim-3) — a second content-tooling journey carrying an editor-surface trigger alongside its headless run-mode, mirroring this flow's own CLI/editor duality.

@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Aspects;
+using Hedron.Core.Modules.Authoring;
 using Hedron.Core.Modules.Effects;
 using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
@@ -17,6 +19,16 @@ namespace Hedron.Core.Modules.World.Systems
     /// </summary>
     public sealed class ContentValidator : IContentValidator
     {
+        private static readonly Regex FilenameSafePattern =
+            new(@"^[A-Za-z0-9._-]+$", RegexOptions.Compiled);
+
+        private static readonly HashSet<string> ReservedWindowsNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+        };
+
         private readonly IAbilityRegistry _abilityRegistry;
         private readonly IEffectRegistry _effectRegistry;
         private readonly IAspectRegistry _aspectRegistry;
@@ -109,6 +121,41 @@ namespace Hedron.Core.Modules.World.Systems
             }
 
             return ValidationReport.Ok;
+        }
+
+        public ValidationReport ValidateBlueprintId(ContentKind kind, string blueprintId)
+        {
+            var errors = new List<string>();
+            var warnings = new List<string>();
+
+            if (string.IsNullOrEmpty(blueprintId))
+            {
+                errors.Add("Blueprint id must not be empty.");
+                return new ValidationReport(errors, warnings);
+            }
+
+            if (blueprintId.IndexOf('/') >= 0 || blueprintId.IndexOf('\\') >= 0)
+                errors.Add($"Blueprint id '{blueprintId}' must not contain a path separator.");
+
+            if (blueprintId.Contains(".."))
+                errors.Add($"Blueprint id '{blueprintId}' must not contain a '..' segment.");
+
+            if (!FilenameSafePattern.IsMatch(blueprintId))
+                errors.Add($"Blueprint id '{blueprintId}' must contain only letters, digits, '.', '_', or '-'.");
+
+            if (ReservedWindowsNames.Contains(blueprintId))
+                errors.Add($"Blueprint id '{blueprintId}' is a reserved device name.");
+
+            var expectedPrefix = kind.KindString() + ".";
+            if (!blueprintId.StartsWith(expectedPrefix, StringComparison.Ordinal))
+            {
+                warnings.Add(
+                    $"Blueprint id '{blueprintId}' does not start with the conventional " +
+                    $"'{expectedPrefix}' prefix for {kind} definitions. This is allowed — the " +
+                    $"loader keys off the kind subdirectory, not the prefix.");
+            }
+
+            return new ValidationReport(errors, warnings);
         }
 
         private void ValidateAspectComposition(
