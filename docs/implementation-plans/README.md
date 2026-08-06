@@ -47,6 +47,8 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 | Status | Plan | Slice |
 |---|---|---|
 | `planned` | [`admin-area-authoring.md`](admin-area-authoring.md) | `mkarea` + `listents <type>` |
+| `planned` | [`authoring-editor-repair.md`](authoring-editor-repair.md) | Catalog index cache + editor UX ratchet (Phase 5 no-regret) |
+| `planned` | [`authoring-api-surface.md`](authoring-api-surface.md) | `INV-8` conformance + narrow JSON surface (Phase 5 no-regret) |
 | `planned` | [`tiered-overworld-program.md`](tiered-overworld-program.md) | Phase 6 world program (requirements seed — awaiting `/advise`) |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |

@@ -89,6 +89,7 @@ Rows marked *(target)* describe locations that are rebuilt as part of Phase 2. T
 | [../design/gameplay-model.md](../design/gameplay-model.md) | Forward design north-star for gameplay systems (Aspects, Abilities, Effects, Scaling, Progression) — feeds the roadmap; draft, not yet built |
 | [../design/power-model.md](../design/power-model.md) | The power oracle's snapshot-only extensibility rule — how future power inputs fold in without a domain import |
 | [../design/balance.md](../design/balance.md) | Balance catalog: every tunable knob by home, observability surfaces, and the maintenance contract |
+| [../design/client-tier.md](../design/client-tier.md) | The open Blazor-vs-React + SignalR client-tier decision, its evidence base, and the Phase 5 → 6 gate that settles it |
 | [../roadmap/plan.md](../roadmap/plan.md) | Strategy, end goal, phase summary, current focus |
 | [../roadmap/done.md](../roadmap/done.md) | Short ledger of completed phases / slices |
 | [../roadmap/completed/](../roadmap/completed/) | Per-slice history: what shipped, the as-built record, and the design decisions (the durable home for shipped-slice rationale) |
