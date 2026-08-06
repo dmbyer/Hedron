@@ -26,17 +26,18 @@
 }
 else if (_template is not null)
 {
+<div class="editor-form" @onkeydown="OnFormKeyDown">
     <BlueprintIdField Kind="ContentKind.Mob" IsNew="IsNew" BlueprintId="@_template.BlueprintId"
                        BlueprintIdChanged="OnBlueprintIdChanged" OnRenamed="OnRenamed" />
 
     <div class="field">
         <label>Name</label>
-        <input @bind="_template.Name" />
+        <input @ref="_firstField" @bind="_template.Name" />
     </div>
 
     <div class="field">
         <label>Description</label>
-        <textarea rows="4" @bind="_template.Description"></textarea>
+        <textarea rows="4" @bind="_template.Description" @onkeydown:stopPropagation="true"></textarea>
     </div>
 
     <div class="field-row">
@@ -65,7 +66,7 @@ else if (_template is not null)
                     <option value="">All areas</option>
                     @foreach (var area in _areas)
                     {
-                        <option value="@area.BlueprintId">@area.Name</option>
+                        <option @key="area.BlueprintId" value="@area.BlueprintId">@area.Name</option>
                     }
                 </select>
             </div>
@@ -76,7 +77,7 @@ else if (_template is not null)
                     <option value="">-- no spawn room --</option>
                     @foreach (var room in SpawnRooms)
                     {
-                        <option value="@room.BlueprintId">@room.Name (@room.BlueprintId)</option>
+                        <option @key="room.BlueprintId" value="@room.BlueprintId">@room.Name (@room.BlueprintId)</option>
                     }
                 </select>
             </div>
@@ -231,7 +232,7 @@ else if (_template is not null)
                 @for (var i = 0; i < _template.ShopBaseStock.Count; i++)
                 {
                     var idx = i;
-                    <div class="field-row">
+                    <div class="field-row" @key="idx">
                         <div class="field">
                             <label>Blueprint id</label>
                             <input value="@_template.ShopBaseStock[idx].BlueprintId"
@@ -309,8 +310,12 @@ else if (_template is not null)
         <button class="primary" disabled="@_saving" @onclick="Save">
             @(_saving ? "Saving..." : "Save")
         </button>
+        <button disabled="@_saving" @onclick="SaveAndCreateNext" title="Saves, then starts a new definition carrying this one's authoring context forward">
+            Save &amp; create next
+        </button>
         <a class="cancel" href="">Back to browser</a>
     </div>
+</div>
 }
 
 @code {
@@ -324,6 +329,9 @@ else if (_template is not null)
     private bool _saved;
     private bool _confirmDelete;
     private bool _deleting;
+    // Set by "Save & create next": re-arms this page as a New form without a route change.
+    private bool _forceNew;
+    private bool _createNextPending;
     private IReadOnlyList<string> _errors = Array.Empty<string>();
     private IReadOnlyList<string> _warnings = Array.Empty<string>();
     private IReadOnlyList<ContentSummary> _areas = Array.Empty<ContentSummary>();
@@ -338,7 +346,7 @@ else if (_template is not null)
     private void SetSpawnAreaFilter(string? value) =>
         _spawnAreaFilter = value ?? string.Empty;
 
-    private bool IsNew => string.IsNullOrEmpty(BlueprintId);
+    private bool IsNew => _forceNew || string.IsNullOrEmpty(BlueprintId);
 
     // Snapshot from the authored template via the shared IMobPowerProjectionSystem seam — never
     // IStatSystem.Get, since the editor operates on YAML templates with no live entity (see
@@ -362,6 +370,8 @@ else if (_template is not null)
         _errors = Array.Empty<string>();
         _warnings = Array.Empty<string>();
         _confirmDelete = false;
+        _forceNew = false;
+        _focusPending = true;
         _areas = Catalog.List(ContentKind.Area);
         _allRooms = Catalog.List(ContentKind.Room);
         _spawnAreaFilter = string.Empty;
@@ -430,10 +440,13 @@ else if (_template is not null)
         _template.CurrencyLoot[CurrencyId.Coin] = (existing.Min, v);
     }
 
+    // WithBlueprintId, never CreateNew - swapping in a fresh default would discard every other
+    // field the author has already filled in on this form.
     private void OnBlueprintIdChanged(string newId)
     {
         if (_template is null) return;
-        _template = (MobTemplate)Catalog.CreateNew(ContentKind.Mob, _template.Name, newId).Template;
+        _template = (MobTemplate)Catalog
+            .WithBlueprintId(new ContentDefinition(ContentKind.Mob, _template), newId).Template;
     }
 
     private void OnRenamed(ContentRenameResult result)
@@ -462,7 +475,7 @@ else if (_template is not null)
         {
             _saved = true;
             _warnings = result.Warnings;
-            if (IsNew)
+            if (IsNew && !_createNextPending)
                 Nav.NavigateTo($"mob/{Uri.EscapeDataString(_template.BlueprintId)}");
         }
         else
@@ -496,6 +509,58 @@ else if (_template is not null)
         if (_template is null || index < 0 || index >= _template.ShopBaseStock.Count) return;
         if (!int.TryParse(raw, out var v) || v < 1) v = 1;
         _template.ShopBaseStock[index].Quantity = v;
+    }
+
+
+    /// <summary>
+    /// Saves the current definition then re-arms the form as a New form seeded by
+    /// <c>CreateNextFrom</c> - the catalog owns which fields carry forward (authoring policy plus
+    /// kind dispatch, which a component may not hold; see docs/architecture/08-blazor.md).
+    /// </summary>
+    private async Task SaveAndCreateNext()
+    {
+        if (_template is null) return;
+
+        var previous = new ContentDefinition(ContentKind.Mob, _template);
+        _createNextPending = true;
+        await Save();
+        _createNextPending = false;
+
+        if (!_saved) return;
+
+        _template = (MobTemplate)Catalog.CreateNextFrom(previous, "New Mob").Template;
+        _forceNew = true;
+        _saved = false;
+        _focusPending = true;
+    }
+
+    // -- Keyboard-first authoring --------------------------------------------------
+    // Enter saves, Esc returns to the browser. Multi-line fields stop keydown
+    // propagation so Enter inside a textarea still inserts a newline.
+    private ElementReference _firstField;
+    private bool _focusPending = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusPending || _template is null)
+            return;
+
+        _focusPending = false;
+        try { await _firstField.FocusAsync(); }
+        catch (Exception) { /* element not in the DOM this pass - harmless */ }
+    }
+
+    private async Task OnFormKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            if (!_saving)
+                await Save();
+        }
+        else if (e.Key == "Escape")
+        {
+            Nav.NavigateTo(string.Empty);
+        }
     }
 
     private async Task ConfirmDelete()

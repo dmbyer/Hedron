@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -21,6 +22,70 @@ namespace Hedron.Core.Modules.Authoring.Systems
     /// writers, the content serializer (read side), the content validator, and the reference index
     /// into one surface-agnostic authoring facade.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Caching.</strong> Reads are served from an in-memory index (per-kind summary lists,
+    /// a derived room→area map, and a per-id file-body map). The summary lists and the room→area
+    /// map are corpus sweeps; <strong>the per-id map fills one id at a time, on demand</strong>.
+    /// That granularity is load-bearing rather than an optimization detail: whole-index
+    /// invalidation plus corpus-populated per-id caching would turn
+    /// <c>TemplateConformanceSystem.ApplyFlaggedAsync</c>'s and
+    /// <c>IAreaLayoutSystem.ApplyProposalAsync</c>'s per-entry <c>Load</c>→write loops into N full
+    /// sweeps. With per-id-on-demand population a <c>Load</c> after an invalidation is still one
+    /// file read and both loops stay O(N).
+    /// </para>
+    /// <para>
+    /// <strong>The rule that keeps that true, for any caller:</strong> never call
+    /// <see cref="List"/> or <see cref="RoomsInArea"/> from inside a loop that also writes. Each
+    /// write drops the index, so a summary read in the loop body is a fresh corpus sweep per
+    /// iteration. Hoist it above the loop (which is what both callers above do) or reach for
+    /// <see cref="Load"/>, which stays one file read.
+    /// </para>
+    /// <para>
+    /// <strong>Invalidation is whole-index.</strong> <c>DeleteAsync</c> clears fields on other
+    /// definitions, <c>RenameAsync</c> rewrites every referrer, <c>SaveRoomAsync(bidirectional)</c>
+    /// writes an inverse exit on a different room, and the summaries are backed by a derived
+    /// room→area map. Entry-scoped invalidation cannot express those cascades, so every write and
+    /// every delete drops the whole index.
+    /// </para>
+    /// <para>
+    /// <strong>Concurrency posture (INV-31).</strong> The catalog is a DI singleton reached
+    /// concurrently from multiple Blazor circuits. Every mutator is <c>async</c> and invalidates
+    /// after an awaited file write, so a thread-affine <c>ReaderWriterLockSlim</c> is unusable (it
+    /// cannot be held across an <c>await</c>). Instead the index is a snapshot object swapped under
+    /// a plain <c>lock</c>: readers take the current reference with no lock and populate lazily into
+    /// it.
+    /// </para>
+    /// <para>
+    /// Lazy population makes every reader a writer, which raises a lost-invalidation hazard: a sweep
+    /// that began before a concurrent write must not publish pre-write disk state and leave the
+    /// index stale until the next write. <strong>Snapshot identity is the generation</strong> — a
+    /// populating reader writes into the snapshot object it captured, and
+    /// <see cref="Invalidate"/> detaches that object, so a late publish lands in an orphan nothing
+    /// reads. The explicit <c>Generation</c> check in <c>StillCurrent</c> states that invariant
+    /// rather than carrying it alone; a design that published into a shared field instead would
+    /// depend on the check for correctness.
+    /// </para>
+    /// <para>
+    /// The guard covers <strong>index consistency only</strong>. It does not make YAML writes
+    /// atomic; the non-transactional multi-file cascade remains the recorded debt it was. No
+    /// live-world component is touched (INV-12/22/23).
+    /// </para>
+    /// <para>
+    /// <strong>The trade that buys.</strong> Rejecting a stale publish means a sustained write loop
+    /// (a bulk conformance apply over a large corpus, say) can invalidate faster than a concurrent
+    /// reader can publish, so the index stays cold and that reader re-sweeps each time. Deliberate:
+    /// correctness over cache retention while writes are in flight. Likewise, two circuits hitting a
+    /// cold index concurrently may each sweep the same kind — benign duplicate work, last publish
+    /// wins. The "at most one sweep per invalidation" bound is therefore per reader, not global.
+    /// </para>
+    /// <para>
+    /// <strong>Cached bodies, not cached templates.</strong> The per-id map caches the file
+    /// <em>text</em> and <c>Load</c> deserializes a fresh template per call. Callers mutate the
+    /// template they get back (the editors, and this class's own cascade helpers), so handing out a
+    /// shared instance would leak in-progress edits into the index.
+    /// </para>
+    /// </remarks>
     public sealed class ContentDefinitionCatalog : IContentDefinitionCatalog
     {
         private readonly IContentSerializer _serializer;
@@ -32,8 +97,14 @@ namespace Hedron.Core.Modules.Authoring.Systems
         private readonly IItemContentWriter _itemWriter;
         private readonly IMobContentWriter _mobWriter;
         private readonly ILogger<ContentDefinitionCatalog> _logger;
+        private readonly IContentFileReader _fileReader;
         private readonly string _contentDirectory;
         private readonly string _startingRoomBlueprintId;
+
+        // ── Index state (see the class remarks for the INV-31 posture) ───────────────
+        private readonly object _indexLock = new();
+        private int _generation;
+        private CatalogIndex? _index;
 
         public ContentDefinitionCatalog(
             IContentSerializer serializer,
@@ -44,7 +115,8 @@ namespace Hedron.Core.Modules.Authoring.Systems
             IItemContentWriter itemWriter,
             IMobContentWriter mobWriter,
             IOptions<WorldOptions> options,
-            ILogger<ContentDefinitionCatalog> logger)
+            ILogger<ContentDefinitionCatalog> logger,
+            IContentFileReader? fileReader = null)
             : this(
                 serializer,
                 validator,
@@ -55,7 +127,8 @@ namespace Hedron.Core.Modules.Authoring.Systems
                 itemWriter,
                 mobWriter,
                 options,
-                logger)
+                logger,
+                fileReader)
         {
         }
 
@@ -73,7 +146,8 @@ namespace Hedron.Core.Modules.Authoring.Systems
             IItemContentWriter itemWriter,
             IMobContentWriter mobWriter,
             IOptions<WorldOptions> options,
-            ILogger<ContentDefinitionCatalog> logger)
+            ILogger<ContentDefinitionCatalog> logger,
+            IContentFileReader? fileReader = null)
         {
             _serializer = serializer;
             _validator = validator;
@@ -84,39 +158,28 @@ namespace Hedron.Core.Modules.Authoring.Systems
             _itemWriter = itemWriter;
             _mobWriter = mobWriter;
             _logger = logger;
+            _fileReader = fileReader ?? new ContentFileReader();
             _contentDirectory = options.Value.ContentDirectory;
             _startingRoomBlueprintId = options.Value.StartingRoomBlueprintId;
         }
 
         public IReadOnlyList<ContentSummary> List(ContentKind kind)
         {
-            var directory = Path.Combine(_contentDirectory, kind.Subdirectory());
-            if (!Directory.Exists(directory))
-                return Array.Empty<ContentSummary>();
+            var index = CurrentIndex();
+            if (index.Summaries.TryGetValue(kind, out var cached))
+                return cached;
 
-            // Build a room blueprintId → AreaId map once per List call so that item/mob
-            // two-hop resolution is O(1) per definition rather than re-reading per file.
-            var roomAreaMap = BuildRoomAreaMap();
+            // Rooms carry their own AreaId, so the room sweep needs no map — and the map is then
+            // derived from that sweep's result. That ordering is what bounds each kind's directory
+            // to at most one sweep per invalidation (Postcondition 3): without it, listing items
+            // would sweep the room directory a second time to build the map.
+            var roomAreaMap = kind is ContentKind.Item or ContentKind.Mob
+                ? EnsureRoomAreaMap(index)
+                : EmptyRoomAreaMap;
 
-            var summaries = new List<ContentSummary>();
-            foreach (var file in Directory.GetFiles(directory, "*" + _serializer.FormatExtension))
-            {
-                try
-                {
-                    var body = File.ReadAllText(file);
-                    var template = _serializer.Deserialize(kind.KindString(), body);
-                    var (name, description) = ExtractNameAndDescription(template);
-                    var areaBlueprintId = ResolveAreaBlueprintId(template, roomAreaMap);
-                    summaries.Add(new ContentSummary(template.BlueprintId, name, description, areaBlueprintId));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex,
-                        "ContentDefinitionCatalog: failed to read {Kind} file '{File}'; skipping in listing.",
-                        kind, file);
-                }
-            }
-            return summaries;
+            var built = SweepSummaries(kind, roomAreaMap);
+            PublishSummaries(index, kind, built);
+            return built;
         }
 
         public IReadOnlyList<ContentSummary> RoomsInArea(string areaBlueprintId)
@@ -133,13 +196,32 @@ namespace Hedron.Core.Modules.Authoring.Systems
 
         public ContentDefinition? Load(ContentKind kind, string blueprintId)
         {
-            var path = Path.Combine(_contentDirectory, kind.Subdirectory(), blueprintId + _serializer.FormatExtension);
-            if (!File.Exists(path))
+            var index = CurrentIndex();
+            var key = (kind, blueprintId);
+
+            if (!index.Bodies.TryGetValue(key, out var body))
+            {
+                // Per-id, on-demand fill: one file read, never a corpus sweep.
+                var path = DefinitionPath(kind, blueprintId);
+                body = _fileReader.FileExists(path) ? _fileReader.ReadAllText(path) : null;
+                PublishBody(index, key, body);
+            }
+
+            if (body is null)
                 return null;
 
-            var body = File.ReadAllText(path);
+            // Deserialize per call — callers mutate the template they get back.
             var template = _serializer.Deserialize(kind.KindString(), body);
             return new ContentDefinition(kind, template);
+        }
+
+        public void Invalidate()
+        {
+            lock (_indexLock)
+            {
+                _generation++;
+                _index = null;
+            }
         }
 
         public async Task<ContentWriteResult> SaveAsync(ContentDefinition definition, CancellationToken ct = default)
@@ -173,7 +255,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
             if (!report.IsValid)
                 return ContentWriteResult.Failed(room.BlueprintId, report.Errors);
 
-            await _roomWriter.WriteAsync(room, ct).ConfigureAwait(false);
+            await WriteTemplateAsync(room, ct).ConfigureAwait(false);
 
             var warnings = new List<string>();
 
@@ -223,7 +305,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
 
                     // Write the inverse exit on the target room.
                     targetRoom.Exits[inverseDir] = room.BlueprintId;
-                    await _roomWriter.WriteAsync(targetRoom, ct).ConfigureAwait(false);
+                    await WriteTemplateAsync(targetRoom, ct).ConfigureAwait(false);
                 }
             }
 
@@ -251,8 +333,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
 
             // 3. Delete the target YAML file. (File-only — no EntityService, no SQLite, INV-22/23.)
             var filePath = DefinitionPath(kind, blueprintId);
-            if (File.Exists(filePath))
-                File.Delete(filePath);
+            DeleteFile(filePath);
 
             return new ContentDeleteResult(filePath, blueprintId, cascadeEdits);
         }
@@ -307,8 +388,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
 
             // 6. Delete the old file. (File-only — no EntityService, no SQLite, INV-22/23.)
             var oldPath = DefinitionPath(kind, oldId);
-            if (File.Exists(oldPath))
-                File.Delete(oldPath);
+            DeleteFile(oldPath);
 
             var newPath = DefinitionPath(kind, newId);
 
@@ -352,6 +432,61 @@ namespace Hedron.Core.Modules.Authoring.Systems
             };
 
             return new ContentDefinition(kind, template);
+        }
+
+        public ContentDefinition WithBlueprintId(ContentDefinition definition, string? blueprintId)
+        {
+            var resolvedId = string.IsNullOrEmpty(blueprintId)
+                ? AdhocBlueprintId.Generate(definition.Kind.AdhocPrefix(), id => _templateRegistry.TryGet(id, out _))
+                : blueprintId;
+
+            // Reuses the same clone-and-rewrite rule RenameAsync applies, so there is exactly one
+            // id-rewrite rule in the catalog (INV-19).
+            var rekeyed = CloneWithNewId(definition.Kind, definition.Template, definition.BlueprintId, resolvedId);
+            return new ContentDefinition(definition.Kind, rekeyed);
+        }
+
+        public ContentDefinition CreateNextFrom(ContentDefinition previous, string name)
+        {
+            // Delegates id minting to CreateNew so the slice adds no third id-minting path.
+            var next = CreateNew(previous.Kind, name);
+
+            switch (previous.Kind)
+            {
+                case ContentKind.Area:
+                    // Nothing carries forward — areas are authored individually.
+                    break;
+
+                case ContentKind.Room:
+                    ((RoomTemplate)next.Template).AreaId = ((RoomTemplate)previous.Template).AreaId;
+                    break;
+
+                case ContentKind.Item:
+                {
+                    var from = (ItemTemplate)previous.Template;
+                    var to = (ItemTemplate)next.Template;
+                    to.Tier = from.Tier;
+                    to.Band = from.Band;
+                    to.ItemType = from.ItemType;
+                    to.WornSlots = new List<WornSlot>(from.WornSlots);
+                    break;
+                }
+
+                case ContentKind.Mob:
+                {
+                    var from = (MobTemplate)previous.Template;
+                    var to = (MobTemplate)next.Template;
+                    to.Tier = from.Tier;
+                    to.Band = from.Band;
+                    to.SpawnRoomBlueprintId = from.SpawnRoomBlueprintId;
+                    break;
+                }
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(previous));
+            }
+
+            return next;
         }
 
         public async Task<ContentWriteResult> CreateAsync(ContentDefinition definition, CancellationToken ct = default)
@@ -398,7 +533,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
             if (!report.IsValid)
                 return ContentWriteResult.Failed(roomBlueprintId, report.Errors);
 
-            await _roomWriter.WriteAsync(room, ct).ConfigureAwait(false);
+            await WriteTemplateAsync(room, ct).ConfigureAwait(false);
 
             if (bidirectional
                 && !string.IsNullOrEmpty(targetBlueprintId)
@@ -414,12 +549,173 @@ namespace Hedron.Core.Modules.Authoring.Systems
                         && string.Equals(inverseTarget, roomBlueprintId, StringComparison.Ordinal))
                     {
                         targetRoom.Exits.Remove(inverseDir);
-                        await _roomWriter.WriteAsync(targetRoom, ct).ConfigureAwait(false);
+                        await WriteTemplateAsync(targetRoom, ct).ConfigureAwait(false);
                     }
                 }
             }
 
             return ContentWriteResult.Ok(roomBlueprintId);
+        }
+
+        // ── Index ────────────────────────────────────────────────────────────────────
+
+        private static readonly Dictionary<string, string> EmptyRoomAreaMap = new(StringComparer.Ordinal);
+
+        /// <summary>
+        /// One generation of the in-memory index. The reference is swapped under
+        /// <see cref="_indexLock"/>; its contents fill lazily and are therefore concurrent
+        /// collections, so a reader that has taken the reference needs no lock.
+        /// </summary>
+        private sealed class CatalogIndex
+        {
+            public CatalogIndex(int generation) => Generation = generation;
+
+            public int Generation { get; }
+
+            /// <summary>Per-kind summary list — a corpus sweep of that kind's directory.</summary>
+            public ConcurrentDictionary<ContentKind, IReadOnlyList<ContentSummary>> Summaries { get; } = new();
+
+            /// <summary>Per-id raw file body; a <c>null</c> value is a cached "no such file".</summary>
+            public ConcurrentDictionary<(ContentKind Kind, string BlueprintId), string?> Bodies { get; } = new();
+
+            /// <summary>Derived room → area map. Assigned and read under <see cref="_indexLock"/>.</summary>
+            public Dictionary<string, string>? RoomAreaMap;
+        }
+
+        private CatalogIndex CurrentIndex()
+        {
+            lock (_indexLock)
+            {
+                return _index ??= new CatalogIndex(_generation);
+            }
+        }
+
+        /// <summary>
+        /// Publishes a lazily populated value only if <paramref name="captured"/> is still the live
+        /// generation. Without this check a sweep that began before a concurrent write would
+        /// republish pre-write disk state and leave the index stale until the next write
+        /// (Postcondition 2) — a race single-threaded invalidation tests cannot catch.
+        /// </summary>
+        private bool StillCurrent(CatalogIndex captured) =>
+            _index is not null && _index.Generation == captured.Generation;
+
+        private void PublishSummaries(CatalogIndex captured, ContentKind kind, IReadOnlyList<ContentSummary> built)
+        {
+            lock (_indexLock)
+            {
+                if (StillCurrent(captured))
+                    captured.Summaries[kind] = built;
+            }
+        }
+
+        private void PublishBody(CatalogIndex captured, (ContentKind, string) key, string? body)
+        {
+            lock (_indexLock)
+            {
+                if (StillCurrent(captured))
+                    captured.Bodies[key] = body;
+            }
+        }
+
+        /// <summary>
+        /// The room blueprintId → AreaId map backing item/mob two-hop area resolution, derived from
+        /// the (cached) room summaries rather than a second sweep of the room directory.
+        /// </summary>
+        private Dictionary<string, string> EnsureRoomAreaMap(CatalogIndex index)
+        {
+            lock (_indexLock)
+            {
+                // No StillCurrent check here, deliberately: the caller (List) already holds this
+                // same snapshot, so a map read from it is exactly as current as the sweep it feeds,
+                // and that sweep's own publish is generation-guarded. Nothing stale can be cached.
+                if (index.RoomAreaMap is { } existing)
+                    return existing;
+            }
+
+            var map = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var room in List(ContentKind.Room))
+            {
+                if (!string.IsNullOrEmpty(room.AreaBlueprintId))
+                    map[room.BlueprintId] = room.AreaBlueprintId!;
+            }
+
+            lock (_indexLock)
+            {
+                if (StillCurrent(index))
+                    index.RoomAreaMap = map;
+            }
+            return map;
+        }
+
+        /// <summary>
+        /// One directory sweep for <paramref name="kind"/>: read + deserialize every file. An
+        /// unreadable file is logged and skipped rather than failing the listing.
+        /// </summary>
+        private IReadOnlyList<ContentSummary> SweepSummaries(
+            ContentKind kind,
+            Dictionary<string, string> roomAreaMap)
+        {
+            var directory = Path.Combine(_contentDirectory, kind.Subdirectory());
+            if (!_fileReader.DirectoryExists(directory))
+                return Array.Empty<ContentSummary>();
+
+            var summaries = new List<ContentSummary>();
+            foreach (var file in _fileReader.GetFiles(directory, "*" + _serializer.FormatExtension))
+            {
+                try
+                {
+                    var body = _fileReader.ReadAllText(file);
+                    var template = _serializer.Deserialize(kind.KindString(), body);
+                    var (name, description) = ExtractNameAndDescription(template);
+                    var areaBlueprintId = ResolveAreaBlueprintId(template, roomAreaMap);
+                    summaries.Add(new ContentSummary(template.BlueprintId, name, description, areaBlueprintId));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "ContentDefinitionCatalog: failed to read {Kind} file '{File}'; skipping in listing.",
+                        kind, file);
+                }
+            }
+            return summaries;
+        }
+
+        // ── Invalidating write primitives ────────────────────────────────────────────
+        //
+        // Every filesystem mutation the catalog performs goes through one of these two, so no
+        // write path can forget to invalidate (Postcondition 2). Invalidation happens *after* the
+        // awaited write, which is why the index cannot be guarded by a thread-affine lock.
+
+        private async Task WriteTemplateAsync(IEntityTemplate template, CancellationToken ct)
+        {
+            switch (template)
+            {
+                case AreaTemplate area:
+                    await _areaWriter.WriteAsync(area, ct).ConfigureAwait(false);
+                    break;
+                case RoomTemplate room:
+                    await _roomWriter.WriteAsync(room, ct).ConfigureAwait(false);
+                    break;
+                case ItemTemplate item:
+                    await _itemWriter.WriteAsync(item, ct).ConfigureAwait(false);
+                    break;
+                case MobTemplate mob:
+                    await _mobWriter.WriteAsync(mob, ct).ConfigureAwait(false);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(template));
+            }
+
+            Invalidate();
+        }
+
+        private void DeleteFile(string path)
+        {
+            // The probe is a read (through the seam, so a test can see it); the delete is a write.
+            if (_fileReader.FileExists(path))
+                File.Delete(path);
+
+            Invalidate();
         }
 
         // ── Cascade-apply helpers ────────────────────────────────────────────────────
@@ -486,7 +782,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
                                 }
                             }
                         }
-                        await _roomWriter.WriteAsync(room, ct).ConfigureAwait(false);
+                        await WriteTemplateAsync(room, ct).ConfigureAwait(false);
                         return true;
                     }
 
@@ -494,7 +790,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
                     {
                         var item = (ItemTemplate)def.Template;
                         item.SpawnRoomBlueprintId = newId ?? string.Empty;
-                        await _itemWriter.WriteAsync(item, ct).ConfigureAwait(false);
+                        await WriteTemplateAsync(item, ct).ConfigureAwait(false);
                         return true;
                     }
 
@@ -502,7 +798,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
                     {
                         var mob = (MobTemplate)def.Template;
                         mob.SpawnRoomBlueprintId = newId ?? string.Empty;
-                        await _mobWriter.WriteAsync(mob, ct).ConfigureAwait(false);
+                        await WriteTemplateAsync(mob, ct).ConfigureAwait(false);
                         return true;
                     }
 
@@ -519,7 +815,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
                             if (idx >= 0)
                                 area.Rooms[idx] = newId;
                         }
-                        await _areaWriter.WriteAsync(area, ct).ConfigureAwait(false);
+                        await WriteTemplateAsync(area, ct).ConfigureAwait(false);
                         return true;
                     }
 
@@ -648,26 +944,8 @@ namespace Hedron.Core.Modules.Authoring.Systems
         /// Dispatches the appropriate writer for a definition (all kinds except Room with
         /// bidirectional). For Room with bidirectional, use <see cref="SaveRoomAsync"/> instead.
         /// </summary>
-        private async Task WriteDefinitionAsync(ContentDefinition definition, CancellationToken ct)
-        {
-            switch (definition.Kind)
-            {
-                case ContentKind.Area:
-                    await _areaWriter.WriteAsync((AreaTemplate)definition.Template, ct).ConfigureAwait(false);
-                    break;
-                case ContentKind.Room:
-                    await _roomWriter.WriteAsync((RoomTemplate)definition.Template, ct).ConfigureAwait(false);
-                    break;
-                case ContentKind.Item:
-                    await _itemWriter.WriteAsync((ItemTemplate)definition.Template, ct).ConfigureAwait(false);
-                    break;
-                case ContentKind.Mob:
-                    await _mobWriter.WriteAsync((MobTemplate)definition.Template, ct).ConfigureAwait(false);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(definition));
-            }
-        }
+        private Task WriteDefinitionAsync(ContentDefinition definition, CancellationToken ct) =>
+            WriteTemplateAsync(definition.Template, ct);
 
         /// <summary>
         /// Returns the on-disk path for a definition by kind and blueprint id.
@@ -691,40 +969,6 @@ namespace Hedron.Core.Modules.Authoring.Systems
                     $"fix or delete the target before reloading the world.");
             }
             return warnings;
-        }
-
-        /// <summary>
-        /// Builds a snapshot map of room blueprint id → area id by reading all room files. Used
-        /// once per <see cref="List"/> call to make item/mob two-hop resolution O(1) per entry.
-        /// A room with a blank <c>AreaId</c> is omitted from the map (yielding <c>null</c> on
-        /// lookup) — never throws.
-        /// </summary>
-        private Dictionary<string, string> BuildRoomAreaMap()
-        {
-            var map = new Dictionary<string, string>(StringComparer.Ordinal);
-            var roomDirectory = Path.Combine(_contentDirectory, ContentKind.Room.Subdirectory());
-            if (!Directory.Exists(roomDirectory))
-                return map;
-
-            foreach (var file in Directory.GetFiles(roomDirectory, "*" + _serializer.FormatExtension))
-            {
-                try
-                {
-                    var body = File.ReadAllText(file);
-                    if (_serializer.Deserialize(ContentKind.Room.KindString(), body) is RoomTemplate room
-                        && !string.IsNullOrEmpty(room.AreaId))
-                    {
-                        map[room.BlueprintId] = room.AreaId;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex,
-                        "ContentDefinitionCatalog: failed to read room file '{File}' while building area map; skipping.",
-                        file);
-                }
-            }
-            return map;
         }
 
         /// <summary>

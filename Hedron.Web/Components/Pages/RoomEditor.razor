@@ -15,10 +15,11 @@
 }
 else if (_template is not null)
 {
+<div class="editor-form" @onkeydown="OnFormKeyDown">
     <BlueprintIdField Kind="ContentKind.Room" IsNew="IsNew" BlueprintId="@_template.BlueprintId"
                        BlueprintIdChanged="OnBlueprintIdChanged" OnRenamed="OnRenamed" />
 
-    <RoomBasicsFields Room="_template" Areas="_areas" />
+    <RoomBasicsFields @ref="_basics" Room="_template" Areas="_areas" />
 
     <RoomExitsEditor Room="_template" Rooms="_rooms" />
 
@@ -80,8 +81,12 @@ else if (_template is not null)
         <button class="primary" disabled="@_saving" @onclick="Save">
             @(_saving ? "Saving..." : "Save")
         </button>
+        <button disabled="@_saving" @onclick="SaveAndCreateNext" title="Saves, then starts a new definition carrying this one's authoring context forward">
+            Save &amp; create next
+        </button>
         <a class="cancel" href="">Back to browser</a>
     </div>
+</div>
 }
 
 @code {
@@ -94,12 +99,16 @@ else if (_template is not null)
     private bool _bidirectional;
     private bool _confirmDelete;
     private bool _deleting;
+    // Set by "Save & create next": re-arms this page as a New form without a route change.
+    private bool _forceNew;
+    private bool _createNextPending;
+
     private IReadOnlyList<string> _errors = Array.Empty<string>();
     private IReadOnlyList<string> _warnings = Array.Empty<string>();
     private IReadOnlyList<ContentSummary> _areas = Array.Empty<ContentSummary>();
     private IReadOnlyList<ContentSummary> _rooms = Array.Empty<ContentSummary>();
 
-    private bool IsNew => string.IsNullOrEmpty(BlueprintId);
+    private bool IsNew => _forceNew || string.IsNullOrEmpty(BlueprintId);
 
     protected override void OnParametersSet()
     {
@@ -108,6 +117,8 @@ else if (_template is not null)
         _warnings = Array.Empty<string>();
         _confirmDelete = false;
         _bidirectional = false;
+        _forceNew = false;
+        _focusPending = true;
         _areas = Catalog.List(ContentKind.Area);
         _rooms = Catalog.List(ContentKind.Room);
 
@@ -124,10 +135,13 @@ else if (_template is not null)
         }
     }
 
+    // WithBlueprintId, never CreateNew - swapping in a fresh default would discard every other
+    // field the author has already filled in on this form.
     private void OnBlueprintIdChanged(string newId)
     {
         if (_template is null) return;
-        _template = (RoomTemplate)Catalog.CreateNew(ContentKind.Room, _template.Name, newId).Template;
+        _template = (RoomTemplate)Catalog
+            .WithBlueprintId(new ContentDefinition(ContentKind.Room, _template), newId).Template;
     }
 
     private void OnRenamed(ContentRenameResult result)
@@ -166,12 +180,64 @@ else if (_template is not null)
         {
             _saved = true;
             _warnings = result.Warnings;
-            if (IsNew)
+            if (IsNew && !_createNextPending)
                 Nav.NavigateTo($"room/{Uri.EscapeDataString(_template.BlueprintId)}");
         }
         else
         {
             _errors = result.Errors;
+        }
+    }
+
+
+    /// <summary>
+    /// Saves the current definition then re-arms the form as a New form seeded by
+    /// <c>CreateNextFrom</c> - the catalog owns which fields carry forward (authoring policy plus
+    /// kind dispatch, which a component may not hold; see docs/architecture/08-blazor.md).
+    /// </summary>
+    private async Task SaveAndCreateNext()
+    {
+        if (_template is null) return;
+
+        var previous = new ContentDefinition(ContentKind.Room, _template);
+        _createNextPending = true;
+        await Save();
+        _createNextPending = false;
+
+        if (!_saved) return;
+
+        _template = (RoomTemplate)Catalog.CreateNextFrom(previous, "New Room").Template;
+        _forceNew = true;
+        _saved = false;
+        _focusPending = true;
+    }
+
+    // -- Keyboard-first authoring --------------------------------------------------
+    // Enter saves, Esc returns to the browser. Multi-line fields stop keydown
+    // propagation so Enter inside a textarea still inserts a newline.
+    private bool _focusPending = true;
+    private RoomBasicsFields? _basics;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusPending || _template is null)
+            return;
+
+        _focusPending = false;
+        try { if (_basics is not null) await _basics.FocusNameAsync(); }
+        catch (Exception) { /* element not in the DOM this pass - harmless */ }
+    }
+
+    private async Task OnFormKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            if (!_saving)
+                await Save();
+        }
+        else if (e.Key == "Escape")
+        {
+            Nav.NavigateTo(string.Empty);
         }
     }
 

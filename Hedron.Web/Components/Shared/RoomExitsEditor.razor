@@ -6,7 +6,7 @@
     @foreach (var dir in AllDirections)
     {
         var dir_ = dir;
-        <div class="exit-picker">
+        <div class="exit-picker" @key="dir_">
             <label class="exit-label">@dir</label>
             <div class="room-picker">
                 <input class="room-picker-filter" placeholder="filter by name or id"
@@ -17,7 +17,7 @@
                     <option value="">-- no exit --</option>
                     @foreach (var room in FilteredRoomsFor(dir_))
                     {
-                        <option value="@room.BlueprintId">@room.Name (@room.BlueprintId)</option>
+                        <option @key="room.BlueprintId" value="@room.BlueprintId">@room.Name (@room.BlueprintId)</option>
                     }
                 </select>
             </div>
@@ -26,14 +26,40 @@
     <p class="hint">Leave a direction with no exit selected to omit that exit.</p>
 </fieldset>
 
+@implements IDisposable
+
 @code {
     [Parameter, EditorRequired] public RoomTemplate Room { get; set; } = null!;
     [Parameter, EditorRequired] public IReadOnlyList<ContentSummary> Rooms { get; set; } = Array.Empty<ContentSummary>();
+
+    /// <summary>
+    /// Quiet period before a filter keystroke re-renders. Each of the six pickers re-filters the
+    /// whole room list, so an un-debounced keystroke costs six list scans plus a full re-render of
+    /// six &lt;select&gt; option lists.
+    /// </summary>
+    private const int FilterDebounceMs = 250;
 
     private static readonly Direction[] AllDirections = Enum.GetValues<Direction>();
 
     private RoomTemplate? _lastRoom;
     private Dictionary<Direction, string> _exitFilters = new();
+    private readonly Dictionary<Direction, CancellationTokenSource> _debounce = new();
+    private bool _disposed;
+
+    // Renders to swallow. A *count*, not a flag: Blazor renders an async handler twice — once when
+    // it yields and once when it completes — and a superseded keystroke produces both its own yield
+    // render and the cancelled predecessor's completion render, so a single-shot flag lets every
+    // keystroke after the first through unsuppressed.
+    private int _suppressedRenders;
+
+    protected override bool ShouldRender()
+    {
+        if (_suppressedRenders <= 0)
+            return true;
+
+        _suppressedRenders--;
+        return false;
+    }
 
     protected override void OnParametersSet()
     {
@@ -49,8 +75,55 @@
     private string ExitFor(Direction dir) =>
         Room.Exits.TryGetValue(dir, out var target) ? target : string.Empty;
 
-    private void SetExitFilter(Direction dir, string? value) =>
+    /// <summary>
+    /// Records the keystroke immediately (so the input never lags behind typing) but defers the
+    /// re-render until the author pauses. A newer keystroke cancels the pending render.
+    /// </summary>
+    private async Task SetExitFilter(Direction dir, string? value)
+    {
         _exitFilters[dir] = value ?? string.Empty;
+
+        // Swallow the render Blazor performs when this handler yields at the Task.Delay below, so
+        // the keystroke itself costs nothing.
+        _suppressedRenders++;
+
+        if (_debounce.TryGetValue(dir, out var previous))
+        {
+            previous.Cancel();
+            previous.Dispose();
+        }
+
+        var cts = new CancellationTokenSource();
+        _debounce[dir] = cts;
+
+        try
+        {
+            await Task.Delay(FilterDebounceMs, cts.Token);
+            await InvokeAsync(StateHasChanged);   // the one repaint the author asked for
+
+            // ...and swallow the render Blazor performs when this handler then completes.
+            if (!_disposed)
+                _suppressedRenders++;
+        }
+        catch (OperationCanceledException)
+        {
+            // Superseded by a newer keystroke (or the component went away). Nothing to render — but
+            // Blazor still renders when this handler completes, so account for that one too.
+            if (!_disposed)
+                _suppressedRenders++;
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        foreach (var cts in _debounce.Values)
+        {
+            cts.Cancel();
+            cts.Dispose();
+        }
+        _debounce.Clear();
+    }
 
     private IEnumerable<ContentSummary> FilteredRoomsFor(Direction dir)
     {

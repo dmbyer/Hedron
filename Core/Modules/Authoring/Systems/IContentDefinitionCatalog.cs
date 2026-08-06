@@ -18,6 +18,22 @@ namespace Hedron.Core.Modules.Authoring.Systems
     /// separate <c>reload</c> step. Per-kind specifics (which writer, which template) are dispatched
     /// inside the catalog by <see cref="ContentKind"/>.
     /// </remarks>
+    /// <remarks>
+    /// <para>
+    /// <strong>Read semantics are cached, not disk-truth.</strong> The default implementation keeps
+    /// an in-memory index so a render pass does not re-sweep the corpus per call. Every catalog
+    /// mutator drops the <em>whole</em> index (writes cascade across files, so entry-scoped
+    /// invalidation cannot express them), which makes reads coherent for catalog-mediated writes.
+    /// Writes that bypass the catalog — the <c>generate</c> CLI in its own process, the game host's
+    /// <c>mk*</c>/<c>set*</c>/<c>dig</c> verbs writing through the <c>I*ContentWriter</c> family —
+    /// do <em>not</em> invalidate it; call <see cref="Invalidate"/> to pick those up.
+    /// </para>
+    /// <para>
+    /// <strong>Concurrency (INV-31).</strong> The index is mutable state on a DI singleton reached
+    /// concurrently from multiple Blazor circuits. The implementation guards index consistency
+    /// only — it does not make the multi-file write cascade atomic.
+    /// </para>
+    /// </remarks>
     public interface IContentDefinitionCatalog
     {
         /// <summary>
@@ -139,5 +155,39 @@ namespace Hedron.Core.Modules.Authoring.Systems
             Direction direction,
             bool bidirectional,
             CancellationToken ct = default);
+
+        /// <summary>
+        /// Returns <paramref name="definition"/> with only its blueprint id replaced — every other
+        /// authored field is preserved, and the definition's own self-referential ids (a room's
+        /// self-loop exit) are rewritten to match, using the same rule
+        /// <see cref="RenameAsync"/> applies. A <c>null</c>/blank <paramref name="blueprintId"/>
+        /// falls back to a freshly minted ad-hoc id. Pure — writes nothing.
+        /// </summary>
+        ContentDefinition WithBlueprintId(ContentDefinition definition, string? blueprintId);
+
+        /// <summary>
+        /// Mints the next definition in a "save and create next" run: a fresh definition of
+        /// <paramref name="previous"/>'s kind (id minted via <see cref="CreateNew(ContentKind, string)"/>)
+        /// carrying <paramref name="name"/>, with the per-kind authoring context carried forward and
+        /// everything else reset.
+        /// <list type="bullet">
+        ///   <item><strong>Area</strong> — nothing carries forward; areas are authored individually.</item>
+        ///   <item><strong>Room</strong> — <c>AreaId</c> carries; name, description, exits, coordinates reset.</item>
+        ///   <item><strong>Item</strong> — Tier, Band, <c>ItemType</c>, <c>WornSlots</c> carry; name,
+        ///     description, stat bonuses, value reset.</item>
+        ///   <item><strong>Mob</strong> — Tier, Band, <c>SpawnRoomBlueprintId</c> carry; name,
+        ///     description, attributes, pools, loot, shop config reset.</item>
+        /// </list>
+        /// Which fields carry is authoring policy plus kind dispatch, so it lives here rather than
+        /// in an editor component (see <c>docs/architecture/08-blazor.md</c>). Pure — writes nothing.
+        /// </summary>
+        ContentDefinition CreateNextFrom(ContentDefinition previous, string name);
+
+        /// <summary>
+        /// Drops the whole in-memory index so the next read re-populates from disk. The escape hatch
+        /// for content written outside this process (the <c>generate</c> CLI, the game host's
+        /// <c>mk*</c> verbs); catalog-mediated writes invalidate on their own.
+        /// </summary>
+        void Invalidate();
     }
 }

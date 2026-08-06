@@ -14,8 +14,8 @@
 <div class="kind-tabs">
     @foreach (var k in AllKinds)
     {
-        <button class="tab @(k == _kind ? "active" : "")" @onclick="() => SelectKind(k)">
-            @k (@CountFor(k))
+        <button @key="k" class="tab @(k == _kind ? "active" : "")" @onclick="() => SelectKind(k)">
+            @k (@_counts[k])
         </button>
     }
 </div>
@@ -29,10 +29,12 @@
             <option value="">All areas</option>
             @foreach (var area in _areas)
             {
-                <option value="@area.BlueprintId">@area.Name</option>
+                <option @key="area.BlueprintId" value="@area.BlueprintId">@area.Name</option>
             }
         </select>
     }
+    <button class="refresh" title="Re-reads every definition from disk. Needed only after content was written outside this editor — a `generate` CLI run, or the game host's mk*/set*/dig verbs."
+            @onclick="RefreshFromDisk">Refresh from disk</button>
 </div>
 
 @if (FilteredSummaries.Count == 0)
@@ -54,7 +56,7 @@ else
             @foreach (var s in FilteredSummaries)
             {
                 var id = s.BlueprintId;
-                <tr>
+                <tr @key="id">
                     <td class="mono">@s.BlueprintId</td>
                     <td>@s.Name</td>
                     <td class="desc">@Short(s.Description)</td>
@@ -118,6 +120,7 @@ else
     private ContentKind _kind = ContentKind.Area;
     private IReadOnlyList<ContentSummary> _summaries = Array.Empty<ContentSummary>();
     private IReadOnlyList<ContentSummary> _areas = Array.Empty<ContentSummary>();
+    private Dictionary<ContentKind, int> _counts = new();
     private string _areaFilter = string.Empty;
 
     // Delete two-step state
@@ -133,11 +136,7 @@ else
             ? _summaries.Where(s => s.AreaBlueprintId == _areaFilter).ToList()
             : _summaries;
 
-    protected override void OnInitialized()
-    {
-        _areas = Catalog.List(ContentKind.Area);
-        Reload();
-    }
+    protected override void OnInitialized() => Reload();
 
     private void SelectKind(ContentKind kind)
     {
@@ -154,13 +153,25 @@ else
         _areaFilter = value ?? string.Empty;
     }
 
+    // One catalog read per kind per reload, held in local state — never a per-render call, which
+    // would re-ask the catalog once per rendered tab on every render pass.
     private void Reload()
     {
+        _counts = AllKinds.ToDictionary(k => k, k => Catalog.List(k).Count);
         _summaries = Catalog.List(_kind);
         _areas = Catalog.List(ContentKind.Area);
     }
 
-    private int CountFor(ContentKind kind) => Catalog.List(kind).Count;
+    /// <summary>
+    /// Drops the catalog's in-memory index and re-reads. Catalog-mediated writes invalidate on
+    /// their own; this is the escape hatch for content written outside this process (the
+    /// <c>generate</c> CLI, the game host's <c>mk*</c> verbs) — see Flow 29 leg A.
+    /// </summary>
+    private void RefreshFromDisk()
+    {
+        Catalog.Invalidate();
+        Reload();
+    }
 
     private static bool SupportsAreaFilter(ContentKind kind) =>
         kind == ContentKind.Room || kind == ContentKind.Item || kind == ContentKind.Mob;

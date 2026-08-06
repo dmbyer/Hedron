@@ -55,6 +55,36 @@ Then the handler calls the pure resolver, decides what to do with the result, an
 
 The key constraint is the same in both cases: **the system never publishes events or calls persistence** (INV-5, INV-22). Those stay in the command (Initiator). In particular, systems must never inject or call `IPersistenceSystem` — persistence lifecycle is owned by `EntityService` and the periodic flush timer.
 
+## Stateful / cached systems
+
+Most domain systems are stateless — they read `EntityService` and compute. A few legitimately hold
+state: `ITemplateRegistry` (boot-loaded blueprint definitions) and `IContentDefinitionCatalog` (an
+in-memory index over the on-disk YAML corpus, added by authoring-editor-repair). If you are adding a
+cache to a system, four rules apply — do **not** copy the stateless shape and hand-roll around them.
+
+1. **Invalidate at every mutator, and invalidate what the write actually reaches.** A write that
+   cascades to other entries cannot be invalidated entry-scoped. If any mutator has a cascade, drop
+   the whole cache — that is what `ContentDefinitionCatalog` does, because delete clears fields on
+   referrers, rename rewrites them, and a bidirectional room save writes a *different* room.
+2. **Pick population granularity against the caller's loop, not the happy path.** Whole-cache
+   invalidation plus corpus-wide population makes any `Load`→write loop quadratic. Cache
+   per-entry-on-demand so a read after an invalidation is one read, not a sweep.
+3. **Declare the concurrency posture (INV-31).** A DI singleton reached from multiple Blazor
+   circuits (or any background initiator) is concurrent state. **A thread-affine
+   `ReaderWriterLockSlim` is unusable if any mutator is `async`** — it cannot be held across an
+   `await`, and every write-then-invalidate path has an `await` in the middle. Use an immutable
+   snapshot object swapped under a plain `lock`: readers take the reference with no lock, writers
+   build and swap. If population is lazy, every reader is also a writer — carry a generation (or
+   publish into the captured snapshot object, which `Invalidate` has already detached) so a read
+   that began before a concurrent write cannot republish pre-write state.
+4. **Cache what is safe to hand out.** If callers mutate what they get back (editors bind forms to
+   it), cache the raw source and re-materialize per call. Handing out a shared mutable instance
+   leaks in-progress edits into the cache.
+
+Record the posture in the system's XML docs *and* its [`docs/reference/systems.md`](../../../docs/reference/systems.md)
+row, and test the invalidation — one test per mutator, plus one that asserts a *cascaded* entry is
+observed on the next read.
+
 ## Steps
 
 1. Create the module folder if new: `Core/Modules/<Feature>/Systems/<X>System.cs` + interface `I<X>System.cs`.

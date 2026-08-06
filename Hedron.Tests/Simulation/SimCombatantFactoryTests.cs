@@ -47,6 +47,9 @@ namespace Hedron.Tests.Simulation
             public ContentDefinition CreateNew(ContentKind kind, string name, string? blueprintId) => throw new NotImplementedException();
             public Task<ContentWriteResult> CreateAsync(ContentDefinition definition, CancellationToken ct = default) => throw new NotImplementedException();
             public Task<ContentWriteResult> RemoveRoomExitAsync(string roomBlueprintId, Direction direction, bool bidirectional, CancellationToken ct = default) => throw new NotImplementedException();
+            public ContentDefinition WithBlueprintId(ContentDefinition definition, string? blueprintId) => throw new NotImplementedException();
+            public ContentDefinition CreateNextFrom(ContentDefinition previous, string name) => throw new NotImplementedException();
+            public void Invalidate() { }
         }
 
         private static (SimCombatantFactory Factory, FakeCatalog Catalog, IBalanceStandardsRegistry Registry, SandboxWorld World) NewFixture()

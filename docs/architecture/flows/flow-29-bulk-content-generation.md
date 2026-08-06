@@ -56,6 +56,7 @@ sequenceDiagram
     participant WCL as IWorldContentLoader
 
     UI->>Cat: List(kind) / Load(kind, id) / CreateNew(kind, name)
+    Note over Cat: served from the in-memory index; cold index sweeps once (see "Read semantics" below)
     Cat-->>UI: ContentSummary[] / ContentDefinition
     Note over UI: designer edits working copy (no catalog call)
     UI->>Cat: SaveAsync(definition)  [or SaveRoomAsync(room, bidirectional)]
@@ -70,6 +71,7 @@ sequenceDiagram
             Cat->>W: WriteAsync(targetRoom with inverse exit)
             Note over Cat,W: conflict → warn-and-skip (no overwrite)
         end
+        Cat->>Cat: Invalidate() — drop the whole index
         Cat-->>UI: ContentWriteResult.Ok [+ Warnings if broken refs or bidir conflict]
     end
     UI->>Cat: DeleteAsync(kind, blueprintId)
@@ -79,6 +81,7 @@ sequenceDiagram
         Cat->>W: WriteAsync(referrer with field cleared)
     end
     Cat->>Cat: File.Delete(target YAML)  [no EntityService / no SQLite]
+    Cat->>Cat: Invalidate() — the cascade touched other definitions, so the whole index drops
     Cat-->>UI: ContentDeleteResult(DeletedPath, DeletedBlueprintId, CascadeEdits)
     UI->>Cat: RenameAsync(kind, oldId, newId)
     Cat->>Val: ValidateBlueprintId(kind, newId)
@@ -93,6 +96,7 @@ sequenceDiagram
             Cat->>W: WriteAsync(referrer with field rewritten oldId→newId)
         end
         Cat->>Cat: File.Delete(oldId YAML)
+        Cat->>Cat: Invalidate() — every rewritten referrer must be re-read
         Cat-->>UI: ContentRenameResult.Ok(CascadeEdits, Warnings)  [out-of-YAML advisories, no SQLite/config write]
     end
     UI->>Idx: SweepBroken()  [integrity page only]
@@ -101,8 +105,27 @@ sequenceDiagram
     WCL-->>UI: ContentReloadResult
 ```
 
+**Read semantics — coherent for catalog-mediated writes, not disk truth.**
+`List`/`RoomsInArea`/`Load` are served from an in-memory index inside `ContentDefinitionCatalog`
+(per-kind summary lists and a derived room→area map are corpus sweeps; the per-id definition map
+fills one id at a time, on demand). **Every catalog mutator invalidates the whole index** — writes
+cascade across files (delete clears fields on referrers, rename rewrites them, a bidirectional room
+save writes an inverse exit on a *different* room), so entry-scoped invalidation cannot express
+them. A read after any catalog write therefore observes both the write and everything its cascade
+touched.
+
+What this does **not** cover: writes that bypass the catalog. The `generate` CLI (leg A) runs in a
+separate process, and the game host's `mk*`/`set*`/`dig` verbs write through the `I*ContentWriter`
+family directly. Neither invalidates a running editor's index, so a long-running editor host can
+serve a stale listing after an out-of-process write. The mitigation is the browser's explicit
+**Refresh from disk** action (`IContentDefinitionCatalog.Invalidate`); the residual staleness is
+[acknowledged debt](../../roadmap/backlog.md). The index guards its own consistency only — it does
+not make the multi-file write cascade atomic.
+
 **Steps.**
-1. Page calls `IContentDefinitionCatalog.List(kind)` and renders the definition table.
+1. Page calls `IContentDefinitionCatalog.List(kind)` and renders the definition table. Counts for
+   every kind are read **once per reload into page state**, never per rendered tab. The page also
+   exposes **Refresh from disk** → `Invalidate()` + reload, for the out-of-process case above.
 2. Page calls `Load(kind, blueprintId)` or `CreateNew(kind, name)`. No live entity created. On the
    New form, the author may instead type a deliberate id into the shared `BlueprintIdField`
    component (`CreateNew(kind, name, blueprintId)`); a blank id still falls back to the adhoc
@@ -134,9 +157,13 @@ sequenceDiagram
    locations re-keying on `reload`; a specific note when the room matches
    `World:StartingRoomBlueprintId`) surface as `Warnings`, never a SQLite or config write. Returns
    `ContentRenameResult`; the page navigates to the new id's edit route on success.
-7. Integrity page: calls `IContentReferenceIndex.SweepBroken()` directly (injected as
-   `IContentReferenceIndex`). Returns every broken edge across all kinds; UI tabulates them with
-   edit links back to each offending definition's editor.
+7. Integrity page: delegates to `ContentIntegritySweepService` (`Hedron.Web/Services/`), which runs
+   `IContentReferenceIndex.SweepBroken()` and `IBalanceAuditSystem.Audit()` on a background task and
+   exposes a status snapshot the page polls — the sweeps are corpus scans and do not block the
+   circuit. Neither reads through the catalog, so neither benefits from its index. Returns every
+   broken edge across all kinds; UI tabulates them with edit links back to each offending
+   definition's editor. The bulk conformance apply on the same page still runs on the circuit
+   thread (recorded in [backlog.md](../../roadmap/backlog.md)).
 8. "Apply to live": page calls `IWorldContentLoader.ReloadAsync()` — [Flow 5](flow-05-content-reload.md).
    Counts rendered. No live entities mutated.
 
@@ -203,7 +230,7 @@ sequenceDiagram
     participant Cat as IContentDefinitionCatalog
 
     UI->>Fit: Preview(kind, blueprintId)
-    Fit->>Cat: Load(kind, blueprintId)  [disk truth]
+    Fit->>Cat: Load(kind, blueprintId)  [catalog index — coherent with catalog writes, not the boot-time registry]
     Cat-->>Fit: ContentDefinition
     Fit->>Proj: Project(template)
     Fit->>PB: Estimate / Classify / TargetRange
@@ -212,7 +239,7 @@ sequenceDiagram
     else scales toward the cell midpoint, verifies + bounded ±1 correction via Proj/PB
         Fit-->>UI: ConformancePreview(Fitted | NotFittable[reason])
     end
-    UI->>Fit: ApplyAsync(kind, blueprintId)  [re-derives the fit from disk — never trusts the preview]
+    UI->>Fit: ApplyAsync(kind, blueprintId)  [re-derives the fit via the catalog — never trusts the preview]
     Fit->>Cat: Load(kind, blueprintId)
     Fit->>Cat: SaveAsync(fittedDefinition)  [only when Fitted]
     Cat-->>Fit: ContentWriteResult
@@ -223,10 +250,10 @@ sequenceDiagram
 
 **Steps.**
 1. Designer clicks **Preview fit** on a row the audit sweep flagged (or **Preview all flagged**, which loops this same call over every flagged entry). The page calls `ITemplateConformanceSystem.Preview(kind, blueprintId)` (or `PreviewFlagged()`).
-2. The fitter loads the template **from disk** via `IContentDefinitionCatalog.Load` — never the audit's boot-time registry — projects it, and classifies its current power. Already on target → `AlreadyInRange`, no further work.
+2. The fitter loads the template through `IContentDefinitionCatalog.Load` — never the audit's boot-time registry; the catalog's index is invalidated by every catalog write, so this reflects the latest catalog-mediated state (see leg B's *Read semantics*) — projects it, and classifies its current power. Already on target → `AlreadyInRange`, no further work.
 3. Otherwise it computes a closed-form uniform scale factor toward the target cell's midpoint (the oracle's `Estimate`/`Classify`/`TargetRange` are the only source of target math), rounds per field, and verifies/corrects via the real projection seam — `Fitted` with a field-by-field diff, or `NotFittable` with a reason.
 4. The page renders the preview inline under the row: status, power/cell before→after, per-field diff.
-5. Designer clicks **Apply** (or **Apply all flagged**). The page calls `ApplyAsync`/`ApplyFlaggedAsync`, which **re-derives the fit from disk** (idempotent — a stale preview is never trusted) and, for a `Fitted` outcome, calls `IContentDefinitionCatalog.SaveAsync` — the identical validate-then-write, warn-but-allow path Flow B's editor save uses. `AlreadyInRange`/`NotFittable` write nothing.
+5. Designer clicks **Apply** (or **Apply all flagged**). The page calls `ApplyAsync`/`ApplyFlaggedAsync`, which **re-derives the fit through the catalog** (idempotent — a stale preview is never trusted) and, for a `Fitted` outcome, calls `IContentDefinitionCatalog.SaveAsync` — the identical validate-then-write, warn-but-allow path Flow B's editor save uses. `AlreadyInRange`/`NotFittable` write nothing.
 6. The row is marked **applied — pending reload**; the audit table itself does not refresh (it still reflects the boot-time registry) until the designer runs the existing **Apply to live** page ([Flow 5](flow-05-content-reload.md)) — the same restart/reload-to-apply model as B2.
 
 No event is published anywhere in this leg (INV-5) — the fitter and the catalog are domain systems that return results; the Blazor page is the initiating surface and consumes them directly.
@@ -269,7 +296,7 @@ sequenceDiagram
         Layout->>Cat: SaveRoomAsync(room, bidirectional: false) per coordless room
         Layout-->>UI: AreaLayoutApplyResult(Written, Warnings)
     end
-    UI->>UI: reload (re-derive rooms + proposal from disk)
+    UI->>UI: reload (re-derive rooms + proposal via the catalog; each write invalidated its index)
 ```
 
 **Steps.**
@@ -281,8 +308,8 @@ sequenceDiagram
 6. **Detail panel:** selecting a cell shows the shared `BlueprintIdField` + `RoomBasicsFields` + `RoomExitsEditor` components (the same ones `RoomEditor` uses) — full-fidelity, including non-adjacent/vertical/cross-area exits; Save uses `SaveAsync`/`SaveRoomAsync` exactly like `RoomEditor`.
 7. **Delete:** confirm in the detail panel → `DeleteAsync(Room, id)` — the existing cascade clears referrers.
 7a. **Rename:** the detail panel's `BlueprintIdField` offers the same Rename action `RoomEditor` does → `RenameAsync(Room, oldId, newId)`; on success the selected room id updates to `newId` and the grid reloads (blueprint-id-editing).
-8. **Apply layout:** shown while any ghost cells exist → `ApplyProposalAsync(areaId)`, which re-derives the proposal from disk and writes coordinates for every still-coordless room, best-effort per room.
-9. Every action ends with a full reload (rooms + a fresh `Propose` call) so the grid always reflects on-disk truth. Apply-to-live remains the existing, unchanged reload leg ([Flow 5](flow-05-content-reload.md)).
+8. **Apply layout:** shown while any ghost cells exist → `ApplyProposalAsync(areaId)`, which re-derives the proposal through the catalog and writes coordinates for every still-coordless room, best-effort per room. Its per-room `Load`→write loop stays O(N) despite whole-index invalidation because the catalog's per-id map fills on demand — a `Load` after an invalidation is one file read, not a corpus sweep.
+9. Every action ends with a full reload (rooms + a fresh `Propose` call) so the grid always reflects the latest catalog-mediated state — each action's write invalidated the index (see leg B's *Read semantics*; content written out of process needs the browser's explicit refresh). Apply-to-live remains the existing, unchanged reload leg ([Flow 5](flow-05-content-reload.md)).
 
 No event is published anywhere in this leg (INV-5) — `IAreaLayoutSystem` and the catalog are domain systems that return results; the Blazor page is the initiating surface. The registry-validation sweep's coordinate-collision **warning** (warn-but-allow, `ValidationReport.Warnings`) is a separate boot-time check backed by the same `RoomCoordinateCollisions` helper the proposal's `Collisions` field uses — see [`docs/architecture/checklist.md`](../checklist.md) INV-19 and [Flow 1](flow-01-server-startup.md).
 

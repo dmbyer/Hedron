@@ -423,6 +423,82 @@ namespace Hedron.Tests.Architecture
             return null;
         }
 
+        // ── Authoring editors: blueprint-id edits must preserve the form ──────
+
+        /// <summary>
+        /// A content editor's <c>OnBlueprintIdChanged</c> must rekey the in-progress definition via
+        /// <c>IContentDefinitionCatalog.WithBlueprintId</c>, never re-mint it with <c>CreateNew</c>
+        /// — the latter silently discards every other field the author has filled in. The defect
+        /// survived review in four separate <c>.razor</c> files, so it is guarded rather than trusted.
+        /// </summary>
+        [Fact]
+        public void Editors_do_not_recreate_the_definition_when_the_blueprint_id_changes()
+        {
+            var webDir = FindWebSourceDirectory();
+            Assert.True(
+                webDir != null,
+                "pre-check: could not locate the Hedron.Web/ source directory relative to the test assembly.");
+
+            var razorFiles = Directory.EnumerateFiles(webDir!, "*.razor", SearchOption.AllDirectories).ToList();
+            Assert.True(razorFiles.Count > 0, $"pre-check: no *.razor files found under {webDir}");
+
+            var violations = new List<string>();
+            var handlersScanned = 0;
+            foreach (var file in razorFiles)
+            {
+                var lines = File.ReadAllLines(file);
+                var handlerLine = Array.FindIndex(
+                    lines, l => l.Contains("void OnBlueprintIdChanged", StringComparison.Ordinal));
+                if (handlerLine < 0)
+                    continue;
+
+                handlersScanned++;
+
+                // Scan the handler body (to its closing brace at the same indent, or 12 lines).
+                for (var i = handlerLine; i < Math.Min(lines.Length, handlerLine + 12); i++)
+                {
+                    if (i > handlerLine && lines[i].TrimEnd() == "    }")
+                        break;
+                    if (lines[i].Contains("Catalog.CreateNew", StringComparison.Ordinal))
+                    {
+                        violations.Add(
+                            $"{Path.GetRelativePath(webDir!, file)}:{i + 1} — OnBlueprintIdChanged calls " +
+                            "Catalog.CreateNew; use Catalog.WithBlueprintId so the in-progress form survives.");
+                    }
+                }
+            }
+
+            // Guard the guard: if the handler is ever renamed, this test must fail loudly rather
+            // than silently scanning nothing.
+            Assert.True(
+                handlersScanned >= 4,
+                $"pre-check: expected an OnBlueprintIdChanged handler in each of the four content " +
+                $"editors; found {handlersScanned}.");
+
+            Assert.True(
+                violations.Count == 0,
+                "Changing the blueprint id on a New form must preserve every other authored field. " +
+                "Violations:\n" + string.Join("\n", violations));
+        }
+
+        private static string? FindWebSourceDirectory()
+        {
+            var dir = new DirectoryInfo(
+                Path.GetDirectoryName(typeof(ArchitectureGuardTests).Assembly.Location)!);
+
+            for (int i = 0; i < 8 && dir != null; i++, dir = dir.Parent)
+            {
+                var candidate = Path.Combine(dir.FullName, "Hedron.Web");
+                if (Directory.Exists(candidate) &&
+                    File.Exists(Path.Combine(candidate, "Hedron.Web.csproj")))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
         // ── INV-2: power-budget-oracle-is-core-tier ───────────────────────────
 
         /// <summary>

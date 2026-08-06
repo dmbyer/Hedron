@@ -31,7 +31,7 @@ else
         @foreach (var z in AllZLayers())
         {
             var z_ = z;
-            <button class="tab @(z == _currentZ ? "active" : "")" @onclick="() => SelectZ(z_)">@z</button>
+            <button @key="z_" class="tab @(z == _currentZ ? "active" : "")" @onclick="() => SelectZ(z_)">@z</button>
         }
     </div>
 
@@ -101,7 +101,7 @@ else
 
                     if (occupants is null || occupants.Count == 0)
                     {
-                        <div class="cell empty" title="Create a room at (@x_, @y_, @_currentZ)" @onclick="() => CellClicked(x_, y_)">
+                        <div @key="(x_, y_, _currentZ)" class="cell empty" title="Create a room at (@x_, @y_, @_currentZ)" @onclick="() => CellClicked(x_, y_)">
                             <span class="hint">+</span>
                         </div>
                     }
@@ -112,14 +112,14 @@ else
                         var isSelected = primary.Id == _selectedRoomId;
                         var isCollision = occupants.Any(o => _collidingRoomIds.Contains(o.Id));
 
-                        <div class="cell @(primary.Anchored ? "" : "ghost") @(isSelected ? "selected" : "") @(isCollision ? "collision" : "")"
+                        <div @key="(x_, y_, _currentZ)" class="cell @(primary.Anchored ? "" : "ghost") @(isSelected ? "selected" : "") @(isCollision ? "collision" : "")"
                              @onclick="() => CellClicked(x_, y_)">
                             @if (room is not null)
                             {
                                 @foreach (var dir in AdjacentDirectionsWithExit(room))
                                 {
                                     var dir_ = dir;
-                                    <button class="edge-tab @DirClass(dir_)" title="Disconnect @dir_"
+                                    <button @key="dir_" class="edge-tab @DirClass(dir_)" title="Disconnect @dir_"
                                             @onclick:stopPropagation="true" @onclick="() => DisconnectEdge(primary.Id, dir_)"></button>
                                 }
                             }
@@ -142,7 +142,7 @@ else
                                     {
                                         var dir_ = dir;
                                         var target = room.Exits[dir_];
-                                        <span class="exit-badge" title="Disconnect @dir_"
+                                        <span @key="dir_" class="exit-badge" title="Disconnect @dir_"
                                               @onclick:stopPropagation="true" @onclick="() => DisconnectEdge(primary.Id, dir_)">
                                             @dir_ &rarr; @target
                                         </span>
@@ -202,6 +202,10 @@ else
 
     private int _currentZ;
     private bool _currentZInitialized;
+    // Grid bounds for the current Z layer, recomputed on reload / layer switch rather than on
+    // every access — ColumnCount, ColumnsLeftRight and RowsTopDown each read it during a render
+    // pass, and the derivation is a LINQ scan of the whole cell index.
+    private (int MinX, int MaxX, int MinY, int MaxY) _bounds = (-2, 2, -2, 2);
     private string? _selectedRoomId;
     private bool _bidirectional;
     private bool _saving;
@@ -269,6 +273,8 @@ else
 
         if (_selectedRoomId is not null && !_rooms.ContainsKey(_selectedRoomId))
             _selectedRoomId = null;
+
+        RecomputeBounds();
     }
 
     private void AddToCellIndex(RoomPosition pos, string id, bool anchored)
@@ -294,33 +300,34 @@ else
         return zs.ToList();
     }
 
-    private void SelectZ(int z) => _currentZ = z;
-
-    private (int MinX, int MaxX, int MinY, int MaxY) Bounds()
+    private void SelectZ(int z)
     {
-        var cellsAtZ = _cellIndex.Keys.Where(k => k.Z == _currentZ).ToList();
-        if (cellsAtZ.Count == 0)
-            return (-2, 2, -2, 2);
-        return (
-            cellsAtZ.Min(c => c.X) - 1,
-            cellsAtZ.Max(c => c.X) + 1,
-            cellsAtZ.Min(c => c.Y) - 1,
-            cellsAtZ.Max(c => c.Y) + 1);
+        _currentZ = z;
+        RecomputeBounds();
     }
 
-    private int ColumnCount => Bounds().MaxX - Bounds().MinX + 1;
+    private void RecomputeBounds()
+    {
+        var cellsAtZ = _cellIndex.Keys.Where(k => k.Z == _currentZ).ToList();
+        _bounds = cellsAtZ.Count == 0
+            ? (-2, 2, -2, 2)
+            : (cellsAtZ.Min(c => c.X) - 1,
+               cellsAtZ.Max(c => c.X) + 1,
+               cellsAtZ.Min(c => c.Y) - 1,
+               cellsAtZ.Max(c => c.Y) + 1);
+    }
+
+    private int ColumnCount => _bounds.MaxX - _bounds.MinX + 1;
 
     private IEnumerable<int> ColumnsLeftRight()
     {
-        var b = Bounds();
-        for (var x = b.MinX; x <= b.MaxX; x++)
+        for (var x = _bounds.MinX; x <= _bounds.MaxX; x++)
             yield return x;
     }
 
     private IEnumerable<int> RowsTopDown()
     {
-        var b = Bounds();
-        for (var y = b.MaxY; y >= b.MinY; y--) // +Y renders toward the top of the screen.
+        for (var y = _bounds.MaxY; y >= _bounds.MinY; y--) // +Y renders toward the top of the screen.
             yield return y;
     }
 

@@ -61,10 +61,15 @@ routes on the world-state threading decision ([`backlog.md`](backlog.md)); and `
 still empty, so no authoring-friction evidence exists yet.
 
 **Two no-regret slices run inside Phase 5**, both valuable whichever way the gate falls, neither
-prejudging it: [`authoring-editor-repair`](../implementation-plans/authoring-editor-repair.md) (catalog
-index cache + editor UX ratchet — also speeds the `generate` CLI and telnet authoring paths) and
+prejudging it. The first, **`authoring-editor-repair`, has shipped**
+([`completed/authoring-editor-repair.md`](completed/authoring-editor-repair.md)): the catalog index
+cache plus the editor UX ratchet, including the blueprint-id edit that silently discarded an
+in-progress form. Note the cache benefits the *editor* only — the `generate` CLI and the telnet
+`mk*`/`set*` verbs write through `I*ContentWriter` directly and neither benefit from nor invalidate
+it, which is the cross-process staleness now parked in [`backlog.md`](backlog.md). Still ahead:
 [`authoring-api-surface`](../implementation-plans/authoring-api-surface.md) (`INV-8` conformance for
-logic that leaked into components, then a narrow JSON surface).
+logic that leaked into components, then a narrow JSON surface) — its WP1 owns the `Standards.razor`
+extraction this slice deliberately left alone.
 
 **The gate fires at the Phase 5 → 6 boundary**, once the content baseline is authored against the
 repaired editor — a one-page bakeoff measured on authoring throughput, diff size, and agent-iteration

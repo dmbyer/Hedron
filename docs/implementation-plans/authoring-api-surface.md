@@ -15,10 +15,15 @@ JSON surface over the catalog for **one** consumer: the bakeoff page the gate's 
 ## Preconditions
 
 - The authoring systems in `Core/Modules/Authoring/Systems/` remain the sole authoring logic home.
-- **No hard scheduling dependency on [`authoring-editor-repair.md`](authoring-editor-repair.md).** The
-  previous revision asserted one ("its index guard is what makes concurrent catalog access declarable"),
-  which inverts the relationship: `ContentDefinitionCatalog` holds no mutable state today, so if this
-  slice lands first there is no index to guard — request threads simply read disk, and this slice's own
+- **No hard scheduling dependency on `authoring-editor-repair`** (now shipped —
+  [`../roadmap/completed/authoring-editor-repair.md`](../roadmap/completed/authoring-editor-repair.md);
+  as built, `ContentDefinitionCatalog` **does** now hold a guarded in-memory index, so the "request
+  threads simply read disk" case below no longer applies and this slice inherits the catalog's INV-31
+  posture rather than establishing one). The
+  previous revision asserted a dependency ("its index guard is what makes concurrent catalog access declarable"),
+  which inverts the relationship: `ContentDefinitionCatalog` held no mutable state when this plan was
+  written, so if this slice had landed first there would have been no index to guard — request threads
+  would simply read disk, and this slice's own
   write-serialization posture (below) is what is actually needed. The real constraint is **whichever
   lands second respects the other**: if the sibling has landed, these endpoints go through the same
   catalog and therefore the same index and invalidation. The two slices can be ordered freely, except
@@ -98,8 +103,9 @@ Only the genuine rule (row 3) moves.
 and the editor already surfaces `_errors`; it needs no change.
 
 **Dependencies.** None. **Lands unconditionally** — `INV-8` conformance owed regardless of the gate.
-It also **blocks** [`authoring-editor-repair.md`](authoring-editor-repair.md) from touching
-`Standards.razor` (that plan defers the hoist to this extraction).
+It also **blocked** `authoring-editor-repair` from touching `Standards.razor` — that slice shipped
+and deliberately left the per-cell oracle hoist alone, so the extraction here is still owed and
+uncontested.
 
 **Out of scope.** Any behavior change; tests characterize existing behavior.
 
