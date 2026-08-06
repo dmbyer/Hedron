@@ -103,7 +103,14 @@ The web host is built as the foundation of a single, eventual **three-page-suite
 | **Player client** | the live world, as a real `ISession`/Initiator over a SignalR circuit | deferred |
 | **Live admin / reporting** | the live world (read for reports; interact via the same command/Initiator path as telnet admin) | deferred |
 
-The seam was pre-shaped: `ISession` already reserves `TransportKey = "signalr"` and output formatters key on transport, so a Blazor circuit becomes another session type without disturbing the telnet path. The player and live-admin suites are deferred because they **re-introduce live-world mutation from request threads** — the concurrency-marshaling (single-threaded game loop, see [01-layers.md](01-layers.md) heartbeat constraints) that file-only authoring deliberately sidesteps — plus web auth and the full `ISession` unification (the deferred "Web / SignalR dual client" item). Crucially, they land as **additive page-suites + hosted services on this host**, not a host restructure: the split-registration seam already accommodates them.
+The seam is **partly** pre-shaped: `ISession` reserves `TransportKey = "signalr"` and output formatters key on transport, so a new session type slots in without disturbing the telnet path. Two corrections to how far that carries (found by the 2026-08 client-tier analysis — see [`../design/client-tier.md`](../design/client-tier.md)):
+
+- **The formatter seam is text-shaped, not client-shaped.** `IOutputFormatter.Format` returns `string` and `ISession.SendLineAsync` takes `string`, so `TransportKey` buys another *text* transport. A rich web client wants the typed output messages (`RoomDescriptionMessage`, `ScoreDisplayMessage`, …) as **structured JSON it can lay out**, which needs a parallel structured formatter — real work, and unrelated to which front-end framework renders it.
+- **`LoginFlow` is closer than the rest.** Its only transport coupling is a single `ReadLineAsync` on a `StreamReader`; an `ILineReader` extraction opens the whole login state machine to any transport.
+
+The player and live-admin suites are deferred because they **re-introduce live-world mutation from request threads** — the concurrency-marshaling (single-threaded game loop, see [01-layers.md](01-layers.md) heartbeat constraints) that file-only authoring deliberately sidesteps — plus web auth and the full `ISession` unification (the deferred "Web / SignalR dual client" item). That blocker is **framework-independent**: it applies equally to a Blazor circuit and a React client over a hub. Crucially, they land as **additive page-suites + hosted services on this host**, not a host restructure: the split-registration seam already accommodates them.
+
+> **This table's third column is under review.** Whether the player client (and the editor with it) stays Blazor or moves to React + SignalR is an open decision with a scheduled gate at the Phase 5 → 6 boundary — [`../design/client-tier.md`](../design/client-tier.md). The two-host model, the split-registration seam, and the component discipline above are unaffected either way; what the gate decides is the *presentation* stack.
 
 ---
 
@@ -114,5 +121,6 @@ The seam was pre-shaped: `ISession` already reserves `TransportKey = "signalr"` 
 - [flows/README.md](flows/README.md) — Flow 29 (content-tooling journey: bulk generate + offline edit); Flow 33 (simulation run journey, incl. the editor legs); Flow 5 (content reload).
 - [../features/admin-authoring/admin-authoring.md](../features/admin-authoring/admin-authoring.md) · [content-authoring.md](../features/admin-authoring/content-authoring.md) · [content-tooling.md](../features/admin-authoring/content-tooling.md) — the feature docs for this tier; durable seam rationale in their design notes.
 - [../features/simulation/simulation.md](../features/simulation/simulation.md) — the sim-3 editor surface the background-tooling-job section above documents.
+- [../design/client-tier.md](../design/client-tier.md) — the open Blazor-vs-React + SignalR decision, its evidence base, and the Phase 5 → 6 gate that settles it.
 - [../reference/systems.md](../reference/systems.md) — `IContentDefinitionCatalog`, `IContentValidator`, `IContentGenerationSystem`, `SimulationRunService`.
 - [checklist.md](checklist.md) — invariants this tier answers to: INV-5, INV-8, INV-12, INV-15, INV-19, INV-22, INV-23.

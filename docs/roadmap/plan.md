@@ -19,7 +19,7 @@ The target remains defined by:
 
 - [`../architecture/00-overview.md`](../architecture/00-overview.md) through [`../architecture/09-documentation.md`](../architecture/09-documentation.md) — 4-layer model, ECS, events, pitfalls, configuration, persistence, testing, web host, docs discipline
 - [`../reference/`](../reference/) — catalogs of components, systems, handlers, archetypes
-- [`../design/`](../design/) — gameplay model (spines), [feature horizon](../design/feature-horizon.md) (the long-range menu), [power model](../design/power-model.md), [balance catalog](../design/balance.md)
+- [`../design/`](../design/) — gameplay model (spines), [feature horizon](../design/feature-horizon.md) (the long-range menu), [power model](../design/power-model.md), [balance catalog](../design/balance.md), [client tier](../design/client-tier.md) (the Blazor-vs-React decision + its gate)
 
 ## Phase summary
 
@@ -47,6 +47,39 @@ This is a **content program, not a systems program.** The tooling to do it is th
 - **The functional-MVP acceptance test** (the loop-closer, analogous to Phase 2's): a new player can complete a session — fight, progress visibly, buy/sell, die, recover — without an admin's help and without hitting authored-content edges in the starting region.
 
 Frame the program with `/advise` at kickoff (region scope, tier range, content volume targets, what "done" measures); individual content-tooling gap slices run the normal loop. **Deliberately punted out of this MVP:** crafting/potions (moved to [`backlog.md`](backlog.md) — content depth that doesn't gate the core loop), the web/SignalR client, channels/socials beyond `say`.
+
+### Client-tier decision gate (Phase 5 → 6 boundary)
+
+The authoring editor is clunky enough to raise a larger question — whether the web tier should move
+from Blazor Server to a React SPA over SignalR, for the editor and for the eventual browser client.
+That was analyzed adversarially and **decided as a direction with a deferred fork**, recorded in
+[`../design/client-tier.md`](../design/client-tier.md): React is the likely long-run answer for the
+*player client*, with the editor following it — but the migration does not start during Phase 5, and
+the fork is settled at a gate rather than on priors. The reasoning in one line each: most of the
+clunkiness is repairable in place; the player client that would force the fork is blocked for **both**
+routes on the world-state threading decision ([`backlog.md`](backlog.md)); and `data/content/` is
+still empty, so no authoring-friction evidence exists yet.
+
+**Two no-regret slices run inside Phase 5**, both valuable whichever way the gate falls, neither
+prejudging it: [`authoring-editor-repair`](../implementation-plans/authoring-editor-repair.md) (catalog
+index cache + editor UX ratchet — also speeds the `generate` CLI and telnet authoring paths) and
+[`authoring-api-surface`](../implementation-plans/authoring-api-surface.md) (`INV-8` conformance for
+logic that leaked into components, then a narrow JSON surface).
+
+**The gate fires at the Phase 5 → 6 boundary**, once the content baseline is authored against the
+repaired editor — a one-page bakeoff measured on authoring throughput, diff size, and agent-iteration
+count. A tie is a no-go; the burden of proof sits with the migration. Criteria and method are in the
+decision doc; the two outcomes at a high level:
+
+- **Go** → the migration becomes its own `/advise`-framed program in Phase 6: React coexisting with
+  Blazor on the same host, the editor ported page-by-page (each PR deleting its `.razor` counterpart,
+  so there is never a half-finished rewrite), SignalR push rehearsed on job progress before the player
+  client, and a front-end skill + test tier landing in the first slice (`INV-20`, `INV-25`).
+  [`../architecture/08-blazor.md`](../architecture/08-blazor.md) is rewritten as the host/transport tier.
+- **No-go** → Blazor is confirmed as the editor's durable home and this decision closes. The remaining
+  React-side wins fold back into the Blazor tier (`EditForm`/validation adoption, `@key`/`Virtualize`
+  where the audit says they belong, optionally a scoped JS-interop island for the grid editor). The
+  *player client* re-opens separately at Phase 7 — a no-go decides the editor, not the client.
 
 ## Phase 6 — Full MVP: mechanics + generated content expansion
 
