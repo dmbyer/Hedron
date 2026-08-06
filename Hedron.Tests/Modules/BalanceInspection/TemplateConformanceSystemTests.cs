@@ -75,6 +75,14 @@ namespace Hedron.Tests.Modules.BalanceInspection
             public Task<ContentWriteResult> RemoveRoomExitAsync(
                 string roomBlueprintId, Direction direction, bool bidirectional, CancellationToken ct = default) =>
                 throw new NotSupportedException();
+
+            public ContentDefinition WithBlueprintId(ContentDefinition definition, string? blueprintId) =>
+                throw new NotSupportedException();
+
+            public ContentDefinition CreateNextFrom(ContentDefinition previous, string name) =>
+                throw new NotSupportedException();
+
+            public void Invalidate() { }
         }
 
         private sealed class FakeBalanceAuditSystem : IBalanceAuditSystem

@@ -16,6 +16,7 @@
 }
 else if (_template is not null)
 {
+<div class="editor-form" @onkeydown="OnFormKeyDown">
     <BlueprintIdField Kind="ContentKind.Area" IsNew="IsNew" BlueprintId="@_template.BlueprintId"
                        BlueprintIdChanged="OnBlueprintIdChanged" OnRenamed="OnRenamed" />
 
@@ -26,7 +27,7 @@ else if (_template is not null)
 
     <div class="field">
         <label>Name</label>
-        <input @bind="_template.Name" />
+        <input @ref="_firstField" @bind="_template.Name" />
     </div>
 
     <div class="field">
@@ -36,7 +37,7 @@ else if (_template is not null)
 
     <div class="field">
         <label>Description</label>
-        <textarea rows="4" @bind="_template.Description"></textarea>
+        <textarea rows="4" @bind="_template.Description" @onkeydown:stopPropagation="true"></textarea>
     </div>
 
     <div class="field-row">
@@ -53,7 +54,7 @@ else if (_template is not null)
         <legend>Aspect affinities</legend>
         @foreach (var aspect in AllAspects)
         {
-            <div class="field-row affinity">
+            <div class="field-row affinity" @key="aspect">
                 <label class="affinity-label">@aspect</label>
                 <input type="number" value="@AffinityFor(aspect)"
                        @onchange="e => SetAffinity(aspect, e.Value?.ToString())" />
@@ -115,8 +116,12 @@ else if (_template is not null)
         <button class="primary" disabled="@_saving" @onclick="Save">
             @(_saving ? "Saving..." : "Save")
         </button>
+        <button disabled="@_saving" @onclick="SaveAndCreateNext" title="Saves, then starts a new definition carrying this one's authoring context forward">
+            Save &amp; create next
+        </button>
         <a class="cancel" href="">Back to browser</a>
     </div>
+</div>
 }
 
 @code {
@@ -130,10 +135,13 @@ else if (_template is not null)
     private bool _saved;
     private bool _confirmDelete;
     private bool _deleting;
+    // Set by "Save & create next": re-arms this page as a New form without a route change.
+    private bool _forceNew;
+    private bool _createNextPending;
     private IReadOnlyList<string> _errors = Array.Empty<string>();
     private IReadOnlyList<string> _warnings = Array.Empty<string>();
 
-    private bool IsNew => string.IsNullOrEmpty(BlueprintId);
+    private bool IsNew => _forceNew || string.IsNullOrEmpty(BlueprintId);
 
     protected override void OnParametersSet()
     {
@@ -141,6 +149,8 @@ else if (_template is not null)
         _errors = Array.Empty<string>();
         _warnings = Array.Empty<string>();
         _confirmDelete = false;
+        _forceNew = false;
+        _focusPending = true;
 
         if (IsNew)
         {
@@ -173,10 +183,13 @@ else if (_template is not null)
             _template.AspectAffinities = null;
     }
 
+    // WithBlueprintId, never CreateNew — swapping in a fresh default would discard every other
+    // field the author has already filled in on this form.
     private void OnBlueprintIdChanged(string newId)
     {
         if (_template is null) return;
-        _template = (AreaTemplate)Catalog.CreateNew(ContentKind.Area, _template.Name, newId).Template;
+        _template = (AreaTemplate)Catalog
+            .WithBlueprintId(new ContentDefinition(ContentKind.Area, _template), newId).Template;
     }
 
     private void OnRenamed(ContentRenameResult result)
@@ -205,13 +218,66 @@ else if (_template is not null)
         {
             _saved = true;
             _warnings = result.Warnings;
-            // After a successful create, switch the URL to the edit route for the minted id.
-            if (IsNew)
+            // After a successful create, switch the URL to the edit route for the minted id —
+            // unless a "Save & create next" is mid-flight, which re-arms this page in place.
+            if (IsNew && !_createNextPending)
                 Nav.NavigateTo($"area/{Uri.EscapeDataString(_template.BlueprintId)}");
         }
         else
         {
             _errors = result.Errors;
+        }
+    }
+
+
+    /// <summary>
+    /// Saves the current definition then re-arms the form as a New form seeded by
+    /// <c>CreateNextFrom</c> — the catalog owns which fields carry forward (authoring policy plus
+    /// kind dispatch, which a component may not hold; see docs/architecture/08-blazor.md).
+    /// </summary>
+    private async Task SaveAndCreateNext()
+    {
+        if (_template is null) return;
+
+        var previous = new ContentDefinition(ContentKind.Area, _template);
+        _createNextPending = true;
+        await Save();
+        _createNextPending = false;
+
+        if (!_saved) return;
+
+        _template = (AreaTemplate)Catalog.CreateNextFrom(previous, "New Area").Template;
+        _forceNew = true;
+        _saved = false;
+        _focusPending = true;
+    }
+
+    // ── Keyboard-first authoring ────────────────────────────────────────────────
+    // Enter saves, Esc returns to the browser. Multi-line fields stop keydown
+    // propagation so Enter inside a textarea still inserts a newline.
+    private ElementReference _firstField;
+    private bool _focusPending = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusPending || _template is null)
+            return;
+
+        _focusPending = false;
+        try { await _firstField.FocusAsync(); }
+        catch (Exception) { /* element not in the DOM this pass — harmless */ }
+    }
+
+    private async Task OnFormKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            if (!_saving)
+                await Save();
+        }
+        else if (e.Key == "Escape")
+        {
+            Nav.NavigateTo(string.Empty);
         }
     }
 

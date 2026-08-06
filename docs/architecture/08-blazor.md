@@ -62,7 +62,7 @@ These are the same constraints the `architecture-reviewer` applies to a `Hedron.
 | `Hedron.Web.csproj` (`Microsoft.NET.Sdk.Web`) | The web host project; references `Server` (for `CompositionRoot` + bootstrap types), transitively `Core`. |
 | `Program.cs` | Boots the engine via `CompositionRoot.Register` + `AddContentBootstrapHostedServices`, adds Blazor Server, binds loopback (`Web:BindUrl`). |
 | `Components/` | Blazor pages/components — the content browser and per-kind editors (area/room/item/mob), the Standards page, and the Simulation page, each a thin caller of a `Core/` system. |
-| `Services/` | Web-host-only supporting code that is not presentation — a background-job registry (`SimulationRunService`) and scenario/prefill composers (`BaselineSweep`, `SimulationPrefill`, sim-3). See [Background tooling jobs](#background-tooling-jobs-sim-3) below. |
+| `Services/` | Web-host-only supporting code that is not presentation — a background-job registry (`SimulationRunService`), the Integrity page's off-thread sweep (`ContentIntegritySweepService`), and scenario/prefill composers (`BaselineSweep`, `SimulationPrefill`, sim-3). See [Background tooling jobs](#background-tooling-jobs-sim-3) below. |
 | `appsettings.json` | The same engine config the telnet host reads, plus `Web:BindUrl`. |
 
 The authoring backend — `IContentDefinitionCatalog`, `IContentValidator`, `IContentGenerationSystem` — lives in `Core/` (modules `Authoring` and `World`), not in the web project. Most of the web project is presentation only; `Services/` is the one deliberate exception (below), and it is still not *authoring* logic — no YAML write, no live-world touch.
@@ -90,6 +90,10 @@ The Simulation page (`/simulation`) introduced the web host's **first background
 - **The engine stays a pure callee.** `SimulationRunService` calls `ISimulationRunner.Run`/`ISimScenarioStore`/`ISimReportWriter` exactly as the CLI `simulate` run-mode does — same validation, same verdict math, same report artifact (INV-19). The service adds queueing/status/cancellation around the call, not a second copy of the engine.
 
 **Promotion trigger (recorded, not built speculatively):** if a second long-running editor job wants the same queue/progress/cancel shape (candidate: sim-5's bulk conformance apply), generalize `SimulationRunService` into a shared web-job service rather than hand-rolling a second one — see [`../roadmap/backlog.md`](../roadmap/backlog.md).
+
+**Trigger examined and not fired (authoring-editor-repair).** `ContentIntegritySweepService` runs the Integrity page's two corpus sweeps (`IContentReferenceIndex.SweepBroken`, `IBalanceAuditSystem.Audit`) on a background `Task` and exposes a status snapshot the page polls — the same *snapshot* shape, but **progress-only: no queue, no cancellation**. It therefore does not meet the trigger's shape and was written standalone. The bulk conformance apply on that same page still runs blocking on the circuit thread; that is the job that fires the trigger when it moves.
+
+**Stateful, cached `Core/` systems reached from a circuit.** A page may call a `Core/` domain system that keeps a cache (`IContentDefinitionCatalog` is the first). Those are DI singletons reached concurrently from multiple circuits, so their concurrency posture is the *system's* to declare (INV-31), not the page's — see [`../reference/systems.md`](../reference/systems.md) and the `add-domain-system` skill. A component must not compensate with its own cache or its own lock.
 
 ---
 

@@ -12,6 +12,9 @@ namespace Hedron.Core.Modules.Authoring
     {
         public static IServiceCollection AddAuthoringModule(this IServiceCollection services)
         {
+            // Infrastructure port, not a domain system (no reference/systems.md row) — registered
+            // so the composition-root smoke guard covers the catalog's read seam.
+            services.AddSingleton<IContentFileReader, ContentFileReader>();
             services.AddSingleton<IContentReferenceIndex, ContentReferenceIndex>();
             services.AddSingleton<IContentDefinitionCatalog, ContentDefinitionCatalog>();
             services.AddSingleton<IContentGenerationSystem, ContentGenerationSystem>();

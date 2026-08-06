@@ -1,8 +1,8 @@
 @page "/integrity"
 @using Hedron.Core.Modules.BalanceInspection
 @using Hedron.Core.Modules.BalanceInspection.Systems
-@inject IContentReferenceIndex RefIndex
-@inject IBalanceAuditSystem BalanceAudit
+@using Hedron.Web.Services
+@inject ContentIntegritySweepService Sweeps
 @inject ITemplateConformanceSystem Conformance
 
 <PageTitle>Content integrity</PageTitle>
@@ -46,7 +46,7 @@
             <tbody>
                 @foreach (var ref_ in _broken)
                 {
-                    <tr>
+                    <tr @key="(ref_.SourceKind, ref_.SourceBlueprintId, ref_.FieldLabel)">
                         <td><span class="kind-badge">@ref_.SourceKind</span></td>
                         <td class="mono">@ref_.SourceBlueprintId</td>
                         <td class="mono">@ref_.FieldLabel</td>
@@ -100,7 +100,7 @@
             <tbody>
                 @foreach (var entry in _auditReport.Drifted)
                 {
-                    <tr>
+                    <tr @key="entry.BlueprintId">
                         <td><span class="kind-badge">@entry.Kind</span></td>
                         <td class="mono">@entry.BlueprintId</td>
                         <td class="mono">@entry.AuthoredTier/@entry.AuthoredBand</td>
@@ -147,7 +147,7 @@
                                             <tbody>
                                                 @foreach (var change in preview.FieldChanges)
                                                 {
-                                                    <tr><td>@change.Field</td><td>@change.Before</td><td>@change.After</td></tr>
+                                                    <tr @key="change.Field"><td>@change.Field</td><td>@change.Before</td><td>@change.After</td></tr>
                                                 }
                                             </tbody>
                                         </table>
@@ -206,7 +206,7 @@
         <tbody>
             @foreach (var bucket in _auditReport.BucketCounts.OrderBy(b => b.Key.Tier).ThenBy(b => b.Key.Band))
             {
-                <tr>
+                <tr @key="bucket.Key">
                     <td>@bucket.Key.Tier</td>
                     <td>@bucket.Key.Band</td>
                     <td>@bucket.Value</td>
@@ -235,32 +235,31 @@
     private bool _bulkConforming;
     private string? _conformanceError;
 
-    protected override void OnInitialized() => RunSweep();
+    // The two corpus sweeps run in ContentIntegritySweepService on a background thread; the page
+    // only starts them and projects the snapshot. Nothing here blocks the circuit.
+    protected override Task OnInitializedAsync() => RunSweep();
 
-    private void Sweep() => RunSweep();
+    private Task Sweep() => RunSweep();
 
-    private void RunSweep()
+    private async Task RunSweep()
     {
-        _sweeping = true;
-        _swept = false;
-        _error = null;
-        _broken = Array.Empty<BrokenReference>();
-        _auditReport = null;
+        var sweep = Sweeps.StartAsync();
+        ApplySnapshot();      // in-progress state is observable immediately
+        StateHasChanged();
 
-        try
-        {
-            _broken = RefIndex.SweepBroken();
-            _auditReport = BalanceAudit.Audit();
-            _swept = true;
-        }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
-        }
-        finally
-        {
-            _sweeping = false;
-        }
+        await sweep;
+
+        ApplySnapshot();
+    }
+
+    private void ApplySnapshot()
+    {
+        var status = Sweeps.Snapshot();
+        _sweeping = status.State == IntegritySweepState.Running;
+        _swept = status.State == IntegritySweepState.Completed;
+        _broken = status.Broken;
+        _auditReport = status.AuditReport;
+        _error = status.ErrorMessage;
     }
 
     // ── Conformance fitter (sim-5) — per-row preview/apply, thin caller of ITemplateConformanceSystem ──

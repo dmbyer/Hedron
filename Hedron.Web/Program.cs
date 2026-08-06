@@ -37,6 +37,7 @@ public static class Program
         // Web-only background-job registry (sim-3) — not part of the shared engine composition
         // root since it is a Hedron.Web-specific UI concern (no bus events, no hosted service).
         builder.Services.AddSingleton<SimulationRunService>();
+        builder.Services.AddSingleton<ContentIntegritySweepService>();
 
         // Blazor Server stack.
         builder.Services.AddRazorComponents()

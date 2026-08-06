@@ -2,7 +2,7 @@
 
 <div class="field">
     <label>Name</label>
-    <input @bind="Room.Name" />
+    <input @ref="_nameField" @bind="Room.Name" />
 </div>
 
 <div class="field">
@@ -11,17 +11,22 @@
         <option value="">-- no area --</option>
         @foreach (var area in Areas)
         {
-            <option value="@area.BlueprintId">@area.Name (@area.BlueprintId)</option>
+            <option @key="area.BlueprintId" value="@area.BlueprintId">@area.Name (@area.BlueprintId)</option>
         }
     </select>
 </div>
 
 <div class="field">
     <label>Description</label>
-    <textarea rows="4" @bind="Room.Description"></textarea>
+    <textarea rows="4" @bind="Room.Description" @onkeydown:stopPropagation="true"></textarea>
 </div>
 
 @code {
     [Parameter, EditorRequired] public RoomTemplate Room { get; set; } = null!;
     [Parameter, EditorRequired] public IReadOnlyList<ContentSummary> Areas { get; set; } = Array.Empty<ContentSummary>();
+
+    private ElementReference _nameField;
+
+    /// <summary>Focuses the Name field - the owning page's keyboard-first entry point.</summary>
+    public ValueTask FocusNameAsync() => _nameField.FocusAsync();
 }

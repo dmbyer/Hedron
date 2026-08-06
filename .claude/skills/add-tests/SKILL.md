@@ -32,6 +32,7 @@ Most slice coverage is Tier 1 + one Tier 3 flow. Reach for Tier 2 only where a h
 - `FakeClock : IClock` — settable `UtcNow` + `Advance(TimeSpan)` for deterministic time assertions.
 - output capture — a fake `IOutputWriter`/transport recording messages by type + audience.
 - in-memory SQLite helper (`PersistenceTestHarness`) + synthetic `HeartbeatTickEvent` factory (`Ticks.At(id)`).
+- **counting filesystem reader** (`CountingFileReader`, local to `ContentDefinitionCatalogCacheTests`) — a pass-through `IContentFileReader` that counts directory sweeps and file reads, plus an `AfterGetFiles` hook for interleaving a write into the middle of a sweep. It is how the authoring catalog's cache behavior is asserted (*"a second `List` performs no filesystem read"*) without mutating a temp directory behind the catalog's back — the latter would assert *stale* behavior and freeze a design decision into a test. Still test-local; promote it into the shared harness at a second consumer.
 
 ## Worked examples
 
@@ -72,10 +73,12 @@ Per the rubric: pure-data components, per-module DI registration (the DI-smoke t
 
 A test must be able to control every source of variation. If the system reaches for `Random.Shared` or `DateTime.UtcNow` directly, **fix the system first** — inject `IRandom` (precedent: `CombatSystem`) or pass the heartbeat timestamp — then inject a fake in the test. Never test by re-seeding a global or sleeping on the real clock.
 
+The same rule covers I/O and background work. To assert *how much* a cached system touched the disk, inject a counting seam (`IContentFileReader`) rather than inferring it from timings. To assert a background job's in-progress state, gate the fake it calls on a signal the test controls and assert while the gate is provably held — never `Thread.Sleep` and hope (precedent: `ContentIntegritySweepServiceTests`, `SimulationRunServiceTests`).
+
 ## Where tests live & how to run
 
 - `Hedron.Tests/<MirroredNamespace>/...` — mirror the `Core` namespace of the thing under test.
-- `Hedron.Tests/Web/<Type>Tests.cs` — non-presentation `Hedron.Web/Services/*` logic (a background-job registry, a scenario/prefill composer — e.g. `SimulationRunService`, `BaselineSweep`, `SimulationPrefill`, sim-3). `Hedron.Tests` references `Hedron.Web` for exactly this. Test it Tier-1-style, against interface fakes — never a real Blazor render. Razor markup/pages stay presentation-skip-tier (no bUnit harness in the repo; a bug there is obvious on first page load).
+- `Hedron.Tests/Web/<Type>Tests.cs` — non-presentation `Hedron.Web/Services/*` logic (a background-job registry, an off-thread sweep service, a scenario/prefill composer — e.g. `SimulationRunService`, `ContentIntegritySweepService`, `BaselineSweep`, `SimulationPrefill`). `Hedron.Tests` references `Hedron.Web` for exactly this. Test it Tier-1-style, against interface fakes — never a real Blazor render. Razor markup/pages stay presentation-skip-tier (no bUnit harness in the repo; a bug there is obvious on first page load).
 - `dotnet test Hedron.sln` — must be green before the code-review gate (INV-25). "Ship green" = build green **and** tests green.
 
 ## Cross-references

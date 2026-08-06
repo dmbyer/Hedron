@@ -110,9 +110,10 @@ C#-shaped skill surface, which is a measurable cost that lands on day one.
 repaired editor. Not before — the gate's whole purpose is to decide on authoring-friction evidence
 that does not exist today.
 
-**Preconditions.** Both no-regret tracks landed ([`authoring-editor-repair`](../implementation-plans/authoring-editor-repair.md),
-[`authoring-api-surface`](../implementation-plans/authoring-api-surface.md)), and Phase 5's content
-baseline authored.
+**Preconditions.** Both no-regret tracks landed — `authoring-editor-repair`
+**shipped** ([`../roadmap/completed/authoring-editor-repair.md`](../roadmap/completed/authoring-editor-repair.md)),
+[`authoring-api-surface`](../implementation-plans/authoring-api-surface.md) still ahead — and Phase 5's
+content baseline authored.
 
 **The measurement.** A one-page bakeoff: port `MobEditor` (highest form friction, cleanest shape) to
 React over the JSON surface and compare against the repaired Razor page on authoring throughput,
@@ -152,9 +153,12 @@ skip-tier remains correct once the leaked logic has moved down.
 
 Two seeded slices, ~4 slices' worth of budget total, none of which prejudges the gate:
 
-- [`authoring-editor-repair.md`](../implementation-plans/authoring-editor-repair.md) — the catalog
-  index cache and the editor UX ratchet. Speeds the editor, the CLI, and the telnet paths now;
-  a React port would inherit the same cache.
+- **`authoring-editor-repair` — shipped**
+  ([`../roadmap/completed/authoring-editor-repair.md`](../roadmap/completed/authoring-editor-repair.md)):
+  the catalog index cache and the editor UX ratchet. A React port inherits the cache unchanged, which
+  is what made it no-regret. Note the seeded framing overstated its reach — the cache speeds the
+  *editor* only; the `generate` CLI and the telnet `mk*`/`set*` verbs write through
+  `I*ContentWriter` directly and neither benefit from nor invalidate it.
 - [`authoring-api-surface.md`](../implementation-plans/authoring-api-surface.md) — extract the leaked
   component logic into `Core/` systems (`INV-8` conformance, which also closes most of the coverage
   hole under existing rules), then a JSON transport adapter scoped to the Mob kind.
