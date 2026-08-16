@@ -46,6 +46,7 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 
 | Status | Plan | Slice |
 |---|---|---|
+| `planned` | [`progression-use-based-xp.md`](progression-use-based-xp.md) | Use-based XP: skill tracks, award chance, global + granular scales, narration + `toggle` |
 | `planned` | [`admin-area-authoring.md`](admin-area-authoring.md) | `mkarea` + `listents <type>` |
 | `planned` | [`authoring-api-surface.md`](authoring-api-surface.md) | `INV-8` conformance + narrow JSON surface (Phase 5 no-regret) |
 | `planned` | [`tiered-overworld-program.md`](tiered-overworld-program.md) | Phase 6 world program (requirements seed — awaiting `/advise`) |
