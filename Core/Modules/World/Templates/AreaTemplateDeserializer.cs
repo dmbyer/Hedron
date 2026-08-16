@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using Hedron.Core.Modules.Aspects;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging;
@@ -17,22 +18,27 @@ namespace Hedron.Core.Modules.World.Templates
         private const int CurrentSchemaVersion = 1;
 
         private readonly ILogger<AreaTemplateDeserializer> _logger;
-        private readonly IDeserializer _yaml;
+        // YamlDotNet's IDeserializer is NOT thread-safe: its type inspector caches into plain
+        // dictionaries, so two threads deserializing at once can corrupt that cache. The content
+        // catalog serves reads lock-free and concurrently — Blazor circuits and, since the authoring
+        // JSON surface landed, request threads — so a single shared instance is unsafe here (INV-31).
+        // One instance per thread keeps reads parallel; rebuilding per call would re-pay the builder
+        // cost on every file of a corpus sweep. Never disposed: this is a process-lifetime singleton.
+        private readonly ThreadLocal<IDeserializer> _yaml = new(() => new DeserializerBuilder()
+            .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .IgnoreUnmatchedProperties()
+            .Build());
 
         public string Kind => "area";
 
         public AreaTemplateDeserializer(ILogger<AreaTemplateDeserializer> logger)
         {
             _logger = logger;
-            _yaml = new DeserializerBuilder()
-                .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                .IgnoreUnmatchedProperties()
-                .Build();
         }
 
         public IEntityTemplate Deserialize(string fileBody)
         {
-            var dto = _yaml.Deserialize<AreaDto>(fileBody)
+            var dto = _yaml.Value!.Deserialize<AreaDto>(fileBody)
                 ?? throw new InvalidOperationException("Empty area YAML.");
 
             if (dto.SchemaVersion is { } v && v != CurrentSchemaVersion)

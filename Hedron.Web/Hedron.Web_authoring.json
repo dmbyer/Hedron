@@ -1,0 +1,809 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Hedron authoring API",
+    "description": "Loopback-only, unauthenticated JSON surface over the content-definition catalog. Scoped to the operations the client-tier bakeoff page calls.",
+    "version": "v1"
+  },
+  "paths": {
+    "/api/areas": {
+      "get": {
+        "tags": [
+          "Hedron.Web"
+        ],
+        "operationId": "ListAreaDefinitions",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContentSummary"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rooms": {
+      "get": {
+        "tags": [
+          "Hedron.Web"
+        ],
+        "operationId": "ListRoomDefinitions",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContentSummary"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mobs": {
+      "get": {
+        "tags": [
+          "Hedron.Web"
+        ],
+        "operationId": "ListMobDefinitions",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContentSummary"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Hedron.Web"
+        ],
+        "operationId": "CreateMobDefinition",
+        "parameters": [
+          {
+            "name": "blueprintId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MobDefinitionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentWriteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mobs/{blueprintId}": {
+      "get": {
+        "tags": [
+          "Hedron.Web"
+        ],
+        "operationId": "GetMobDefinition",
+        "parameters": [
+          {
+            "name": "blueprintId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MobDefinitionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Hedron.Web"
+        ],
+        "operationId": "SaveMobDefinition",
+        "parameters": [
+          {
+            "name": "blueprintId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MobDefinitionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentWriteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Hedron.Web"
+        ],
+        "operationId": "DeleteMobDefinition",
+        "parameters": [
+          {
+            "name": "blueprintId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentDeleteResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/power/mob": {
+      "post": {
+        "tags": [
+          "Hedron.Web"
+        ],
+        "operationId": "ReadMobPower",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MobDefinitionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MobPowerReadoutDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CascadeEditResponse": {
+        "type": "object",
+        "properties": {
+          "referrerKind": {
+            "type": "string",
+            "nullable": true
+          },
+          "referrerBlueprintId": {
+            "type": "string",
+            "nullable": true
+          },
+          "fieldLabel": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ContentDeleteResponse": {
+        "type": "object",
+        "properties": {
+          "blueprintId": {
+            "type": "string",
+            "nullable": true
+          },
+          "cascadeEdits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CascadeEditResponse"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ContentErrorResponse": {
+        "type": "object",
+        "properties": {
+          "blueprintId": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ContentSummary": {
+        "type": "object",
+        "properties": {
+          "blueprintId": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "areaBlueprintId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ContentWriteResponse": {
+        "type": "object",
+        "properties": {
+          "blueprintId": {
+            "type": "string",
+            "nullable": true
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CurrencyId": {
+        "enum": [
+          0
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "CurrencyLootRowDto": {
+        "type": "object",
+        "properties": {
+          "currency": {
+            "$ref": "#/components/schemas/CurrencyId"
+          },
+          "min": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "max": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MobDefinitionDto": {
+        "type": "object",
+        "properties": {
+          "blueprintId": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "mobType": {
+            "$ref": "#/components/schemas/MobType"
+          },
+          "spawnRoomBlueprintId": {
+            "type": "string",
+            "nullable": true
+          },
+          "level": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxHp": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mind": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "body": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "spirit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "attunement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxMana": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxStamina": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxAstra": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "currencyLoot": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CurrencyLootRowDto"
+            },
+            "nullable": true
+          },
+          "protection": {
+            "$ref": "#/components/schemas/ProtectionFlags"
+          },
+          "tier": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "band": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "xpScale": {
+            "type": "number",
+            "format": "double"
+          },
+          "isShop": {
+            "type": "boolean"
+          },
+          "shopAcceptedCurrency": {
+            "$ref": "#/components/schemas/CurrencyId"
+          },
+          "shopTillSeed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "shopRatioOverride": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "shopBaseStock": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShopStockRowDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MobPowerReadoutDto": {
+        "type": "object",
+        "properties": {
+          "power": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "computedTier": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "computedBand": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "authoredTier": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "authoredBand": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "targetMinPower": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "targetMaxPower": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "driftsFromAuthoredCell": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MobType": {
+        "enum": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": { }
+      },
+      "ProtectionFlags": {
+        "enum": [
+          0,
+          1,
+          2
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "ShopStockRowDto": {
+        "type": "object",
+        "properties": {
+          "blueprintId": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

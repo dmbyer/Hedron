@@ -61,3 +61,11 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+###############################################################################
+# Generated OpenAPI document (authoring-api-surface WP2)
+#
+# CI regenerates this file and fails the build on any diff. Pin it to LF so a
+# regeneration on Windows and one on the Linux CI runner produce the same bytes.
+###############################################################################
+Hedron.Web/Hedron.Web_authoring.json text eol=lf

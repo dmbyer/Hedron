@@ -368,6 +368,160 @@ namespace Hedron.Tests.Authoring
             Assert.NotNull(reloadedC.X);
         }
 
+        // ── ConnectAsync (authoring-api-surface WP1) ──────────────────────────────────
+        //
+        // The grid editor's connect gesture. What is under test is the *policy* — which direction
+        // pair gets written, that the write is bidirectional, and that a non-connectable pair is
+        // refused as a result rather than approximated — not DirectionExtensions.FromOffset's
+        // arithmetic, which is already a tested Core helper.
+
+        [Fact]
+        public async Task ConnectAsync_WritesTheDirectionDerivedFromTheTwoRoomsPositions()
+        {
+            var catalog = NewCatalog();
+            var a = await MakeRoom(catalog, "area.1", "A", 0, 0, 0);
+            var b = await MakeRoom(catalog, "area.1", "B", 1, 0, 0);
+
+            var system = new AreaLayoutSystem(catalog);
+            var result = await system.ConnectAsync(a.BlueprintId, b.BlueprintId);
+
+            Assert.Equal(AreaConnectOutcome.Connected, result.Outcome);
+            Assert.Equal(Direction.East, result.Direction);
+
+            var reloadedA = (RoomTemplate)catalog.Load(ContentKind.Room, a.BlueprintId)!.Template;
+            Assert.Equal(b.BlueprintId, reloadedA.Exits[Direction.East]);
+        }
+
+        [Fact]
+        public async Task ConnectAsync_WritesTheInverseExitOnTheTarget()
+        {
+            var catalog = NewCatalog();
+            var a = await MakeRoom(catalog, "area.1", "A", 0, 0, 0);
+            var b = await MakeRoom(catalog, "area.1", "B", 0, 1, 0);
+
+            var system = new AreaLayoutSystem(catalog);
+            var result = await system.ConnectAsync(a.BlueprintId, b.BlueprintId);
+
+            Assert.Equal(Direction.North, result.Direction);
+
+            var reloadedB = (RoomTemplate)catalog.Load(ContentKind.Room, b.BlueprintId)!.Template;
+            Assert.Equal(a.BlueprintId, reloadedB.Exits[Direction.South]);
+        }
+
+        [Fact]
+        public async Task ConnectAsync_UsesTheProposedCell_ForACoordlessRoom()
+        {
+            var catalog = NewCatalog();
+            var a = await MakeRoom(catalog, "area.1", "A", 0, 0, 0);
+            var b = await MakeRoom(catalog, "area.1", "B"); // coordless — laid out at (1,0,0)
+            await Link(catalog, a, Direction.East, b);
+            var c = await MakeRoom(catalog, "area.1", "C", 2, 0, 0);
+
+            var system = new AreaLayoutSystem(catalog);
+            var result = await system.ConnectAsync(b.BlueprintId, c.BlueprintId);
+
+            // B has no authored coordinates; the grid renders it at its proposed ghost cell, and the
+            // connect gesture must agree with what the author sees.
+            Assert.Equal(AreaConnectOutcome.Connected, result.Outcome);
+            Assert.Equal(Direction.East, result.Direction);
+        }
+
+        [Fact]
+        public async Task ConnectAsync_DerivesAVerticalDirection_AcrossZLayers()
+        {
+            var catalog = NewCatalog();
+            var a = await MakeRoom(catalog, "area.1", "A", 0, 0, 0);
+            var b = await MakeRoom(catalog, "area.1", "B", 0, 0, 1);
+
+            var system = new AreaLayoutSystem(catalog);
+            var result = await system.ConnectAsync(a.BlueprintId, b.BlueprintId);
+
+            Assert.Equal(Direction.Up, result.Direction);
+        }
+
+        [Fact]
+        public async Task ConnectAsync_RejectsNonAdjacentRooms_WithoutWriting()
+        {
+            var catalog = NewCatalog();
+            var a = await MakeRoom(catalog, "area.1", "A", 0, 0, 0);
+            var b = await MakeRoom(catalog, "area.1", "B", 3, 2, 0);
+
+            var system = new AreaLayoutSystem(catalog);
+            var result = await system.ConnectAsync(a.BlueprintId, b.BlueprintId);
+
+            Assert.Equal(AreaConnectOutcome.NotAdjacent, result.Outcome);
+            Assert.Null(result.Direction);
+
+            var reloadedA = (RoomTemplate)catalog.Load(ContentKind.Room, a.BlueprintId)!.Template;
+            Assert.Empty(reloadedA.Exits);
+        }
+
+        [Fact]
+        public async Task ConnectAsync_RejectsADiagonalPair()
+        {
+            var catalog = NewCatalog();
+            var a = await MakeRoom(catalog, "area.1", "A", 0, 0, 0);
+            var b = await MakeRoom(catalog, "area.1", "B", 1, 1, 0);
+
+            var system = new AreaLayoutSystem(catalog);
+            var result = await system.ConnectAsync(a.BlueprintId, b.BlueprintId);
+
+            Assert.Equal(AreaConnectOutcome.NotAdjacent, result.Outcome);
+        }
+
+        [Fact]
+        public async Task ConnectAsync_RejectsATargetLaidOutInAnotherArea()
+        {
+            var catalog = NewCatalog();
+            var a = await MakeRoom(catalog, "area.1", "A", 0, 0, 0);
+            var elsewhere = await MakeRoom(catalog, "area.2", "Elsewhere", 1, 0, 0);
+
+            var system = new AreaLayoutSystem(catalog);
+            var result = await system.ConnectAsync(a.BlueprintId, elsewhere.BlueprintId);
+
+            // Same nominal cell, different area — the two grids are separate coordinate spaces, so
+            // "adjacent" is not defined across them.
+            Assert.Equal(AreaConnectOutcome.NotAdjacent, result.Outcome);
+        }
+
+        [Fact]
+        public async Task ConnectAsync_ReportsRoomNotFound_ForAnUnknownId()
+        {
+            var catalog = NewCatalog();
+            var a = await MakeRoom(catalog, "area.1", "A", 0, 0, 0);
+
+            var system = new AreaLayoutSystem(catalog);
+
+            Assert.Equal(
+                AreaConnectOutcome.RoomNotFound,
+                (await system.ConnectAsync(a.BlueprintId, "room.does-not-exist")).Outcome);
+            Assert.Equal(
+                AreaConnectOutcome.RoomNotFound,
+                (await system.ConnectAsync("room.does-not-exist", a.BlueprintId)).Outcome);
+        }
+
+        [Fact]
+        public async Task ConnectAsync_CarriesTheCatalogsWarnings_OnAConflictingInverseExit()
+        {
+            var catalog = NewCatalog();
+            var a = await MakeRoom(catalog, "area.1", "A", 0, 0, 0);
+            var b = await MakeRoom(catalog, "area.1", "B", 1, 0, 0);
+            var other = await MakeRoom(catalog, "area.1", "Other", 2, 0, 0);
+
+            // B already exits West to a different room, so the bidirectional leg must be skipped
+            // with a warning rather than silently overwritten.
+            await Link(catalog, b, Direction.West, other);
+
+            var system = new AreaLayoutSystem(catalog);
+            var result = await system.ConnectAsync(a.BlueprintId, b.BlueprintId);
+
+            Assert.Equal(AreaConnectOutcome.Connected, result.Outcome);
+            Assert.Contains(result.Warnings, w => w.Contains(b.BlueprintId));
+
+            var reloadedB = (RoomTemplate)catalog.Load(ContentKind.Room, b.BlueprintId)!.Template;
+            Assert.Equal(other.BlueprintId, reloadedB.Exits[Direction.West]);
+        }
+
         /// <summary>Decorator that throws from <see cref="SaveRoomAsync"/> for one blueprint id, delegating everything else.</summary>
         private sealed class FailOnSaveCatalog : IContentDefinitionCatalog
         {

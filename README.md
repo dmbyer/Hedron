@@ -43,6 +43,10 @@ dotnet run --project Hedron.Web
 
 Serves the Blazor authoring editor at `Web:BindUrl` (default `http://127.0.0.1:5050`, loopback only). Edits write YAML to the content directory; use the editor's **Apply** action (or restart the game server) to load changes into a live world. The editor's **Simulation** page (`/simulation`) composes, launches, and inspects batch combat or progression-rate runs in the background — the same engine and report artifact the headless `simulate` run-mode below produces — with "Simulate vs reference" entry points on the mob/item editors and a "Re-run baseline sweep" affordance on the Standards page.
 
+> **The same port also serves an unauthenticated JSON API at `/api`** — mob create/save/delete plus read-only area/room lookups, over the same content catalog. There is no authentication; the protection is loopback binding plus a same-origin/JSON-content-type filter, so **any process on your machine can write content while this host is running**. Do not bind it to a non-loopback address. Its contract is published at [`Hedron.Web/Hedron.Web_authoring.json`](Hedron.Web/Hedron.Web_authoring.json).
+>
+> That document is **generated on every `dotnet build` of `Hedron.Web` and checked in**, so editing an API DTO leaves the file dirty in your working tree — commit it. CI regenerates it and fails the build on any difference.
+
 ### Bulk content generation (headless)
 
 Generate a swath of areas / rooms / mobs / items from a profile — for testing and scaling work — without starting the listener or heartbeat:

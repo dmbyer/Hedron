@@ -39,7 +39,7 @@ This is "strong but not excessive": coverage concentrates on internal state tran
 
 ## Test taxonomy
 
-Five tiers, mapped onto the four layers. Each tier has a default posture — the rubric below says when each is required.
+Six tiers, mapped onto the four layers. Each tier has a default posture — the rubric below says when each is required.
 
 | Tier | Targets | Asserts | Harness needs |
 |---|---|---|---|
@@ -47,7 +47,8 @@ Five tiers, mapped onto the four layers. Each tier has a default posture — the
 | **2 — Handler / orchestration** | Handlers, commands (Initiators) | Correct systems called + correct **events published** (captured) + **priority-dependent ordering** where it is load-bearing (e.g. death: output before destroy). *Not* a re-derivation of system math. | `RecordingEventBus`, output capture |
 | **3 — Flow / scenario** | One per use-case **Main Flow** | command → event → handler → system → component state, across synthetic ticks. **The use-case Postconditions become the assertions.** | real systems+handlers+bus, fake transport, seeded `IRandom`, synthetic ticks |
 | **4 — Persistence round-trip** | Any `[Persistent]` shape | save → load into a fresh world → component equality; transient components **absent**; two-domain rules (world content has no row); lifetime-filtered `EffectsComponent` writes only `UntilRemoved`. | in-memory SQLite |
-| **5 — Architecture-guard** *(reflection; distinctive)* | The `Hedron.Core` assembly | Mechanical invariants as automated gates — see below. | reflection over `Core`; `Server` for DI-smoke |
+| **5 — Architecture-guard** *(reflection; distinctive)* | The `Hedron.Core` assembly, plus source scans of `Core/` and `Hedron.Web/` | Mechanical invariants as automated gates — see below. | reflection over `Core`; `Server` for DI-smoke |
+| **6 — HTTP integration** *(narrow; one surface)* | The authoring JSON API (`Hedron.Web/Api/`) | Request → status code + body, against the real host: a definition round-trips, a validation failure maps to the documented status carrying the catalog's errors, and each fail-fast mitigation branch rejects. | `WebApplicationFactory`, **a per-test temp content directory** |
 
 ### Tier 1 — system unit tests
 
@@ -88,6 +89,16 @@ Reflection over the `Hedron.Core` assembly turns the reviewer's most mechanical 
 | World-content-not-persistent | INV-23 | `RoomComponent` and `AreaComponent` are not `[Persistent]`. |
 | No-ambient-nondeterminism | INV-26 | No `Random.Shared` / `new Random()` / `DateTime[Offset].Now` referenced under `Systems/`. |
 | DI-smoke | composition integrity | The `Server` composition root builds and every registered handler/system resolves — one test covering all DI wiring and catching missing registrations. |
+| No-leaked-component-logic | INV-8 | `Hedron.Web/` contains no `DirectionExtensions.FromOffset` and no `new PowerBudgetSystem(` — the two constructs authoring-api-surface WP1 extracted. Deliberately construct-specific, not a blanket ban on `Direction` or the oracle in a razor. |
+| No-CORS-policy | authoring API mitigation | `Hedron.Web/` registers no CORS policy. The API's cross-origin protection depends on preflight failing, which holds only while no policy exists — so its absence is load-bearing, not incidental. |
+
+### Tier 6 — HTTP integration tests
+
+**Only the authoring JSON API is in this tier**, and only because it is a real out-of-process contract: status codes, header handling, and JSON shape are behavior no in-process test observes. It is *not* a general "test through HTTP" licence — everything the endpoints call is already covered at Tier 1, and re-asserting system math through a request is the same duplication Tier 2 forbids.
+
+`WebApplicationFactory<Hedron.Web.Program>` boots the **real** host, which means `AddContentBootstrapHostedServices` runs and every write endpoint writes YAML to the configured `World:ContentDirectory`. **The factory must override that setting to a per-test temp directory** — without it a single `POST` test writes into the repository's own content tree. `Hedron.Tests/Web/Api/AuthoringApiFactory` does this and cleans up on dispose, and a test asserts the override is still in place so the requirement cannot rot silently.
+
+**Parallelism posture.** One factory per test fixture, each with its own temp directory and its own host, so fixtures are independent and xunit's default per-class parallelism is safe — no `[Collection]` needed. What is *not* safe is sharing one factory across classes: the catalog is a host singleton with an in-memory index, and two classes writing through one host would interleave.
 
 ---
 
@@ -143,7 +154,12 @@ A single `Hedron.Tests` project (xUnit) referencing `Core`, `Server` (for the DI
 
 > The harness and the test project are stood up as a dedicated follow-up; this section is its spec. Until then, the strategy and invariants are in force for *new* work and the backfill is queued in [`../roadmap/backlog.md`](../roadmap/backlog.md).
 
-**Web-host services (`Hedron.Web/Services/*`).** A background-job registry or a scenario/prefill composer (e.g. `SimulationRunService`, `BaselineSweep`, `SimulationPrefill`, sim-3) is non-presentation logic that happens to live in the web host — it gets Tier-1-style decision tests, in `Hedron.Tests/Web/`, against interface fakes (never a real Blazor render). Razor markup/pages themselves stay presentation-skip-tier (no bUnit harness in the repo; see [08-blazor.md](08-blazor.md)) — the discriminator is *where the decision lives*, not *which project the file sits in*.
+**Web-host code (`Hedron.Web/`).** Two distinct things live here and they test differently.
+
+- **`Services/*`** — a background-job registry or a scenario/prefill composer (e.g. `SimulationRunService`, `BaselineSweep`, `SimulationPrefill`, sim-3) is non-presentation logic that happens to live in the web host. It gets Tier-1-style decision tests, in `Hedron.Tests/Web/`, against interface fakes — no host, no render.
+- **`Api/*`** — the authoring JSON surface is Tier 6 (above), in `Hedron.Tests/Web/Api/`, and **does** boot the real host through `WebApplicationFactory`. `Hedron.Tests` references `Microsoft.AspNetCore.Mvc.Testing` for it.
+
+Razor markup/pages themselves stay presentation-skip-tier (no bUnit harness in the repo; see [08-blazor.md](08-blazor.md)) — the discriminator is *where the decision lives*, not *which project the file sits in*. That rule's justification ("the logic they call is already covered") is only as true as the extraction discipline behind it, which is why the no-leaked-component-logic guard exists.
 
 ## Determinism (INV-26)
 

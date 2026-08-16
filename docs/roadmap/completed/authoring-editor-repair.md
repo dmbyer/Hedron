@@ -1,4 +1,4 @@
-# Authoring editor repair — catalog index + editor UX ratchet (completed)
+﻿# Authoring editor repair — catalog index + editor UX ratchet (completed)
 
 > Implemented on branch `claude/authoring-editor-repair-5a63f4`, 2026-08-05. Living docs: [`admin-authoring`](../../features/admin-authoring/admin-authoring.md) · [`content-tooling`](../../features/admin-authoring/content-tooling.md) · [Flow 29](../../architecture/flows/flow-29-bulk-content-generation.md) · [`reference/systems.md`](../../reference/systems.md).
 
@@ -82,7 +82,7 @@ Alongside those: a per-kind carry-forward `CreateNextFrom` behind a "Save & crea
 
 **What this slice did *not* speed up, stated plainly.** `IContentReferenceIndex` does its own `Directory.GetFiles`/`File.ReadAllText` and does not read through the catalog; `IBalanceAuditSystem` depends on `ITemplateRegistry`, not the catalog. Neither gains anything here. The Integrity page is therefore still slow for reasons the cache does not address — WP2(e) made it **non-blocking, not fast**.
 
-**Ordering against the sibling slice.** [`authoring-api-surface`](../../implementation-plans/authoring-api-surface.md) WP1 owns the `INV-8` extractions including `Standards.razor`; optimizing that page's per-cell oracle calls in place would have been discarded when the extraction lands, so it was left alone. Both slices edit `AreaGridEditor.razor` and Flow 29; this slice landed its edits first so the sibling rebases onto them.
+**Ordering against the sibling slice.** [`authoring-api-surface`](authoring-api-surface.md) (since shipped) WP1 owned the `INV-8` extractions including `Standards.razor`; optimizing that page's per-cell oracle calls in place would have been discarded when the extraction lands, so it was left alone. Both slices edit `AreaGridEditor.razor` and Flow 29; this slice landed its edits first so the sibling rebases onto them.
 
 ## Deviations / Follow-ups
 

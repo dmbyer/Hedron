@@ -4,7 +4,7 @@
 
 **Source:** [`../../features/admin-authoring/admin-authoring.md`](../../features/admin-authoring/admin-authoring.md)
 
-**Summary.** Four offline authoring paths share the loopback `Hedron.Web` host (three share the same content-definition layer). (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline Blazor editor** browses/loads/edits/saves/renames definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`; blueprint-id-editing added a **rename leg** (`RenameAsync`, cascading `oldId → newId` through the content graph, structural sibling of the existing delete cascade) and a **choose-at-creation** path (`CreateAsync`, a deliberate id on the New form) to this leg. (B2) The **Standards page** (sim-1) edits the balance-standards document via `IBalanceStandardsStore` — a single criteria file deliberately outside the catalog (seed OQ1), with no `reload` leg (restart-to-apply instead). (B3) The **Integrity page's conformance fitter** (sim-5) closes the observation→correction loop: it scales a flagged template's stat vector into its target (Tier, Band) range and writes it through the same `SaveAsync` path as B. (B4) The **visual grid area editor** (world-editor-grid) is a click-driven extension of leg B: it renders one area's rooms on a 2-D grid, seeded by `IAreaLayoutSystem.Propose`, and every action (create/connect/disconnect/edit/delete/rename) composes the same catalog verbs B already uses, plus one earned bidirectional-disconnect verb. No path mutates the live world directly (INV-12/23).
+**Summary.** Four offline authoring paths share the loopback `Hedron.Web` host (three share the same content-definition layer). (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline editor** browses/loads/edits/saves/renames definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`; blueprint-id-editing added a **rename leg** (`RenameAsync`, cascading `oldId → newId` through the content graph, structural sibling of the existing delete cascade) and a **choose-at-creation** path (`CreateAsync`, a deliberate id on the New form) to this leg, and authoring-api-surface added a **second caller** to it — a loopback JSON endpoint tier reaching the same catalog operations through a DTO mapping seam, with no apply/reload counterpart. (B2) The **Standards page** (sim-1) edits the balance-standards document via `IBalanceStandardsStore` — a single criteria file deliberately outside the catalog (seed OQ1), with no `reload` leg (restart-to-apply instead). (B3) The **Integrity page's conformance fitter** (sim-5) closes the observation→correction loop: it scales a flagged template's stat vector into its target (Tier, Band) range and writes it through the same `SaveAsync` path as B. (B4) The **visual grid area editor** (world-editor-grid) is a click-driven extension of leg B: it renders one area's rooms on a 2-D grid, seeded by `IAreaLayoutSystem.Propose`, and every action (create/disconnect/edit/delete/rename) composes the same catalog verbs B already uses, plus one earned bidirectional-disconnect verb; **connect** goes through `IAreaLayoutSystem.ConnectAsync`, which owns the connect policy (authoring-api-surface WP1). No path mutates the live world directly (INV-12/23).
 
 ---
 
@@ -42,13 +42,15 @@ sequenceDiagram
 
 ---
 
-## B — Offline Blazor editor (`Hedron.Web`)
+## B — Offline editor (`Hedron.Web`): Blazor component **or** JSON endpoint
 
-**Trigger:** Designer opens the loopback Blazor app.
+**Trigger:** Designer opens the loopback Blazor app, or a client calls the loopback JSON API.
 
 ```mermaid
 sequenceDiagram
     participant UI as Blazor component
+    participant API as Api/ endpoint (HTTP JSON)
+    participant Map as IContentDefinitionMapper&lt;TDto&gt;
     participant Cat as IContentDefinitionCatalog
     participant Idx as IContentReferenceIndex
     participant Val as IContentValidator
@@ -59,6 +61,12 @@ sequenceDiagram
     Note over Cat: served from the in-memory index; cold index sweeps once (see "Read semantics" below)
     Cat-->>UI: ContentSummary[] / ContentDefinition
     Note over UI: designer edits working copy (no catalog call)
+    API->>Cat: List(kind) / Load(kind, id) / CreateNew(kind, name)
+    Cat-->>API: ContentSummary[] / ContentDefinition
+    API->>Map: ToDto(definition) / ToDefinition(dto, blueprintId)
+    Note over API,Map: the endpoint's only own concern; kind dispatch lives in the mapper seam, not in Api/
+    API->>Cat: SaveAsync / CreateAsync / DeleteAsync — the same verbs, same rules
+    Note over API,Cat: result → status code (400 refused · 200/201 written · 404 absent); warnings never change it
     UI->>Cat: SaveAsync(definition)  [or SaveRoomAsync(room, bidirectional)]
     Cat->>Val: Validate(template)
     alt invalid
@@ -104,6 +112,24 @@ sequenceDiagram
     UI->>WCL: ReloadAsync()  (see Flow 5)
     WCL-->>UI: ContentReloadResult
 ```
+
+**Two callers, one set of operations.** The Blazor component and the JSON endpoint are peers on this
+leg: both resolve the *same* `IContentDefinitionCatalog` and reach the same validation, id-minting,
+cascade, and invalidation behavior. The endpoint adds exactly one thing of its own — DTO mapping,
+which is unavoidable because `ContentDefinition` has no parameterless constructor, a derived get-only
+id, and a polymorphic template — and delegates even that to `IContentDefinitionMapper<TDto>` so kind
+dispatch stays out of the entry-point surface. **Neither caller publishes**: the endpoint is a
+transport adapter, not an Initiator. The apply-to-live step at the bottom of this diagram is
+therefore Blazor-only — an HTTP apply/reload endpoint *would* be an Initiator and is deliberately not
+part of this surface. The JSON surface is scoped to the mob kind for writes plus read-only area/room
+lookups and a power-readout projection; see [08-blazor.md](../08-blazor.md#the-authoring-http-surface-api).
+
+**Concurrency on this leg (INV-31).** With a second caller, request threads join the Blazor circuits
+as concurrent writers. Every catalog mutator runs under one `SemaphoreSlim(1,1)` spanning the write
+cascade and the index invalidation that ends it; readers stay lock-free. See
+[`../../reference/systems.md`](../../reference/systems.md) for the full posture, including the
+re-entrancy shape `CreateAsync` requires and the three out-of-catalog properties (atomic publish,
+share-delete reads, thread-local deserializers) the lock-free read side depends on.
 
 **Read semantics — coherent for catalog-mediated writes, not disk truth.**
 `List`/`RoomsInArea`/`Load` are served from an in-memory index inside `ContentDefinitionCatalog`
@@ -280,9 +306,11 @@ sequenceDiagram
     alt create (click empty cell)
         UI->>Cat: CreateNew(Room, name); set AreaId + cell coords
         UI->>Cat: SaveRoomAsync(room, bidirectional: false)
-    else connect (select room, click adjacent occupied cell)
-        UI->>UI: DirectionExtensions.FromOffset(dx, dy, 0)
-        UI->>Cat: SaveRoomAsync(sourceRoom, bidirectional: true)
+    else connect (select room, click an adjacent occupied cell)
+        UI->>Layout: ConnectAsync(selectedId, clickedId)
+        Layout->>Cat: SaveRoomAsync(fromRoom, bidirectional: true)
+        Layout-->>UI: AreaConnectResult(Outcome, Direction, Errors, Warnings)
+        Note over UI,Layout: the policy lives in ConnectAsync;<br/>NotAdjacent / RoomNotFound → the page moves the selection instead
     else disconnect (click an edge tab or exit badge)
         UI->>Cat: RemoveRoomExitAsync(roomId, direction, bidirectional: true)
     else edit (detail panel: BlueprintIdField + RoomBasicsFields + RoomExitsEditor)
@@ -303,7 +331,9 @@ sequenceDiagram
 1. The page loads the area's rooms (`RoomsInArea` + `Load` per room) and calls `IAreaLayoutSystem.Propose(areaId)` — a pure, deterministic BFS proposal over the exit graph (never writes).
 2. The grid renders the selected Z-layer: anchored rooms as solid cells, proposal-only rooms as dashed ghost cells, adjacent-cell exits as clickable edge tabs, Up/Down and non-adjacent/cross-area exits as clickable badge chips, coordinate collisions (from `proposal.Collisions`) as a flagged red cell. A Z-layer switcher steps through the layers present plus one above/below.
 3. **Create:** click an empty cell → inline name panel → `CreateNew(Room, name)`, set `AreaId` + the clicked cell's coordinates, `SaveRoomAsync(bidirectional: false)`.
-4. **Connect:** select a room, click an orthogonally adjacent occupied cell → direction derived via `DirectionExtensions.FromOffset`, source exit set, `SaveRoomAsync(bidirectional: true)`.
+4. **Connect:** select a room, click an adjacent occupied cell → `IAreaLayoutSystem.ConnectAsync(selectedId, clickedId)`. The whole connect *policy* lives in the system (authoring-api-surface WP1): it derives the direction from the two rooms' laid-out positions — authored coordinates, or a coordless room's cell in this area's `Propose` proposal, so the gesture agrees with the ghost the author sees — sets the exit, and writes via `SaveRoomAsync(bidirectional: true)`, inheriting its conflict policy. Refusals are results, not exceptions: `NotAdjacent` (including a target laid out in a different area) and `RoomNotFound` mean "not a connect gesture", and the page answers by moving the selection; only `WriteFailed` surfaces errors. **The page must not derive the direction itself** — an architecture guard fails the build on `DirectionExtensions.FromOffset` anywhere under `Hedron.Web/`.
+
+   Adjacency is judged in all three axes. That is a **behavior change** from the pre-WP1 grid, which passed `dz = 0` unconditionally: selecting a room, switching Z layer, and clicking a cell used to write a *horizontal* exit between rooms on different planes (a latent bug, reachable because the selection survives the layer switcher). The same change grants a vertical connect gesture the grid never had — select at Z=0, switch to Z=1, click the same cell, and `Up` is written.
 5. **Disconnect:** click an edge tab or exit badge → `RemoveRoomExitAsync(roomId, direction, bidirectional: true)` — the mirror of step 4's bidirectional add.
 6. **Detail panel:** selecting a cell shows the shared `BlueprintIdField` + `RoomBasicsFields` + `RoomExitsEditor` components (the same ones `RoomEditor` uses) — full-fidelity, including non-adjacent/vertical/cross-area exits; Save uses `SaveAsync`/`SaveRoomAsync` exactly like `RoomEditor`.
 7. **Delete:** confirm in the detail panel → `DeleteAsync(Room, id)` — the existing cascade clears referrers.

@@ -1,6 +1,9 @@
+using System.Text.Json.Serialization;
 using Hedron.Server;
+using Hedron.Web.Api;
 using Hedron.Web.Components;
 using Hedron.Web.Services;
+using Microsoft.OpenApi.Models;
 
 namespace Hedron.Web;
 
@@ -21,9 +24,19 @@ namespace Hedron.Web;
 /// prerequisite before any non-local bind (a recorded backlog item); do not change the bind to a
 /// non-loopback address until it lands.
 /// </para>
+/// <para>
+/// <b>Two surfaces.</b> The Blazor editor (circuit-bound, covered by <c>UseAntiforgery</c>) and the
+/// authoring JSON API (<see cref="Api.AuthoringApi"/>). The API is not covered by antiforgery, so it
+/// carries its own loopback/origin/content-type filter — see <see cref="Api.LocalOriginFilter"/>,
+/// which also documents why <b>no CORS policy may be registered on this host</b>.
+/// </para>
 /// </remarks>
-public static class Program
+public class Program
 {
+    // Not a static class: WebApplicationFactory<Program> needs the entry point as a type argument,
+    // and C# forbids a static class there. Never instantiated.
+    private Program() { }
+
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -43,6 +56,31 @@ public static class Program
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
 
+        // ── Authoring JSON surface ───────────────────────────────────────────────
+        //
+        // NOTE: no CORS policy is registered on this host, and none may be. The API's
+        // cross-origin protection depends on a cross-origin JSON fetch failing its preflight,
+        // which only holds while no policy exists (see LocalOriginFilter). A guard test pins it.
+        builder.Services.ConfigureHttpJsonOptions(options =>
+        {
+            // Enum names, not ordinals — the OpenAPI document is hand-transcribed by its consumer,
+            // and a renumbered enum must not silently change the meaning of a stored value.
+            options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        });
+
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddSwaggerGen(options =>
+        {
+            options.SwaggerDoc("authoring", new OpenApiInfo
+            {
+                Title = "Hedron authoring API",
+                Version = "v1",
+                Description =
+                    "Loopback-only, unauthenticated JSON surface over the content-definition " +
+                    "catalog. Scoped to the operations the client-tier bakeoff page calls.",
+            });
+        });
+
         // Loopback-only bind (v1 auth posture). Any non-local bind gates on real authn/z (backlog).
         var bindUrl = builder.Configuration["Web:BindUrl"] ?? "http://127.0.0.1:5050";
         builder.WebHost.UseUrls(bindUrl);
@@ -56,6 +94,8 @@ public static class Program
 
         app.UseStaticFiles();
         app.UseAntiforgery();
+
+        app.MapAuthoringApi();
 
         app.MapRazorComponents<App>()
             .AddInteractiveServerRenderMode();

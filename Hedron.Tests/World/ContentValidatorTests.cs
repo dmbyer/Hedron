@@ -4,7 +4,9 @@ using Hedron.Core.ECS;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Aspects;
 using Hedron.Core.Modules.Authoring;
+using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Effects;
+using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.World.Systems;
 using Hedron.Core.Modules.World.Templates;
@@ -169,6 +171,67 @@ namespace Hedron.Tests.World
         {
             var room = new RoomTemplate("room.test") { Name = "Test" };
             Assert.True(Build().Validate(room).IsValid);
+        }
+
+        // ── Validate: mob currency-loot ranges (authoring-api-surface WP1) ──────────
+        //
+        // Fail-fast validation, so it is in 07-testing.md's always-test column. The rule lives here
+        // rather than in MobEditor.razor so every surface that writes a mob — the editor, the bulk
+        // generator, and the JSON endpoints — is refused the same malformed range.
+
+        private static MobTemplate MobWithCoinLoot(int min, int max) =>
+            new("mob.test")
+            {
+                Name = "Test",
+                CurrencyLoot = new Dictionary<CurrencyId, (int Min, int Max)>
+                {
+                    [CurrencyId.Coin] = (min, max),
+                },
+            };
+
+        [Fact]
+        public void Validate_MobWithNoCurrencyLoot_IsValid()
+        {
+            Assert.True(Build().Validate(new MobTemplate("mob.test") { Name = "Test" }).IsValid);
+        }
+
+        [Fact]
+        public void Validate_MobWithWellFormedCoinLoot_IsValid()
+        {
+            Assert.True(Build().Validate(MobWithCoinLoot(5, 25)).IsValid);
+        }
+
+        [Fact]
+        public void Validate_MobWithEqualMinAndMaxCoinLoot_IsValid()
+        {
+            Assert.True(Build().Validate(MobWithCoinLoot(10, 10)).IsValid);
+        }
+
+        [Fact]
+        public void Validate_MobWithInvertedCoinLootRange_FailsFast()
+        {
+            var report = Build().Validate(MobWithCoinLoot(50, 10));
+
+            Assert.False(report.IsValid);
+            Assert.Contains(report.Errors, e => e.Contains("mob.test") && e.Contains("exceed"));
+        }
+
+        [Fact]
+        public void Validate_MobWithNegativeCoinLoot_FailsFast()
+        {
+            var report = Build().Validate(MobWithCoinLoot(-5, 10));
+
+            Assert.False(report.IsValid);
+            Assert.Contains(report.Errors, e => e.Contains("negative"));
+        }
+
+        [Fact]
+        public void Validate_MobWithNegativeMax_FailsFast()
+        {
+            var report = Build().Validate(MobWithCoinLoot(0, -1));
+
+            Assert.False(report.IsValid);
+            Assert.Contains(report.Errors, e => e.Contains("negative"));
         }
 
         // ── ValidateRegistry: coordinate-collision warning (world-editor-grid Postcondition 9) ──

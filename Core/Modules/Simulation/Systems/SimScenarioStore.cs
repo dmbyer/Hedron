@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,6 +9,7 @@ using Hedron.Core.Modules.Stats;
 using Microsoft.Extensions.Options;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Simulation.Systems
 {
@@ -175,9 +176,7 @@ namespace Hedron.Core.Modules.Simulation.Systems
 
             var body = _yamlSerializer.Serialize(ToDto(scenario));
 
-            var tmpPath = path + ".tmp";
-            await File.WriteAllTextAsync(tmpPath, body, ct).ConfigureAwait(false);
-            File.Move(tmpPath, path, overwrite: true);
+            await AtomicFileWrite.ReplaceAsync(path, body, ct).ConfigureAwait(false);
 
             return path;
         }

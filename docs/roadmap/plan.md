@@ -60,16 +60,23 @@ clunkiness is repairable in place; the player client that would force the fork i
 routes on the world-state threading decision ([`backlog.md`](backlog.md)); and `data/content/` is
 still empty, so no authoring-friction evidence exists yet.
 
-**Two no-regret slices run inside Phase 5**, both valuable whichever way the gate falls, neither
-prejudging it. The first, **`authoring-editor-repair`, has shipped**
-([`completed/authoring-editor-repair.md`](completed/authoring-editor-repair.md)): the catalog index
-cache plus the editor UX ratchet, including the blueprint-id edit that silently discarded an
-in-progress form. Note the cache benefits the *editor* only — the `generate` CLI and the telnet
-`mk*`/`set*` verbs write through `I*ContentWriter` directly and neither benefit from nor invalidate
-it, which is the cross-process staleness now parked in [`backlog.md`](backlog.md). Still ahead:
-[`authoring-api-surface`](../implementation-plans/authoring-api-surface.md) (`INV-8` conformance for
-logic that leaked into components, then a narrow JSON surface) — its WP1 owns the `Standards.razor`
-extraction this slice deliberately left alone.
+**Two no-regret slices ran inside Phase 5**, both valuable whichever way the gate falls, neither
+prejudging it. **Both have now shipped.**
+
+- **`authoring-editor-repair`** ([`completed/authoring-editor-repair.md`](completed/authoring-editor-repair.md)):
+  the catalog index cache plus the editor UX ratchet, including the blueprint-id edit that silently
+  discarded an in-progress form. Note the cache benefits the *editor* only — the `generate` CLI and
+  the telnet `mk*`/`set*` verbs write through `I*ContentWriter` directly and neither benefit from nor
+  invalidate it, which is the cross-process staleness now parked in [`backlog.md`](backlog.md).
+- **`authoring-api-surface`** ([`completed/authoring-api-surface.md`](completed/authoring-api-surface.md)):
+  `INV-8` conformance for the logic that had leaked into components (including the `Standards.razor`
+  extraction the first slice deliberately left alone), then the narrow JSON surface. **This removes
+  the gate's last precondition** — the bakeoff's measurement is "port `MobEditor` to React *over the
+  JSON surface*", which now exists.
+
+What remains before the gate can fire is therefore **content, not tooling**: `data/content/` is still
+empty, and the gate is deliberately scheduled after the baseline is authored against the repaired
+editor so the authoring-friction evidence is real rather than assumed.
 
 **The gate fires at the Phase 5 → 6 boundary**, once the content baseline is authored against the
 repaired editor — a one-page bakeoff measured on authoring throughput, diff size, and agent-iteration
