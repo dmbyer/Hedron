@@ -14,7 +14,7 @@ Source of truth (target): `Core/ECS/EntityArchetype.cs` (enum), `Core/ECS/Archet
 
 | Archetype | Purpose | Required components | Optional components |
 |---|---|---|---|
-| `Player` ✓ | PC-controlled living entity | `CharacterComponent`, `AttributesComponent`, `PoolsComponent`, `InventoryComponent`, `EquipmentComponent` | — |
+| `Player` ✓ | PC-controlled living entity | `CharacterComponent`, `AttributesComponent`, `PoolsComponent`, `InventoryComponent`, `EquipmentComponent` | `ProgressionComponent`*, `PlayerConfigurationComponent`* |
 | `Mob` ✓ | NPC living entity | `MobDataComponent`, `AttributesComponent`, `PoolsComponent` | `InventoryComponent`*, `EquipmentComponent`* |
 | `Weapon` | Equippable damage-dealing item | `ItemDataComponent`, `WeaponDataComponent`† | `EffectsComponent`†* |
 | `Armor` | Equippable defensive item | `ItemDataComponent`, `ArmorDataComponent`† | `EffectsComponent`†* |

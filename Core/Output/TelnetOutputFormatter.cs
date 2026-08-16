@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Effects;
+using Hedron.Core.Modules.Preferences;
 using Hedron.Core.Sessions;
 
 namespace Hedron.Core.Output
@@ -56,6 +57,7 @@ namespace Hedron.Core.Output
                 PowerbandMessage m        => FormatPowerband(m, color),
                 EffectDisplayMessage m      => m.Format(),
                 AbilityDisplayMessage m    => m.Format(),
+                PreferenceListMessage m   => ApplyColor(m.Format(), color),
                 PromptMessage m           => FormatPrompt(m, color),
                 _                         => message.ToString() ?? string.Empty,
             };
@@ -214,7 +216,7 @@ namespace Hedron.Core.Output
             var sb = new StringBuilder();
             sb.AppendLine(ApplyColor("<system>Progression</system>", color));
 
-            if (m.Rows.Count == 0)
+            if (m.Rows.Count == 0 && m.AbilityRows.Count == 0)
             {
                 sb.Append("  (no tracks earned yet)");
                 return sb.ToString();
@@ -222,7 +224,18 @@ namespace Hedron.Core.Output
 
             foreach (var row in m.Rows)
             {
-                sb.AppendLine($"  {row.Track,-10}: improvements {row.ImprovementCount,-4} xp {row.CumulativeXp,-6} (next in {row.XpToNextThreshold})");
+                sb.AppendLine($"  {row.Track.Score,-10}: improvements {row.ImprovementCount,-4} xp {row.CumulativeXp,-6} (next in {row.XpToNextThreshold})");
+            }
+
+            // Ability tracks are shown separately because their rank is display-only — it grants
+            // no power, unlike the score improvements above.
+            if (m.AbilityRows.Count > 0)
+            {
+                sb.AppendLine(ApplyColor("<system>Abilities</system>", color));
+                foreach (var row in m.AbilityRows)
+                {
+                    sb.AppendLine($"  {row.Track.AbilityId,-16}: rank {row.ImprovementCount,-4} xp {row.CumulativeXp,-6} (next in {row.XpToNextThreshold})");
+                }
             }
 
             return sb.ToString().TrimEnd();

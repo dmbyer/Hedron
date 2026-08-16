@@ -35,7 +35,7 @@ namespace Hedron.Tests.Progression
         {
             public ProgressionEffectContributorSeam(EntityService ecs, FakeRandom rng, out IProgressionSystem progression, out IStatSystem stats)
             {
-                progression = new ProgressionSystem(ecs, rng, new PowerBudgetSystem(PowerBudgetTunables.Default));
+                progression = new ProgressionSystem(ecs, rng, new PowerBudgetSystem(PowerBudgetTunables.Default), new AdvancementRuleRegistry());
 
                 var contributor = new ProgressionEffectContributor(progression);
                 var effects = new EffectSystem(ecs, new IEffectContributor[] { contributor });

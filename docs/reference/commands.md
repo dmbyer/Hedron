@@ -29,9 +29,10 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **MatchingMode:** `Partial`
 **Location:** `Core/Modules/Abilities/Commands/AbilitiesCommand.cs`
 **Description:** Lists known abilities that are not classified as Skill-kind or Spell-kind (future kinds such as stances, racials, feats). When the known set contains only skills/spells, writes "You have no other abilities. Use 'skills' to see your skills and 'spells' to see your spells." When nothing is known at all, writes "You have no abilities. Use 'skills' or 'spells' to see what can be learned." No events fired.
+Each line ends with the **rank block** — the ability track's rank and `xp <earned>/<next threshold>` (prog-6). Rank is display-only: it rises with use but grants no power.
 **Usage:** `abilities`
 **Schema:** no arguments
-**Dependencies:** `IAbilitySystem`, `IAbilityRegistry`
+**Dependencies:** `IAbilitySystem`, `IAbilityRegistry`, `IProgressionSystem`
 **Events:** none
 
 ---
@@ -54,10 +55,10 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **Aliases:** none
 **MatchingMode:** `Partial`
 **Location:** `Core/Modules/Abilities/Commands/AbilitiesCommand.cs`
-**Description:** Lists all known Skill-kind abilities. For each Active Skill shows the invocation verb (`[invoke: <id>]`) alongside the standard ability display line (id, Kind, Activation, Targeting, costs, cooldown). Writes "You know no skills." when empty. Footer cross-reference to `spells` and `help <skill-name>`. No events fired.
+**Description:** Lists all known Skill-kind abilities. For each Active Skill shows the invocation verb (`[invoke: <id>]`) alongside the standard ability display line (id, Kind, Activation, Targeting, costs, cooldown) and the **rank block** — the ability track's rank and `xp <earned>/<next threshold>` (prog-6). Rank is display-only: it rises with use but grants no power. A skill that has never earned shows rank 0 rather than being omitted. Writes "You know no skills." when empty. Footer cross-reference to `spells` and `help <skill-name>`. No events fired.
 **Usage:** `skills`
 **Schema:** no arguments
-**Dependencies:** `IAbilitySystem`, `IAbilityRegistry`
+**Dependencies:** `IAbilitySystem`, `IAbilityRegistry`, `IProgressionSystem`
 **Events:** none
 
 ---
@@ -68,9 +69,10 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 **MatchingMode:** `Partial`
 **Location:** `Core/Modules/Abilities/Commands/AbilitiesCommand.cs`
 **Description:** Lists all known Spell-kind abilities. For each Active Spell shows the invocation form (`[invoke: cast <id>]`) alongside the standard ability display line. Writes "You know no spells." when empty. Footer cross-reference to `skills` and `help <spell-name>`. No events fired.
+Each line ends with the **rank block** — the ability track's rank and `xp <earned>/<next threshold>` (prog-6). Rank is display-only: it rises with use but grants no power.
 **Usage:** `spells`
 **Schema:** no arguments
-**Dependencies:** `IAbilitySystem`, `IAbilityRegistry`
+**Dependencies:** `IAbilitySystem`, `IAbilityRegistry`, `IProgressionSystem`
 **Events:** none
 
 ---
@@ -310,6 +312,34 @@ Living catalog of every registered command. Commands are the thinnest layer — 
 
 ---
 
+### `progress`
+
+**Aliases:** none
+**MatchingMode:** `Partial`
+**Location:** `Core/Modules/Progression/Commands/ProgressCommand.cs`
+**Description:** Displays the invoking player's progression. First a **score-track** block — one row per attribute/pool track ever awarded, showing improvement count, cumulative XP, and XP-to-next-threshold. Then, when any exist, a separate **ability-track** block showing rank, cumulative XP, and XP-to-next per ability (prog-6). The two are shown separately because score improvements grant power and ability rank does not. Empty on both means the player has never earned XP. No events fired.
+**Usage:** `progress`
+**Schema:** no arguments
+**Dependencies:** `IProgressionSystem`
+**Events:** none
+**UsableWhileIncapacitated:** `true`
+
+---
+
+### `config` / `toggle`
+
+**Aliases:** `toggle`
+**MatchingMode:** `Partial`
+**Location:** `Core/Modules/Preferences/Commands/ConfigCommand.cs`
+**Description:** Lists or changes the invoking player's settings (prog-6). Bare `config` writes a `PreferenceListMessage` — every registered preference with its current state and description. `config <name>` flips one; `config <name> on|off` sets it explicitly. Setting names may be shortened to any **unambiguous** prefix; an ambiguous prefix is rejected rather than guessed. Settings are stored on `PlayerConfigurationComponent` and survive restart. Shipped settings: `progressionxp` (default on), `progressionimprove` (default on) — see [`../features/preferences/preference-system.md`](../features/preferences/preference-system.md).
+**Usage:** `config [<name> [on|off]]`
+**Schema:** `Token string "name"` (optional), `Token string "state"` (optional — `on`/`yes`/`true`/`enable`/`enabled`/`1` or `off`/`no`/`false`/`disable`/`disabled`/`0`)
+**Dependencies:** `IPreferenceSystem`, `IEventBus`
+**Events:** `PreferenceChangedEvent` — published on every successful set, including a set to the value the preference already held
+**UsableWhileIncapacitated:** `true`
+
+---
+
 ### `say`
 
 **Aliases:** none  
@@ -504,9 +534,9 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none  
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/Mobs/Commands/SetMobCommand.cs`  
-**Description:** Sets a property on an existing mob entity identified by blueprint id. Validates the blueprint id exists in `ITemplateRegistry`; resolves the live entity by `BlueprintComponent.BlueprintId`. Delegates mutation to `IMobBuilderSystem`. Writes the updated template to YAML via `IMobContentWriter`. Saves the mob entity immediately. Properties: `name`, `description`, `keywords` (space-separated), `type`, `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra` (positive integer values), `protection` (flags), `tier` (mechanical Ascension tag, prog-2/3b), `band` (purely descriptive tag, prog-3b, replacing the one-axis `band` from prog-2), `shop`.  
+**Description:** Sets a property on an existing mob entity identified by blueprint id. Validates the blueprint id exists in `ITemplateRegistry`; resolves the live entity by `BlueprintComponent.BlueprintId`. Delegates mutation to `IMobBuilderSystem`. Writes the updated template to YAML via `IMobContentWriter`. Saves the mob entity immediately. Properties: `name`, `description`, `keywords` (space-separated), `type`, `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra` (positive integer values), `protection` (flags), `tier` (mechanical Ascension tag, prog-2/3b), `band` (purely descriptive tag, prog-3b, replacing the one-axis `band` from prog-2), `xpscale` (per-mob kill-experience scale, prog-6), `shop`.  
 **Usage:** `setmob <blueprintId> <property> <value>`  
-**Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`, `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra`, `protection`, `tier`, `band`, `shop`), `RestOfLine string "value"` (required). For `keywords`, value is split on whitespace. For `type`, value must parse as `MobType` enum. For numeric properties, value must be a positive integer. For `tier`, value must be an integer `0`–`6` (0 = unbanded/base); dual-writes the live `MobDataComponent.Tier` and `MobTemplate.Tier`. For `band`, value must be an integer `0`–`3` (0 = unbanded); dual-writes `MobDataComponent.Band` and `MobTemplate.Band`.  
+**Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`, `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra`, `protection`, `tier`, `band`, `xpscale`, `shop`), `RestOfLine string "value"` (required). For `keywords`, value is split on whitespace. For `type`, value must parse as `MobType` enum. For numeric properties, value must be a positive integer. For `tier`, value must be an integer `0`–`6` (0 = unbanded/base); dual-writes the live `MobDataComponent.Tier` and `MobTemplate.Tier`. For `band`, value must be an integer `0`–`3` (0 = unbanded); dual-writes `MobDataComponent.Band` and `MobTemplate.Band`.  For `xpscale`, value must be a non-negative number (`1.0` = default, `0` = this mob's kills award nothing); dual-writes `MobDataComponent.XpScale` and `MobTemplate.XpScale`.  
 **Events:** `MobPropertySetByAdminEvent`
 
 ---

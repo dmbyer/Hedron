@@ -35,7 +35,7 @@ namespace Hedron.Tests.Ascension
             {
                 Ecs = new EntityService();
                 Ascension = new AscensionSystem(Ecs);
-                Progression = new ProgressionSystem(Ecs, rng, new PowerBudgetSystem(PowerBudgetTunables.Default));
+                Progression = new ProgressionSystem(Ecs, rng, new PowerBudgetSystem(PowerBudgetTunables.Default), new AdvancementRuleRegistry());
 
                 var ascensionContributor = new AscensionEffectContributor(Ascension);
                 var progressionContributor = new ProgressionEffectContributor(Progression);

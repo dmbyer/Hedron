@@ -305,6 +305,51 @@ namespace Hedron.Tests.Broadcast
             Assert.Empty(output.All);
         }
 
+        // ── SendToEntityAsync ────────────────────────────────────────────────────
+
+        [Fact]
+        public async Task SendToEntityAsync_delivers_to_that_player_only()
+        {
+            var (sys, ecs, sessions, output) = Build();
+            var roomId = MakeRoom(ecs);
+            var recipient = MakeConnectedPlayer(ecs, sessions, roomId, "Alice");
+            var bystander = MakeConnectedPlayer(ecs, sessions, roomId, "Bob");
+
+            await sys.SendToEntityAsync(recipient, new TestMessage());
+
+            output.AssertMessage<TestMessage>(recipient);
+            Assert.DoesNotContain(output.All, r => r.RecipientEntityId == bystander);
+        }
+
+        [Fact]
+        public async Task SendToEntityAsync_with_no_session_is_a_silent_no_op()
+        {
+            var (sys, ecs, sessions, output) = Build();
+            var roomId = MakeRoom(ecs);
+            var offline = new EntityBuilder(ecs).AsPlayer().InRoom(roomId).Build(); // never registered
+
+            await sys.SendToEntityAsync(offline, new TestMessage());
+
+            Assert.Empty(output.All);
+        }
+
+        [Fact]
+        public async Task SendToEntityAsync_does_not_require_a_LocationComponent()
+        {
+            // The whole point of this method over the SendToRoomAsync-with-predicate workaround:
+            // a recipient with no location still receives the message instead of silently losing it.
+            var (sys, ecs, sessions, output) = Build();
+            var locationless = new EntityBuilder(ecs)
+                .AsPlayer()
+                .With(new PlayerComponent { DisplayName = "Ghost" })
+                .Build();
+            sessions.Register(new StubSession(locationless));
+
+            await sys.SendToEntityAsync(locationless, new TestMessage());
+
+            output.AssertMessage<TestMessage>(locationless);
+        }
+
         // ── SendToAllAsync ────────────────────────────────────────────────────────
 
         [Fact]

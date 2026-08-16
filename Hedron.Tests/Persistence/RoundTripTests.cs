@@ -450,8 +450,8 @@ namespace Hedron.Tests.Persistence
             var id = new EntityBuilder(ecs).AsPlayer().Build();
             ecs.AddComponent(id, new ProgressionComponent
             {
-                Xp = { [ScoreId.Body] = 130, [ScoreId.HpMax] = 40 },
-                Improvements = { [ScoreId.Body] = 1, [ScoreId.HpMax] = 0 },
+                Xp = { [ProgressionTrack.Of(ScoreId.Body)] = 130, [ProgressionTrack.Of(ScoreId.HpMax)] = 40 },
+                Improvements = { [ProgressionTrack.Of(ScoreId.Body)] = 1, [ProgressionTrack.Of(ScoreId.HpMax)] = 0 },
             });
             ecs.AddComponent(id, new PersistentEntity());
 
@@ -462,10 +462,10 @@ namespace Hedron.Tests.Persistence
             Assert.True(fresh.HasComponent<ProgressionComponent>(id),
                 "ProgressionComponent must survive round-trip (INV-14).");
             var progression = fresh.Get<ProgressionComponent>(id);
-            Assert.Equal(130, progression.Xp[ScoreId.Body]);
-            Assert.Equal(40, progression.Xp[ScoreId.HpMax]);
-            Assert.Equal(1, progression.Improvements[ScoreId.Body]);
-            Assert.Equal(0, progression.Improvements[ScoreId.HpMax]);
+            Assert.Equal(130, progression.Xp[ProgressionTrack.Of(ScoreId.Body)]);
+            Assert.Equal(40, progression.Xp[ProgressionTrack.Of(ScoreId.HpMax)]);
+            Assert.Equal(1, progression.Improvements[ProgressionTrack.Of(ScoreId.Body)]);
+            Assert.Equal(0, progression.Improvements[ProgressionTrack.Of(ScoreId.HpMax)]);
         }
 
         [Fact]

@@ -147,13 +147,11 @@ Resolved. The wearable-equipment-expansion slice added 9 `WornSlot` values — `
 
 Deferred from slice 6 (`items-and-inventory.md`). `ItemType` enum lands as data on `ItemDataComponent` in slice 6, but no special matching behavior uses it. A future `ItemTypeArgumentResolver` could resolve `"sword"` → all entities of `ItemType.Weapon` with keyword "sword". Requires clarifying whether sub-type matching is a command-level concern (different resolvers per command) or a global upgrade to `IArgumentResolver`. Revisit when content needs it or when the keyword-matching miss rate in play-testing becomes notable.
 
-### 🔵 Multi-step command prompts and player config
+### 🔵 Multi-step command prompts (player config half shipped)
 
-Deferred from slice 7 design notes. Two related capabilities:
-- **State-machine prompts**: a command can have confirmation steps (e.g. "You are already wearing X. Replace it? [yes/no]"). Requires per-session prompt state beyond what the current I/O loop supports.
-- **Player config**: per-character preferences (e.g. `autoswap yes`, `autoconfirm itemswap`). Requires a `PlayerConfigurationComponent` (planned in `components-planned.md`) and a `config`/`set` player command.
-
-Both are meaningful improvements to UX but would bloat slices 6–7. Revisit when the number of "are you sure?" flows justifies the infrastructure cost.
+Deferred from slice 7 design notes. Two related capabilities were listed here:
+- **State-machine prompts** — *still open*. A command can have confirmation steps (e.g. "You are already wearing X. Replace it? [yes/no]"). Requires per-session prompt state beyond what the current I/O loop supports. Revisit when the number of "are you sure?" flows justifies the infrastructure cost.
+- ~~**Player config**~~ — **shipped in slice prog-6.** `PlayerConfigurationComponent` + `PreferenceId`/`PreferenceRegistry` + `IPreferenceSystem` + the `config` (alias `toggle`) verb landed as the `Core/Modules/Preferences/` module. Booleans only for now; non-boolean preferences and the prompt-template field fold into the same component when a slice needs them. See [`../features/preferences/preference-system.md`](../features/preferences/preference-system.md).
 
 ### ~~🟢 `IOptions<T>` sweep — typed config options across Core~~ — completed
 
@@ -283,6 +281,28 @@ Sim-4, as shipped ([`completed/progression-rate-scenarios.md`](completed/progres
 ### 🔵 Progression-rate expectation tolerances (deferred from sim-4)
 
 `ISimOutcomeEvaluator.EvaluateProgressionRate` ships exactly one standards-free verdict (`targetReached` — did the sweep complete under `maxKillsPerRun`) and one **permanently-skipped** verdict (`progressionRateExpectation`), reason naming this gap. Sim-4's Design notes ("Verdicts: descriptive-first, with the gap named on every report") deliberately did not invent kills-to-improvement tolerance numbers — the sim-1 posture puts expected-outcome tolerances in the balance-standards document, but no designer has ever stated a progression-rate expectation, so authoring one now would ship speculative authored state (INV-18) nobody can ground. Promote when real observed rates exist (post-sim-4 usage against live content): add a tolerance family to `IBalanceStandardsRegistry`'s document (mirroring `OutcomeTolerances`'s equal-cell/higher-band shape, e.g. an expected kills-to-improvement range per (Tier, Band) cell or per track), extend the standards-editor page, and flip `EvaluateProgressionRate`'s second verdict from skipped to a real pass/fail against it — only the evaluator and the standards store/editor change (INV-19 by construction, same seam sim-2's combat verdicts already prove out). See [`completed/progression-rate-scenarios.md`](completed/progression-rate-scenarios.md) Decisions and [`../features/progression/power-budget-system.md`](../features/progression/power-budget-system.md) (the standards registry this would extend).
+
+### 🟡 Migrate the single-recipient `SendToRoomAsync` call sites onto `SendToEntityAsync` (deferred from progression-use-based-xp)
+
+`IBroadcastSystem.SendToEntityAsync(playerEntityId, message)` landed in slice prog-6 and is used by `ProgressionNarrationHandler`. **Nineteen existing call sites across ten files** still address a single recipient the old way — `SendToRoomAsync(room, msg, id => id == recipient)` — which is far past INV-19's third-repetition threshold and, worse, is subtly wrong: it silently drops the message when the recipient has no `LocationComponent`, and it re-scans every entity in the room to deliver to one of them.
+
+Verified counts as of prog-6: `CombatHandler` ×5, `DeathNarrationHandler` ×3, `EquipmentInteractionHandler` ×2, `ItemInteractionHandler` ×2, `ShopInteractionHandler` ×2, `AbilityInvocationHandler` ×1, `AbilityStrikeHandler` ×1, `AscensionNarrationHandler` ×1, `CurrencyAwardNarrationHandler` ×1, `PlayerSessionHandler` ×1. (`PlayerSaidHandler` and `PlayerMovedHandler` also pass predicates but *exclude* one entity rather than target one — they are genuine room broadcasts and stay as they are.)
+
+Each is a mechanical swap plus dropping the now-unneeded `LocationComponent` lookup; several handlers lose their `EntityService` dependency entirely. Not folded into prog-6 because it touches seven modules' handler tests for zero behavioural gain in that slice — but it is real debt with a real correctness edge, not a style preference.
+
+### 🔵 Ability authoring pipeline (YAML + Blazor editor) — prerequisite for content-volume ability work
+
+`AbilityRegistry` is a hardcoded `DefinitionRegistry` of **five** compiled rows. There is no ability YAML file, no ability deserializer, and no `Hedron.Web` ability editor (the editors are Area/AreaGrid/Room/Item/Mob). Slice prog-6 added two authored fields to `AbilityDefinition` (`XpScale`, `XpAttributeTrack`) and deliberately shipped them as compiled rows inspected via `defs ability <id>`, because standing up a content pipeline is a slice of its own, not a bullet inside a progression slice.
+
+The work: an `abilities/*.yaml` schema + `AbilityDeserializer` (mirroring `MobTemplateDeserializer`), an `IAbilityContentWriter` (mirroring `MobContentWriter`), catalog integration in `ContentDefinitionCatalog`, and a Blazor `AbilityEditor` page. Trigger: the first slice that needs more than a handful of abilities, or the first designer request to tune an ability without a recompile.
+
+### 🔵 Extend the `progressionRate` sim scenario to use-based accrual (deferred from progression-use-based-xp)
+
+**A stated blind spot, not a nice-to-have.** Slice prog-6 added two continuous new sources of *attribute* power growth — ability use and damage taken, both of which feed `ScoreId` tracks that `ProgressionEffectContributor` folds into every `IStatSystem.Get`. The `progressionRate` scenario **cannot see either**: `ProgressionScenarioExecutor` exercises `AwardCombatExperience` exclusively. So "no golden re-pin was needed" is true only because the sim is blind to the new sources, not because they are power-neutral. The shipped defaults are deliberately conservative (low `BaseChance`, meaningful `ChanceDecayPerImprovement`) so the unvalidated rate is a slow drift rather than a step change.
+
+**One asymmetry to close while doing it.** The per-mob `XpScale` is resolved *system*-side, inside `AwardCombatExperience`, precisely so a live kill and a sandbox kill cannot drift. The per-ability `XpScale`/`XpAttributeTrack` are resolved *handler*-side in `AdvancementHandler` from `IAbilityRegistry`. That is fine today (nothing else calls the ability path), but an executor that calls `AwardUseExperience(…, XpSource.AbilityUse, …)` directly would silently see `ContentScale = 1.0` and `SubjectAttributeTrack = null`. Fix it in the same slice by adding an `AwardAbilityUseExperience(entityId, abilityId)` wrapper that resolves the definition internally, mirroring the mob wrapper — then the handler passes only the ability id and both paths share one read site.
+
+This is the concrete instance of the event-source generalization already described above ("Progression-rate sweep — event-source generalization"), whose stated **alignment trigger** — "when the ≥3-source advancement-rule table lands in Progression, repoint the sweep's event model at the same `XpSource`/rule vocabulary" — has now fired. The rule table exists (`ProgressionConstants.Rules` behind `IAdvancementRuleRegistry`), so the generalization has a vocabulary to point at: `ProgressionSettings` gains a modeled-event-source list keyed by `XpSource`, and the executor dispatches each through `IProgressionSystem.AwardUseExperience` rather than branching per source. Needs its own scenario-schema work; folding it into prog-6 would have repeated the sizing mistake that slice's spec gate caught.
 
 ### 🔵 Balance-reviewer agent (stretch — from the progression-and-balance program)
 

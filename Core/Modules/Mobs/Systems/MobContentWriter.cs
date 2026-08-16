@@ -94,6 +94,7 @@ namespace Hedron.Core.Modules.Mobs.Systems
                 Protection = protectionFlags,
                 Tier = template.Tier != 0 ? template.Tier : null,
                 Band = template.Band != 0 ? template.Band : null,
+                XpScale = template.XpScale != 1.0 ? template.XpScale : null,
                 Shop = shopDto,
             };
 
@@ -146,6 +147,10 @@ namespace Hedron.Core.Modules.Mobs.Systems
             /// Optional descriptive Band tag (0-3). Null / absent means unbanded (0), the default.
             /// </summary>
             public int? Band { get; set; }
+            /// <summary>
+            /// Optional per-mob XP scale for combat-kill awards. Null / absent means 1.0 (the default).
+            /// </summary>
+            public double? XpScale { get; set; }
             /// <summary>
             /// Optional shop configuration block. Null / absent means this mob is not a shopkeeper.
             /// </summary>

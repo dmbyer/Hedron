@@ -139,6 +139,22 @@ namespace Hedron.Core.Modules.Mobs
                 }
             }
 
+            // Deserialize the per-mob XP scale. Null/absent → 1.0 (no scaling, the default).
+            // Negative values are rejected: a negative award is not a meaningful authoring intent.
+            if (dto.XpScale.HasValue)
+            {
+                if (dto.XpScale.Value >= 0.0)
+                {
+                    template.XpScale = dto.XpScale.Value;
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Mob '{Id}': xpScale '{XpScale}' is negative — defaulting to 1.0.",
+                        dto.BlueprintId, dto.XpScale.Value);
+                }
+            }
+
             // Deserialize shop block. Null / absent → not a shopkeeper (opt-in default).
             if (dto.Shop is not null)
             {
@@ -218,6 +234,10 @@ namespace Hedron.Core.Modules.Mobs
             /// Optional descriptive Band tag (0-3). Null / absent means unbanded (0), the default.
             /// </summary>
             public int? Band { get; set; }
+            /// <summary>
+            /// Optional per-mob XP scale for combat-kill awards. Null / absent means 1.0 (the default).
+            /// </summary>
+            public double? XpScale { get; set; }
             /// <summary>
             /// Optional shop configuration block. Null / absent means this mob is not a shopkeeper.
             /// </summary>

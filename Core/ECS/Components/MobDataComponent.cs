@@ -27,5 +27,15 @@ namespace Hedron.Core.ECS.Components
         /// <c>docs/design/power-model.md</c>); same persistence/durability notes as <see cref="Tier"/>.
         /// </summary>
         public int Band { get; set; }
+
+        /// <summary>
+        /// Per-mob granular XP scale (R7) applied to every combat-kill award this mob produces,
+        /// on top of the anti-grind ratio and the global scalar. <c>1.0</c> is the default;
+        /// <c>0</c> makes killing this mob award nothing. Read inside
+        /// <c>ProgressionSystem.AwardCombatExperience</c> so the live and simulated kill paths
+        /// share one read site. Authored via <c>setmob xpscale</c>, the Blazor mob editor, or
+        /// mob YAML; same durability notes as <see cref="Tier"/> — the template is the durable form.
+        /// </summary>
+        public double XpScale { get; set; } = 1.0;
     }
 }

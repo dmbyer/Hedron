@@ -39,7 +39,12 @@ namespace Hedron.Core.Modules.Simulation.Systems
                 kills++;
 
                 var award = world.Progression.AwardCombatExperience(subjectId, victimId);
-                var targetRow = award.Tracks.First(row => row.Track == settings.TargetTrack);
+
+                // AwardOutcome.Track widened to ProgressionTrack when ability tracks landed; the
+                // scenario contract is unchanged, so adapt at the ScoreId boundary here rather
+                // than leaking the wider key into ProgressionSettings / ProgressionRunRecord.
+                var targetTrack = ProgressionTrack.Of(settings.TargetTrack);
+                var targetRow = award.Tracks.First(row => row.Track == targetTrack);
 
                 for (var i = 0; i < targetRow.ImprovementsGained && milestoneKills.Count < settings.TargetImprovements; i++)
                     milestoneKills.Add(kills);

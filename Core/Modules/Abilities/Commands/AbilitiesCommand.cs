@@ -5,10 +5,35 @@ using System.Threading.Tasks;
 using Hedron.Core.Commands;
 using Hedron.Core.Commands.Authorization;
 using Hedron.Core.Modules.Abilities.Systems;
+using Hedron.Core.Modules.Progression;
+using Hedron.Core.Modules.Progression.Systems;
 using Hedron.Core.Output;
 
 namespace Hedron.Core.Modules.Abilities.Commands
 {
+    /// <summary>
+    /// Builds the shared per-ability display line for <c>skills</c> / <c>spells</c> /
+    /// <c>abilities</c>, folding in the ability track's rank and experience so all three verbs
+    /// show progression identically (R1). Kept here rather than duplicated per command.
+    /// </summary>
+    internal static class AbilityLineBuilder
+    {
+        public static AbilityDisplayMessage Build(
+            AbilityDefinition def,
+            float cooldownRemaining,
+            uint entityId,
+            IProgressionSystem progression)
+        {
+            var track = ProgressionTrack.Ability(def.Id);
+            return new AbilityDisplayMessage(
+                def,
+                cooldownRemaining,
+                progression.GetImprovementCount(entityId, track),
+                progression.GetXp(entityId, track),
+                progression.GetXpToNextThreshold(entityId, track));
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────────
     // AbilitiesCommand — lists non-Skill, non-Spell known abilities (future kinds).
     // ─────────────────────────────────────────────────────────────────────────────
@@ -22,6 +47,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
     {
         private readonly IAbilitySystem _abilitySystem;
         private readonly IAbilityRegistry _abilityRegistry;
+        private readonly IProgressionSystem _progressionSystem;
 
         public string Name => "abilities";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -30,17 +56,22 @@ namespace Hedron.Core.Modules.Abilities.Commands
         public string ShortDescription => "List other known abilities (non-Skill, non-Spell).";
         public string LongDescription =>
             "Displays known abilities that are not classified as skills or spells — " +
-            "future kinds such as stances, racials, and feats will appear here. " +
+            "future kinds such as stances, racials, and feats will appear here. Each line ends with " +
+            "your rank in that ability and the experience earned toward the next rank. " +
             "Use 'skills' to see your skills and 'spells' to see your spells.";
         public string Usage => "abilities";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             Array.Empty<IAuthorizationRequirement>();
         public CommandArgumentSchema ArgumentSchema { get; } = CommandArgumentSchema.Empty;
 
-        public AbilitiesCommand(IAbilitySystem abilitySystem, IAbilityRegistry abilityRegistry)
+        public AbilitiesCommand(
+            IAbilitySystem abilitySystem,
+            IAbilityRegistry abilityRegistry,
+            IProgressionSystem progressionSystem)
         {
             _abilitySystem = abilitySystem;
             _abilityRegistry = abilityRegistry;
+            _progressionSystem = progressionSystem;
         }
 
         public async Task ExecuteAsync(CommandContext context)
@@ -75,7 +106,8 @@ namespace Hedron.Core.Modules.Abilities.Commands
             {
                 if (!_abilityRegistry.TryGet(id, out var def)) continue;
                 var cooldown = _abilitySystem.GetCooldownRemaining(entityId, id);
-                await context.Output.WriteAsync(new AbilityDisplayMessage(def, cooldown))
+                await context.Output.WriteAsync(
+                    AbilityLineBuilder.Build(def, cooldown, entityId, _progressionSystem))
                     .ConfigureAwait(false);
             }
 
@@ -98,6 +130,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
     {
         private readonly IAbilitySystem _abilitySystem;
         private readonly IAbilityRegistry _abilityRegistry;
+        private readonly IProgressionSystem _progressionSystem;
 
         public string Name => "skills";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -106,7 +139,9 @@ namespace Hedron.Core.Modules.Abilities.Commands
         public string ShortDescription => "List your known skills.";
         public string LongDescription =>
             "Displays all skills you have learned, including activation type, targeting, " +
-            "resource costs, cooldown status, and the invocation verb. " +
+            "resource costs, cooldown status, the invocation verb, and your rank in the skill with " +
+            "the experience earned toward the next rank. Rank rises as you use the skill and is " +
+            "currently shown for interest only — it grants no power. " +
             "Active skills are invoked by typing their id (or a unique prefix) directly. " +
             "Use 'spells' to see spells. Type 'help <skill-name>' to learn about any skill.";
         public string Usage => "skills";
@@ -114,10 +149,14 @@ namespace Hedron.Core.Modules.Abilities.Commands
             Array.Empty<IAuthorizationRequirement>();
         public CommandArgumentSchema ArgumentSchema { get; } = CommandArgumentSchema.Empty;
 
-        public SkillsCommand(IAbilitySystem abilitySystem, IAbilityRegistry abilityRegistry)
+        public SkillsCommand(
+            IAbilitySystem abilitySystem,
+            IAbilityRegistry abilityRegistry,
+            IProgressionSystem progressionSystem)
         {
             _abilitySystem = abilitySystem;
             _abilityRegistry = abilityRegistry;
+            _progressionSystem = progressionSystem;
         }
 
         public async Task ExecuteAsync(CommandContext context)
@@ -150,7 +189,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
                     ? $"[invoke: {def.Id}] "
                     : string.Empty;
 
-                var baseLine = new AbilityDisplayMessage(def, cooldown).Format();
+                var baseLine = AbilityLineBuilder.Build(def, cooldown, entityId, _progressionSystem).Format();
                 await context.Output.WriteAsync(new PlainMessage(invocationHint + baseLine, OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
             }
@@ -173,6 +212,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
     {
         private readonly IAbilitySystem _abilitySystem;
         private readonly IAbilityRegistry _abilityRegistry;
+        private readonly IProgressionSystem _progressionSystem;
 
         public string Name => "spells";
         public IReadOnlyList<string> Aliases { get; } = Array.Empty<string>();
@@ -181,7 +221,9 @@ namespace Hedron.Core.Modules.Abilities.Commands
         public string ShortDescription => "List your known spells.";
         public string LongDescription =>
             "Displays all spells you have learned, including activation type, targeting, " +
-            "resource costs, cooldown status, and the invocation form. " +
+            "resource costs, cooldown status, the invocation form, and your rank in the spell with " +
+            "the experience earned toward the next rank. Rank rises as you cast the spell and is " +
+            "currently shown for interest only — it grants no power. " +
             "Active spells are invoked with 'cast <spell-name>'. " +
             "Use 'skills' to see skills. Type 'help <spell-name>' to learn about any spell.";
         public string Usage => "spells";
@@ -189,10 +231,14 @@ namespace Hedron.Core.Modules.Abilities.Commands
             Array.Empty<IAuthorizationRequirement>();
         public CommandArgumentSchema ArgumentSchema { get; } = CommandArgumentSchema.Empty;
 
-        public SpellsCommand(IAbilitySystem abilitySystem, IAbilityRegistry abilityRegistry)
+        public SpellsCommand(
+            IAbilitySystem abilitySystem,
+            IAbilityRegistry abilityRegistry,
+            IProgressionSystem progressionSystem)
         {
             _abilitySystem = abilitySystem;
             _abilityRegistry = abilityRegistry;
+            _progressionSystem = progressionSystem;
         }
 
         public async Task ExecuteAsync(CommandContext context)
@@ -225,7 +271,7 @@ namespace Hedron.Core.Modules.Abilities.Commands
                     ? $"[invoke: cast {def.Id}] "
                     : string.Empty;
 
-                var baseLine = new AbilityDisplayMessage(def, cooldown).Format();
+                var baseLine = AbilityLineBuilder.Build(def, cooldown, entityId, _progressionSystem).Format();
                 await context.Output.WriteAsync(new PlainMessage(invocationHint + baseLine, OutputSeverity.System, OutputCategory.System))
                     .ConfigureAwait(false);
             }

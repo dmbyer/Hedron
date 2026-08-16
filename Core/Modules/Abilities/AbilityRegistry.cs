@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Stats;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Abilities
@@ -10,6 +11,10 @@ namespace Hedron.Core.Modules.Abilities
     {
         public AbilityRegistry() : base(CreateRows(), d => d.Id) { }
 
+        // XpScale / XpAttributeTrack are the per-ability granular progression knobs (R7).
+        // XpAttributeTrack is deliberately opt-in: an ability that names no track grants rank
+        // only and adds no attribute power. Passive abilities never publish
+        // AbilityActivatedEvent, so they never award — toughness leaves both at their defaults.
         private static IEnumerable<AbilityDefinition> CreateRows() => new AbilityDefinition[]
         {
             new AbilityDefinition(
@@ -24,21 +29,24 @@ namespace Hedron.Core.Modules.Abilities
                 AbilityKind.Skill, Activation.Active, Targeting.Target,
                 Costs: new List<ResourceCost> { new ResourceCost(ResourceType.Stamina, 10) },
                 Effects: new List<string> { "kick_damage" },
-                CooldownSeconds: 6f),
+                CooldownSeconds: 6f,
+                XpAttributeTrack: ScoreId.Body),
 
             new AbilityDefinition(
                 "empower", "Empower",
                 AbilityKind.Spell, Activation.Active, Targeting.Self,
                 Costs: new List<ResourceCost> { new ResourceCost(ResourceType.Mana, 10) },
                 Effects: new List<string> { "empower" },
-                CooldownSeconds: 30f),
+                CooldownSeconds: 30f,
+                XpAttributeTrack: ScoreId.Mind),
 
             new AbilityDefinition(
                 "mend", "Mend",
                 AbilityKind.Spell, Activation.Active, Targeting.Self,
                 Costs: new List<ResourceCost> { new ResourceCost(ResourceType.Mana, 15) },
                 Effects: new List<string> { "mend_heal" },
-                CooldownSeconds: 20f),
+                CooldownSeconds: 20f,
+                XpAttributeTrack: ScoreId.Spirit),
 
             new AbilityDefinition(
                 "blood_pact", "Blood Pact",
@@ -49,7 +57,8 @@ namespace Hedron.Core.Modules.Abilities
                     new ResourceCost(ResourceType.Mana, 15),
                 },
                 Effects: new List<string> { "empower" },
-                CooldownSeconds: 30f),
+                CooldownSeconds: 30f,
+                XpAttributeTrack: ScoreId.Spirit),
         };
     }
 }

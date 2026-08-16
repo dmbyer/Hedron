@@ -82,6 +82,17 @@ sequenceDiagram
 
 **Why bare skill verbs are not `ICommand`.** Phase 3 is dispatcher-internal routing — the verb is a skill id, not a global command. Abilities are per-actor; making them discoverable via `help`/`commands` would imply they are global verbs. `skills` is the discovery surface.
 
+### The advancement branch off `AbilityActivatedEvent` (slice prog-6)
+
+`AbilityInvocationHandler` is no longer the only subscriber. `AdvancementHandler` (priority 20, `HandlerPriority.Domain`) also receives `AbilityActivatedEvent` and rolls the `XpSource.AbilityUse` advancement rule for the actor — awarding, on a successful chance roll, XP to **the ability's own display-only rank track** and to the ability's configured `XpAttributeTrack` (when it declares one). The two subscribers are independent: one narrates, one progresses, neither orders against the other.
+
+Two properties of the trigger matter here:
+
+- **A failed or blocked invocation cannot award.** The event is published only after costs and targeting resolve, so an insufficient-resource or on-cooldown attempt never reaches the advancement branch — the precondition is structural, not a check in the handler.
+- **A passive ability never awards**, because a passive never publishes `AbilityActivatedEvent` at all.
+
+`AbilityStrikeResolvedEvent` and `CombatRoundEvent` (steps 7–8) feed a *different* row — `XpSource.DamageTaken`, earned by the **defender**, not the attacker. See [flow-31](flow-31-progression-award.md) for the rule table, the chance/decay math, and the RNG draw contract.
+
 ---
 
 ## C. Offensive ability opens combat
@@ -146,3 +157,4 @@ sequenceDiagram
 - [Flow 16](flow-16-heartbeat-tick.md) — heartbeat trigger (for `AbilityCooldownTickHandler`)
 - [Flow 17](flow-17-kill-mob-combat-initiation.md) — `kill` opens combat without an opening strike
 - [Flow 21](flow-21-effect-tick.md) — effect tick (downstream consumer of applied effects)
+- [Flow 31](flow-31-progression-award.md) — the advancement branch off `AbilityActivatedEvent` (ability-use XP) and off the strike events (damage-taken XP)

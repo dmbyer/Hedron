@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Core.Commands;
@@ -36,6 +37,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
             "protection (comma or space-separated flags: none, untargetable, effectimmune), " +
             "tier (Ascension tier tag, integer 0-6, 0 = unbanded/base), " +
             "band (descriptive Band tag, integer 0-3, 0 = unbanded), " +
+            "xpscale (per-mob kill-experience scale, non-negative number, 1.0 = default, 0 = awards nothing), " +
             "shop (\"off\" to clear, or \"on [tillSeed] [currency]\" to make a shopkeeper; " +
             "base-stock rows are authored via the content editor / YAML).";
         public string Usage => "setmob <blueprintId> <property> <value>";
@@ -193,6 +195,18 @@ namespace Hedron.Core.Modules.Mobs.Commands
                     _mobBuilder.SetMobBand(mobEntityId, band);
                     break;
 
+                case "xpscale":
+                    if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var xpScale) ||
+                        xpScale < 0.0)
+                    {
+                        await context.Output.WriteAsync(new PlainMessage(
+                            "Xpscale must be a non-negative number (1.0 = default, 0 = this mob awards no experience).",
+                            OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
+                        return;
+                    }
+                    _mobBuilder.SetMobXpScale(mobEntityId, xpScale);
+                    break;
+
                 case "shop":
                     // Syntax: "off" clears the shop; "on [tillSeed] [currency]" makes/updates a
                     // shopkeeper. Base-stock rows are authored via YAML / the content editor — passing
@@ -245,7 +259,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
 
                 default:
                     await context.Output.WriteAsync(new PlainMessage(
-                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra, protection, tier, band, shop.",
+                        $"Unknown property '{property}'. Valid properties: name, description, keywords, type, level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra, protection, tier, band, xpscale, shop.",
                         OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                     return;
             }

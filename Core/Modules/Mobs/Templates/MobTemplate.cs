@@ -59,6 +59,14 @@ namespace Hedron.Core.Modules.Mobs.Templates
         /// </summary>
         public int Band { get; set; } = 0;
 
+        /// <summary>
+        /// Per-mob granular XP scale (R7) for combat-kill awards. <c>1.0</c> is the default;
+        /// <c>0</c> makes this mob's kills award nothing. Validated as non-negative by
+        /// <c>setmob xpscale</c>. Durable form is YAML (this template);
+        /// <see cref="MobDataComponent.XpScale"/> is re-applied from here on each spawn.
+        /// </summary>
+        public double XpScale { get; set; } = 1.0;
+
         // ── Shop fields (WP-1) ───────────────────────────────────────────────────
 
         /// <summary>
@@ -108,6 +116,7 @@ namespace Hedron.Core.Modules.Mobs.Templates
                 MobType = MobType,
                 Tier = Tier,
                 Band = Band,
+                XpScale = XpScale,
             });
 
             var level = Level > 0 ? Level : 1;

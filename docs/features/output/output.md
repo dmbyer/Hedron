@@ -28,7 +28,7 @@ The full rendering model — pipeline shape, buffer threading guarantees, flush 
 ## Surfaces
 
 - **Message shapes** — `PlainMessage`, `RoomDescriptionMessage`, `MovementMessage`, `HelpIndexMessage`, `HelpEntryMessage`, `PromptMessage`. Shapes live in `Core/Output/`; each is an `IOutputMessage`. See the catalog in [`output-framework.md#message-shape-catalog`](output-framework.md#message-shape-catalog).
-- **`IBroadcastSystem`** — `SendToRoomAsync` (with optional audience filter), `SendToAllAsync`, `SendRoomDescriptionAsync`. See [`../../reference/systems.md`](../../reference/systems.md) for the `BroadcastSystem` catalog row.
+- **`IBroadcastSystem`** — `SendToRoomAsync` (with optional audience filter), `SendToEntityAsync` (direct to one player — the intended single-recipient write), `SendToAllAsync`, `SendRoomDescriptionAsync`. See [`../../reference/systems.md`](../../reference/systems.md) for the `BroadcastSystem` catalog row.
 - **Configuration** — `Output:DefaultColor` (default `true`): initial `SupportsColor` for new telnet sessions. Set `false` to disable ANSI globally.
 
 ## Flows

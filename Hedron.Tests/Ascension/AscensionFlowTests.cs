@@ -104,6 +104,8 @@ namespace Hedron.Tests.Ascension
         {
             public Task SendToRoomAsync(uint roomEntityId, Hedron.Core.Output.IOutputMessage message, Func<uint, bool>? audienceFilter = null)
                 => Task.CompletedTask;
+            public Task SendToEntityAsync(uint playerEntityId, Hedron.Core.Output.IOutputMessage message)
+                => Task.CompletedTask;
             public Task SendToAllAsync(Hedron.Core.Output.IOutputMessage message)
                 => Task.CompletedTask;
             public Task SendRoomDescriptionAsync(uint playerEntityId, uint roomEntityId)

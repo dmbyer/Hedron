@@ -1,4 +1,4 @@
-﻿# Systems Reference
+# Systems Reference
 
 Living catalog of the systems **implemented** in Hedron (core and domain). Update this file whenever a system is added, removed, or renamed.
 
@@ -42,7 +42,7 @@ public abstract class DefinitionRegistry<TKey, TDef> : IRegistry<TKey, TDef> { .
 **Purpose:** Deliver typed `IOutputMessage` output to rooms, every session, or a single player. Each recipient's message is rendered by their transport's `IOutputFormatter` via `IOutputWriterFactory`, so callers never construct raw strings.
 **Location:** [`Core/Systems/BroadcastSystem.cs`](../../Core/Systems/BroadcastSystem.cs) · interface [`Core/Systems/IBroadcastSystem.cs`](../../Core/Systems/IBroadcastSystem.cs)
 **Dependencies:** `EntityService`, `ISessionManager`, `IOutputWriterFactory`.
-**Note:** Classified as output infrastructure rather than a pure-computation core system; it does I/O (calls `IOutputWriter` per recipient) as the designated multi-recipient fan-out seam. Extended in slice 8: `SendRoomDescriptionAsync` populates `RoomDescriptionMessage.Mobs` with `MobDataComponent.Name` for each entity in the room carrying `MobDataComponent`. Channel mode (global chat, newbie channel) is acknowledged backlog debt — needs channel-membership state. See [`../features/output/output-framework.md#broadcast-model`](../features/output/output-framework.md#broadcast-model) for the full broadcast design; see [`../features/communication/chat-system.md`](../features/communication/chat-system.md) for how the `say` command uses this seam.
+**Note:** Classified as output infrastructure rather than a pure-computation core system; it does I/O (calls `IOutputWriter` per recipient) as the designated multi-recipient fan-out seam. Extended in slice prog-6 with `SendToEntityAsync(playerEntityId, message)` — the intended single-recipient write, which resolves the session directly and no-ops when there is none; the older `SendToRoomAsync(room, msg, id => id == recipient)` workaround also demands a `LocationComponent` and silently drops the message without one (nineteen call sites still to migrate — see [`../roadmap/backlog.md`](../roadmap/backlog.md)). Extended in slice 8: `SendRoomDescriptionAsync` populates `RoomDescriptionMessage.Mobs` with `MobDataComponent.Name` for each entity in the room carrying `MobDataComponent`. Channel mode (global chat, newbie channel) is acknowledged backlog debt — needs channel-membership state. See [`../features/output/output-framework.md#broadcast-model`](../features/output/output-framework.md#broadcast-model) for the full broadcast design; see [`../features/communication/chat-system.md`](../features/communication/chat-system.md) for how the `say` command uses this seam.
 Implemented (Phase 2, rewritten in Phase 3 slice 4).
 
 ### Output Infrastructure (IOutputFormatter, IOutputFormatterRegistry, IOutputWriterFactory)
@@ -609,22 +609,44 @@ public sealed record ShopSellResult(bool Success, long Price, CurrencyId Currenc
 Buy-back pricing: `Acquired` items (sold by a player) cost `Value × SellRatio` on buy-back (what the shop paid), not `Value × BuyRatio`. `TryResolveSell` carries the clock-derived `ExpiresAt` so the calling command stamps it onto `ShopStockComponent` (INV-8). `PlanRestock` ignores `Acquired` items (top-up semantics). `FindExpired` uses `<= nowUtc` boundary. Registered as a singleton in `ShoppingModule.AddShoppingModule`. Implemented (shopping slice 12c WP-2).
 
 ### ProgressionSystem / IProgressionSystem (Progression module)
-**Purpose:** Use-driven per-track XP accrual and threshold-improvement resolution (gameplay-model Spine E). Tracks are keyed directly by `ScoreId` — no parallel key type. `AwardExperience` adds to cumulative XP (no-op if ≤ 0); `TryImprove` loops while cumulative XP ≥ the next cumulative threshold (`ThresholdBase + improvementCount × ThresholdIncrement`), incrementing once per crossing. `AwardCombatExperience` computes a killer-vs-victim anti-grind scale from a **raw-attribute** `PowerSnapshot` run through `IPowerBudgetSystem.Estimate` (not `IStatSystem` — see below), rolls a randomized per-track base amount via `IRandom` when the scale is non-zero, and awards each combat track. INV-5: returns result records only; never touches the event bus.
-**Location:** `Core/Modules/Progression/Systems/IProgressionSystem.cs` · `ProgressionSystem.cs` · `Core/Modules/Progression/ProgressionConstants.cs`
-**Dependencies:** `EntityService`, `IRandom`, `IPowerBudgetSystem`.
+**Purpose:** Use-driven per-track XP accrual and threshold-improvement resolution (gameplay-model Spine E). Tracks are keyed by `ProgressionTrack` — one vocabulary spanning score tracks (`ScoreId`) and ability tracks (ability id), over one engine. `AwardUseExperience` is the single entry point every XP source flows through: it looks up the source's `AdvancementRule` via `IAdvancementRuleRegistry`, evaluates the rule's `AdvancementEligibility` against the `UseAwardContext`, builds the candidate track list, rolls a rank-decayed chance per candidate, and on a pass draws and scales the base amount (`GlobalXpScalar` × `SourceScale` × content scale × anti-grind). `AwardExperience` adds to cumulative XP (no-op if ≤ 0); `TryImprove` loops while cumulative XP ≥ the next cumulative threshold (`ThresholdBase + improvementCount × ThresholdIncrement`), incrementing once per crossing. `AwardCombatExperience` is a thin wrapper over the `CombatKill` row that resolves the victim's `MobDataComponent.XpScale` internally so live and sandbox kills cannot drift. **Draw contract (INV-26):** a chance of `>= 1.0` short-circuits with no `IRandom` call and an ineligible candidate consumes zero draws — which is why the kill path's draw sequence is unchanged and the simulation goldens stayed put. INV-5: returns result records only; never touches the event bus.
+**Location:** `Core/Modules/Progression/Systems/IProgressionSystem.cs` · `ProgressionSystem.cs` · `Core/Modules/Progression/ProgressionConstants.cs` (knobs **and** the `Rules` table) · `ProgressionTrack.cs` · `AdvancementRule.cs` · `AdvancementEligibility.cs`
+**Dependencies:** `EntityService`, `IRandom`, `IPowerBudgetSystem`, `IAdvancementRuleRegistry`.
 ```csharp
 public interface IProgressionSystem
 {
-    AwardOutcome AwardExperience(uint entityId, ScoreId track, int amount, XpSource source);
-    int TryImprove(uint entityId, ScoreId track);
+    UseAwardResult AwardUseExperience(uint entityId, XpSource source, UseAwardContext context);
+    AwardOutcome AwardExperience(uint entityId, ProgressionTrack track, int amount, XpSource source);
+    int TryImprove(uint entityId, ProgressionTrack track);
     CombatAwardResult AwardCombatExperience(uint killerEntityId, uint victimEntityId);
-    int GetXp(uint entityId, ScoreId track);
-    int GetImprovementCount(uint entityId, ScoreId track);
-    int GetXpToNextThreshold(uint entityId, ScoreId track);
-    IReadOnlyList<ScoreId> GetTrackedScores(uint entityId);
+    int GetXp(uint entityId, ProgressionTrack track);
+    int GetImprovementCount(uint entityId, ProgressionTrack track);
+    int GetXpToNextThreshold(uint entityId, ProgressionTrack track);
+    IReadOnlyList<ScoreId> GetTrackedScores(uint entityId);       // score tracks only — feeds the power fold
+    IReadOnlyList<ProgressionTrack> GetTrackedTracks(uint entityId);
 }
 ```
+Every read also has a `ScoreId` overload delegating to the `ProgressionTrack` form, so existing call sites are unchanged.
 **Not `IStatSystem`:** the anti-grind proxy deliberately reads raw attributes instead of the effect-folded value — going through `IStatSystem` would close a DI cycle back through `ProgressionEffectContributor` (below), which itself depends on `IProgressionSystem`. See [`../features/progression/progression-system.md`](../features/progression/progression-system.md#anti-grind-proxy-reads-raw-attributes). Injecting `IPowerBudgetSystem` (a **core** system) introduces no cycle — the guard is that the snapshot values stay raw, not that the oracle is un-injected. Registered as a singleton in `ProgressionModule.AddProgressionModule`. Implemented (progression-substrate slice prog-1; anti-grind rewired onto `IPowerBudgetSystem` in slice prog-3).
+
+### AdvancementRuleRegistry / IAdvancementRuleRegistry (Progression module)
+**Purpose:** Lookup over the advancement table — one `AdvancementRule` per `XpSource`, sourced from `ProgressionConstants.Rules` (compiled rows, configuration Category 3; promotion to a data file is deferred because the values are pinned by CI simulation goldens). A rule carries its candidate tracks, its `AdvancementEligibility`, its base award range, its `BaseChance`/`ChanceDecayPerImprovement`, and its `SourceScale`. An `XpSource` with no row is a no-op, not an error. Immutable after construction (INV-31). Implements `IRegistry<XpSource, AdvancementRule>` over `DefinitionRegistry`, mirroring `AbilityRegistry`.
+**Location:** `Core/Modules/Progression/Systems/IAdvancementRuleRegistry.cs` · `AdvancementRuleRegistry.cs`
+**Dependencies:** none.
+
+### PreferenceSystem / IPreferenceSystem (Preferences module)
+**Purpose:** Reads and writes a character's configurable settings, resolving unset preferences to their `PreferenceRegistry` default. The store (`PlayerConfigurationComponent`) is sparse — only explicitly-set preferences are persisted, so changing a shipped default takes effect for every player who never touched it and adding a preference needs no migration. `IsEnabled` never attaches the component; only `Set` does. INV-5: returns values, publishes nothing — `ConfigCommand` publishes `PreferenceChangedEvent`.
+**Location:** `Core/Modules/Preferences/Systems/IPreferenceSystem.cs` · `PreferenceSystem.cs` · `Core/Modules/Preferences/PreferenceRegistry.cs` · `PreferenceId.cs`
+**Dependencies:** `EntityService`.
+```csharp
+public interface IPreferenceSystem
+{
+    bool IsEnabled(uint entityId, PreferenceId preference);
+    void Set(uint entityId, PreferenceId preference, bool enabled);
+    IReadOnlyList<PreferenceState> GetAll(uint entityId);
+}
+```
+See [`../features/preferences/preference-system.md`](../features/preferences/preference-system.md). Registered as a singleton in `PreferencesModule.AddPreferencesModule`.
 
 ### PowerBudgetSystem / IPowerBudgetSystem (Core/Systems — core-tier)
 **Purpose:** Generic, core-tier (INV-2) power-budget oracle: given a caller-supplied `PowerSnapshot` (`ScoreId → int`, never an entity id, never an internal `IStatSystem` call), `Estimate` returns a weighted-sum power scalar over `PowerBudgetTunables.Weights` plus (when `tier` is positive) the tier-baseline contribution for `PowerBudgetTunables.TrackedScores` (mirrors the Ascension tier baseline). `Classify` returns a two-axis `PowerBand(Tier, Band)`: `Tier` (0–`PowerBudgetTunables.MaxTier`) is the highest tier whose `BandAnchor` is at or below the power (the shipped tier-boundary `BandSpan` overlap, retained); `Band` (1–3, never 0 — that value is exclusively the authored "unbanded" tag) buckets the position within that tier's span into thirds via the within-tier partition. `TargetRange(tier, band)` inverts a cell to its `PowerRange(MinPower, MaxPower)` — bands partition a tier's span with no overlap, and band 3's max abuts the next tier's band-1 min; throws `ArgumentOutOfRangeException` for an out-of-range cell. Pure, deterministic math; no `IRandom`/`IClock` seam needed (INV-26). Revised prog-3b (Tier×Band); tunables promoted to injected plain data in sim-1 — see [`../design/power-model.md`](../design/power-model.md) for the snapshot-only extensibility rule. One function serves the `power`/`powerband` inspectors, the `ItemEditor`/`MobEditor` Blazor readout, `IBalanceAuditSystem`, and the `ProgressionSystem` anti-grind proxy (INV-19).

@@ -32,6 +32,7 @@ using Hedron.Core.Modules.Mobs.Events;
 using Hedron.Core.Modules.Ascension.Events;
 using Hedron.Core.Modules.Ascension.Handlers;
 using Hedron.Core.Modules.Progression.Handlers;
+using Hedron.Core.Modules.Progression.Events;
 using Hedron.Core.Modules.Shopping.Events;
 using Hedron.Core.Modules.Shopping.Handlers;
 using Microsoft.Extensions.Configuration;
@@ -182,8 +183,16 @@ public static class Program
         var currencyLoot = host.Services.GetRequiredService<CurrencyLootHandler>();
         bus.Subscribe<MobDiedEvent>(currencyLoot);
 
-        var experienceAward = host.Services.GetRequiredService<ExperienceAwardHandler>();
-        bus.Subscribe<MobDiedEvent>(experienceAward);
+        // One handler over every XP trigger, dispatching through the advancement-rule table.
+        var advancement = host.Services.GetRequiredService<AdvancementHandler>();
+        bus.Subscribe<MobDiedEvent>(advancement);
+        bus.Subscribe<AbilityActivatedEvent>(advancement);
+        bus.Subscribe<CombatRoundEvent>(advancement);
+        bus.Subscribe<AbilityStrikeResolvedEvent>(advancement);
+
+        var progressionNarration = host.Services.GetRequiredService<ProgressionNarrationHandler>();
+        bus.Subscribe<ExperienceAwardedEvent>(progressionNarration);
+        bus.Subscribe<TrackImprovedEvent>(progressionNarration);
 
         var ascensionNarration = host.Services.GetRequiredService<AscensionNarrationHandler>();
         bus.Subscribe<AscendedEvent>(ascensionNarration);

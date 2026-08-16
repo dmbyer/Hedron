@@ -21,6 +21,19 @@ namespace Hedron.Core.Systems
             IOutputMessage message,
             Func<uint, bool>? audienceFilter = null);
 
+        /// <summary>
+        /// Sends <paramref name="message"/> to one player, addressed directly by entity id.
+        /// A no-op when that entity has no live session.
+        ///
+        /// <para>
+        /// This is the intended way to write to a single recipient. The older workaround —
+        /// <c>SendToRoomAsync(room, msg, id =&gt; id == recipient)</c> — additionally requires the
+        /// recipient to have a <c>LocationComponent</c> and silently drops the message when they
+        /// do not. Existing call sites still use it; migrating them is tracked in the backlog.
+        /// </para>
+        /// </summary>
+        Task SendToEntityAsync(uint playerEntityId, IOutputMessage message);
+
         /// <summary>Sends <paramref name="message"/> to every registered session.</summary>
         Task SendToAllAsync(IOutputMessage message);
 
