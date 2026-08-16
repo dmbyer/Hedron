@@ -48,6 +48,14 @@ namespace Hedron.Core.Systems
             }
         }
 
+        public async Task SendToEntityAsync(uint playerEntityId, IOutputMessage message)
+        {
+            var session = _sessionManager.GetSession(playerEntityId);
+            if (session == null) return;
+
+            await _writerFactory.Create(session).WriteAsync(message).ConfigureAwait(false);
+        }
+
         public async Task SendToAllAsync(IOutputMessage message)
         {
             foreach (var session in _sessionManager.GetAll())

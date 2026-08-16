@@ -60,6 +60,15 @@ Do **not**:
 5. If any existing system will now read/write it, note the dependency in [docs/reference/systems.md](../../../docs/reference/systems.md).
 6. Archetype composition docs: update [docs/reference/archetypes.md](../../../docs/reference/archetypes.md) if a standard archetype changes.
 
+## Custom dictionary-key types on a persisted component
+
+If a component's dictionary is keyed by a type of your own (not an enum, not a string), the converter mechanics have two traps — precedent: `ProgressionTrack`/`ProgressionTrackJsonConverter` (slice prog-6).
+
+1. **Attach the converter with `[JsonConverter]` on the type itself**, not by registering it in `ComponentSerializer.Options` — that field is `private static`, so nothing can be injected into it.
+2. **Override `WriteAsPropertyName`/`ReadAsPropertyName`, not just `Write`/`Read`.** `System.Text.Json` routes *dictionary key* serialization through the property-name pair; a converter that implements only `Write`/`Read` compiles and then silently does nothing for keys. (`AbilitiesComponentJsonConverter` is **not** the precedent here — it is a whole-component converter and says nothing about keys.)
+
+Check the back-compat shape before assuming a migration is needed: `ComponentSerializer.Options` sets `PropertyNamingPolicy = CamelCase` but **not** `DictionaryKeyPolicy`, so enum keys are already emitted as bare enum names. A key type whose serialized form reproduces that exactly (as `ProgressionTrack` does for its score case) widens the component with **no migration** — prove it with a round-trip test asserting a literal pre-change payload re-serializes byte-identically, rather than asserting it in a comment.
+
 ## Anti-patterns
 
 - **Component with behaviour.** Move methods to a system.

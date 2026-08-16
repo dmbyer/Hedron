@@ -136,6 +136,15 @@ namespace Hedron.Core.Modules.Mobs.Systems
             if (tpl is not null) tpl.Band = band;
         }
 
+        public void SetMobXpScale(uint mobEntityId, double xpScale)
+        {
+            if (_entityService.TryGet<MobDataComponent>(mobEntityId, out var mob))
+                mob.XpScale = xpScale;
+
+            var tpl = TryGetTemplate(mobEntityId);
+            if (tpl is not null) tpl.XpScale = xpScale;
+        }
+
         public void SetMobShop(
             uint mobEntityId,
             bool isShop,

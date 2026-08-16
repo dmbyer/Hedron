@@ -35,6 +35,7 @@ using Hedron.Core.Modules.Movement.Events;
 using Hedron.Core.Modules.Movement.Handlers;
 using Hedron.Core.Modules.Movement.Systems;
 using Hedron.Core.Modules.Persistence;
+using Hedron.Core.Modules.Preferences;
 using Hedron.Core.Modules.Session.Events;
 using Hedron.Core.Modules.Session.Handlers;
 using Hedron.Core.Modules.Combat;
@@ -165,6 +166,7 @@ public static class CompositionRoot
         services.AddRegenerationModule();
         services.AddEconomyModule();
         services.AddShoppingModule();
+        services.AddPreferencesModule();
         services.AddProgressionModule();
         services.AddAscensionModule();
         services.AddBalanceInspectionModule();

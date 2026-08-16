@@ -103,15 +103,15 @@ namespace Hedron.Tests.Ascension
             var entity = CreateEntity(ecs);
             ecs.AddComponent(entity, new ProgressionComponent
             {
-                Xp = { [ScoreId.Body] = 42 },
-                Improvements = { [ScoreId.Body] = 3 },
+                Xp = { [ProgressionTrack.Of(ScoreId.Body)] = 42 },
+                Improvements = { [ProgressionTrack.Of(ScoreId.Body)] = 3 },
             });
 
             system.TryAscend(entity);
 
             var progression = ecs.Get<ProgressionComponent>(entity);
-            Assert.Equal(42, progression.Xp[ScoreId.Body]);
-            Assert.Equal(3, progression.Improvements[ScoreId.Body]);
+            Assert.Equal(42, progression.Xp[ProgressionTrack.Of(ScoreId.Body)]);
+            Assert.Equal(3, progression.Improvements[ProgressionTrack.Of(ScoreId.Body)]);
         }
     }
 }

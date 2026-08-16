@@ -131,12 +131,19 @@ Nesting and hex colors are not supported. Escaping a literal `<` is not defined 
 // Room broadcast with optional audience filter
 Task SendToRoomAsync(uint roomEntityId, IOutputMessage message, Func<uint, bool>? audienceFilter = null);
 
+// Direct to one player, addressed by entity id
+Task SendToEntityAsync(uint playerEntityId, IOutputMessage message);
+
 // System-wide broadcast (shutdown notices, global admin announcements)
 Task SendToAllAsync(IOutputMessage message);
 
 // Convenience: builds RoomDescriptionMessage and delivers to one player
-Task SendRoomDescriptionAsync(uint playerEntityId, uint roomEntityId);
+Task SendRoomDescriptionAsync(uint playerEntityId, IOutputMessage message);
 ```
+
+**Writing to one player: use `SendToEntityAsync`.** It resolves the recipient's session directly and no-ops when they have none. The older workaround — `SendToRoomAsync(room, msg, id => id == recipient)` — additionally requires the recipient to carry a `LocationComponent`, **silently drops the message when they do not**, and rescans every entity in the room to deliver to one of them. It is still live at nineteen call sites across ten files; migrating them is tracked in [`../../roadmap/backlog.md`](../../roadmap/backlog.md). Do not add a twentieth.
+
+A predicate on `SendToRoomAsync` is still the right tool when the audience is genuinely the room minus somebody — `id => id != speaker`, as `PlayerSaidHandler` and `PlayerMovedHandler` use it.
 
 `BroadcastSystem` composes `IOutputWriterFactory` per recipient. The `excludeEntityId` pattern degenerates to `audienceFilter: entityId => entityId != excluded`.
 

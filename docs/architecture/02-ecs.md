@@ -157,7 +157,9 @@ Identity + Transform + Effects
 + Attributes + Pools + Currency + Skills + Qualities
 + Inventory + Equipment
 + PlayerData / MobData
-+ PlayerConfiguration (player only)
++ PlayerConfiguration (player only — implemented slice prog-6; attached on the
+  player's first `config` change, never by a read)
++ Progression (player only — attached on the first XP award)
 ```
 
 **Items**

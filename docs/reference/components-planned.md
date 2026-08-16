@@ -21,7 +21,7 @@ The intended full component set for living entities, items, and locations once t
 | `InventoryComponent` | unequipped carried items, capacity | Player, Mob, Room (ground items) | yes |
 | `EquipmentComponent` | items worn in slots (`Head`, `Torso`, `OneHandedWeapon`, …) | Player, Mob | yes |
 | `PlayerDataComponent` | privilege level, account-linked state (connection ref is transient) | Player only | yes |
-| `PlayerConfigurationComponent` | prompt template, preferences | Player only | yes |
+| ~~`PlayerConfigurationComponent`~~ | **Implemented (slice prog-6).** Ships the preferences half as `Dictionary<PreferenceId, bool>`; the prompt-template field folds into the same component when the prompt slice needs it. See `docs/reference/components.md` and [`../features/preferences/preference-system.md`](../features/preferences/preference-system.md). | — | — |
 | `MobDataComponent` | behavior flags, level, level effects | Mob only | yes |
 | `ItemDataComponent` | `Slot`, `Rarity`, `Material`, `Value`, `Behavior` | every Item archetype | yes |
 | `WeaponDataComponent` | `DamageType`, `MinDamage`, `MaxDamage`, `WeaponType` | Weapon | yes |

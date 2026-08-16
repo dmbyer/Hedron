@@ -22,6 +22,7 @@ Holistic, **player-facing** documentation — one folder per capability. A featu
 | [`mobs/`](mobs/) | Mobs | mob-system |
 | [`economy/`](economy/) | Economy | wallet-system, currency-loot-system |
 | [`progression/`](progression/) | Progression | progression-system |
+| [`preferences/`](preferences/) | Preferences | preference-system |
 | [`accounts/`](accounts/) | Account, Session, `Core/Sessions/` | account-system, login-flow |
 | [`admin-authoring/`](admin-authoring/) | Admin, Authoring | admin-commands, content-authoring, content-tooling |
 | [`communication/`](communication/) | Chat, Help | chat-system, help-system |

@@ -46,6 +46,14 @@ namespace Hedron.Core.Modules.Mobs.Systems
         void SetMobBand(uint mobEntityId, int band);
 
         /// <summary>
+        /// Dual-writes the per-mob combat-kill XP scale onto the live
+        /// <see cref="MobDataComponent.XpScale"/> and <see cref="MobTemplate.XpScale"/>.
+        /// Callers (<c>SetMobCommand</c>) range-validate (non-negative) before calling.
+        /// INV-5: does not publish events or call persistence.
+        /// </summary>
+        void SetMobXpScale(uint mobEntityId, double xpScale);
+
+        /// <summary>
         /// Configures or removes the shop on a mob entity and its in-memory template.
         /// When <paramref name="isShop"/> is <see langword="false"/>, removes any existing
         /// <see cref="ShopComponent"/> from the live entity and clears the template's shop

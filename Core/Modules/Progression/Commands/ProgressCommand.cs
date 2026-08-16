@@ -24,7 +24,10 @@ namespace Hedron.Core.Modules.Progression.Commands
         public CommandMatchingMode MatchingMode => CommandMatchingMode.Partial;
         public bool UsableWhileIncapacitated => true;
         public string ShortDescription => "Display your progression tracks.";
-        public string LongDescription => "Shows each attribute/pool track's improvement count, cumulative experience, and experience needed to reach the next improvement.";
+        public string LongDescription =>
+            "Shows each attribute/pool track's improvement count, cumulative experience, and experience needed " +
+            "to reach the next improvement, followed by a separate block for the abilities you have earned rank in. " +
+            "Ability rank is display-only — it does not yet grant power.";
         public string Usage => "progress";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             Array.Empty<IAuthorizationRequirement>();
@@ -39,15 +42,27 @@ namespace Hedron.Core.Modules.Progression.Commands
         {
             var entityId = context.InvokerEntityId;
 
-            var rows = _progressionSystem.GetTrackedScores(entityId)
-                .Select(track => new ProgressTrackRow(
-                    track,
-                    _progressionSystem.GetImprovementCount(entityId, track),
-                    _progressionSystem.GetXp(entityId, track),
-                    _progressionSystem.GetXpToNextThreshold(entityId, track)))
+            var tracked = _progressionSystem.GetTrackedTracks(entityId);
+
+            ProgressTrackRow RowFor(ProgressionTrack track) => new(
+                track,
+                _progressionSystem.GetImprovementCount(entityId, track),
+                _progressionSystem.GetXp(entityId, track),
+                _progressionSystem.GetXpToNextThreshold(entityId, track));
+
+            var scoreRows = tracked
+                .Where(track => track.IsScore)
+                .OrderBy(track => track.Score)
+                .Select(RowFor)
                 .ToList();
 
-            await context.Output.WriteAsync(new ProgressDisplayMessage(rows)).ConfigureAwait(false);
+            var abilityRows = tracked
+                .Where(track => track.IsAbility)
+                .OrderBy(track => track.AbilityId, StringComparer.Ordinal)
+                .Select(RowFor)
+                .ToList();
+
+            await context.Output.WriteAsync(new ProgressDisplayMessage(scoreRows, abilityRows)).ConfigureAwait(false);
         }
     }
 }

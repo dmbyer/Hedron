@@ -28,9 +28,11 @@ Most slice coverage is Tier 1 + one Tier 3 flow. Reach for Tier 2 only where a h
 - `new EntityService()` — the world, in-memory. No DI, no database.
 - `EntityBuilder` — fluent fixtures: `new EntityBuilder(ecs).AsPlayer().WithPools(hp:100).InRoom(roomId).Build()` returns the `uint` id.
 - `RecordingEventBus : IEventBus` — captures published events in order; for Tier 2/3 it can also dispatch to subscribed handlers.
-- `FakeRandom : IRandom` — scripted rolls for deterministic chance assertions.
+- `FakeRandom : IRandom` — scripted rolls for deterministic chance assertions (`FakeRandom(params int[])` scripts `Next`; `EnqueueDouble` scripts `NextDouble`; `FakeRandom(seed)` falls back to a seeded `Random`).
+- `CountingRandom : IRandom` — records the exact **sequence** of draws (`Draws`: method + bounds per call). Use it when *how many* draws a system makes is itself part of the contract — see Determinism below.
 - `FakeClock : IClock` — settable `UtcNow` + `Advance(TimeSpan)` for deterministic time assertions.
-- output capture — a fake `IOutputWriter`/transport recording messages by type + audience.
+- output capture — a fake `IOutputWriter`/transport recording messages by type + audience (`RecordingOutput`).
+- `RecordingBroadcastSystem : IBroadcastSystem` — captures `SendToEntityAsync` / `SendToRoomAsync` / `SendToAllAsync` traffic without a session or output stack, so a notification handler can be asserted on *whether* a line was written and *to whom* without pinning its prose.
 - in-memory SQLite helper (`PersistenceTestHarness`) + synthetic `HeartbeatTickEvent` factory (`Ticks.At(id)`).
 - **counting filesystem reader** (`CountingFileReader`, local to `ContentDefinitionCatalogCacheTests`) — a pass-through `IContentFileReader` that counts directory sweeps and file reads, plus an `AfterGetFiles` hook for interleaving a write into the middle of a sweep. It is how the authoring catalog's cache behavior is asserted (*"a second `List` performs no filesystem read"*) without mutating a temp directory behind the catalog's back — the latter would assert *stale* behavior and freeze a design decision into a test. Still test-local; promote it into the shared harness at a second consumer.
 
@@ -72,6 +74,8 @@ Per the rubric: pure-data components, per-module DI registration (the DI-smoke t
 ## Determinism (INV-26)
 
 A test must be able to control every source of variation. If the system reaches for `Random.Shared` or `DateTime.UtcNow` directly, **fix the system first** — inject `IRandom` (precedent: `CombatSystem`) or pass the heartbeat timestamp — then inject a fake in the test. Never test by re-seeding a global or sleeping on the real clock.
+
+**When the draw *count* is the contract, assert the sequence.** A system that shares one seeded `IRandom` with others — every system in the balance sandbox does — has an unwritten contract about how many draws it consumes: adding one extra `NextDouble()` shifts the whole stream and silently moves every pinned simulation golden. Where that matters, assert the draw sequence directly with `CountingRandom` (precedent: `ProgressionSystemTests.A_kill_consumes_exactly_one_int_draw_per_track_and_no_double_draw`, and its zero-draw siblings for the ineligible paths). "The goldens did not move" is a *consequence* worth checking, not the proof — it asserts invisible state, fails far from the cause, and passes by luck if two changes cancel.
 
 The same rule covers I/O and background work. To assert *how much* a cached system touched the disk, inject a counting seam (`IContentFileReader`) rather than inferring it from timings. To assert a background job's in-progress state, gate the fake it calls on a signal the test controls and assert while the gate is provably held — never `Thread.Sleep` and hope (precedent: `ContentIntegritySweepServiceTests`, `SimulationRunServiceTests`).
 

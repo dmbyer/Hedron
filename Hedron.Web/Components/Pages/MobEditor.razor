@@ -176,6 +176,17 @@ else if (_template is not null)
         </div>
     </fieldset>
 
+    <fieldset class="progression">
+        <legend>Progression</legend>
+        <p class="hint">Per-mob experience scale for kills of this mob. 1.0 is the default; 0 means killing it awards no experience. Multiplies on top of the global scalar and the anti-grind power ratio.</p>
+        <div class="field-row">
+            <div class="field">
+                <label>XP scale</label>
+                <input type="number" min="0" step="0.05" @bind="_template.XpScale" />
+            </div>
+        </div>
+    </fieldset>
+
     <fieldset class="power-readout">
         <legend>Power (computed)</legend>
         <p class="hint">Computed from this mob's authored attributes/pools + tier via the power-budget oracle — the same math the in-game <code>power</code> inspector uses.</p>

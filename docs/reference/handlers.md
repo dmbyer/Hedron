@@ -145,7 +145,7 @@ Ask:
 ### CurrencyLootHandler
 **Events:** `MobDiedEvent`
 **Priority:** 20 (`HandlerPriority.Domain`)
-**Responsibilities:** On `MobDiedEvent`: if `KillerEntityId == 0`, returns immediately (currency discarded — no deposit, no event). Otherwise calls `ICurrencyLootSystem.RollLoot(mobEntityId)` while the mob is still live (mob is pre-destroy at this point — `CombatMobDeathHandler` awaits `PublishAsync` before `DestroyEntity`). For each non-zero `(currency, amount)` in the result, calls `IWalletSystem.Deposit(KillerEntityId, currency, amount)`, then publishes `CurrencyAwardedEvent(KillerEntityId, currency, amount)`. Pure orchestrator — no game rule held here (INV-8); roll lives in `ICurrencyLootSystem`, mutation lives in `IWalletSystem`. One of three independent `MobDiedEvent` subscribers alongside `SpawnSystem` and `ExperienceAwardHandler` — independent reads, no inter-handler ordering constraint.
+**Responsibilities:** On `MobDiedEvent`: if `KillerEntityId == 0`, returns immediately (currency discarded — no deposit, no event). Otherwise calls `ICurrencyLootSystem.RollLoot(mobEntityId)` while the mob is still live (mob is pre-destroy at this point — `CombatMobDeathHandler` awaits `PublishAsync` before `DestroyEntity`). For each non-zero `(currency, amount)` in the result, calls `IWalletSystem.Deposit(KillerEntityId, currency, amount)`, then publishes `CurrencyAwardedEvent(KillerEntityId, currency, amount)`. Pure orchestrator — no game rule held here (INV-8); roll lives in `ICurrencyLootSystem`, mutation lives in `IWalletSystem`. One of three independent `MobDiedEvent` subscribers alongside `SpawnSystem` and `AdvancementHandler` — independent reads, no inter-handler ordering constraint.
 **Location:** `Core/Modules/Economy/Handlers/CurrencyLootHandler.cs`
 **Uses:** `ICurrencyLootSystem`, `IWalletSystem`, `IEventBus`
 
@@ -191,12 +191,19 @@ Ask:
 **Location:** `Core/Modules/Shopping/Handlers/ShopRestockTickHandler.cs`, `ShopExpiryTickHandler.cs`
 **Uses:** `IShopSystem`, `ITemplateRegistry`, `EntityService`, `IClock`
 
-### ExperienceAwardHandler
-**Events:** `MobDiedEvent`
+### AdvancementHandler
+**Events:** `MobDiedEvent`, `AbilityActivatedEvent`, `CombatRoundEvent`, `AbilityStrikeResolvedEvent`
 **Priority:** 20 (`HandlerPriority.Domain`)
-**Responsibilities:** On `MobDiedEvent`: if `KillerEntityId == 0`, returns immediately (no award, no event). Otherwise calls `IProgressionSystem.AwardCombatExperience(killerEntityId, victimEntityId)` while the mob is still live, then publishes one `ExperienceAwardedEvent` per positive-amount track and one `TrackImprovedEvent` per threshold crossed. Pure orchestrator (INV-8) — the award math and threshold resolution live in `IProgressionSystem`. One of three independent `MobDiedEvent` subscribers alongside `SpawnSystem` and `CurrencyLootHandler` — independent reads, no inter-handler ordering constraint.
-**Location:** `Core/Modules/Progression/Handlers/ExperienceAwardHandler.cs`
-**Uses:** `IProgressionSystem`, `IEventBus`
+**Responsibilities:** The single orchestrator for every XP trigger (replaced the per-source handler pattern at its third repetition, INV-19). Maps each event's fields into a `UseAwardContext` and calls `IProgressionSystem.AwardUseExperience` — kill → `AwardCombatExperience` (the `CombatKill` row's wrapper, which resolves the victim's `MobDataComponent.XpScale` system-side); ability activation → earner is the actor, with the definition's `XpScale`/`XpAttributeTrack`; combat round / ability strike → earner is the **defender**, magnitude is `Result.DamageDealt`. Then publishes one `ExperienceAwardedEvent` per positive-amount row and one `TrackImprovedEvent` per threshold crossed. **Holds no discard branch** — "unattributable killer", "zero damage", and "only characters progress" are `AdvancementEligibility` data on the rule, evaluated in the system (INV-8). One of three independent `MobDiedEvent` subscribers alongside `SpawnSystem` and `CurrencyLootHandler` — independent reads, no inter-handler ordering constraint.
+**Location:** `Core/Modules/Progression/Handlers/AdvancementHandler.cs`
+**Uses:** `IProgressionSystem`, `IAbilityRegistry`, `IEventBus`
+
+### ProgressionNarrationHandler
+**Events:** `ExperienceAwardedEvent`, `TrackImprovedEvent`
+**Priority:** 80 (`HandlerPriority.Notification`)
+**Responsibilities:** Writes one line to the earning player per award and per improvement, each gated on its own `PreferenceId` via `IPreferenceSystem` (`ProgressionXpMessages` / `ProgressionImprovementMessages`). Ability tracks and score tracks get different wording. Pure output — no state mutation, no domain call beyond the preference read (INV-8). Uses `IBroadcastSystem.SendToEntityAsync` (the direct-to-entity write introduced with this handler) rather than the room-broadcast-with-predicate workaround, so the line arrives even when the earner carries no location.
+**Location:** `Core/Modules/Progression/Handlers/ProgressionNarrationHandler.cs`
+**Uses:** `IPreferenceSystem`, `IBroadcastSystem`
 
 ### AscensionNarrationHandler
 **Events:** `AscendedEvent`

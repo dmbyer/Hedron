@@ -31,6 +31,10 @@ the change mechanics:
 |---|---|
 | **Balance-standards document** (`data/balance/standards.yaml` — oracle weights/bands, reference builds, tolerances) | Edit via the Blazor Standards page (`/standards`) or the YAML directly; structural validation refuses bad shapes; **restart-to-apply**. Keep the `AscensionConstants`/`CharacterDefaultsOptions` mirrors in sync or the load-time drift warning fires |
 | **Category-3 constants** (`ProgressionConstants`, `AscensionConstants`, combat/regen inline math) | Edit the constant in the same commit as any dependent change; these are compiled — promotion to data happens only at a real OD-2 need |
+| **`ProgressionConstants.GlobalXpScalar`** (prog-6) | The **macro** progression knob — multiplies every award from every source inside `ProgressionSystem`, so `2.0` exactly doubles progression speed. Reach for this to move overall pacing, not to fix one source |
+| **`ProgressionConstants.Rules`** — the advancement table (prog-6) | One `AdvancementRule` per `XpSource`: `BaseAwardMin`/`Max`, `BaseChance`, `ChanceDecayPerImprovement`, `SourceScale`, `StaticTracks`, `AdvancementEligibility`. Read through `IAdvancementRuleRegistry`. Compiled precisely *because* these are golden-pinned; promotion to YAML needs the pinning contract reworked first. **`BaseChance`/`ChanceDecayPerImprovement` is a second rate-slowing curve** composing with the growing XP threshold — move one at a time |
+| **Per-ability `XpScale` / `XpAttributeTrack`** (`AbilityRegistry`, prog-6) | Compiled rows; inspect with `defs ability <id>`. `XpAttributeTrack` is opt-in — an ability naming none grants rank only and no attribute power. A YAML/editor pipeline is [backlogged](../../../docs/roadmap/backlog.md) |
+| **Per-mob `XpScale`** (prog-6) | `setmob <blueprintId> xpscale <value>` / YAML `xpScale:` / the Blazor `MobEditor` field. Non-negative; `0` makes that mob's kills award nothing |
 | **Settings** (`CharacterDefaults:`, `Shop:`, `Death:`, `Heartbeat:`) | `appsettings.json`; already recompile-free |
 | **Authored content** (item/mob stats, tier/band tags, ability definitions, loot ranges) | `setitem`/`setmob`/Blazor editors/YAML — normal content authoring (INV-18 tooling already exists) |
 
@@ -39,6 +43,15 @@ the change mechanics:
 1. Change it in its home (table above). Never copy a balance number into a second home (INV-27).
 2. **Validate at scale if outcomes shift** (see validation recipe): combat-affecting → a combat
    scenario at the affected cell(s); progression-affecting → a `progressionRate` scenario.
+
+   > ⚠️ **The `progressionRate` scenario currently models kill events only.** As of `prog-6` the
+   > advancement table has three rows, but `ProgressionScenarioExecutor` still exercises
+   > `AwardCombatExperience` exclusively — so a change to the **`AbilityUse` or `DamageTaken`**
+   > rows, or to a per-ability `XpScale`, **will not move a golden and cannot be swept**. That is a
+   > known blind spot, not a clean bill of health: those rows feed *attribute* tracks, which do
+   > grant power. Until the sweep is generalized onto the `XpSource` vocabulary
+   > ([backlog](../../../docs/roadmap/backlog.md) · [balance.md Known gaps](../../../docs/design/balance.md)),
+   > tune those rows conservatively and say in the plan that the change is unvalidated.
 3. **Re-pin CI goldens in the same commit.** `SimulationInvariantTests` (`Hedron.Tests/Simulation/`)
    pins win rates and kills-to-improvement at fixed seeds against current values — a deliberate
    tuning change updates those pins; a test going red you didn't expect means the change did more

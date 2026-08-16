@@ -20,9 +20,11 @@ namespace Hedron.Core.Modules.Progression
     {
         public static IServiceCollection AddProgressionModule(this IServiceCollection services)
         {
+            services.AddSingleton<IAdvancementRuleRegistry, AdvancementRuleRegistry>();
             services.AddSingleton<IProgressionSystem, ProgressionSystem>();
             services.AddSingleton<IEffectContributor, ProgressionEffectContributor>();
-            services.AddSingleton<ExperienceAwardHandler>();
+            services.AddSingleton<AdvancementHandler>();
+            services.AddSingleton<ProgressionNarrationHandler>();
             services.AddSingleton<ICommand, ProgressCommand>();
             return services;
         }

@@ -55,7 +55,7 @@ namespace Hedron.Core.Modules.Simulation.Systems
             // other's backing system — never on IEffectSystem/IStatSystem — so EffectSystem can be
             // built before AttributeSystem/StatSystem need it (same guard ProgressionSystem's
             // anti-grind proxy observes against IStatSystem).
-            var progression = new ProgressionSystem(ecs, random, _powerBudget);
+            var progression = new ProgressionSystem(ecs, random, _powerBudget, new AdvancementRuleRegistry());
             var ascension = new AscensionSystem(ecs);
 
             var contributors = new List<IEffectContributor>

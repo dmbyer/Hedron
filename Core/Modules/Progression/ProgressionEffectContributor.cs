@@ -21,6 +21,16 @@ namespace Hedron.Core.Modules.Progression
     /// contributor list); a second port would need <c>IStatSystem</c> re-plumbed to also fold it.
     /// Owner-approved 2026-07-04 (see roadmap/completed/progression-substrate.md Decisions).
     /// </para>
+    ///
+    /// <para>
+    /// <b>Ability tracks contribute nothing (D3).</b> Both members below fold only
+    /// <see cref="ScoreId"/>-keyed tracks — <see cref="GetModifiers"/>'s input is a
+    /// <see cref="ScoreId"/> by signature, and <see cref="GetActive"/> enumerates
+    /// <c>GetTrackedScores</c>, which excludes ability tracks by construction. Ability rank is
+    /// display-only this slice; making rank scale potency or cost is a deliberate later balance
+    /// slice that must fold into <c>docs/design/power-model.md</c> and re-pin goldens. An
+    /// architecture-guard test pins the zero contribution.
+    /// </para>
     /// </summary>
     public sealed class ProgressionEffectContributor : IEffectContributor
     {

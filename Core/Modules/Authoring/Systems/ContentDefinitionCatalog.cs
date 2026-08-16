@@ -478,6 +478,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
                     var to = (MobTemplate)next.Template;
                     to.Tier = from.Tier;
                     to.Band = from.Band;
+                    to.XpScale = from.XpScale;
                     to.SpawnRoomBlueprintId = from.SpawnRoomBlueprintId;
                     break;
                 }
@@ -925,6 +926,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
                         Protection = m.Protection,
                         Tier = m.Tier,
                         Band = m.Band,
+                        XpScale = m.XpScale,
                         IsShop = m.IsShop,
                         ShopAcceptedCurrency = m.ShopAcceptedCurrency,
                         ShopTillSeed = m.ShopTillSeed,
