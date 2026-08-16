@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -11,6 +11,7 @@ using Hedron.Core.Modules.World;
 using Microsoft.Extensions.Options;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Mobs.Systems
 {
@@ -100,10 +101,8 @@ namespace Hedron.Core.Modules.Mobs.Systems
 
             var body = _yaml.Serialize(dto);
             var filePath = Path.Combine(_mobsDirectory, $"{template.BlueprintId}.yaml");
-            var tmpPath = filePath + ".tmp";
 
-            await File.WriteAllTextAsync(tmpPath, body, ct).ConfigureAwait(false);
-            File.Move(tmpPath, filePath, overwrite: true);
+            await AtomicFileWrite.ReplaceAsync(filePath, body, ct).ConfigureAwait(false);
         }
 
         private sealed class CurrencyLootRangeDto

@@ -22,5 +22,20 @@ jobs:
       - name: Build
         run: dotnet build Hedron.sln --configuration Release
 
+      # The authoring API's contract is a checked-in artifact, so a change to a DTO that nobody
+      # meant to publish fails here rather than silently reaching a consumer. Slots in after the
+      # build (it needs the built assembly) so it forces no second compile. dotnet-only by design:
+      # no TypeScript generation and no second toolchain before the client-tier gate
+      # (docs/design/client-tier.md books both as React-branch costs).
+      - name: Regenerate OpenAPI document
+        run: dotnet msbuild Hedron.Web/Hedron.Web.csproj -t:GenerateOpenApiDocuments -p:Configuration=Release
+
+      - name: Fail on OpenAPI drift
+        run: |
+          if ! git diff --exit-code -- Hedron.Web/Hedron.Web_authoring.json; then
+            echo "::error::The OpenAPI document is stale. Rebuild Hedron.Web and commit Hedron.Web/Hedron.Web_authoring.json."
+            exit 1
+          fi
+
       - name: Test
         run: dotnet test Hedron.sln --configuration Release --no-build

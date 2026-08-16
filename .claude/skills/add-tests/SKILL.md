@@ -20,8 +20,9 @@ Work from the thing you're verifying, not from the file:
 | A whole use-case Main Flow end-to-end | **3 — flow** | `<Slice>FlowTests.cs` |
 | That a `[Persistent]` shape survives save→load | **4 — persistence round-trip** | `<Component>PersistenceTests.cs` |
 | A mechanical invariant across the whole assembly | **5 — architecture-guard** | `ArchitectureGuardTests.cs` |
+| An HTTP contract on the authoring JSON API (status code, header handling, JSON shape) | **6 — HTTP integration** | `Hedron.Tests/Web/Api/<Surface>Tests.cs` |
 
-Most slice coverage is Tier 1 + one Tier 3 flow. Reach for Tier 2 only where a handler embodies a *decision* (branch on outcome, priority-dependent ordering).
+Most slice coverage is Tier 1 + one Tier 3 flow. Reach for Tier 2 only where a handler embodies a *decision* (branch on outcome, priority-dependent ordering). **Tier 6 covers exactly one surface** — the authoring JSON API — and is not a licence to test through HTTP generally: everything the endpoints call is already covered at Tier 1, and re-asserting system math through a request is the duplication Tier 2 forbids.
 
 ## The harness (helpers in `Hedron.Tests`)
 
@@ -65,7 +66,9 @@ Assert.Contains(bus.Published, e => e is CombatEndedEvent { Outcome: MobDied });
 
 **Tier 4 — persistence round-trip.** Save, load into a fresh `EntityService`, assert `[Persistent]` components equal and transient ones absent; assert world content has no row (INV-23).
 
-**Tier 5 — architecture-guard.** Reflection over `Hedron.Core` asserting INV-3/5/13/23/26 mechanically + a DI-smoke test. Extend the existing guard tests rather than writing per-slice ones.
+**Tier 5 — architecture-guard.** Reflection over `Hedron.Core` asserting INV-3/5/13/23/26 mechanically + a DI-smoke test, plus source scans of `Core/` and `Hedron.Web/` for constructs reflection cannot see (a leaked helper call, a CORS registration). Extend the existing guard tests rather than writing per-slice ones. When you add a source-scan guard, add a pre-check that fails loudly if it scanned nothing — a guard that silently matches zero files is worse than none.
+
+**Tier 6 — HTTP integration.** `WebApplicationFactory<Hedron.Web.Program>` boots the **real** host, so `AddContentBootstrapHostedServices` runs and every write endpoint writes YAML to the configured `World:ContentDirectory`. **The factory must override that setting to a per-test temp directory** — without it a single `POST` test writes into the repository's own content tree. Use `Hedron.Tests/Web/Api/AuthoringApiFactory`, which does this and cleans up on dispose. One factory per fixture (each with its own directory and host), so xunit's default per-class parallelism is safe and no `[Collection]` is needed; never share a factory across classes, since the catalog is a host singleton with an in-memory index.
 
 ## What to skip (don't pad the suite)
 
@@ -82,7 +85,8 @@ The same rule covers I/O and background work. To assert *how much* a cached syst
 ## Where tests live & how to run
 
 - `Hedron.Tests/<MirroredNamespace>/...` — mirror the `Core` namespace of the thing under test.
-- `Hedron.Tests/Web/<Type>Tests.cs` — non-presentation `Hedron.Web/Services/*` logic (a background-job registry, an off-thread sweep service, a scenario/prefill composer — e.g. `SimulationRunService`, `ContentIntegritySweepService`, `BaselineSweep`, `SimulationPrefill`). `Hedron.Tests` references `Hedron.Web` for exactly this. Test it Tier-1-style, against interface fakes — never a real Blazor render. Razor markup/pages stay presentation-skip-tier (no bUnit harness in the repo; a bug there is obvious on first page load).
+- `Hedron.Tests/Web/<Type>Tests.cs` — non-presentation `Hedron.Web/Services/*` logic (a background-job registry, an off-thread sweep service, a scenario/prefill composer — e.g. `SimulationRunService`, `ContentIntegritySweepService`, `BaselineSweep`, `SimulationPrefill`). Test it Tier-1-style, against interface fakes — no host, no render.
+- `Hedron.Tests/Web/Api/<Surface>Tests.cs` — the authoring JSON API (Tier 6). This tier **does** boot the real host; `Hedron.Tests` references `Microsoft.AspNetCore.Mvc.Testing` for it. Still never a Blazor *render* — Razor markup/pages stay presentation-skip-tier (no bUnit harness in the repo; a bug there is obvious on first page load).
 - `dotnet test Hedron.sln` — must be green before the code-review gate (INV-25). "Ship green" = build green **and** tests green.
 
 ## Cross-references

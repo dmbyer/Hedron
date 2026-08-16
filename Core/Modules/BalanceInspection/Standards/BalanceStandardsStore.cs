@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -94,9 +94,7 @@ namespace Hedron.Core.Modules.BalanceInspection.Standards
             if (!string.IsNullOrEmpty(directory))
                 Directory.CreateDirectory(directory);
 
-            var tmpPath = _path + ".tmp";
-            await File.WriteAllTextAsync(tmpPath, body, ct).ConfigureAwait(false);
-            File.Move(tmpPath, _path, overwrite: true);
+            await AtomicFileWrite.ReplaceAsync(_path, body, ct).ConfigureAwait(false);
 
             return new BalanceStandardsSaveResult(true, Array.Empty<string>(), warnings);
         }

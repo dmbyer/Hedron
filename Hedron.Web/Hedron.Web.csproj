@@ -5,6 +5,19 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Hedron.Web</RootNamespace>
+
+    <!--
+      OpenAPI document emission (authoring-api-surface WP2). Microsoft.Extensions.ApiDescription.Server
+      runs the host's DI graph after each build and writes the document beside this project file, so
+      the contract is a reviewable checked-in artifact rather than something only a running server
+      knows. CI regenerates it and fails on any diff.
+
+      The emitted document is framework-neutral and dotnet-only to produce: no TypeScript artifact is
+      generated and no second toolchain enters the build (docs/design/client-tier.md books both as
+      React-branch costs, which are not paid before the decision gate).
+    -->
+    <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
+    <OpenApiDocumentsDirectory>$(MSBuildProjectDirectory)</OpenApiDocumentsDirectory>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,6 +35,14 @@
     <Content Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="8.0.8">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
 </Project>

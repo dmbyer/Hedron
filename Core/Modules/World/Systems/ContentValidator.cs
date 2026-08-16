@@ -8,6 +8,7 @@ using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Aspects;
 using Hedron.Core.Modules.Authoring;
 using Hedron.Core.Modules.Effects;
+using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
 
@@ -111,16 +112,55 @@ namespace Hedron.Core.Modules.World.Systems
             // Type-checking a template DTO (a plain authored data object) is not an entity type
             // check — INV-4 governs live-entity identity, not blueprint POCOs. Each kind applies
             // whatever single-definition rules it has; kinds with none return a valid report.
-            if (template is AreaTemplate area && area.AspectAffinities is { Count: > 0 })
+            switch (template)
             {
-                // Same rule as the boot area scan: normalization only (parity).
-                var errors = new List<string>();
-                var composition = new AspectComposition(area.AspectAffinities);
-                ValidateAspectComposition(composition, $"Area '{area.BlueprintId}'", errors, checkKeysRegistered: false);
-                return errors.Count == 0 ? ValidationReport.Ok : new ValidationReport(errors);
+                case AreaTemplate area when area.AspectAffinities is { Count: > 0 }:
+                {
+                    // Same rule as the boot area scan: normalization only (parity).
+                    var errors = new List<string>();
+                    var composition = new AspectComposition(area.AspectAffinities);
+                    ValidateAspectComposition(composition, $"Area '{area.BlueprintId}'", errors, checkKeysRegistered: false);
+                    return errors.Count == 0 ? ValidationReport.Ok : new ValidationReport(errors);
+                }
+
+                case MobTemplate mob:
+                    return ValidateCurrencyLoot(mob);
+
+                default:
+                    return ValidationReport.Ok;
+            }
+        }
+
+        /// <summary>
+        /// A mob's authored currency-loot ranges must be well-formed: non-negative, and
+        /// <c>Min ≤ Max</c>. An inverted range is not clamped or reinterpreted at spawn — the roll
+        /// is undefined — so it is refused before the YAML is written rather than shipped as
+        /// content that misbehaves on the next reload.
+        /// </summary>
+        private static ValidationReport ValidateCurrencyLoot(MobTemplate mob)
+        {
+            if (mob.CurrencyLoot.Count == 0)
+                return ValidationReport.Ok;
+
+            var errors = new List<string>();
+            foreach (var (currency, range) in mob.CurrencyLoot)
+            {
+                if (range.Min < 0 || range.Max < 0)
+                {
+                    errors.Add(
+                        $"Mob '{mob.BlueprintId}': {currency} loot range ({range.Min}, {range.Max}) " +
+                        $"must not be negative.");
+                }
+
+                if (range.Min > range.Max)
+                {
+                    errors.Add(
+                        $"Mob '{mob.BlueprintId}': {currency} loot minimum ({range.Min}) must not " +
+                        $"exceed its maximum ({range.Max}).");
+                }
             }
 
-            return ValidationReport.Ok;
+            return errors.Count == 0 ? ValidationReport.Ok : new ValidationReport(errors);
         }
 
         public ValidationReport ValidateBlueprintId(ContentKind kind, string blueprintId)

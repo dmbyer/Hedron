@@ -320,5 +320,66 @@ namespace Hedron.Tests.Modules.BalanceInspection
         {
             Assert.Throws<System.ArgumentOutOfRangeException>(() => System.TargetRange(tier, band));
         }
+
+        // ── PowerBudgetMath: the pure split (authoring-api-surface WP1) ───────────
+        //
+        // The standards editor previews target ranges for *candidate* tunables, so the formulas are
+        // callable as pure statics over a supplied tunables record. These pin the two properties the
+        // split has to have: parity with the composed instance for equal tunables, and no effect on
+        // that instance's own ctor-injected snapshot.
+
+        [Fact]
+        public void PowerBudgetMath_TargetRange_matches_the_composed_instance_for_equal_tunables()
+        {
+            for (var tier = 0; tier <= PowerBudgetTunables.Default.MaxTier; tier++)
+            {
+                for (var band = 1; band <= PowerBudgetTunables.Default.BandsPerTier; band++)
+                {
+                    Assert.Equal(
+                        System.TargetRange(tier, band),
+                        PowerBudgetMath.TargetRange(PowerBudgetTunables.Default, tier, band));
+                }
+            }
+        }
+
+        [Theory]
+        [InlineData(-1, 1)]
+        [InlineData(7, 1)]
+        [InlineData(0, 0)]
+        [InlineData(0, 4)]
+        public void PowerBudgetMath_TargetRange_rejects_an_out_of_range_cell(int tier, int band)
+        {
+            Assert.Throws<System.ArgumentOutOfRangeException>(
+                () => PowerBudgetMath.TargetRange(PowerBudgetTunables.Default, tier, band));
+        }
+
+        [Fact]
+        public void PowerBudgetMath_Estimate_and_Classify_match_the_composed_instance()
+        {
+            var snapshot = new PowerSnapshot(new Dictionary<ScoreId, int>
+            {
+                [ScoreId.Body] = 14,
+                [ScoreId.HpMax] = 140,
+                [ScoreId.AttackPower] = 9,
+            });
+
+            var estimate = System.Estimate(snapshot, tier: 2);
+            Assert.Equal(estimate, PowerBudgetMath.Estimate(PowerBudgetTunables.Default, snapshot, tier: 2));
+            Assert.Equal(System.Classify(estimate), PowerBudgetMath.Classify(PowerBudgetTunables.Default, estimate));
+            Assert.Equal(System.BandAnchor(3), PowerBudgetMath.BandAnchor(PowerBudgetTunables.Default, 3));
+        }
+
+        [Fact]
+        public void PowerBudgetMath_evaluating_other_tunables_does_not_disturb_the_composed_instance()
+        {
+            var before = System.TargetRange(1, 2);
+
+            // A deliberately different candidate document — the shape the standards editor previews.
+            var candidate = PowerBudgetTunables.Default with { BandSpan = 5, TierBaselineStep = 40 };
+            var candidateRange = PowerBudgetMath.TargetRange(candidate, 1, 2);
+
+            Assert.NotEqual(before, candidateRange);
+            Assert.Equal(before, System.TargetRange(1, 2));
+        }
     }
 }

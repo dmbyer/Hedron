@@ -2,18 +2,17 @@
 @page "/mob/{BlueprintId}"
 @using Hedron.Core.ECS.Components
 @using Hedron.Core.Modules.BalanceInspection
-@using Hedron.Core.Modules.BalanceInspection.Standards
+@using Hedron.Core.Modules.BalanceInspection.Systems
 @using Hedron.Core.Modules.Economy
-@using Hedron.Core.Modules.Mobs.Systems
 @using Hedron.Core.Modules.Mobs.Templates
 @using Hedron.Core.Modules.Shopping.Components
 @using Hedron.Core.Modules.Stats
 @using Hedron.Core.Systems
 @inject IContentDefinitionCatalog Catalog
 @inject NavigationManager Nav
-@inject IPowerBudgetSystem PowerBudget
-@inject IBalanceStandardsRegistry StandardsRegistry
-@inject IMobPowerProjectionSystem MobProjection
+@* The computed-power readout is one domain-tier composition (projection + oracle + drift tolerance),
+   shared with the authoring API's power endpoint — this page renders it, it does not compose it. *@
+@inject IMobPowerReadoutSystem PowerReadout
 
 <PageTitle>@(IsNew ? "New mob" : "Edit mob")</PageTitle>
 
@@ -190,10 +189,17 @@ else if (_template is not null)
     <fieldset class="power-readout">
         <legend>Power (computed)</legend>
         <p class="hint">Computed from this mob's authored attributes/pools + tier via the power-budget oracle — the same math the in-game <code>power</code> inspector uses.</p>
-        <p>Power: <strong>@ComputedPower</strong> &mdash; Tier/Band: <strong>@ComputedBand.Tier/@ComputedBand.Band</strong>
-            @if (_template.Band != 0 && !WithinDriftTolerance)
+        @{
+            var readout = PowerReadout.Read(_template);
+        }
+        <p>Power: <strong>@readout.Power</strong> &mdash; Tier/Band: <strong>@readout.Computed.Tier/@readout.Computed.Band</strong>
+            @if (readout.AuthoredTargetRange is { } target)
             {
-                <span class="warning-inline">(authored @_template.Tier/@_template.Band does not match computed @ComputedBand.Tier/@ComputedBand.Band)</span>
+                <span class="hint-inline">(authored @readout.AuthoredTier/@readout.AuthoredBand targets @target.MinPower&ndash;@target.MaxPower)</span>
+            }
+            @if (readout.DriftsFromAuthoredCell)
+            {
+                <span class="warning-inline">(authored @readout.AuthoredTier/@readout.AuthoredBand does not match computed @readout.Computed.Tier/@readout.Computed.Band)</span>
             }
         </p>
     </fieldset>
@@ -358,22 +364,6 @@ else if (_template is not null)
         _spawnAreaFilter = value ?? string.Empty;
 
     private bool IsNew => _forceNew || string.IsNullOrEmpty(BlueprintId);
-
-    // Snapshot from the authored template via the shared IMobPowerProjectionSystem seam — never
-    // IStatSystem.Get, since the editor operates on YAML templates with no live entity (see
-    // docs/features/progression/power-budget-system.md).
-    private int ComputedPower =>
-        _template is null
-            ? 0
-            : PowerBudget.Estimate(MobProjection.Project(_template), _template.Tier);
-
-    private PowerBand ComputedBand => PowerBudget.Classify(ComputedPower);
-
-    private bool WithinDriftTolerance =>
-        _template is not null &&
-        Math.Abs(
-            StandardsRegistry.Tunables.GlobalBandIndex(_template.Tier, _template.Band) -
-            StandardsRegistry.Tunables.GlobalBandIndex(ComputedBand.Tier, ComputedBand.Band)) <= StandardsRegistry.BandDriftTolerance;
 
     protected override void OnParametersSet()
     {

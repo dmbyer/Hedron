@@ -39,10 +39,11 @@ This document explains the web/UI tier: where it sits in the layer model, the ru
 
 ## Where the UI sits in the layer model
 
-The web UI is **not** one of the four processing layers ([01-layers.md](01-layers.md)). Like commands, it is an **entry-point / presentation surface** that feeds the stack — it belongs with the **Initiators** tier in spirit. Two interaction shapes:
+The web UI is **not** one of the four processing layers ([01-layers.md](01-layers.md)). Like commands, it is an **entry-point / presentation surface** that feeds the stack — it belongs with the **Initiators** tier in spirit. Three interaction shapes — the first two in-process, the third over HTTP:
 
 1. **Read / author (no live world).** A Blazor component calls a **domain system** directly — `IContentDefinitionCatalog` (list/load/create/validate/write over YAML) — and renders the result. This is a synchronous read/write over content definitions, off the heartbeat.
 2. **Effect the live world.** The component calls the existing **reload Initiator** (`IWorldContentLoader.ReloadAsync` → `ContentReloadedEvent`); the Initiator publishes, the engine re-derives world content from YAML. The component itself never mutates `EntityService`.
+3. **Read / author over JSON** (added authoring-api-surface). A minimal-API endpoint in `Api/` resolves the *same* domain systems as shape 1 and maps the result to a status code. It is a **transport adapter, not an Initiator**: it adds no authoring rule of its own and publishes nothing. Shape 2 has deliberately **no** HTTP counterpart — an apply/reload endpoint *would* be an Initiator and carries a different posture, so it is out of scope until that posture is worked through.
 
 ### Discipline for UI components (the rules that keep this clean)
 
@@ -51,7 +52,27 @@ The web UI is **not** one of the four processing layers ([01-layers.md](01-layer
 - **Publishing stays in the Initiator, not the component** ([INV-5](checklist.md)). The catalog and validator are domain systems that return results and never touch the bus; the apply action reuses the reload Initiator's publish.
 - **No authoring logic is trapped in a UI** ([INV-15/19](checklist.md)). The same `IContentDefinitionCatalog` backs the editor, the bulk generator, and (logically) the telnet `mk*` commands — surface parity is unnecessary precisely because the logic is shared. A new content-mutating capability adds to a system, not a component.
 
+- **The endpoint tier inherits the same thin-surface rule.** An `Api/` endpoint parses the request, calls a domain system, and maps the result to a status code — no more than a component does. In particular **kind dispatch does not live in an entry-point surface**: the per-kind translation between a `ContentDefinition` and its transport DTO is `IContentDefinitionMapper<TDto>` (`Core/Modules/Authoring/Contracts/`), and the endpoint helpers are generic over the DTO, so adding a writable kind is a DTO + mapper + registration, never a `switch (kind)` in `Api/`.
+
 These are the same constraints the `architecture-reviewer` applies to a `Hedron.Web` diff in code mode; testing treats Blazor components as **presentation skip-tier** ([07-testing.md](07-testing.md)) because the logic they call is already covered.
+
+### The authoring HTTP surface (`Api/`)
+
+A deliberately narrow JSON surface over `IContentDefinitionCatalog`, scoped to what the client-tier decision gate's bakeoff page actually calls ([`../design/client-tier.md`](../design/client-tier.md)) — **not** "all authoring operations":
+
+| Route | Purpose |
+|---|---|
+| `GET /api/{areas,rooms,mobs}` (optional `?area=`) | Listings, kind-parameterised. The `?area=` filter is the spawn-room picker's narrowing; it keys on the catalog's resolved `AreaBlueprintId`. |
+| `GET`/`POST`/`PUT`/`DELETE /api/mobs[/{blueprintId}]` | The mob editor's load / create / save / delete. **Area and Room are read-only here** — the bakeoff ports the mob editor. |
+| `POST /api/power/mob` | The live power readout, over a **posted** definition rather than a saved one — the readout updates as the author types, so it must project unsaved form state. Writes nothing. Backed by `IMobPowerReadoutSystem`, the same composition `MobEditor` renders. |
+
+**`ContentWriteResult` → status code**, established once in `Api/ContentResults.cs` so a second kind inherits it: refused (validation failure, id collision, malformed id) → `400` with the catalog's errors; written → `200` (`201` on create, with `Location`); absent → `404`. **Warnings never change the status code** — the catalog's cross-reference policy is warn-but-allow (INV-19), and collapsing that into a failure status would misreport a file that was written.
+
+**Contract artifact.** An OpenAPI document is emitted at build to `Hedron.Web/Hedron.Web_authoring.json` and checked in; CI regenerates it and fails on drift, so a DTO change nobody meant to publish is caught at review. Framework-neutral and dotnet-only to produce — no TypeScript artifact is generated and no second toolchain enters CI, since [`../design/client-tier.md`](../design/client-tier.md) books both as React-branch costs not paid before the gate. The bakeoff hand-writes its one interface from the document.
+
+**Security posture: an in-slice mitigation, not authentication.** The Blazor editor is a circuit-bound surface covered by `UseAntiforgery()`. A minimal-API **write** endpoint is not: antiforgery does not apply, it is reachable by any local process, and it is reachable cross-origin from any page in the author's browser (localhost CSRF, DNS rebinding). **Loopback is a weaker control here than it is for a Blazor page.** Real authn/z stays deferred (INV-19 enumerates *player-facing* surfaces; this is admin/authoring — see [`../roadmap/backlog.md`](../roadmap/backlog.md)), but `Api/LocalOriginFilter` applies three cheap checks to the whole group: loopback `Host`, same-origin `Origin`, and `application/json` on bodied methods (an HTML form cannot send JSON, so the form-post CSRF shape is blocked outright; a cross-origin `fetch` that does send JSON becomes a preflight).
+
+> **No CORS policy may be registered on this host.** The cross-origin half of that mitigation works only because the preflight fails, and it fails only because no policy exists. An `AllowAnyOrigin` would silently undo it without touching a line of endpoint code — so the absence is load-bearing and is held by two guard tests (a source scan, and a runtime check that no CORS service resolves).
 
 ---
 
@@ -60,8 +81,9 @@ These are the same constraints the `architecture-reviewer` applies to a `Hedron.
 | Piece | Role |
 |---|---|
 | `Hedron.Web.csproj` (`Microsoft.NET.Sdk.Web`) | The web host project; references `Server` (for `CompositionRoot` + bootstrap types), transitively `Core`. |
-| `Program.cs` | Boots the engine via `CompositionRoot.Register` + `AddContentBootstrapHostedServices`, adds Blazor Server, binds loopback (`Web:BindUrl`). |
+| `Program.cs` | Boots the engine via `CompositionRoot.Register` + `AddContentBootstrapHostedServices`, adds Blazor Server, maps the `Api/` group, binds loopback (`Web:BindUrl`). |
 | `Components/` | Blazor pages/components — the content browser and per-kind editors (area/room/item/mob), the Standards page, and the Simulation page, each a thin caller of a `Core/` system. |
+| `Api/` | The authoring JSON surface: minimal-API endpoint mapping, the `ContentWriteResult` → status-code convention, and the loopback/origin/content-type filter. Transport only — the DTOs and their per-kind mappers live in `Core/Modules/Authoring/Contracts/`, beside the catalog they map for. See [the section below](#the-authoring-http-surface-api). |
 | `Services/` | Web-host-only supporting code that is not presentation — a background-job registry (`SimulationRunService`), the Integrity page's off-thread sweep (`ContentIntegritySweepService`), and scenario/prefill composers (`BaselineSweep`, `SimulationPrefill`, sim-3). See [Background tooling jobs](#background-tooling-jobs-sim-3) below. |
 | `appsettings.json` | The same engine config the telnet host reads, plus `Web:BindUrl`. |
 

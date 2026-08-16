@@ -176,7 +176,59 @@ namespace Hedron.Core.Modules.Authoring.Systems
             return new AreaLayoutApplyResult(written, warnings);
         }
 
+        public async Task<AreaConnectResult> ConnectAsync(
+            string fromRoomBlueprintId,
+            string toRoomBlueprintId,
+            CancellationToken ct = default)
+        {
+            if (_catalog.Load(ContentKind.Room, fromRoomBlueprintId)?.Template is not RoomTemplate from)
+                return AreaConnectResult.Rejected(AreaConnectOutcome.RoomNotFound);
+            if (_catalog.Load(ContentKind.Room, toRoomBlueprintId)?.Template is not RoomTemplate to)
+                return AreaConnectResult.Rejected(AreaConnectOutcome.RoomNotFound);
+
+            // Positions come from the source room's area layout, so a coordless room connects at the
+            // ghost cell the grid actually renders it in. A target laid out in a different area is
+            // absent from this proposal and therefore not adjacent — which is the correct answer.
+            var proposal = Propose(from.AreaId);
+            if (!TryGetPosition(proposal, fromRoomBlueprintId, out var fromPos) ||
+                !TryGetPosition(proposal, toRoomBlueprintId, out var toPos))
+            {
+                return AreaConnectResult.Rejected(AreaConnectOutcome.NotAdjacent);
+            }
+
+            var direction = DirectionExtensions.FromOffset(
+                toPos.X - fromPos.X, toPos.Y - fromPos.Y, toPos.Z - fromPos.Z);
+            if (direction is not { } dir)
+                return AreaConnectResult.Rejected(AreaConnectOutcome.NotAdjacent);
+
+            from.Exits[dir] = toRoomBlueprintId;
+            var write = await _catalog.SaveRoomAsync(from, bidirectional: true, ct).ConfigureAwait(false);
+
+            return new AreaConnectResult(
+                write.Success ? AreaConnectOutcome.Connected : AreaConnectOutcome.WriteFailed,
+                write.Success ? dir : null,
+                write.Errors,
+                write.Warnings);
+        }
+
         // ── Private helpers ──────────────────────────────────────────────────────────
+
+        private static bool TryGetPosition(
+            AreaLayoutProposal proposal, string roomBlueprintId, out RoomPosition position)
+        {
+            if (proposal.Anchored.TryGetValue(roomBlueprintId, out var anchored))
+            {
+                position = anchored;
+                return true;
+            }
+            if (proposal.Proposed.TryGetValue(roomBlueprintId, out var proposed))
+            {
+                position = proposed;
+                return true;
+            }
+            position = null!;
+            return false;
+        }
 
         private static readonly Direction[] DirectionOrder =
         {

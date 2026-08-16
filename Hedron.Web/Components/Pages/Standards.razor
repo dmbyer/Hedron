@@ -121,9 +121,15 @@ else
             </tr>
         </thead>
         <tbody>
+            @{
+                // Hoisted out of the loop: composing the candidate tunables is a per-render
+                // allocation, not a per-cell one. Calling the pure overload without hoisting would
+                // move the allocation rather than remove it.
+                var candidateTunables = _tunables.ToTunables();
+            }
             @foreach (var cell in _cells)
             {
-                var range = TargetRangeFor(cell.Tier, cell.Band);
+                var range = TargetRangeFor(candidateTunables, cell.Tier, cell.Band);
                 <tr>
                     <td>@cell.Tier</td>
                     <td>@cell.Band</td>
@@ -378,13 +384,15 @@ else
 
     // ── Cell table helpers ────────────────────────────────────────────────────
 
-    // Throwaway oracle over the in-progress candidate tunables — the oracle is a pure class, so
-    // previewing derived ranges never mutates the composed, DI-registered instance (Main flow step 7).
-    private PowerRange? TargetRangeFor(int tier, int band)
+    // Preview over the in-progress candidate tunables via the pure Core-tier math, never a
+    // component-constructed oracle instance — so previewing a derived range cannot touch the
+    // composed, DI-registered instance's snapshot (Main flow step 7). Out-of-table cells (the
+    // MaxTier/BandsPerTier fields are live-editable above) render as "—" rather than throwing.
+    private static PowerRange? TargetRangeFor(PowerBudgetTunables tunables, int tier, int band)
     {
         try
         {
-            return new PowerBudgetSystem(_tunables.ToTunables()).TargetRange(tier, band);
+            return PowerBudgetMath.TargetRange(tunables, tier, band);
         }
         catch (ArgumentOutOfRangeException)
         {

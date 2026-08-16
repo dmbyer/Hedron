@@ -50,7 +50,8 @@ namespace Hedron.Core.Modules.Authoring.Systems
     /// </para>
     /// <para>
     /// <strong>Concurrency posture (INV-31).</strong> The catalog is a DI singleton reached
-    /// concurrently from multiple Blazor circuits. Every mutator is <c>async</c> and invalidates
+    /// concurrently from multiple Blazor circuits and, since the authoring JSON surface landed,
+    /// request threads. Every mutator is <c>async</c> and invalidates
     /// after an awaited file write, so a thread-affine <c>ReaderWriterLockSlim</c> is unusable (it
     /// cannot be held across an <c>await</c>). Instead the index is a snapshot object swapped under
     /// a plain <c>lock</c>: readers take the current reference with no lock and populate lazily into
@@ -67,9 +68,40 @@ namespace Hedron.Core.Modules.Authoring.Systems
     /// depend on the check for correctness.
     /// </para>
     /// <para>
-    /// The guard covers <strong>index consistency only</strong>. It does not make YAML writes
-    /// atomic; the non-transactional multi-file cascade remains the recorded debt it was. No
-    /// live-world component is touched (INV-12/22/23).
+    /// <strong>Write serialization (INV-31, posture: guard).</strong> Since the authoring host also
+    /// serves JSON endpoints, request threads are a <em>second</em> concurrent writer alongside the
+    /// Blazor circuits. Every public mutator therefore runs under a
+    /// <c>SemaphoreSlim(1,1)</c> — a guard, not confinement, and an async-compatible one: the
+    /// mutators <c>await</c> file I/O, so a thread-affine lock is unusable for the same reason the
+    /// index snapshot swap avoids one. The critical section spans the write cascade <em>and</em> the
+    /// index invalidation it ends with, while readers stay entirely lock-free. Serializing also
+    /// closes the TOCTOU in <see cref="CreateAsync"/>, which checks
+    /// <c>IContentReferenceIndex.Resolves</c> and then writes non-atomically.
+    /// </para>
+    /// <para>
+    /// <strong>What makes the lock-free read side actually safe.</strong> Three things outside this
+    /// class, each load-bearing and each a live hazard once request threads read concurrently with a
+    /// circuit: the <c>I*ContentWriter</c> family publishes through
+    /// <see cref="Hedron.Core.Systems.AtomicFileWrite"/> (write-temp-then-<c>File.Replace</c>, so no
+    /// reader sees a truncated file); <see cref="ContentFileReader"/> reads with
+    /// <c>FileShare.ReadWrite | FileShare.Delete</c>; and each <c>ITemplateDeserializer</c> keeps its
+    /// YamlDotNet deserializer thread-local (YamlDotNet's is not thread-safe). The first two are
+    /// <em>jointly</em> necessary and neither works alone: <c>File.Replace</c> survives a held
+    /// destination only if the reader permitted deletion, and <c>File.Move(overwrite: true)</c> fails
+    /// either way. Weakening any of the three re-breaks concurrent reads from here.
+    /// </para>
+    /// <para>
+    /// <strong>Re-entrancy is load-bearing.</strong> <see cref="CreateAsync"/> is defined in terms
+    /// of <see cref="SaveAsync"/>; a semaphore taken inside every public mutator would self-deadlock
+    /// on <c>create</c>. The shape that avoids it: a <c>*Core</c> private per mutator holding the
+    /// actual work and calling only other <c>*Core</c> methods, plus a public wrapper that takes the
+    /// gate exactly once. Never call a public mutator from inside the gate.
+    /// </para>
+    /// <para>
+    /// The guard covers <strong>index consistency and write serialization</strong>. It does not make
+    /// the multi-file YAML cascade atomic: a reader can still observe a mid-cascade disk state, and
+    /// a mid-cascade failure still leaves a partial edit — the recorded, backlog-tracked debt, in
+    /// force unchanged. No live-world component is touched (INV-12/22/23).
     /// </para>
     /// <para>
     /// <strong>The trade that buys.</strong> Rejecting a stale publish means a sustained write loop
@@ -105,6 +137,13 @@ namespace Hedron.Core.Modules.Authoring.Systems
         private readonly object _indexLock = new();
         private int _generation;
         private CatalogIndex? _index;
+
+        // ── Write serialization (see the class remarks) ──────────────────────────────
+        //
+        // Not disposed: this is a DI singleton for the host's lifetime, and SemaphoreSlim only holds
+        // a disposable resource once AvailableWaitHandle is touched, which nothing here does.
+        // Implementing IDisposable would instead expose callers to a disposed gate during shutdown.
+        private readonly SemaphoreSlim _writeGate = new(1, 1);
 
         public ContentDefinitionCatalog(
             IContentSerializer serializer,
@@ -224,7 +263,48 @@ namespace Hedron.Core.Modules.Authoring.Systems
             }
         }
 
-        public async Task<ContentWriteResult> SaveAsync(ContentDefinition definition, CancellationToken ct = default)
+        // ── Public mutators: gate once, then delegate to the *Core body ──────────────
+        //
+        // Every one of these takes _writeGate exactly once and calls only private *Core methods
+        // inside it (see the class remarks: CreateAsync → SaveAsync is why).
+
+        public Task<ContentWriteResult> SaveAsync(ContentDefinition definition, CancellationToken ct = default) =>
+            UnderWriteGateAsync(() => SaveCoreAsync(definition, ct), ct);
+
+        public Task<ContentWriteResult> SaveRoomAsync(RoomTemplate room, bool bidirectional, CancellationToken ct = default) =>
+            UnderWriteGateAsync(() => SaveRoomCoreAsync(room, bidirectional, ct), ct);
+
+        public Task<ContentDeleteResult> DeleteAsync(ContentKind kind, string blueprintId, CancellationToken ct = default) =>
+            UnderWriteGateAsync(() => DeleteCoreAsync(kind, blueprintId, ct), ct);
+
+        public Task<ContentRenameResult> RenameAsync(ContentKind kind, string oldId, string newId, CancellationToken ct = default) =>
+            UnderWriteGateAsync(() => RenameCoreAsync(kind, oldId, newId, ct), ct);
+
+        public Task<ContentWriteResult> CreateAsync(ContentDefinition definition, CancellationToken ct = default) =>
+            UnderWriteGateAsync(() => CreateCoreAsync(definition, ct), ct);
+
+        public Task<ContentWriteResult> RemoveRoomExitAsync(
+            string roomBlueprintId, Direction direction, bool bidirectional, CancellationToken ct = default) =>
+            UnderWriteGateAsync(() => RemoveRoomExitCoreAsync(roomBlueprintId, direction, bidirectional, ct), ct);
+
+        /// <summary>
+        /// Runs one mutator body under the write gate. Nothing invoked from
+        /// <paramref name="body"/> may call back into a public mutator — the gate is not re-entrant.
+        /// </summary>
+        private async Task<TResult> UnderWriteGateAsync<TResult>(Func<Task<TResult>> body, CancellationToken ct)
+        {
+            await _writeGate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                return await body().ConfigureAwait(false);
+            }
+            finally
+            {
+                _writeGate.Release();
+            }
+        }
+
+        private async Task<ContentWriteResult> SaveCoreAsync(ContentDefinition definition, CancellationToken ct)
         {
             var report = _validator.Validate(definition.Template);
             if (!report.IsValid)
@@ -244,13 +324,11 @@ namespace Hedron.Core.Modules.Authoring.Systems
             return ContentWriteResult.Ok(definition.BlueprintId);
         }
 
-        public async Task<ContentWriteResult> SaveRoomAsync(
+        private async Task<ContentWriteResult> SaveRoomCoreAsync(
             RoomTemplate room,
             bool bidirectional,
-            CancellationToken ct = default)
+            CancellationToken ct)
         {
-            var definition = new ContentDefinition(ContentKind.Room, room);
-
             var report = _validator.Validate(room);
             if (!report.IsValid)
                 return ContentWriteResult.Failed(room.BlueprintId, report.Errors);
@@ -314,10 +392,10 @@ namespace Hedron.Core.Modules.Authoring.Systems
                 : ContentWriteResult.Ok(room.BlueprintId);
         }
 
-        public async Task<ContentDeleteResult> DeleteAsync(
+        private async Task<ContentDeleteResult> DeleteCoreAsync(
             ContentKind kind,
             string blueprintId,
-            CancellationToken ct = default)
+            CancellationToken ct)
         {
             // 1. Find all referrers before deleting the file so the index can still scan.
             var referrers = _referenceIndex.Referrers(kind, blueprintId);
@@ -338,11 +416,11 @@ namespace Hedron.Core.Modules.Authoring.Systems
             return new ContentDeleteResult(filePath, blueprintId, cascadeEdits);
         }
 
-        public async Task<ContentRenameResult> RenameAsync(
+        private async Task<ContentRenameResult> RenameCoreAsync(
             ContentKind kind,
             string oldId,
             string newId,
-            CancellationToken ct = default)
+            CancellationToken ct)
         {
             // 1. Validate newId format (format errors refuse; kind-prefix mismatch is a deferred warning).
             var idReport = _validator.ValidateBlueprintId(kind, newId);
@@ -490,7 +568,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
             return next;
         }
 
-        public async Task<ContentWriteResult> CreateAsync(ContentDefinition definition, CancellationToken ct = default)
+        private async Task<ContentWriteResult> CreateCoreAsync(ContentDefinition definition, CancellationToken ct)
         {
             var idReport = _validator.ValidateBlueprintId(definition.Kind, definition.BlueprintId);
             if (!idReport.IsValid)
@@ -504,7 +582,9 @@ namespace Hedron.Core.Modules.Authoring.Systems
                 });
             }
 
-            var result = await SaveAsync(definition, ct).ConfigureAwait(false);
+            // SaveCoreAsync, not SaveAsync — we already hold the write gate (see the class remarks:
+            // this call is exactly the re-entrancy a naive per-method semaphore deadlocks on).
+            var result = await SaveCoreAsync(definition, ct).ConfigureAwait(false);
             if (idReport.Warnings.Count == 0)
                 return result;
 
@@ -515,11 +595,11 @@ namespace Hedron.Core.Modules.Authoring.Systems
                 : result;
         }
 
-        public async Task<ContentWriteResult> RemoveRoomExitAsync(
+        private async Task<ContentWriteResult> RemoveRoomExitCoreAsync(
             string roomBlueprintId,
             Direction direction,
             bool bidirectional,
-            CancellationToken ct = default)
+            CancellationToken ct)
         {
             var def = Load(ContentKind.Room, roomBlueprintId);
             if (def is null)

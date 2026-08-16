@@ -1,4 +1,4 @@
-# Client Tier — Blazor vs. React + SignalR
+﻿# Client Tier — Blazor vs. React + SignalR
 
 > **Status: active architecture decision with a scheduled gate.** This is a cross-cutting forward
 > design model in the sense of [`09-documentation.md`](../architecture/09-documentation.md) — it spans
@@ -110,10 +110,11 @@ C#-shaped skill surface, which is a measurable cost that lands on day one.
 repaired editor. Not before — the gate's whole purpose is to decide on authoring-friction evidence
 that does not exist today.
 
-**Preconditions.** Both no-regret tracks landed — `authoring-editor-repair`
-**shipped** ([`../roadmap/completed/authoring-editor-repair.md`](../roadmap/completed/authoring-editor-repair.md)),
-[`authoring-api-surface`](../implementation-plans/authoring-api-surface.md) still ahead — and Phase 5's
-content baseline authored.
+**Preconditions.** Both no-regret tracks landed — **both have now shipped**
+([`../roadmap/completed/authoring-editor-repair.md`](../roadmap/completed/authoring-editor-repair.md),
+[`../roadmap/completed/authoring-api-surface.md`](../roadmap/completed/authoring-api-surface.md)) — and
+Phase 5's content baseline authored. **Only the content baseline remains**: the JSON surface the
+measurement below depends on now exists, so the gate is blocked on authoring evidence, not tooling.
 
 **The measurement.** A one-page bakeoff: port `MobEditor` (highest form friction, cleanest shape) to
 React over the JSON surface and compare against the repaired Razor page on authoring throughput,
@@ -159,9 +160,13 @@ Two seeded slices, ~4 slices' worth of budget total, none of which prejudges the
   is what made it no-regret. Note the seeded framing overstated its reach — the cache speeds the
   *editor* only; the `generate` CLI and the telnet `mk*`/`set*` verbs write through
   `I*ContentWriter` directly and neither benefit from nor invalidate it.
-- [`authoring-api-surface.md`](../implementation-plans/authoring-api-surface.md) — extract the leaked
-  component logic into `Core/` systems (`INV-8` conformance, which also closes most of the coverage
-  hole under existing rules), then a JSON transport adapter scoped to the Mob kind.
+- [`authoring-api-surface`](../roadmap/completed/authoring-api-surface.md) — **shipped.** Extracted the
+  leaked component logic into `Core/` systems (`INV-8` conformance, which also closed most of the
+  coverage hole under existing rules), then a JSON transport adapter scoped to what the bakeoff page
+  calls: mob CRUD, read-only area/room lookups, and the live power readout. Surface documented in
+  [`../architecture/08-blazor.md`](../architecture/08-blazor.md#the-authoring-http-surface-api); the
+  contract is checked in at `Hedron.Web/Hedron.Web_authoring.json` for the bakeoff to hand-write its
+  types from.
 
 **A correction the spec gate forced, recorded because it constrains the gate itself.** The JSON
 surface is *not* fully no-regret, and the first draft of this doc overstated it. Its **single**

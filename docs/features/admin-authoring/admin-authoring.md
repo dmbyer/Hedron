@@ -4,7 +4,7 @@
 
 ## What it is
 
-Admins author world content — rooms, areas, items, mobs — through two surfaces: **in-game builder verbs** (`dig`, `mkitem`, `mkmob`, `mkarea`, `set*`, `list`, `reload`) that create and edit content while connected via telnet, and an **offline Blazor Server editor** (`Hedron.Web`) that reads, edits, validates, and writes the YAML content definitions from a localhost browser. Both surfaces call the same backing systems; neither re-implements authoring logic.
+Admins author world content — rooms, areas, items, mobs — through two surfaces: **in-game builder verbs** (`dig`, `mkitem`, `mkmob`, `mkarea`, `set*`, `list`, `reload`) that create and edit content while connected via telnet, and an **offline Blazor Server editor** (`Hedron.Web`) that reads, edits, validates, and writes the YAML content definitions from a localhost browser. That web host also exposes a **narrow JSON API** over the same catalog operations — a third caller, not a third implementation. Every surface calls the same backing systems; none re-implements authoring logic.
 
 Privilege is **structural**: each admin command calls `IAdminAuthorizer.IsPrivileged` as its first line. There is no `@` prefix or special sigil. The settings-allowlist (`Admin:PrivilegedNames`) is the floor; the persisted `AdminPrivilegeComponent` layer is deferred — see `implementation-plans/admin-privilege-elevation.md`.
 
@@ -30,7 +30,8 @@ The feature composes three cooperating subsystems:
 
 - **Admin commands** — `dig`, `mkitem`, `mkmob`, `mkarea`, `set`, `setitem`, `setmob`, `setarea`, `list`, `reload`, `spawn`, `teleport`. See [`../../reference/commands.md`](../../reference/commands.md).
 - **Builder systems** — `IRoomBuilderSystem`, `IItemBuilderSystem`, `IMobBuilderSystem`, `IAreaBuilderSystem`. See [`../../reference/systems.md`](../../reference/systems.md).
-- **Content layer** — `IContentDefinitionCatalog`, `IContentGenerationSystem`, `IContentValidator`. See [`../../reference/systems.md`](../../reference/systems.md).
+- **Content layer** — `IContentDefinitionCatalog`, `IContentGenerationSystem`, `IContentValidator`, `IAreaLayoutSystem`, `IMobPowerReadoutSystem`. See [`../../reference/systems.md`](../../reference/systems.md).
+- **Authoring JSON API** — loopback-only endpoints on the web host over the same catalog: `GET /api/{areas,rooms,mobs}` listings (optional `?area=` filter), mob load/create/save/delete, and `POST /api/power/mob` for the live power readout. Deliberately narrow — scoped to what the client-tier gate's bakeoff page calls, **not** all authoring operations; area and room are read-only, and there is no apply/reload endpoint (that would be an Initiator). Contract published as a checked-in OpenAPI document with a CI drift gate. **Unauthenticated** — auth is deferred with a recorded mitigation and a standing no-CORS rule. Types in `Hedron.Web/Api/` and `Core/Modules/Authoring/Contracts/`; see [`../../architecture/08-blazor.md`](../../architecture/08-blazor.md#the-authoring-http-surface-api).
 - **Events** — `RoomCreatedByAdminEvent`, `ItemCreatedByAdminEvent`, `MobCreatedByAdminEvent`, `AreaCreatedByAdminEvent`, `RoomPropertySetByAdminEvent`, `ContentReloadedEvent`. See [`../../reference/handlers.md`](../../reference/handlers.md).
 - **Config keys** — `Admin:PrivilegedNames` (privilege allowlist). See [`../../architecture/05-configuration.md`](../../architecture/05-configuration.md).
 

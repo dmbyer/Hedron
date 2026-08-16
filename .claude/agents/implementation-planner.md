@@ -46,7 +46,7 @@ You do not write the C# code — that's for the user or the implement-plan skill
 8. **Flows audit (required).** List every canonical flow in `flows/README.md` this slice introduces, replaces, or extends. The implementation slice's PR must update `flows/README.md` to match — the architecture-reviewer agent will block on drift. If the slice introduces a recurring flow that doesn't yet have a canonical entry, add a `flows/README.md` flow specification to the slice scope.
 9. **Test plan (ground rule for INV-25 — required).** Derive the doc's **Test plan / Verification** section from the Postconditions and Main flow, applying the rubric in [docs/architecture/07-testing.md](../../docs/architecture/07-testing.md):
    - each new/changed **system** method → a system-unit test of its decision;
-   - each **Main-Flow postcondition that asserts player-invisible internal state** (HP clamped, `BlueprintComponent` cleared, pair dedup, state flag set, event published) → name the tier (system-unit / handler / flow / persistence round-trip / architecture-guard) and the assertion;
+   - each **Main-Flow postcondition that asserts player-invisible internal state** (HP clamped, `BlueprintComponent` cleared, pair dedup, state flag set, event published) → name the tier (system-unit / handler / flow / persistence round-trip / architecture-guard / HTTP-integration — the last covers only the authoring JSON API, and requires a per-test temp content directory) and the assertion;
    - each `[Persistent]` shape → a save→load round-trip; each fail-fast validation → a throws-test;
    - state what is **skipped** and why (presentation/exact-prose, thin command plumbing, pure-data components).
 

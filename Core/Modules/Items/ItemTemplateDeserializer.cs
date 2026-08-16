@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Items.Templates;
 using Hedron.Core.Modules.Stats;
@@ -17,22 +18,27 @@ namespace Hedron.Core.Modules.Items
     public sealed class ItemTemplateDeserializer : ITemplateDeserializer
     {
         private readonly ILogger<ItemTemplateDeserializer> _logger;
-        private readonly IDeserializer _yaml;
+        // YamlDotNet's IDeserializer is NOT thread-safe: its type inspector caches into plain
+        // dictionaries, so two threads deserializing at once can corrupt that cache. The content
+        // catalog serves reads lock-free and concurrently — Blazor circuits and, since the authoring
+        // JSON surface landed, request threads — so a single shared instance is unsafe here (INV-31).
+        // One instance per thread keeps reads parallel; rebuilding per call would re-pay the builder
+        // cost on every file of a corpus sweep. Never disposed: this is a process-lifetime singleton.
+        private readonly ThreadLocal<IDeserializer> _yaml = new(() => new DeserializerBuilder()
+            .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .IgnoreUnmatchedProperties()
+            .Build());
 
         public string Kind => "item";
 
         public ItemTemplateDeserializer(ILogger<ItemTemplateDeserializer> logger)
         {
             _logger = logger;
-            _yaml = new DeserializerBuilder()
-                .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                .IgnoreUnmatchedProperties()
-                .Build();
         }
 
         public IEntityTemplate Deserialize(string fileBody)
         {
-            var dto = _yaml.Deserialize<ItemDto>(fileBody)
+            var dto = _yaml.Value!.Deserialize<ItemDto>(fileBody)
                 ?? throw new InvalidOperationException("Empty item YAML.");
 
             if (string.IsNullOrWhiteSpace(dto.BlueprintId))

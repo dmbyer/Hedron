@@ -404,21 +404,21 @@ else
             return;
         }
 
-        if (_rooms.TryGetValue(_selectedRoomId, out var selectedRoom) && TryGetPosition(_selectedRoomId, out var selPos))
+        // The connect policy — which direction pair, bidirectional or not, and what "not adjacent"
+        // means — belongs to the layout system (INV-8); this page only decides what to do with the
+        // three answers it can get back.
+        var connect = await LayoutSystem.ConnectAsync(_selectedRoomId, clickedId);
+
+        if (connect.Outcome is AreaConnectOutcome.NotAdjacent or AreaConnectOutcome.RoomNotFound)
         {
-            var dir = DirectionExtensions.FromOffset(x - selPos.X, y - selPos.Y, 0);
-            if (dir is { } direction)
-            {
-                selectedRoom.Exits[direction] = clickedId;
-                var result = await Catalog.SaveRoomAsync(selectedRoom, bidirectional: true);
-                ApplyResult(result);
-                Reload();
-                return;
-            }
+            // Not a connect gesture — switch selection instead of erroring.
+            _selectedRoomId = clickedId;
+            return;
         }
 
-        // Not adjacent to the current selection — switch selection instead of erroring.
-        _selectedRoomId = clickedId;
+        _errors = connect.Errors;
+        _warnings = connect.Warnings;
+        Reload();
     }
 
     private async Task DisconnectEdge(string roomId, Direction direction)

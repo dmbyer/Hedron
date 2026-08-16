@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
+using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Simulation.Systems
 {
@@ -28,9 +29,7 @@ namespace Hedron.Core.Modules.Simulation.Systems
 
             var body = JsonSerializer.Serialize(report, SimReportJson.Options);
 
-            var tmpPath = path + ".tmp";
-            await File.WriteAllTextAsync(tmpPath, body, ct).ConfigureAwait(false);
-            File.Move(tmpPath, path, overwrite: true);
+            await AtomicFileWrite.ReplaceAsync(path, body, ct).ConfigureAwait(false);
 
             return path;
         }

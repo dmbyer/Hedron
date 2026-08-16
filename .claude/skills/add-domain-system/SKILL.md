@@ -77,7 +77,31 @@ cache to a system, four rules apply — do **not** copy the stateless shape and 
    build and swap. If population is lazy, every reader is also a writer — carry a generation (or
    publish into the captured snapshot object, which `Invalidate` has already detached) so a read
    that began before a concurrent write cannot republish pre-write state.
-4. **Cache what is safe to hand out.** If callers mutate what they get back (editors bind forms to
+4. **Serialize the mutators when there is more than one entry point — with a non-re-entrant gate,
+   deliberately shaped.** Rule 3 guards *cache consistency*; it does nothing for two callers writing
+   at once. Once mutators can run concurrently from more than one entry point (a Blazor circuit
+   **and** an HTTP request thread, say), wrap each public mutator in a `SemaphoreSlim(1,1)` +
+   `WaitAsync` — a *guard*, not confinement, and async-compatible for the same reason rule 3 avoids
+   a thread-affine lock. One critical section spans the write cascade **and** the invalidation that
+   ends it. Serializing also closes the check-then-write TOCTOU that a create-guard has by
+   construction.
+
+   **The trap: the gate is not re-entrant, and the failure is a silent hang, not a compile error.**
+   If any public mutator is defined in terms of another (`CreateAsync` → `SaveAsync` on
+   `ContentDefinitionCatalog`), taking the semaphore inside every public method deadlocks the moment
+   that path runs. Required shape: a private `*Core` body per mutator that calls **only** other
+   `*Core` bodies, plus a thin public wrapper that takes the gate exactly once. Never call a public
+   mutator from inside the gate. Test the composed path explicitly — with a timeout, so a
+   regression fails the suite instead of hanging it.
+
+   Readers stay lock-free, which puts three requirements on everything *outside* the system that its
+   reads touch. `ContentDefinitionCatalog` needed all three: writes publish via
+   `AtomicFileWrite` (write-temp-then-`File.Replace`), reads open with
+   `FileShare.ReadWrite | FileShare.Delete`, and the YAML deserializers are thread-local (YamlDotNet's
+   is not thread-safe). Check the libraries and I/O your read path uses before claiming reads are safe
+   unguarded — "it is only a read" is not an argument.
+
+5. **Cache what is safe to hand out.** If callers mutate what they get back (editors bind forms to
    it), cache the raw source and re-materialize per call. Handing out a shared mutable instance
    leaks in-progress edits into the cache.
 

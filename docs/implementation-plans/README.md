@@ -1,4 +1,4 @@
-# Implementation Plans
+﻿# Implementation Plans
 
 **Transient per-slice build artifacts.** An implementation plan captures *what is being built right now* — the behavior spec **plus** the implementation plan, cross-cutting audit, flows, test plan, and reference diffs that the planner, the spec-review gate, and `implement-plan` all operate on. It is the single source of truth for a slice **while in flight**, and it is **deleted on ship** — its durable content moves into the living docs.
 
@@ -47,7 +47,6 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 | Status | Plan | Slice |
 |---|---|---|
 | `planned` | [`admin-area-authoring.md`](admin-area-authoring.md) | `mkarea` + `listents <type>` |
-| `planned` | [`authoring-api-surface.md`](authoring-api-surface.md) | `INV-8` conformance + narrow JSON surface (Phase 5 no-regret) |
 | `planned` | [`tiered-overworld-program.md`](tiered-overworld-program.md) | Phase 6 world program (requirements seed — awaiting `/advise`) |
 | `planned` | [`persistence-reform.md`](persistence-reform.md) | Persistence reform (Stages A–C) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |

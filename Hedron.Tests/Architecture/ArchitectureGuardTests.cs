@@ -481,6 +481,131 @@ namespace Hedron.Tests.Architecture
                 "Violations:\n" + string.Join("\n", violations));
         }
 
+        // ── INV-8: the web host holds no leaked decision logic ────────────────────
+
+        /// <summary>
+        /// INV-8/INV-15: two specific constructs that were extracted out of `.razor` components by
+        /// authoring-api-surface WP1 must not reappear in <c>Hedron.Web/</c>.
+        ///
+        /// <list type="bullet">
+        ///   <item><c>DirectionExtensions.FromOffset</c> — inverting a cell offset back to a
+        ///     direction is the observable half of the grid's <em>connect policy</em>, which now
+        ///     lives in <c>IAreaLayoutSystem.ConnectAsync</c>. Deliberately not a blanket "no
+        ///     <c>Direction</c> in a razor": the grid legitimately renders per-direction UI and
+        ///     calls <c>DisconnectEdge(roomId, Direction)</c>, and <c>Direction.Offset()</c> (the
+        ///     forward mapping, used only to decide which exits render as edge tabs) is
+        ///     presentation.</item>
+        ///   <item><c>new PowerBudgetSystem(</c> — constructing a DI-registered type inside a
+        ///     component. The pure preview path is <c>PowerBudgetMath</c>.</item>
+        /// </list>
+        ///
+        /// This extends the guard tier's existing <c>Hedron.Web/</c> source scan (see
+        /// <see cref="Editors_do_not_recreate_the_definition_when_the_blueprint_id_changes"/>, which
+        /// already scans <c>.razor</c> via the same <c>FindWebSourceDirectory</c>) to <c>.cs</c> as
+        /// well as <c>.razor</c>.
+        /// </summary>
+        [Fact]
+        public void Web_host_does_not_hold_extracted_authoring_logic()
+        {
+            var webDir = FindWebSourceDirectory();
+            Assert.True(
+                webDir != null,
+                "pre-check: could not locate the Hedron.Web/ source directory relative to the test assembly.");
+
+            var sourceFiles = Directory
+                .EnumerateFiles(webDir!, "*.*", SearchOption.AllDirectories)
+                .Where(f => f.EndsWith(".razor", StringComparison.OrdinalIgnoreCase) ||
+                            f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                .Where(f => !IsUnderBuildOutput(webDir!, f))
+                .ToList();
+
+            Assert.True(sourceFiles.Count > 0, $"pre-check: no source files found under {webDir}");
+
+            var forbidden = new[]
+            {
+                ("DirectionExtensions.FromOffset",
+                 "the grid connect policy lives in IAreaLayoutSystem.ConnectAsync (INV-8)"),
+                ("new PowerBudgetSystem(",
+                 "preview derived ranges via the pure PowerBudgetMath, never a component-constructed oracle (INV-8)"),
+            };
+
+            var violations = new List<string>();
+            foreach (var file in sourceFiles)
+            {
+                var lines = File.ReadAllLines(file);
+                for (var i = 0; i < lines.Length; i++)
+                {
+                    foreach (var (pattern, reason) in forbidden)
+                    {
+                        if (lines[i].Contains(pattern, StringComparison.Ordinal))
+                        {
+                            violations.Add(
+                                $"{Path.GetRelativePath(webDir!, file)}:{i + 1}: contains '{pattern}' — {reason}");
+                        }
+                    }
+                }
+            }
+
+            Assert.True(
+                violations.Count == 0,
+                "INV-8 violated — decision logic extracted from the web host must not return. " +
+                "Violations:\n" + string.Join("\n", violations));
+        }
+
+        /// <summary>
+        /// The authoring API's cross-origin protection is that a cross-origin JSON <c>fetch</c>
+        /// triggers a preflight, and that preflight fails <em>only because no CORS policy exists on
+        /// this host</em>. Registering one — an <c>AllowAnyOrigin</c> above all — would silently
+        /// undo the mitigation without touching a line of endpoint code. So the absence of CORS is
+        /// load-bearing and is guarded rather than trusted (see <c>Hedron.Web/Api/LocalOriginFilter</c>).
+        ///
+        /// The runtime half of this check — that no CORS service resolves out of the built host —
+        /// lives in <c>AuthoringApiTests</c>, and catches a policy arriving transitively.
+        /// </summary>
+        [Fact]
+        public void Web_host_registers_no_CORS_policy()
+        {
+            var webDir = FindWebSourceDirectory();
+            Assert.True(webDir != null, "pre-check: could not locate the Hedron.Web/ source directory.");
+
+            var sourceFiles = Directory
+                .EnumerateFiles(webDir!, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !IsUnderBuildOutput(webDir!, f))
+                .ToList();
+
+            Assert.True(sourceFiles.Count > 0, $"pre-check: no *.cs files found under {webDir}");
+
+            var violations = new List<string>();
+            foreach (var file in sourceFiles)
+            {
+                var lines = File.ReadAllLines(file);
+                for (var i = 0; i < lines.Length; i++)
+                {
+                    if (lines[i].Contains("AddCors(", StringComparison.Ordinal) ||
+                        lines[i].Contains("UseCors(", StringComparison.Ordinal) ||
+                        lines[i].Contains("RequireCors(", StringComparison.Ordinal))
+                    {
+                        violations.Add($"{Path.GetRelativePath(webDir!, file)}:{i + 1}: {lines[i].Trim()}");
+                    }
+                }
+            }
+
+            Assert.True(
+                violations.Count == 0,
+                "The authoring host must register no CORS policy — the API's cross-origin protection " +
+                "depends on preflight failing. Violations:\n" + string.Join("\n", violations));
+        }
+
+        /// <summary>True for a path under the project's <c>bin/</c> or <c>obj/</c> output.</summary>
+        private static bool IsUnderBuildOutput(string root, string file)
+        {
+            var relative = Path.GetRelativePath(root, file);
+            var segments = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return segments.Any(s =>
+                s.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+                s.Equals("obj", StringComparison.OrdinalIgnoreCase));
+        }
+
         private static string? FindWebSourceDirectory()
         {
             var dir = new DirectoryInfo(
@@ -533,6 +658,7 @@ namespace Hedron.Tests.Architecture
             var files = new[]
             {
                 Path.Combine(coreDir!, "Systems", "PowerBudgetSystem.cs"),
+                Path.Combine(coreDir!, "Systems", "PowerBudgetMath.cs"),
                 Path.Combine(coreDir!, "Systems", "PowerBudgetTunables.cs"),
                 Path.Combine(coreDir!, "Systems", "IPowerBudgetSystem.cs"),
                 Path.Combine(coreDir!, "Systems", "PowerSnapshot.cs"),

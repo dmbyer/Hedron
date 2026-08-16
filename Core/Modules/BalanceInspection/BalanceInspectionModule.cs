@@ -67,6 +67,11 @@ namespace Hedron.Core.Modules.BalanceInspection
                 sp.GetRequiredService<PowerBudgetTunables>(),
                 sp.GetRequiredService<IBalanceStandardsRegistry>().BandDriftTolerance));
 
+            // The per-template counterpart to the audit sweep: the one composition of
+            // projection + oracle + drift tolerance both the Blazor MobEditor and the authoring
+            // API's power endpoint render (INV-19).
+            services.AddSingleton<IMobPowerReadoutSystem, MobPowerReadoutSystem>();
+
             // sim-5: the conformance fitter. Depends on IContentDefinitionCatalog (Authoring
             // module) — both hosts register AuthoringModule alongside this one, so resolution
             // order across AddXModule calls doesn't matter (DI resolves lazily).

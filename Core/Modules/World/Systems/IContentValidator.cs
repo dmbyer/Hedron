@@ -36,6 +36,13 @@ namespace Hedron.Core.Modules.World.Systems
         /// Single-definition mode. Validates one in-memory authored definition with no live
         /// entities — the per-edit editor path and the pre-write generation path. Returns an
         /// empty report for kinds that carry no single-definition rules yet.
+        /// <list type="bullet">
+        ///   <item><strong>Area</strong> — aspect-affinity composition normalization (parity with
+        ///     the boot sweep).</item>
+        ///   <item><strong>Mob</strong> — currency-loot ranges are non-negative and
+        ///     <c>Min ≤ Max</c>. Fail-fast: an inverted range is refused, never clamped, so no
+        ///     surface can write a mob whose loot roll is undefined at spawn.</item>
+        /// </list>
         /// </summary>
         ValidationReport Validate(IEntityTemplate template);
 
