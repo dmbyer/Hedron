@@ -128,16 +128,45 @@ namespace Hedron.Tests.Systems
         }
 
         [Fact]
+        public async Task An_unwritable_destination_throws_after_the_attempt_bound()
+        {
+            // The contract: the final attempt's exception propagates — a genuine failure must
+            // surface, not be retried into silence — and it does so promptly rather than hanging.
+            //
+            // The failure is induced with a directory sitting where the file should be, because
+            // that fails identically on every platform. An exclusive file lock does not: FileShare
+            // is mandatory on Windows but only advisory on Unix, so a FileShare.None handle stops
+            // nothing there (see the Windows-only companion below).
+            var dir = NewTempDir();
+            var blocked = Path.Combine(dir, "blocked.yaml");
+            Directory.CreateDirectory(blocked);
+
+            var attempt = AtomicFileWrite.ReplaceAsync(blocked, "new");
+            var finished = await Task.WhenAny(attempt, Task.Delay(TimeSpan.FromSeconds(10)));
+
+            Assert.True(finished == attempt, "ReplaceAsync hung instead of exhausting its retry bound.");
+
+            // Windows and Unix disagree on which of the two the failure surfaces as, and both are
+            // in the retry set — so assert it is one of them rather than either a specific type
+            // (brittle across platforms) or bare Exception (would pass on a NullReferenceException).
+            var ex = await Assert.ThrowsAnyAsync<Exception>(() => attempt);
+            Assert.True(
+                ex is IOException or UnauthorizedAccessException,
+                $"expected the retry set's exception types, got {ex.GetType().Name}: {ex.Message}");
+
+            Assert.True(Directory.Exists(blocked), "the blocking directory should be untouched");
+        }
+
+        [WindowsOnlyFact]
         public async Task An_exclusively_locked_destination_throws_after_the_attempt_bound()
         {
-            // FileShare.None denies the delete the replace needs, so every attempt fails. The
-            // contract is that the last one propagates — a genuine permission failure must surface,
-            // not be retried into silence — and that it does so promptly rather than hanging.
+            // The sharing-violation case the retry actually exists for. Windows-only by nature:
+            // FileShare.None is enforced there and ignored on Unix.
             var path = Path.Combine(NewTempDir(), "locked.yaml");
             File.WriteAllText(path, "old");
 
-            // Scoped so the lock is released before the readback below — FileShare.None locks out
-            // this test too.
+            // Scoped so the lock is released before the readback — FileShare.None locks out this
+            // test too.
             using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
             {
                 var attempt = AtomicFileWrite.ReplaceAsync(path, "new");
@@ -148,6 +177,20 @@ namespace Hedron.Tests.Systems
             }
 
             Assert.Equal("old", File.ReadAllText(path));
+        }
+
+        /// <summary>
+        /// A <see cref="FactAttribute"/> that skips on non-Windows. For behavior that is genuinely
+        /// platform-specific — not for papering over a test that merely happens to fail elsewhere.
+        /// Local to this file: promote it to <c>Harness/</c> when a second consumer appears.
+        /// </summary>
+        private sealed class WindowsOnlyFactAttribute : FactAttribute
+        {
+            public WindowsOnlyFactAttribute()
+            {
+                if (!OperatingSystem.IsWindows())
+                    Skip = "Windows-only: FileShare is mandatory on Windows and advisory on Unix.";
+            }
         }
     }
 }
