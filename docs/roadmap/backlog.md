@@ -66,6 +66,10 @@ If a web client becomes a goal, unify telnet sessions and web sessions behind th
 
 Not a Phase 5 blocker (the authoring workflow tolerates a restart), but it is the editor's headline action failing to do what its name says, and it should be tracked as debt rather than left as a documented limitation. The fix needs a reload trigger exposed on the telnet game host — a genuinely new host shape (the game host gains a web surface) carrying its own auth question, so it warrants `/advise` framing rather than being folded into an authoring slice. The narrow JSON surface in [`completed/authoring-api-surface.md`](completed/authoring-api-surface.md) (shipped) is the client-side half; this item is the server-side half.
 
+### 🔵 Docker deployment (deferred from persistence-reform)
+
+[`../deployment/docker.md`](../deployment/docker.md) is an accepted plan to containerize the game server: a runtime image, `docker-compose.yml`, and named volumes for the database and the operator's content directory. It was meant to ship alongside persistence-reform Stage A, but only the dev/CI `Dockerfile.dev` exists. The config prerequisites (`Persistence:DatabasePath`, `HEDRON_`-prefixed env overrides) shipped with that reform. Pick this up when there's a first real deployment target. The content volume is the operator's world, consistent with the [content-ownership policy](../features/world/world-content.md#content-ownership--the-engine-ships-no-game-world).
+
 ### 🔵 Broadcast channel mode (global / newbie chat)
 
 Acknowledged debt from Phase 3 slice 4 ([`../implementation-plans/output-framework.md`](../features/output/output.md)). Slice 4's broadcast expansion ships room-scope-with-audience-filter and system-wide `SendToAllAsync`, but **channel mode** (global/newbie chat membership) is deferred: it requires per-entity channel-membership state that no slice has introduced yet. Lands with whichever later slice introduces channel membership (likely alongside or after account / character creation, slice 5). The `IBroadcastSystem` interface shaped in slice 4 should accommodate a `SendToChannelAsync` addition without breaking the room/system modes.
@@ -92,7 +96,7 @@ Slice 11-c ([`../implementation-plans/resource-regeneration.md`](../features/cha
 
 ### 🔵 Tabular output helper — defer until third consumer
 
-Acknowledged debt from the admin-area-authoring slice (`docs/implementation-plans/admin-area-authoring.md`). `ListEntitiesCommand` (the admin `listents` verb) hand-rolls `StringBuilder`-based tabular output (header + rows, 15-char description truncation). Two admin commands now share this pattern (`AreaCommand` produces a similar structured listing; `ListEntitiesCommand` is the second). At the third consumer, extract a shared `TableBuilder` or `ColumnFormatter` helper (INV-19: ≥3-consumer threshold). Until then the inline implementation is intentional.
+Acknowledged debt from the admin-area-authoring slice ([`completed/admin-area-authoring.md`](completed/admin-area-authoring.md)). `ListEntitiesCommand` (the admin `listents` verb) hand-rolls `StringBuilder`-based tabular output (header + rows, 15-char description truncation). Two admin commands now share this pattern (`AreaCommand` produces a similar structured listing; `ListEntitiesCommand` is the second). At the third consumer, extract a shared `TableBuilder` or `ColumnFormatter` helper (INV-19: ≥3-consumer threshold). Until then the inline implementation is intentional.
 
 ### 🔵 Migrate combat + ability targeting onto `MobInRoomResolver` (deferred from shopping, slice 12c)
 

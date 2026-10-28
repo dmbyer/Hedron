@@ -29,7 +29,7 @@ You do not write the C# code — that's for the user or the implement-plan skill
 
    This audit is what would have caught the slice-2 command-framework miss. The bar for honesty is: if you wrote *any* code that hand-rolls something the architecture hasn't specified, the surface is **gap exposed**.
 
-   **Persistence opt-in audit (mandatory sub-check).** Hedron uses a two-domain persistence model (INV-22, INV-23; see [docs/architecture/06-persistence.md](../../docs/architecture/06-persistence.md) and [docs/implementation-plans/persistence-reform.md](../../docs/implementation-plans/persistence-reform.md)):
+   **Persistence opt-in audit (mandatory sub-check).** Hedron uses a two-domain persistence model (INV-22, INV-23; see [docs/architecture/06-persistence.md](../../docs/architecture/06-persistence.md) and [docs/roadmap/completed/persistence-reform.md](../../docs/roadmap/completed/persistence-reform.md)):
 
    - **Level 1 — entity domain classification:** for every entity construction path this slice introduces or modifies, identify which persistence domain it belongs to:
      - *World content* (rooms, areas, mobs, world-spawn items in rooms): do NOT add `PersistentEntity`. Always fresh-spawned from YAML/templates on startup; they have no SQLite row.

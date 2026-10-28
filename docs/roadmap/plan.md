@@ -46,6 +46,8 @@ This is a **content program, not a systems program.** The tooling to do it is th
 - **Balance closure on real content.** Run the baseline sim sweeps against the authored content set; fix the known [ascension-baseline calibration gap](backlog.md) when combat tuning happens against real fights; author the first real outcome expectations into the standards document.
 - **The functional-MVP acceptance test** (the loop-closer, analogous to Phase 2's): a new player can complete a session — fight, progress visibly, buy/sell, die, recover — without an admin's help and without hitting authored-content edges in the starting region.
 
+**Content ownership shapes the program.** The engine repository ships no game world: the operator's world (the maintainer's included) lives under the gitignored `World:ContentDirectory` and is versioned outside this repo, while the only committed content is the generic `content/dev-world/` fixture ([content ownership](../features/world/world-content.md#content-ownership--the-engine-ships-no-game-world)). So the baseline has two deliverables to keep apart: the operator's curated starting region, authored privately with the tooling, and whatever generic dev-world fixture the acceptance test, CI goldens, and playtest automation need in-repo. The kickoff decides which of the two the acceptance test runs against, and what goes in the fixture.
+
 Frame the program with `/advise` at kickoff (region scope, tier range, content volume targets, what "done" measures); individual content-tooling gap slices run the normal loop. **Deliberately punted out of this MVP:** crafting/potions (moved to [`backlog.md`](backlog.md) — content depth that doesn't gate the core loop), the web/SignalR client, channels/socials beyond `say`.
 
 ### Client-tier decision gate (Phase 5 → 6 boundary)
@@ -57,8 +59,8 @@ That was analyzed adversarially and **decided as a direction with a deferred for
 *player client*, with the editor following it — but the migration does not start during Phase 5, and
 the fork is settled at a gate rather than on priors. The reasoning in one line each: most of the
 clunkiness is repairable in place; the player client that would force the fork is blocked for **both**
-routes on the world-state threading decision ([`backlog.md`](backlog.md)); and `data/content/` is
-still empty, so no authoring-friction evidence exists yet.
+routes on the world-state threading decision ([`backlog.md`](backlog.md)); and no world content had
+been authored yet, so no authoring-friction evidence existed.
 
 **Two no-regret slices ran inside Phase 5**, both valuable whichever way the gate falls, neither
 prejudging it. **Both have now shipped.**
@@ -74,8 +76,8 @@ prejudging it. **Both have now shipped.**
   the gate's last precondition** — the bakeoff's measurement is "port `MobEditor` to React *over the
   JSON surface*", which now exists.
 
-What remains before the gate can fire is therefore **content, not tooling**: `data/content/` is still
-empty, and the gate is deliberately scheduled after the baseline is authored against the repaired
+What remains before the gate can fire is therefore **content, not tooling**: no world content has been
+authored yet, and the gate is deliberately scheduled after the baseline is authored against the repaired
 editor so the authoring-friction evidence is real rather than assumed.
 
 **The gate fires at the Phase 5 → 6 boundary**, once the content baseline is authored against the

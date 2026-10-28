@@ -28,7 +28,7 @@ Rationale: These settings are environment-specific, operator-controlled, and alr
 
 ```
 "Persistence:FlushIntervalSeconds"   (default 60)
-"Persistence:DataDirectory"          (default "data/entities/")
+"Persistence:DatabasePath"           (default "data/hedron.db")
 "World:ContentDirectory"             (default "data/content/")
 "World:StartingRoomBlueprintId"      (default "room.crossroads")
 "Admin:PrivilegedNames"              (default [], string array — bootstrap admin allowlist)
@@ -44,9 +44,11 @@ Defaults live in `appsettings.json`. Overrides live in environment variables or 
 
 **Examples:** Area respawn rates, mob stat blocks, loot tables, shop inventories, item definitions, room descriptions, spell lists.
 
-**Recommended tool: YAML data files under `data/content/`, loaded via `TemplateRegistry`**
+**Recommended tool: YAML data files under `World:ContentDirectory` (default `data/content/`), loaded via `TemplateRegistry`**
 
-Rationale: Content is authored by designers, not operators. It doesn't belong in appsettings.json (wrong audience, wrong diff noise, wrong access model). It is versioned alongside code, live-reloadable via `@reload`, and has a schema independent of the C# type system. `TemplateRegistry.Spawn` is the bridge between these files and live entities.
+Rationale: Content is authored by designers, not operators. It doesn't belong in appsettings.json (wrong audience, wrong diff noise, wrong access model). It is plain text the world's owner can version in their own repository, live-reloadable via `@reload`, and has a schema independent of the C# type system. `TemplateRegistry.Spawn` is the bridge between these files and live entities.
+
+**The engine repository ships no game world.** The content directory is gitignored; the only committed content is the generic development world under `content/dev-world/`. See [content ownership](../features/world/world-content.md#content-ownership--the-engine-ships-no-game-world).
 
 **Format: YAML via `YamlDotNet`.** Resolved by Phase 3 slice 2 ([`../implementation-plans/world-content-loading-and-admin-substrate.md`](../features/world/world.md)). Persistence component snapshots use `System.Text.Json` on a separate code path — content authoring (designer-write, comment-friendly) and runtime persistence (round-trip-fidelity, machine-write) coexist by design and do not share serializer code.
 
@@ -107,7 +109,7 @@ Rationale: Environment-varying flags (production vs. dev data paths) are already
 
 Justification: The flush interval is a Category 1 operational setting. It varies legitimately by environment (a development machine may want a 5-second flush for fast iteration; production may want 120 seconds to reduce I/O). It is not game-design math; it controls infrastructure behavior. The `IConfiguration` path is already available (the generic host provides it), requires zero extra infrastructure, and keeps the behavior overridable without recompile. The default in `appsettings.json` protects against misconfiguration.
 
-The data directory path (`"Persistence:DataDirectory"`, default `"data/entities/"`) follows the same pattern.
+The database path (`"Persistence:DatabasePath"`, default `"data/hedron.db"`) follows the same pattern.
 
 ---
 

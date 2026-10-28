@@ -9,10 +9,12 @@ C# MUD (Multi-User Dungeon) game engine targeting .NET 8. The Phase 1–3 salvag
 Project layout:
 
 - **Core** (`Core/`) — components, ECS primitives, systems, handlers, events, commands
-- **Server** (`Server/`) — generic-host console app that runs the telnet listener and owns DI composition
-- **Data** (`Data/`) — persistence layer; the substrate landed in Phase 3 slice 1 (see [`docs/roadmap/done.md`](docs/roadmap/done.md))
-- **Bot** (`Bot/`) — telnet test bot (deferred; rebuildable when manual multi-client testing gets painful)
+- **Server** (`Server/`) — generic-host console app that runs the telnet listener, owns DI composition, and hosts the headless `generate`/`simulate` run modes
+- **Web** (`Hedron.Web/`) — Blazor Server content-authoring editor + loopback JSON authoring API (boots the engine via `Server`'s composition root)
 - **Tests** (`Hedron.Tests/`) — xUnit suite (system / handler / flow / persistence / architecture-guard tiers); **live** and enforced on every PR via CI (INV-25) — strategy in [`docs/architecture/07-testing.md`](docs/architecture/07-testing.md)
+- **Content** (`content/`) — committed generic fixtures only: the `dev-world/` test world and `generate` example profiles. Persistence (SQLite) lives in `Core/`; there is no separate `Data` project, and the standalone test bot (`Bot/`) was removed in Phase 1 and has not been rebuilt.
+
+**The repo ships no game world.** Operators (the maintainer included) author and own their world under `World:ContentDirectory` (default `data/content/`, gitignored) and version it outside this repo. Never commit, move, or un-ignore operator content. Fixture content a slice needs goes in `content/dev-world/`, kept generic (no lore or setting) and sized to the mechanic. Policy: [content ownership](docs/features/world/world-content.md#content-ownership--the-engine-ships-no-game-world).
 
 ## Commands
 
@@ -60,7 +62,7 @@ Read these in order the first time:
 7. **Persistence is a two-level opt-in** — `PersistentEntity` opts an entity in; `[Persistent]` on a component type controls snapshot inclusion for already-opted-in entities (INV-14).
 8. **Content-tooling discipline** — a slice adding gameplay state ships the tooling to author and inspect it, declared in its implementation plan's **Content tooling impact** section (INV-18).
 9. **Infrastructure-discipline parity** — a new player-facing surface, or a pattern repeated ≥3×, lands its supporting framework in the same or an adjacent slice; any runtime flow it changes updates the canonical flows doc (INV-19, INV-17).
-10. **Blueprint/instance separation** — a blueprint template is the durable spawn definition; a blueprint instance is the live entity it seeds. When a player interaction makes an instance independent (e.g. item pickup), clear `BlueprintComponent` on the entity so the blueprint slot is free to re-spawn. Admin mutations update both template and entity (INV-21).
+10. **Blueprint/instance separation** — a blueprint template is the durable spawn definition; a blueprint instance is the live entity it seeds. `BlueprintComponent` stays on the instance as an origin record (never cleared on pickup); spawn-slot vacancy is tracked by `SpawnSystem` from domain events. Admin mutations update both template and entity (INV-21).
 11. **Verification discipline** — a slice that adds/changes a system, persistence shape, validation, or Main Flow ships tests for it (the implementation plan's **Test plan** section), per the rubric in [`docs/architecture/07-testing.md`](docs/architecture/07-testing.md); chance/time-dependent system logic resolves through an injected seam (`IRandom`, heartbeat timestamp), never `Random.Shared`/`DateTime.Now` (INV-25, INV-26). "Ship green" = build **and** `dotnet test` green.
 12. **Declared concurrency posture** — cross-thread state is guarded or confined; a slice adding a background initiator, web-host call path, or shared singleton state names which in its plan, and no new thread mutates live world components outside the established session/heartbeat paths (INV-31).
 
