@@ -1,8 +1,16 @@
 # Phase 5 — Content baseline → functional MVP (program)
 
-- **Status:** planned (requirements seed — awaiting `/advise`)
+- **Status:** planned (requirements + architecture brief — awaiting `/new-plan` per slice)
 - **Actors:** Player, Administrator (designer authoring the baseline), System (spawns, respawn, acceptance bots)
-- **Module:** program-level, no single module. The content lives in `content/dev-world/`. The gap slices touch existing modules: Help (topic articles), the power-budget oracle's consumers (`consider`), and the authoring tooling as gaps surface. The advisor places each slice. Feature homes: [`world/`](../features/world/world.md), [`communication/`](../features/communication/communication.md) (help), [`progression/`](../features/progression/progression.md) (`consider` over the oracle).
+- **Module:** program-level umbrella, decomposed into the slices in the [Architecture brief](#slice-decomposition). Code lands in existing modules:
+  - `Core/Modules/World` (world manifest, area designation);
+  - `Core/Modules/Spawn` + `World` builders (spawn rules);
+  - `Core/Modules/Help` (topic registry);
+  - `Core/Modules/Progression` (relative-power seam, `consider`);
+  - `Core/Modules/BalanceInspection` (audit check, `power` migration);
+  - `Hedron.Web` (editors).
+
+  Content lands in `content/dev-world/` (the world) and a new committed engine help layer. Feature homes: [`world/`](../features/world/world.md), [`communication/`](../features/communication/communication.md), [`progression/`](../features/progression/progression.md), [`admin-authoring/`](../features/admin-authoring/admin-authoring.md).
 
 **Description.** The Phase 5 program from [`roadmap/plan.md`](../roadmap/plan.md#current-focus-phase-5--content-baseline--functional-mvp). It turns the engine into something a stranger can play end to end on committed content:
 - create a character;
@@ -183,11 +191,138 @@ The engine's built mechanics get exercised by authored content, and the function
 - help lookup order verb → topic → ability;
 - the B1-adjacent / B3-farthest layout (R4).
 
+## Design notes
+
+*(Durable seam rationale. These survive disintegration into the slices' `completed/` records and the living docs.)*
+
+- **A world declares its own start.** A `world.yaml` manifest at the content root names the starting room. `World:StartingRoomBlueprintId` becomes the fallback, and the existing void-room fallback stays last.
+  - **Why:** the starting room is a fact about the *world*, not the host. With dev-world now the primary content, and operator worlds, the playtest harness and (Phase 6) instances all booting different content, a host setting that must be overridden in lock-step with `ContentDirectory` breaks in every new launch context.
+  - **Breadth:** one field now (*shape for later*). The manifest is the home for future world-level facts, such as a default respawn distinct from the start, or a display name, but none is added speculatively.
+  - Everything that reads the resolved starting room gets the resolved value: creation-time respawn, death fallback, and the catalog's rename guard.
+- **One spawn truth: the room's spawn rule, keyed by rule.** Spawn slots key by *rule identity*, not `(room, blueprint)`, and a rule's count may exceed 1.
+  - **Why:** the `(room, blueprint)` key caps a room at one of each mob and silently drops duplicate rules. A mob template's `spawnRoomBlueprintId` places it once per boot but never respawns it unless a matching room rule also exists. Two placement mechanisms, one of them non-respawning, is a trap at hunting-area volume.
+  - **Shaped for later:** tiered-overworld Stage B's weighted area pools become *a rule whose blueprint is drawn from a pool*. Keying slots by rule rather than by blueprint is what makes that a refactor, not a rewrite.
+  - The mob-side spawn room is retired or demoted: either it becomes an editor shortcut that writes a room rule, or validation warns when no rule covers it. The planner picks which, but the room rule stays the single truth.
+- **Area designation is a (Tier, Band-range) record, shaped for tiered-overworld R2.** Areas gain a designation of tier plus band range. Phase 5 authors single-band ranges and Tier 0; the theme stays the existing `aspectAffinities` (biome is Phase 6).
+  - **Consumers:** the editor shows it, and the balance audit gains a check: a spawn rule placing a mob whose (Tier, Band) falls outside its area's designation **warns**. This follows the established warn-not-error posture and closes the "audit blind spot" class R30 anticipates.
+- **Help topics are an engine layer plus a world overlay over one definition store.**
+  - Topics are non-entity definitions: a `DefinitionRegistry` family (Spine F), never `TemplateRegistry` (INV-12).
+  - They load from an ordered list of roots: the committed **engine help layer** (generic mechanic topics, engine-owned, outside any world's content directory), then `<ContentDirectory>/help/`. The world's copy wins by topic id.
+  - Lookup order is verb → topic → ability.
+  - Help topics are the **third** hand-rolled per-family YAML load/validate/save path (balance standards #1, sim scenarios #2), which crosses the ≥3 bar in the backlogged "YAML-authored definition pipeline" entry. The shared store is therefore **extracted now** (INV-19), with standards and scenarios migrating onto it in the same or the adjacent slice.
+  - The entry's coexistence/override question is answered for this family by layer order. Compiled-plus-YAML coexistence for Ability/Effect is still that entry's to decide.
+- **One relative-power scale, on effective power, owned by Progression.** A new domain-tier relative-power read composes `IStatSystem` (effective scores: gear, progression, effects, tier) with the core `IPowerBudgetSystem` oracle. It returns the subject/target power relationship. Three consumers share it:
+  1. `consider`;
+  2. anti-grind;
+  3. the admin `power` command's live-entity snapshot (today hand-rolled in the command).
+  - `consider`'s **trivial** label *is* the anti-grind floor (one constant, one meaning: "this won't teach you anything"). The upper labels are cut-points beside it in `ProgressionConstants`, catalogued in [balance.md](../design/balance.md) as tunables.
+  - **Why the seam moves:** anti-grind today reads raw base attributes because `ProgressionSystem` reading `IStatSystem` closes a DI cycle (`IStatSystem → IEffectSystem → ProgressionEffectContributor → IProgressionSystem → IStatSystem`). That makes anti-grind blind to progression and gear: a character's ratio against a mob never moves. The fix is to keep `ProgressionSystem` free of `IStatSystem` and have the **orchestration boundary** gather the relationship. The kill/use award handlers, and the sandbox's progression executor, call the relative-power read and pass the ratio into the award, so the live and sandbox kill paths still cannot diverge.
+  - This is the mechanism-vs-consequence split: the power relationship is a read over stats; XP scaling and danger labels are the two consequences that consume it.
+  - **Shaped for later:** the read takes a target *power*, not only a target entity. Cell anchors therefore feed it too: tiered-overworld R10 entrance telegraphs, area banners, and later mob-AI flee/threat decisions.
+
+## Architecture brief
+
+*(In-flight. Trimmed on ship.)*
+
+### Seams and homes
+
+| Seam | Kind | Home / layer | Disposition |
+|---|---|---|---|
+| World manifest (`world.yaml`: starting room) | New content-root definition; resolved at load | `Core/Modules/World`: loader resolves manifest → config → void | **Build now** (one field; the shape is for later) |
+| Dev-world launch profile | Host configuration (content dir + own DB) | `Server` launch profile / environment appsettings; documented in the dev-world README | **Build now** (no engine code) |
+| Spawn rule keyed by rule, with count | Change to `SpawnConfigComponent.Rules` / `SpawnSystem` slot model | `Core/Modules/Spawn` (domain); authoring through the room builder system + `RoomContentWriter`; room-editor UI; an admin verb as a thin caller | **Build now**; area pools **shaped for later** (Stage B) |
+| Area designation (tier + band range) | Area template field + audit check | `Core/Modules/World` template/writer; check in `IBalanceAuditSystem` (BalanceInspection); area editor field | **Build now**; theme/biome **shaped for later** |
+| Shared YAML definition store | Generic load/validate/save | Extracted from `IBalanceStandardsStore` / `SimScenarioStore`; core infrastructure beside the registry base | **Build now** (≥3 trigger) |
+| Help topic registry (engine + world layers) | `DefinitionRegistry` family over the shared store | `Core/Modules/Help`; `HelpCommand` gains the topic step; re-derived on `reload`; Blazor help-topic editor (world layer editable, engine layer shown read-only with an "override" action) | **Build now** |
+| Relative-power read | New domain-tier read (stats + oracle + tier) | `Core/Modules/Progression`, as a sibling system that `ProgressionSystem` must **not** depend on (guard test) | **Build now** |
+| Anti-grind input | Award methods take the ratio as input; handlers gather it | `AdvancementHandler` and the use-award handlers; `ProgressionScenarioExecutor` | **Build now**; a **deliberate balance change** |
+| `consider <mob>` | Player command + label mapping | `Core/Modules/Progression/Commands`; label cut-points in `ProgressionConstants` next to `AntiGrindFloorRatio` | **Build now** |
+| `power` live snapshot | Migrate onto the relative-power read's snapshot | `BalanceInspection/Commands/PowerCommand` | **Build now** (the third consumer, INV-19) |
+| Acceptance expectations | New standards-document family | Owned by the [playtest program](playtest-automation-program.md) | **Hand off** |
+
+### Family dispositions
+
+- **Relative danger:** general now in its *input* (power-keyed, so entities and cells both feed it). Its consumers beyond `consider` and anti-grind (entrance telegraph, banners, AI) are **shaped for later**.
+- **Spawn:** rule-keyed slots now. Pools are **shaped for later** in tiered-overworld Stage B; no new backlog entry is needed.
+- **Definition store:** extracted now for the YAML families. Ability/Effect going YAML stays in the existing backlog entry, which now has its framework.
+- **World manifest:** one field. Further world-level facts are added when a consumer needs them, not speculatively.
+
+### Observers, contributors, ordering
+
+- **No new events are required.**
+  - Spawn keeps the `MobDiedEvent` / `ItemPickedUpEvent` vacancy path.
+  - `consider` is read-only output.
+  - Help is read-only.
+  - The award's existing events (`ExperienceAwardedEvent` / `TrackImprovedEvent`) are unchanged; only their *input* moves.
+- **Ordering (INV-7):**
+  - The kill-award handler must gather the power relationship **before** the victim is destroyed. It already runs on `MobDiedEvent` ahead of destruction, alongside `SpawnSystem`'s "must run before `DestroyEntity`" handler. The planner confirms the priority and that the victim's effective scores are still readable.
+  - The use-award handlers' gathering happens at the point their opponent is known.
+- **Contributors:** no new `IEffectContributor`. The relative-power read *consumes* the contributor-folded scores; it never feeds them (INV-24).
+
+### Invariants in tension
+
+- **INV-1 / INV-5:** the relative-power gathering moves into handlers (orchestration), and systems still only compute. `ProgressionSystem` must not gain an `IStatSystem` dependency; the existing architecture-guard test is extended to cover the new sibling read.
+- **INV-19:** two thresholds cross in this program, the YAML store (third instance) and the live power snapshot (third consumer). Both land their framework in their slice, not as debt.
+- **INV-18:** each schema change ships editor and admin authoring in the same slice: manifest, spawn rules, area designation, help topics. A spawn rule mutated by an admin verb updates both the template and the live room entity (INV-21).
+- **INV-25:** the anti-grind basis change shifts progression outcomes.
+  - The sandbox's pinned progression goldens and any anti-grind-dependent tests re-pin deliberately, under the [`balance-tuning`](../../.claude/skills/balance-tuning/SKILL.md) skill with a sweep.
+  - The use-based-XP draw-sequence pins in [progression-system.md](../features/progression/progression-system.md) must still hold: an ineligible candidate consumes zero draws.
+- **INV-20:** the anti-grind "reads raw attributes" guidance in [progression-system.md](../features/progression/progression-system.md), [power-budget-system.md](../features/progression/power-budget-system.md), and the `edit-progression-system` / `balance-tuning` skills is rewritten to "the handler gathers effective power; the system stays stat-free".
+- **INV-31:** the help registry and manifest are re-derived on `reload` and read by session threads and Blazor circuits. They take the content catalog's posture: build a new immutable snapshot, then swap it atomically. No new background thread.
+- **INV-17:** flows touched:
+  - flow-01 (manifest load);
+  - flow-07 (starting room from the manifest);
+  - flow-20 (spawn slot model);
+  - flow-31 (ratio gathered in the handler);
+  - flow-03 / help (topic step);
+  - flow-05 (reload re-derives topics and manifest);
+  - flow-29 (new editors);
+  - flow-33 (the sandbox progression executor supplies the ratio).
+- **INV-23 / INV-14:** the manifest, help topics and area designation are world-content definitions (YAML only, never `PersistentEntity`).
+
+### Slice decomposition
+
+Each gap slice runs the full per-slice loop (`/new-plan` → spec gate → build → code gate → sync). Content drops are lighter (see below).
+
+| # | Slice | Contents | Requirements | Depends on |
+|---|---|---|---|---|
+| 1 | `dev-world-foundation` | Policy amendment (world-content.md, CLAUDE.md, plan.md, dev-world README); world manifest; dev-world launch profile; hub skeleton with starting room and respawn | R1–R3, R15 | — |
+| 2 | `spawn-authoring` | Rule-keyed slots + count; room-editor and admin authoring; mob-side spawn-room retirement/warning | R9, R12, R30 | 1 |
+| 3 | `area-designation` | Area tier/band-range field + editor; audit out-of-designation check | R4, R23 | 1 (parallel with 2) |
+| 4 | `help-topics` | Shared YAML store extraction (+ standards/scenarios migration); topic registry with engine + world layers; `help` topic step; topic editor; engine topic set | R18–R19 | — (parallel) |
+| 5 | `relative-power-consider` | Relative-power read; anti-grind on effective power (balance re-pin); `consider`; `power` migration | R20–R22 | — (parallel) |
+| 6–8 | Content drops B1 → B2 → B3 | Hub onboarding rooms + hub shop rows for the band, hunting area, mobs, found items, help topic text | R5–R8, R10–R14, R16–R17, R24–R25 | 1–3 (4 and 5 by the drop that needs them) |
+| 9 | Acceptance golden | A1–A8 on dev-world, graded against the standards family | R26–R29 | playtest substrate + 6–8 |
+
+- **Playtest track interleaving:** the playtest program's substrate slice can start right after slice 1, since it needs a bootable dev-world with a starting room. Its bots then check each content drop. Its own `/refine` → `/advise` fixes the exact order.
+- **Content drops are not plan-template slices.** They add no gameplay state or system, so INV-18/19/25 have nothing to check. Each drop is one PR closed by a short checklist:
+  - the band-drift audit and the new designation check come back clean;
+  - the baseline sweep has run and its report is reviewed;
+  - the band's standards expectations are stated (or explicitly left descriptive);
+  - connectivity is verified (R6);
+  - the drop's [`completed/`](../roadmap/completed/) record carries an **authoring-friction log**: time spent, tooling pain points, and gaps spun out as R30 slices. That log is the client-tier gate's evidence (R31).
+
+### Resolved decisions (advisor intake)
+
+*(Confirmed by the user on 2026-10-28. Do not relitigate.)*
+
+1. **Help ownership:** an engine help layer plus a world overlay, with the world winning by id. Rejected: topics in world content only.
+2. **`consider` scale:** one shared scale with anti-grind; *trivial* is the anti-grind floor. Rejected: a danger-only scale.
+3. **Power basis:** **effective power for both** `consider` and anti-grind. The handler gathers it, the system stays stat-free, and the change is accepted as a deliberate balance change with re-pins. Rejected: raw power for both (labels never move); a split basis.
+4. **Spawning:** room spawn rules keyed by rule, with count, authored through the editor and admin verbs; area pools stay in Phase 6 (Stage B). Rejected: pulling pools forward.
+5. **Launch:** the world declares its starting room through a `world.yaml` manifest; a dev-world launch profile; the default content directory is **unchanged**. Rejected: a launch profile only; flipping the default. *(This resolves the requirements seed's "default content directory" question.)*
+
+**Advisor calls** *(cheap to veto at planning)*:
+- the shared YAML store extraction lands in the help slice;
+- area designation is a band *range*;
+- `consider` cut-points live in `ProgressionConstants`, not the standards document. They are tuning knobs, not designer *expectations*, so balance.md rule 4 doesn't apply.
+- content drops use a checklist instead of the plan template;
+- acceptance-golden churn policy: the golden asserts **graded pass/fail per criterion at a pinned seed**, not exact metric values. A content drop re-pins it only if it breaks the loop, and exact-number pins stay on the stable mechanic subset. The playtest `/refine` confirms this.
+
 ## Open questions
 
-- **Default content directory.** Dev-world is now the primary content, but `World:ContentDirectory` still defaults to the gitignored `data/content/`. Should a fresh clone's `dotnet run --project Server` boot dev-world by default? Doing so would make the in-game builder verbs write into the committed fixture by default. *(User + advisor at framing. Recommendation: keep the explicit override and document it, unless the "a stranger can play" story needs zero configuration.)*
-- **Slice decomposition and order.** A likely shape: policy amendment + hub skeleton → help topics → `consider` → per-band content drops (B1, B2, B3), each closed by audit + sweep → acceptance golden. Where the playtest substrate interleaves follows the playtest seed's sequencing. *(Advisor.)*
-- **Help-topic storage and format.** Whether topics are YAML content under the content directory (which then raises dev-world-vs-operator ownership of engine help text), a committed engine-content location, or something else. Also how the editor inspects them. *(Advisor, who can read the code.)*
-- **`consider` label cut-points.** These are the power-ratio/band-delta thresholds behind each label. Should they be designer-tunable (a standards-document row) or constants? *(Advisor; balance.md rule 4 suggests standards.)*
-- **CI golden churn as dev-world grows.** R1 makes dev-world grow over time, so the acceptance golden and any dev-world-dependent tests will need re-pinning on content drops. The re-pin policy (pinned seed and stable subset vs. re-pin per drop) needs deciding. *(Advisor + playtest `/refine`.)*
-- **Concrete threshold values** for R25. These are designer-stated during the program, as each band's content lands. Until then the metric is reported descriptively. *(User, during authoring.)*
+- **Mob-side `spawnRoomBlueprintId`:** migrate it into an editor shortcut that writes a room rule, or keep it with a validation warning. Either way the room rule is the single truth. *(Planner, slice 2.)*
+- **Rule identity:** how a spawn rule is identified, by position or by an authored id. Identity has to survive editor reordering, and a later pool rule must be expressible. *(Planner, slice 2.)*
+- **Engine help layer location:** the committed path and how it reaches the server output (`content/help/`, copied to output, configured by a `Help:` option). *(Planner, slice 4.)*
+- **Use-based award gathering:** where exactly each use-based award handler resolves its opponent to gather the ratio, and whether an award with no opponent skips anti-grind as it does today. *(Planner, slice 5.)*
+- **Concrete threshold values** for R25. These are designer-stated during the content drops, and the metric is reported descriptively until then. *(User, during authoring.)*
