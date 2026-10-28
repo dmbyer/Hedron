@@ -1,6 +1,6 @@
 # Docker Migration Plan
 
-> Produced by a research sub-agent. Reviewed and accepted for Hedron. Implement alongside or immediately after persistence-reform Stage A (which adds `Persistence:DatabasePath` and makes paths container-friendly).
+> Produced by a research sub-agent. Reviewed and accepted for Hedron. **Not yet implemented** — persistence-reform Stage A (which made `Persistence:DatabasePath` and the content path container-friendly) has shipped; this plan is parked in [`../roadmap/backlog.md`](../roadmap/backlog.md) until there is a deployment target. Only the dev/CI `Dockerfile.dev` exists today.
 
 ---
 

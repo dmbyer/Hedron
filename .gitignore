@@ -266,7 +266,10 @@ __pycache__/
 # Claude Code local settings
 .claude/settings.local.json
 
-# Hedron runtime + local content (per-developer; not committed)
+# Hedron runtime + operator world content (per-operator; never committed).
+# The engine repo ships no game world: data/content/ is YOUR world -- version it in your own repo.
+# Committed fixture content lives in content/dev-world/ (generic test world only).
+# See docs/features/world/world-content.md#content-ownership--the-engine-ships-no-game-world
 /Server/data/
 
 # ...except the shipped example simulation scenarios (INV-18 content-tooling example, sim-2/sim-4)

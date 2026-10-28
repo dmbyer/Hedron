@@ -48,5 +48,5 @@ The feature composes three cooperating subsystems:
 - **World** — [`../world/world.md`](../world/world.md) — `WorldContentLoader`, `ITemplateRegistry`, the YAML content layout, and the `reload` path that applies authored content to the live world.
 - **Items / Mobs** — [`../items/items.md`](../items/items.md) · [`../mobs/mobs.md`](../mobs/mobs.md) — builder systems for items and mobs live in their respective feature modules; admin commands are thin callers.
 - [`../../architecture/08-blazor.md`](../../architecture/08-blazor.md) — Blazor Server discipline: thin components, `CompositionRoot` reuse, loopback-only v1 auth, the three-suite web surface roadmap.
-- [`../../implementation-plans/admin-area-authoring.md`](../../implementation-plans/admin-area-authoring.md) — planned: deeper area authoring flows (deferred).
+- [`../../roadmap/completed/admin-area-authoring.md`](../../roadmap/completed/admin-area-authoring.md) — the `mkarea`/`listents` slice record.
 - [`../../implementation-plans/admin-privilege-elevation.md`](../../implementation-plans/admin-privilege-elevation.md) — deferred: persisted `AdminPrivilegeComponent` layer on top of the settings allowlist.

@@ -44,6 +44,12 @@ Launched via the `Agent` tool with `subagent_type` set to the agent's name.
 | `/new-plan <description>` | Spawn the implementation-planner on your idea |
 | `/check-layers [scope]` | Run architecture review on the current branch |
 
+## Hooks (`hooks/`, registered in `settings.json`)
+
+| Hook | Effect |
+|---|---|
+| [`session-start.sh`](hooks/session-start.sh) | Claude Code cloud sessions only (no-op locally): installs the .NET 8 SDK from Ubuntu's apt archive if missing and restores NuGet packages, so `dotnet build`/`dotnet test` work from the first turn. Runs synchronously. |
+
 ## How these fit together
 
 For a new feature end-to-end:

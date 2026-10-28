@@ -37,4 +37,4 @@ sequenceDiagram
 
 - [`Core/Systems/PersistenceSystem.cs`](../../../Core/Systems/PersistenceSystem.cs) · [`Server/PersistenceFlushTimer.cs`](../../../Server/PersistenceFlushTimer.cs) · [`Server/PersistenceBootstrap.cs`](../../../Server/PersistenceBootstrap.cs)
 - [`docs/architecture/06-persistence.md`](../06-persistence.md) — persistence model
-- [`docs/implementation-plans/persistence-reform.md`](../../implementation-plans/persistence-reform.md) — Stages A and B
+- [`docs/roadmap/completed/persistence-reform.md`](../../roadmap/completed/persistence-reform.md) — Stages A and B (as-built record)

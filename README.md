@@ -18,6 +18,10 @@ Hedron is a C# **MUD (Multi-User Dungeon) game engine** targeting **.NET 8**. It
 
 Persistence (SQLite) and content loading currently live inside `Core/` modules; a standalone test bot is deferred. See [`docs/roadmap/plan.md`](docs/roadmap/plan.md).
 
+## Your world, your content
+
+Hedron is an engine, so **this repository ships no game world**. If you run a server, you author your own world (rooms, areas, mobs, items) under `World:ContentDirectory` (default `data/content/`, gitignored) and keep it in your own repository. The only committed content is generic development material in [`content/`](content/): the [`dev-world/`](content/dev-world/) test fixture and example generation profiles. A fresh clone pointed at an empty content directory boots into a single placeholder "void" room, ready for authoring. See [content ownership](docs/features/world/world-content.md#content-ownership--the-engine-ships-no-game-world).
+
 ## Build & test
 
 ```bash

@@ -24,9 +24,26 @@ The world model is blueprint-seeds-world: persisted entities (those carrying `Pe
 
 `ReloadAsync` is a **full rebuild**, not additive: it first tears down every world-content entity (`DestroyWorldContent` — anything with a `BlueprintComponent` and no `PersistentEntity`), then refreshes the template registry and runs the same spawn/place/link phases to re-spawn the world from scratch. Persistent entities (players, player-owned items/containers) are preserved; the `reload` command re-publishes `WorldContentReadyEvent` afterward so shops re-seed, spawn slots rebuild, and players' rooms are re-resolved. This resets runtime instance state (picked-up items respawn, shops refill) and applies edits to existing content. See [Flow 5](../../architecture/flows/flow-05-content-reload.md).
 
+### Content ownership — the engine ships no game world
+
+Hedron is an open-source **engine**. The repository never ships a playable game world: whoever runs a Hedron server — the maintainer included — authors and owns their own world content, and keeps it outside this repository.
+
+| Location | What it is | Committed? |
+|---|---|---|
+| `World:ContentDirectory` (default `data/content/`) | **The operator's world.** The live game's rooms, areas, mobs, and items, authored with the in-game builder verbs, the Blazor editor, or the `generate` CLI. Version it in your own (private) repository or backup, or point `World:ContentDirectory` at a directory outside the clone. | **No** — `/data/*` is gitignored |
+| `content/dev-world/` | **The generic development world.** Deliberately generic, unbranded fixture content that exists to exercise engine mechanics: smoke-testing a fresh clone, flow and playtest automation, CI goldens, and demonstrating a mechanic in a PR. It is not a game and is never the basis for one. | Yes |
+| `content/profiles/` | Example `generate` profiles (tooling examples, not a world). | Yes |
+| `data/sim/scenarios/example-*.yaml` | The two shipped example simulation scenarios (an INV-18 tooling example). | Yes (the only un-ignored `data/` files) |
+
+Rules for contributors and agents:
+
+- **Never commit operator world content.** Don't move, copy, or un-ignore anything under `data/content/`, and don't widen the `/data/*` ignore rule.
+- **Keep `content/dev-world/` generic.** Use placeholder-grade names and descriptions (`Test Crossroads`, `Training Dummy`, `Iron Sword`), the minimum volume that exercises a mechanic, and no lore, setting, or narrative. When a slice needs fixture content to demonstrate or test a mechanic, it goes here, sized to the mechanic.
+- **Run against it explicitly.** Point a host at the dev world with an override such as `HEDRON_World__ContentDirectory=content/dev-world/`, and give it its own database (`HEDRON_Persistence__DatabasePath=data/dev-world.db`) so its persisted players don't mix with your own world's. The in-game builder verbs and the editor write back into whichever directory is configured, so edits made while pointed at the dev world land in the committed fixture. That's intended when you are maintaining the fixture, and a mistake otherwise.
+
 ### Content file shape
 
-All files are `*.yaml` under `data/content/` (the path is `World:ContentDirectory`):
+All files are `*.yaml` under the content directory (`World:ContentDirectory`, default `data/content/`):
 
 | Kind | Path | Key fields |
 |---|---|---|
