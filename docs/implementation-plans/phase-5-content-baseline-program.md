@@ -219,6 +219,11 @@ The engine's built mechanics get exercised by authored content, and the function
   - **Why the seam moves:** anti-grind today reads raw base attributes because `ProgressionSystem` reading `IStatSystem` closes a DI cycle (`IStatSystem → IEffectSystem → ProgressionEffectContributor → IProgressionSystem → IStatSystem`). That makes anti-grind blind to progression and gear: a character's ratio against a mob never moves. The fix is to keep `ProgressionSystem` free of `IStatSystem` and have the **orchestration boundary** gather the relationship. The kill/use award handlers, and the sandbox's progression executor, call the relative-power read and pass the ratio into the award, so the live and sandbox kill paths still cannot diverge.
   - This is the mechanism-vs-consequence split: the power relationship is a read over stats; XP scaling and danger labels are the two consequences that consume it.
   - **Shaped for later:** the read takes a target *power*, not only a target entity. Cell anchors therefore feed it too: tiered-overworld R10 entrance telegraphs, area banners, and later mob-AI flee/threat decisions.
+- **Progression is gated by challenge, not by repetition or time.** The intended rule: as a character or skill gets stronger, *easier* content advances it more slowly, and progress continues at full pace against content near its own level.
+  - **Two levers can deliver this.** (a) Each improvement costs more XP. (b) Easier content awards less XP.
+  - **Lever (b) is the primary mechanism.** It is anti-grind's `victimPower / earnerPower` ratio on effective power: zero below the floor, proportional up to the cap. It applies to **every rule with an opponent**: the kill rule (as today), plus the **ability-use and damage-taken rules whenever the trigger names an opponent**. For those two it is a rule-table flag (`AppliesAntiGrindPowerRatio`), not new code. An ability used with no opponent keeps today's behaviour: no ratio, and only its per-rank chance decay.
+  - **Lever (a) is not used for kill XP as built, and stays that way for now.** The cumulative threshold `ThresholdBase + k × ThresholdIncrement` grows, but the *per-improvement* cost is flat (100, then 50 per step). Kill XP therefore advances at a constant rate per improvement. Use-based XP gets its own sub-linear slowdown from the per-rank chance decay. Whether steps should cost more is a **pacing** question: it slows peer-level progress too. It is decided from evidence during balance closure (R24–R25), not now. See Open questions.
+  - **No repeat-count or time-window diminishing returns,** now or planned. Grinding the *same* peer-level content at a steady rate is acceptable. Only *outgrown* content stops paying.
 
 ## Architecture brief
 
@@ -236,6 +241,7 @@ The engine's built mechanics get exercised by authored content, and the function
 | Help topic registry (engine + world layers) | `DefinitionRegistry` family over the shared store | `Core/Modules/Help`; `HelpCommand` gains the topic step; re-derived on `reload`; Blazor help-topic editor (world layer editable, engine layer shown read-only with an "override" action) | **Build now** |
 | Relative-power read | New domain-tier read (stats + oracle + tier) | `Core/Modules/Progression`, as a sibling system that `ProgressionSystem` must **not** depend on (guard test) | **Build now** |
 | Anti-grind input | Award methods take the ratio as input; handlers gather it | `AdvancementHandler` and the use-award handlers; `ProgressionScenarioExecutor` | **Build now**; a **deliberate balance change** |
+| Anti-grind coverage | `AppliesAntiGrindPowerRatio` set on the `AbilityUse` and `DamageTaken` rows (applied only when the trigger names an opponent) | `ProgressionConstants.Rules` | **Build now**; a **deliberate balance change** |
 | `consider <mob>` | Player command + label mapping | `Core/Modules/Progression/Commands`; label cut-points in `ProgressionConstants` next to `AntiGrindFloorRatio` | **Build now** |
 | `power` live snapshot | Migrate onto the relative-power read's snapshot | `BalanceInspection/Commands/PowerCommand` | **Build now** (the third consumer, INV-19) |
 | Acceptance expectations | New standards-document family | Owned by the [playtest program](playtest-automation-program.md) | **Hand off** |
@@ -264,10 +270,21 @@ The engine's built mechanics get exercised by authored content, and the function
 - **INV-1 / INV-5:** the relative-power gathering moves into handlers (orchestration), and systems still only compute. `ProgressionSystem` must not gain an `IStatSystem` dependency; the existing architecture-guard test is extended to cover the new sibling read.
 - **INV-19:** two thresholds cross in this program, the YAML store (third instance) and the live power snapshot (third consumer). Both land their framework in their slice, not as debt.
 - **INV-18:** each schema change ships editor and admin authoring in the same slice: manifest, spawn rules, area designation, help topics. A spawn rule mutated by an admin verb updates both the template and the live room entity (INV-21).
-- **INV-25:** the anti-grind basis change shifts progression outcomes.
+- **INV-25:** two anti-grind changes shift progression outcomes: the switch to effective power, and its extension to the use-based rows.
   - The sandbox's pinned progression goldens and any anti-grind-dependent tests re-pin deliberately, under the [`balance-tuning`](../../.claude/skills/balance-tuning/SKILL.md) skill with a sweep.
-  - The use-based-XP draw-sequence pins in [progression-system.md](../features/progression/progression-system.md) must still hold: an ineligible candidate consumes zero draws.
-- **INV-20:** the anti-grind "reads raw attributes" guidance in [progression-system.md](../features/progression/progression-system.md), [power-budget-system.md](../features/progression/power-budget-system.md), and the `edit-progression-system` / `balance-tuning` skills is rewritten to "the handler gathers effective power; the system stays stat-free".
+  - The **zero-draws rule** still holds (an ineligible candidate consumes no `IRandom` draws), now on the use-based rows too. Their draw-sequence pins in [progression-system.md](../features/progression/progression-system.md) therefore change wherever a use-based candidate becomes ineligible. Re-pin them deliberately, with new tests covering:
+    - a below-floor ability use with an opponent;
+    - an ability use with no opponent (unchanged).
+- **INV-20 / doc accuracy:**
+  - **Anti-grind guidance.** The "reads raw attributes" guidance is rewritten to "the handler gathers effective power; the system stays stat-free" in:
+    - [progression-system.md](../features/progression/progression-system.md);
+    - [power-budget-system.md](../features/progression/power-budget-system.md);
+    - the `edit-progression-system` and `balance-tuning` skills.
+  - **"Growing threshold" wording.** Fix it so it no longer implies a rising per-step cost: only the cumulative total grows, and each step costs a flat increment. It appears in:
+    - [progression.md](../features/progression/progression.md);
+    - [flow-31](../architecture/flows/flow-31-progression-award.md) ("slows twice over: the threshold grows *and* the chance decays");
+    - the `edit-progression-system` skill.
+  - **Challenge-gating model.** Record it in progression-system.md (lever (b) is the mechanism; no repeat or time-window penalties).
 - **INV-31:** the help registry and manifest are re-derived on `reload` and read by session threads and Blazor circuits. They take the content catalog's posture: build a new immutable snapshot, then swap it atomically. No new background thread.
 - **INV-17:** flows touched:
   - flow-01 (manifest load);
@@ -290,7 +307,7 @@ Each gap slice runs the full per-slice loop (`/new-plan` → spec gate → build
 | 2 | `spawn-authoring` | Rule-keyed slots + count; room-editor and admin authoring; mob-side spawn-room retirement/warning | R9, R12, R30 | 1 |
 | 3 | `area-designation` | Area tier/band-range field + editor; audit out-of-designation check | R4, R23 | 1 (parallel with 2) |
 | 4 | `help-topics` | Shared YAML store extraction (+ standards/scenarios migration); topic registry with engine + world layers; `help` topic step; topic editor; engine topic set | R18–R19 | — (parallel) |
-| 5 | `relative-power-consider` | Relative-power read; anti-grind on effective power (balance re-pin); `consider`; `power` migration | R20–R22 | — (parallel) |
+| 5 | `relative-power-consider` | Relative-power read; anti-grind on effective power, extended to the ability-use and damage-taken rows when there's an opponent (balance re-pin); `consider`; `power` migration; progression doc-accuracy fixes | R20–R22 | — (parallel) |
 | 6–8 | Content drops B1 → B2 → B3 | Hub onboarding rooms + hub shop rows for the band, hunting area, mobs, found items, help topic text | R5–R8, R10–R14, R16–R17, R24–R25 | 1–3 (4 and 5 by the drop that needs them) |
 | 9 | Acceptance golden | A1–A8 on dev-world, graded against the standards family | R26–R29 | playtest substrate + 6–8 |
 
@@ -311,6 +328,9 @@ Each gap slice runs the full per-slice loop (`/new-plan` → spec gate → build
 3. **Power basis:** **effective power for both** `consider` and anti-grind. The handler gathers it, the system stays stat-free, and the change is accepted as a deliberate balance change with re-pins. Rejected: raw power for both (labels never move); a split basis.
 4. **Spawning:** room spawn rules keyed by rule, with count, authored through the editor and admin verbs; area pools stay in Phase 6 (Stage B). Rejected: pulling pools forward.
 5. **Launch:** the world declares its starting room through a `world.yaml` manifest; a dev-world launch profile; the default content directory is **unchanged**. Rejected: a launch profile only; flipping the default. *(This resolves the requirements seed's "default content directory" question.)*
+6. **Progression gating model:** gated by challenge. Outgrown content advances a character or skill more slowly, down to zero, through the effective-power anti-grind ratio. There are **no repeat-count or time-window penalties**. Diminishing returns from repetition alone are not a goal.
+7. **Anti-grind on skills:** the ability-use and damage-taken rules apply the anti-grind ratio whenever the trigger names an opponent. No-opponent uses keep today's behaviour (only per-rank chance decay). Approved as a deliberate balance change in slice 5.
+8. **XP-cost curve:** the flat per-improvement cost stays for now. Whether steps should cost more is decided from evidence during balance closure, not up front.
 
 **Advisor calls** *(cheap to veto at planning)*:
 - the shared YAML store extraction lands in the help slice;
@@ -324,5 +344,6 @@ Each gap slice runs the full per-slice loop (`/new-plan` → spec gate → build
 - **Mob-side `spawnRoomBlueprintId`:** migrate it into an editor shortcut that writes a room rule, or keep it with a validation warning. Either way the room rule is the single truth. *(Planner, slice 2.)*
 - **Rule identity:** how a spawn rule is identified, by position or by an authored id. Identity has to survive editor reordering, and a later pool rule must be expressible. *(Planner, slice 2.)*
 - **Engine help layer location:** the committed path and how it reaches the server output (`content/help/`, copied to output, configured by a `Help:` option). *(Planner, slice 4.)*
-- **Use-based award gathering:** where exactly each use-based award handler resolves its opponent to gather the ratio, and whether an award with no opponent skips anti-grind as it does today. *(Planner, slice 5.)*
+- **Use-based award gathering:** where exactly each use-based award handler resolves its opponent to gather the ratio. For damage taken the opponent is the attacker; for an ability use it is the resolved target. The behaviour is settled (resolved decision 7): with no opponent, the ratio is not applied. *(Planner, slice 5.)*
+- **XP-cost curve shape:** whether each improvement should cost progressively more XP (lever (a)), and by how much. To be answered from evidence once the B1–B3 content exists, during balance closure (R24–R25): the simulator's `progressionRate` sweep, and the playtest bots' XP-per-hour and kills-per-improvement metrics. The question is whether peer-level progress feels too fast. If the curve changes, it is a `ThresholdIncrement`/curve change under the `balance-tuning` skill, with re-pins. *(User + designer, during balance closure.)*
 - **Concrete threshold values** for R25. These are designer-stated during the content drops, and the metric is reported descriptively until then. *(User, during authoring.)*
