@@ -66,7 +66,7 @@ The engine's built mechanics get exercised by authored content, and the function
 - **R2.** Operator-world content rules are unchanged: never committed, never un-ignored. The operator's world is simply not part of Phase 5's definition of done.
 
 **B. Region**
-- **R3.** A **hub area** marked safe (`isSafe`) contains the **starting room**, where new characters land; the **default respawn point**; the shop(s) (R11); and the onboarding path (R17).
+- **R3.** A **hub area** that is **safe by construction** contains the **starting room**, where new characters land; the **default respawn point**; the shop(s) (R11); and the onboarding path (R17). "Safe by construction" means: no hostile spawns, `pvp: false`, no mob initiates combat (R10), and hub shopkeepers carry the existing `untargetable` mob protection. There is no safe-room flag. The engine has none; the earlier `isSafe` wording came from a doc error, which slice 1 corrects.
 - **R4.** **Three hunting areas**, one per Tier-0 band (B1, B2, B3), are laid out as a **distance gradient** from the hub: B1 adjacent to the hub, B3 farthest. Each area carries its (Tier 0, Band n) region designation, consistent with [tiered-overworld R22](tiered-overworld-program.md).
 - **R5.** The region totals **about 40–50 rooms**. Every room carries grid coordinates and is authored in the grid editor (tiered-overworld R22).
 - **R6.** **Full connectivity:** every room is reachable from the starting room, and every room has a path back to the hub. There are no one-way traps and no dead-end rooms without a return.
@@ -303,10 +303,10 @@ Each gap slice runs the full per-slice loop (`/new-plan` → spec gate → build
 
 | # | Slice | Contents | Requirements | Depends on |
 |---|---|---|---|---|
-| 1 | `dev-world-foundation` | Policy amendment (world-content.md, CLAUDE.md, plan.md, dev-world README); world manifest; dev-world launch profile; hub skeleton with starting room and respawn | R1–R3, R15 | — |
+| 1 | [`dev-world-foundation`](dev-world-foundation.md) | Policy amendment (world-content.md, CLAUDE.md, plan.md, dev-world README); world manifest; dev-world launch profile; hub skeleton with starting room and respawn | R1–R3, R15 | — |
 | 2 | `spawn-authoring` | Rule-keyed slots + count; room-editor and admin authoring; mob-side spawn-room retirement/warning | R9, R12, R30 | 1 |
 | 3 | `area-designation` | Area tier/band-range field + editor; audit out-of-designation check | R4, R23 | 1 (parallel with 2) |
-| 4 | `help-topics` | Shared YAML store extraction (+ standards/scenarios migration); topic registry with engine + world layers; `help` topic step; topic editor; engine topic set | R18–R19 | — (parallel) |
+| 4 | `help-topics` | Shared YAML store extraction (+ standards/scenarios/**world-manifest** migration; the manifest store from slice 1 is accepted bounded debt); topic registry with engine + world layers; `help` topic step; topic editor; engine topic set | R18–R19 | — (parallel) |
 | 5 | `relative-power-consider` | Relative-power read; anti-grind on effective power, extended to the ability-use and damage-taken rows when there's an opponent (balance re-pin); `consider`; `power` migration; progression doc-accuracy fixes | R20–R22 | — (parallel) |
 | 6–8 | Content drops B1 → B2 → B3 | Hub onboarding rooms + hub shop rows for the band, hunting area, mobs, found items, help topic text | R5–R8, R10–R14, R16–R17, R24–R25 | 1–3 (4 and 5 by the drop that needs them) |
 | 9 | Acceptance golden | A1–A8 on dev-world, graded against the standards family | R26–R29 | playtest substrate + 6–8 |
