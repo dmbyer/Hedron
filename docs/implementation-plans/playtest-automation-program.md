@@ -1,8 +1,14 @@
 # Playtest automation — agentic harness (program)
 
-- **Status:** planned (requirements seed — awaiting `/advise`)
+- **Status:** planned (requirements + architecture brief — awaiting `/new-plan` per slice)
 - **Actors:** System (headless harness, scripted bots, LLM persona agents), Administrator (designer reading reports), Player (simulated)
-- **Module:** to be placed by the advisor. Likely a headless `playtest` run mode in `Server/` beside `simulate`/`generate`, with harness pieces in a new `Core/Modules/Playtest/` or a `Hedron.Playtest` project. Agent-side tooling goes in `.claude/`. Feature home TBD (likely a sibling of [`features/simulation/`](../features/simulation/simulation.md)).
+- **Module:** a new `Core/Modules/Playtest/` module (world factory, tick driver, `BotSession`, recorder, grader, scenario store, bot policies). Also:
+  - `Server/` run modes `playtest` and `playtest-mcp`;
+  - an agent formatter in `Core/Output/`;
+  - `.claude/agents/` personas and the analyst;
+  - a findings ledger under `docs/playtest/`.
+
+  Feature home: a new [`features/playtest/`](../features/) folder beside `simulation/`. Slices are listed in the [Architecture brief](#slice-decomposition).
 
 **Description.** Automated play that measures the *player experience and outcomes* the existing test and balance tooling can't see, so the maintainer doesn't have to playtest by hand for long stretches. Two layers:
 
@@ -169,9 +175,131 @@ Both run against seeded, replayable worlds and report against designer-stated ex
 - record persona constraint violations and continue;
 - calibration fixtures committed apart from the dev-world baseline.
 
+## Design notes
+
+*(Durable seam rationale. These survive disintegration into the slices' `completed/` records and the feature doc.)*
+
+- **One world API, many drivers.** A *playtest world* exposes one small API: act (queue a player command for a bot), look/observe (drain that bot's observations), status, and step (advance N ticks).
+  - Every way of playing is a **driver** of that API. In-process scripted bot policies, the `playtest-mcp` server for Claude Code personas, and later a headless Claude API runner are interchangeable.
+  - **Why:** the persona layer, the scripted bots and the future API runner differ only in *who decides the next command*. Putting that seam at the world API keeps the harness single-sourced (one tick driver, one recorder, one grader) and makes the deferred API runner a new driver, not a new harness.
+  - Scripted policies follow the `ISimCombatantPolicy` precedent: observation in, command line out, stateless where possible.
+- **Perception and measurement are separate channels.**
+  - **Measurement** comes from domain events. A per-world recorder handler observes the existing outcome events (kills, XP awarded/improved, currency, buy/sell, incapacitation/death/respawn, movement, `CommandExecutedEvent` for failed commands, ability activation). It runs last, at the reserved `Ai` priority, and never mutates anything. Grading therefore never parses prose.
+  - **Perception** is player-visible output only (R4). It is rendered for a new `playtest` transport key by an **agent formatter** that emits one JSON observation per typed output message. Fully typed messages are fully structured. `PlainMessage` passes through as text plus its `OutputCategory`/`OutputSeverity`.
+  - **Structuring ratchet:** about 225 `PlainMessage` call sites exist. The substrate slice converts only the messages the scripted bots must branch on (combat ended, incapacitation/death/respawn, XP award and improvement narration, buy/sell results) to typed messages. Every later conversion is on-touch.
+  - This is the same direction [`design/client-tier.md`](../design/client-tier.md) prescribes for a structured client (*shape for later*): the agent formatter is the first non-telnet formatter, and the typed messages it needs are reusable by a future web client.
+- **A playtest world is a self-contained, confined copy of the engine.**
+  - **Composition:** each world is composed from the same composition root as the live host, with these differences:
+    - no hosted services, and no telnet or wall-clock heartbeat;
+    - a seeded `IRandom` and a stepped clock;
+    - in-memory persistence (the persistence test-harness precedent);
+    - a **scratch copy of the content directory**, so setup, defect overlays and builder verbs never write into the committed fixture, and parallel worlds never share files.
+  - **Threading (INV-31):** each world is confined to one thread, and the **tick driver is its single writer**: per step it dispatches each bot's queued command, then publishes the heartbeat tick, then drains the output buffers into observations. Parallel sweeps are many worlds, never many threads in one world. The MCP server receives tool calls on its transport thread and **marshals** them onto the world's thread, so the confine posture holds and the world stays paused while a model thinks.
+  - This mirrors the simulator's `SandboxWorld` (one `EntityService` per run, the INV-12 nuance already accepted there), but boots *real content* rather than ad-hoc combatants.
+- **Two extractions land first, because a second copy would drift (INV-19).**
+  1. **Gameplay handler subscriptions.** About 70 `Subscribe` calls live in `Server/Program.cs` `Main`. They move into a composition-root method that both the live host and every playtest world call, pinned by a guard test that both subscribe the identical set.
+  2. **Session entry.** The post-authentication "character enters the world" sequence is extracted from `LoginFlow` / the telnet path into a shared piece. A bot then enters through exactly the path a player does, which is what A1 ("lands in the hub starting room") actually tests. `LoginFlow` keeps the transport-coupled wizard.
+- **Expectations are standards, and findings are a committed ledger.**
+  - Graded thresholds are a new `playtestExpectations` family in the balance-standards document, authored on the Standards page (R11, balance.md rule 4). A grader that finds no threshold reports the metric descriptively (R12).
+  - Qualitative findings are a different kind of record. They go to a **committed findings ledger** under `docs/playtest/`, maintained by the analyst agent through PRs, because sessions are ephemeral and `data/` is gitignored. This is a new documentation bucket, registered in [`09-documentation.md`](../architecture/09-documentation.md) (INV-30). Raw run reports stay gitignored.
+- **Calibration uses defect overlays, not committed broken content.** A calibration scenario boots dev-world and applies its defect during setup through the normal admin and authoring verbs, on the scratch copy. Examples: dig a room with no exits, set an item's value to 10×, raise a mob far past its band. No broken fixture is committed, and dev-world stays the only committed world.
+
+## Architecture brief
+
+*(In-flight. Trimmed on ship.)*
+
+### Placement
+
+| Piece | Home | Layer / role |
+|---|---|---|
+| `playtest` run mode (CLI), `playtest-mcp` run mode | `Server/PlaytestRunMode.cs`, `Server/PlaytestMcpRunMode.cs` (beside `SimulateRunMode`) | Initiators (INV-10): compose, run, write the report, exit or serve |
+| Gameplay-subscription extraction | `Server/CompositionRoot.cs` (a subscribe-handlers method) | Composition; guard-tested |
+| Session-entry extraction | Shared helper beside the account/session code (the planner places it; it must not be transport-bound) | Initiator-tier helper |
+| Playtest world factory, world, tick driver, `BotSession` | `Core/Modules/Playtest/` (new module; `AddPlaytestModule`) | Harness infrastructure; the tick driver is an Initiator (it publishes `HeartbeatTickEvent`) |
+| Agent formatter (`playtest` transport) | `Core/Output/` beside `TelnetOutputFormatter` | Output framework |
+| Recorder | `Core/Modules/Playtest/Handlers/` | Handler at `Ai` priority, observation-only |
+| Grader, report writer, scenario store, stuck detector | `Core/Modules/Playtest/Systems/` | Domain systems: pure, return results (INV-5) |
+| Bot policies (six scripted behaviours) | `Core/Modules/Playtest/Policies/` | Drivers: emit command lines only |
+| `playtestExpectations` standards family | `BalanceInspection/Standards` document + Standards page | Data + editor |
+| Personas, analyst | `.claude/agents/persona-*.md`, `.claude/agents/playtest-analyst.md`; project MCP config for `playtest-mcp` | Agent tooling |
+| Findings ledger | `docs/playtest/` (new bucket) | Durable doc |
+| Golden | `Hedron.Tests/Playtest/` | Test tier (registered in [`07-testing.md`](../architecture/07-testing.md)) |
+| Feature doc | `docs/features/playtest/` (sibling of `simulation/`) | Living doc on ship |
+
+### Seams and dispositions
+
+| Seam | Disposition |
+|---|---|
+| World API (act / observe / status / step) with interchangeable drivers | **Build now**; the API-runner driver is **shaped for later** |
+| Handler-subscription extraction | **Build now** (INV-19; the precondition for any second world) |
+| Session-entry extraction | **Build now** (INV-19; A1 must test the real entry path) |
+| Per-world composition (stepped clock, seeded random, in-memory persistence, scratch content copy) | **Build now** |
+| Tick driver as the single writer; MCP calls marshalled onto the world thread | **Build now** (INV-31 confine posture) |
+| Agent JSON formatter + typed conversion of the bot-critical messages | **Build now**; full structuring is an **on-touch ratchet** (client-tier direction) |
+| Event-sourced recorder + pure grader + standards family | **Build now** |
+| Scenario YAML store | **Build now** over the shared YAML definition store from Phase 5 `help-topics`. If this slice lands first, *it* is the third family and does the extraction instead. Either way the extraction happens once. |
+| N bots per world | **Build now** (the tick driver steps every bot; the golden uses 1) |
+| Automation marker on live accounts (R28 beyond harness worlds) | **Defer**: harness worlds are already isolated and tagged by transport key and report. An account-level marker lands with live-server bots, after the threading decision. Proposed backlog entry below. |
+| Headless Claude API persona runner | **Defer** (resolved at refine; a new driver behind the world API when it lands) |
+
+### Observers, ordering, events
+
+- **No new domain events.** The recorder consumes the existing ones. If a metric needs a fact no event carries, the planner adds a thin past-tense event at the publishing seam rather than letting the recorder query state. The exception is the stuck detector, which is harness *measurement*: it may read spawn-slot state to tell "waiting" from "stuck".
+- **Tick order (INV-7):** queued commands are dispatched → `HeartbeatTickEvent` (existing handler priorities unchanged) → the output-flush handler drains the buffers → the driver collects observations. The recorder at `Ai` (95) sees each event after every gameplay handler.
+- **Game time per step** equals the configured heartbeat interval, with the stepped clock advanced by the same `Elapsed`, so respawn delays, regeneration and bleed-out behave exactly as live.
+
+### Invariants in tension
+
+- **INV-12:** many worlds per process. This is the sandbox nuance already accepted for `SandboxWorld`; the feature doc states it explicitly.
+- **INV-26:** all gameplay time and chance come through the stepped clock and the seeded `IRandom`. The known wall-clock debt in `AccountSystem` (creation timestamps) must not reach any reported or graded value. Either the report excludes it, or the substrate slice fixes that debt with the injected clock (the planner chooses, and should prefer the fix).
+- **INV-31:** confine per world; the MCP transport marshals; no harness thread touches a live server world.
+- **INV-5 / INV-9 / INV-10:** the recorder is a handler; the grader and stores are pure systems; the run modes and tick driver are initiators; policies act only by dispatching command lines.
+- **INV-19:** three frameworks land in the substrate (subscriptions, session entry, agent formatter + message ratchet), plus the YAML store if it lands third.
+- **INV-18:** scenario YAML, example scenarios and the `playtest` CLI ship with the substrate. The standards family ships with its Standards-page rows. The Blazor Playtest page is a later slice of this program, as resolved at refine.
+- **INV-25:** each harness system gets Tier-1 tests; determinism is pinned (same seed → identical report); and the guard test pins the subscription set. The golden is a new test tier, registered in `07-testing.md`.
+- **INV-17:** a new flow, the **playtest run journey** (`playtest` / `playtest-mcp` → world boot → tick loop → recorder → grade → report). It also touches flow-01 (the subscriptions move), flow-02/07 (the session-entry extraction) and flow-06 (the new transport formatter).
+- **INV-20:**
+  - **New:** a `run-playtest` skill (scenario authoring, running, reading reports, the autonomy rule).
+  - **Updated:** `balance-tuning` (R27 autonomy amendment), `add-tests` (the golden tier), `add-command` and `add-handler` (new gameplay subscriptions go through the extracted method).
+- **INV-30 / INV-27:**
+  - the findings ledger is a new bucket, registered in `09-documentation.md`;
+  - the R27 autonomy rule gets one living home ([balance.md](../design/balance.md), cited by the skills), while the 2026-07-17 record stays as history.
+
+### Slice decomposition
+
+| # | Slice | Contents | Requirements | Depends on |
+|---|---|---|---|---|
+| PT-1 | `playtest-world-substrate` | Subscription + session-entry extractions; per-world composition; tick driver; `BotSession` + agent formatter + bot-critical message conversion; R27 policy amendment; tests drive a world by command lines, with no bots yet | R2–R6, R27–R28 | — (can start alongside Phase 5 slice 1; boots through `world.yaml` once that lands, or config until then) |
+| PT-2 | `playtest-run-mode` | Recorder; grader + `playtestExpectations` family; scenario YAML + store; `playtest` CLI; report writer; acceptance-walker policy; a smoke golden on the hub skeleton | R1, R7 (walker), R10–R14, R25 | PT-1; Phase 5 slice 1 |
+| PT-3 | `scripted-bots` | Explorer, grinder, shopper, die-and-recover, newcomer; stuck detection; N bots per world; multi-seed sweep runner; per-run findings files | R7–R9, R15, R21 | PT-2 |
+| — | Acceptance golden (= Phase 5 slice 9) | A1–A8 graded on dev-world | R14 + Phase 5 R26–R29 | PT-2; Phase 5 drops B1–B3 |
+| PT-4 | `persona-layer` | `playtest-mcp` run mode + `report_finding` tool; five personas; defect-overlay calibration; analyst agent + ledger (including the balance-reviewer role); `run-playtest` skill | R16–R24 | PT-2 (PT-3 recommended first) |
+| PT-5 | `playtest-editor-page` | Blazor Playtest page: compose, launch, reports, ledger browser | R26 | PT-2 |
+
+Interleaving with Phase 5: PT-1 runs in parallel with Phase 5 slices 1–5. PT-2 is ready as soon as the hub skeleton exists, so bots check each content drop from B1 onward. The acceptance golden closes both programs.
+
+### Resolved decisions (advisor intake)
+
+*(Confirmed by the user on 2026-10-29. Do not relitigate.)*
+
+1. **Perception:** split channels. Metrics come from events; bots perceive JSON observations; only the bot-critical messages are structured now, and the rest on-touch. Rejected: structuring all output first; bots parsing text.
+2. **Findings ledger:** committed under `docs/playtest/`, maintained through PRs; raw reports stay gitignored. Rejected: a gitignored ledger.
+3. **Persona transport:** a `playtest-mcp` run mode with `look`/`act`/`status`/`wait`/`report_finding`, connected through a project MCP config. Rejected: a hand-rolled CLI step loop.
+4. **Calibration:** defect overlays applied in setup on a scratch content copy. Rejected: committed broken fixtures.
+
+**Advisor calls** *(cheap to veto at planning)*:
+- the world-API/driver seam;
+- per-world scratch content copy and in-memory persistence;
+- the two extractions in PT-1;
+- `Core/Modules/Playtest/` as the home;
+- the YAML-store "whoever is third extracts" rule;
+- the account automation marker deferred.
+
+**Proposed backlog entry** *(added on your confirmation)*: "🔵 Account-level automation marker for live-server bots (deferred from the playtest program): harness worlds are isolated and transport-tagged; when bots ever run against a live server, after the world-state threading decision, accounts carry an automation marker so anti-automation detection (horizon) can tell them apart."
+
 ---
 
-*Pre-refinement strategy notes (advisor input) follow.*
+*Pre-refinement strategy notes (advisor input, superseded by the brief above wherever they differ) follow.*
 
 ## Why: the coverage gap
 
@@ -280,12 +408,10 @@ Resolved at `/refine` (2026-10-29). See [Resolved decisions](#resolved-decisions
 
 ## Open questions
 
-- **Threading posture confirmation.** Confirm that one world per thread, with the tick driver as the single writer, satisfies INV-31, and that the harness adds no new writer to any live server world. *(Advisor, with code access.)*
-- **Harness placement.** Where the run mode, the harness, the bot behaviours and the tool surface live: the `Server` run mode, a `Core/Modules/Playtest/` module or a separate project, and the `.claude/` agents. *(Advisor.)*
-- **Observation format.** What a bot or persona "sees": structured output messages through an agent formatter (see the strategy notes' known gap #4 on remaining prose output), and how much remaining `PlainMessage` prose needs structuring for bots to read outcomes reliably. *(Advisor; this overlaps the client-tier doc's structured-output direction.)*
-- **Tool-surface transport.** How Claude Code reaches a playtest world: an MCP server versus a CLI step loop. *(Advisor.)*
-- **Slice decomposition and ordering** against the Phase 5 slices. This program's substrate needs Phase 5 slice 1 (`world.yaml`, a bootable dev-world). The acceptance golden needs content drops B1–B3. *(Advisor.)*
-- **Handler-wiring extraction.** The strategy notes' known gap #2: gameplay subscriptions live in `Server/Program.cs`, so a harness would copy them. Confirm the extraction lands in the substrate slice. *(Advisor; an INV-19 framework piece.)*
-- **Findings-ledger location and format.** Where the ledger lives: beside reports under `data/`, or in `docs/`, given that run artifacts are not committed and the ledger is a durable record. *(Advisor + user.)*
-- **Stuck-detection window and budget defaults.** These are tuning values, set during the first scripted-bot slice. *(Planner/designer.)*
-
+- **Static or shared state across worlds.** Confirm that no registry, cache or singleton is process-static in a way that two playtest worlds in one process would share and mutate. Where one is (for example a static registry populated at boot), PT-1 makes it per-container or proves it immutable. *(Planner, PT-1, with code access; load-bearing for parallel sweeps.)*
+- **Bot-critical message list.** The exact `PlainMessage` sites PT-1 converts, derived from what the acceptance walker must branch on. *(Planner, PT-1.)*
+- **Session-entry extraction boundary.** Which steps of the post-login sequence (hydration, `PlayerConnectedEvent`, starting room and respawn defaults) move into the shared piece. *(Planner, PT-1.)*
+- **`AccountSystem` wall-clock debt.** Fix it with the injected clock in PT-1 (preferred), or exclude account timestamps from reports. *(Planner, PT-1.)*
+- **Golden runtime budget.** The maximum wall time for the per-PR golden, which bounds the scenario's length and tick count. *(User + planner, PT-2.)*
+- **Stuck-detection window and budget defaults.** Tuning values, set during PT-3. *(Planner/designer.)*
+- **MCP SDK choice and project MCP config shape** for `playtest-mcp`. *(Planner, PT-4.)*
