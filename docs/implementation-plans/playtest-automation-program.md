@@ -269,7 +269,7 @@ Both run against seeded, replayable worlds and report against designer-stated ex
 
 | # | Slice | Contents | Requirements | Depends on |
 |---|---|---|---|---|
-| PT-1 | `playtest-world-substrate` | Subscription + session-entry extractions; per-world composition; tick driver; `BotSession` + agent formatter + bot-critical message conversion; R27 policy amendment; tests drive a world by command lines, with no bots yet | R2–R6, R27–R28 | — (can start alongside Phase 5 slice 1; boots through `world.yaml` once that lands, or config until then) |
+| PT-1 | [`playtest-world-substrate`](playtest-world-substrate.md) | Subscription + session-entry extractions; per-world composition; tick driver; `BotSession` + agent formatter + bot-critical message conversion; R27 policy amendment; tests drive a world by command lines, with no bots yet | R2–R6, R27–R28 | — (can start alongside Phase 5 slice 1; boots through `world.yaml` once that lands, or config until then) |
 | PT-2 | `playtest-run-mode` | Recorder; grader + `playtestExpectations` family; scenario YAML + store; `playtest` CLI; report writer; acceptance-walker policy; a smoke golden on the hub skeleton | R1, R7 (walker), R10–R14, R25 | PT-1; Phase 5 slice 1 |
 | PT-3 | `scripted-bots` | Explorer, grinder, shopper, die-and-recover, newcomer; stuck detection; N bots per world; multi-seed sweep runner; per-run findings files | R7–R9, R15, R21 | PT-2 |
 | — | Acceptance golden (= Phase 5 slice 9) | A1–A8 graded on dev-world | R14 + Phase 5 R26–R29 | PT-2; Phase 5 drops B1–B3 |
