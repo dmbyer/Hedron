@@ -23,7 +23,7 @@ Three things land in this slice. First, the dev-world becomes the primary playab
 - The starting-room consumers already read the **resolved** `WorldConfiguration` (verified in code):
   - `AccountSystem.CreateCharacterAsync` sets `LocationComponent` plus `RespawnComponent.RoomBlueprintId`;
   - `DeathSystem.Respawn` uses it as the fallback;
-  - `CharacterHydrationHandler.ResetToStartingRoom` uses it.
+  - `CharacterHydrationHandler.ResetToStartingRoom` uses it, but reads `StartingRoomEntityId` **twice** (once to assign it, once to derive the blueprint id; `CharacterHydrationHandler.cs:103-104`). With read-through properties that is two volatile reads, so this slice changes it to one snapshot read (spec-review INV-31 finding).
   The only raw-config reader is the rename advisory in `ContentDefinitionCatalog` (ctor line ~202, use ~line 483). `GenerationRunMode`, `SimulateRunMode` and `Hedron.Web` do not read it.
 - Per-kind loading is subdirectory-scoped in every consumer, so a root-level `world.yaml` is invisible to all of them:
   - `WorldContentLoader.LoadKindAsync` (`areas/`, `rooms/`, `items/`, `mobs/`);
@@ -43,13 +43,13 @@ Three things land in this slice. First, the dev-world becomes the primary playab
    - Then to the **ordinal-least** live `room.*` id (`AnyRoomFallback`, now deterministic).
    - With no rooms at all, it logs an error and publishes `Source = Unresolved` with entity id 0.
 3. ◆ With no `world.yaml`, resolution is identical to today (config → void → any room). Existing operator worlds need no migration.
-4. ◆ A malformed `world.yaml` logs an error and is treated as an empty manifest (warn-not-error). Unknown keys are ignored.
+4. ◆ A malformed `world.yaml` logs an error and is treated as an empty manifest for **resolution** (warn-not-error). Unknown keys are ignored on read and are **not preserved** on write. **Writes refuse while the existing file is malformed:** `startroom here`, the World-page save and the rename cascade return an error and leave the hand-edited file untouched, so a broken manifest is fixed by hand, never silently overwritten.
 5. ◆ `ReloadAsync` re-reads `world.yaml` and re-resolves. The snapshot is replaced as **one immutable reference**, so a reader never sees an entity id from one resolution paired with a blueprint id from another.
 6. ◆ A newly created character's `LocationComponent.RoomEntityId`/`RoomBlueprintId` and `RespawnComponent.RoomBlueprintId` all come from **one** read of the resolved snapshot (R15).
-7. ◆ `DeathSystem.Respawn`'s fallback uses one read of the resolved snapshot (R16 unchanged otherwise).
-8. ◆ `startroom here` (admin) does three things: (a) writes `world.yaml` with `startingRoomId` set to the admin's current room, preserving any other manifest fields; (b) re-resolves live, so the snapshot is now `Source = Manifest`; (c) publishes `StartingRoomSetByAdminEvent` with the previous and new ids. No `SaveEntityAsync`. Existing characters' `RespawnComponent` is untouched.
+7. ◆ `DeathSystem.Respawn`'s fallback, and `CharacterHydrationHandler`'s reset of a character whose stored room is unresolvable, each use **one** read of the resolved snapshot for both the entity id and the blueprint id (R16 unchanged otherwise).
+8. ◆ `startroom here` (admin) does three things: (a) writes `world.yaml` with `startingRoomId` set to the admin's current room, preserving the known manifest fields (`schemaVersion`; unknown keys are not preserved; refused if the existing file is malformed, see Postcondition 4); (b) re-resolves live, so the snapshot is now `Source = Manifest`; (c) publishes `StartingRoomSetByAdminEvent` with the previous and new ids. `PreviousStartingRoomId` is the **previous resolved snapshot's** `BlueprintId`, which may come from config or a fallback, not only the previous manifest declaration. No `SaveEntityAsync`. Existing characters' `RespawnComponent` is untouched.
 9. ◆ `startroom here` outside a world room refuses with an error: no file write, no snapshot change, no event.
-10. `startroom` (no argument) is read-only. It shows the resolved room's name and id, the source, and any declared-but-unresolved id.
+10. `startroom <any token other than here>` writes the usage line (a standard argument error) and changes nothing. `startroom` (no argument) is read-only. It shows the resolved room's name and id, the source, and any declared-but-unresolved id.
 11. ◆ Catalog `RenameAsync(Room, old, new)` behaves as follows:
     - If `world.yaml` declares `old` (case-insensitive), it rewrites the manifest to `new` under the catalog write gate (file-only) and adds an advisory.
     - If `World:StartingRoomBlueprintId == old`, the existing config advisory is still emitted.
@@ -58,7 +58,7 @@ Three things land in this slice. First, the dev-world becomes the primary playab
     - saves an id that matches no authored room, with a warning;
     - with no declared id, writes a manifest with no `startingRoomId` (the config fallback applies);
     - serializes with every other catalog write.
-13. ◆ A root `world.yaml` causes no load error, no template registration, and no `generate` validation error. The template registry holds only the per-kind templates.
+13. ◆ A root `world.yaml` causes no load error and no template registration; the template registry holds only the per-kind templates. *(Not ◆, by rubric:* it also causes no `generate` validation error. `GenerationRunMode.ValidateEmitted` is private and scans only the kind subdirectories (`Server/GenerationRunMode.cs:167-185`), so a root file is structurally invisible to it. This is plumbing with no decision to test.)
 14. ◆ Configuration layering for the `DevWorld` environment:
     - The Server host and the `generate`/`simulate` run modes layer `appsettings.{Environment}.json` over `appsettings.json`, with `HEDRON_` env vars winning.
     - `DOTNET_ENVIRONMENT=DevWorld` points the host at `content/dev-world/` and `data/dev-world.db`.
@@ -79,7 +79,7 @@ Three things land in this slice. First, the dev-world becomes the primary playab
    - builds the live **room** set (`RoomComponent` + `BlueprintComponent`, excluding `PersistentEntity`);
    - calls `StartingRoomResolver.Resolve(manifestId, configId, roomIds)`, following manifest → config → void → least room id;
    - logs the returned warnings and publishes `WorldConfiguration.StartingRoom = new ResolvedStartingRoom(...)` as a single reference swap.
-4. **Fan-out.** `WorldContentBootstrap` publishes `WorldContentReadyEvent`. `CharacterHydrationHandler` resets characters with an unresolvable room to `StartingRoomEntityId` (a read-through of the snapshot; the handler is unchanged).
+4. **Fan-out.** `WorldContentBootstrap` publishes `WorldContentReadyEvent`. `CharacterHydrationHandler` resets characters with an unresolvable room from **one** read of the snapshot (`var start = _worldConfig.StartingRoom;` sets both `RoomEntityId` and `RoomBlueprintId`). Its pre-existing reset-time `SaveEntityAsync` is untouched (acknowledged debt; see the persistence audit).
 5. **Create.** On the login path, `AccountSystem.CreateCharacterAsync` reads `_worldConfig.StartingRoom` **once** and seeds `LocationComponent` and `RespawnComponent` from it (R15). Starter abilities come from `CharacterDefaults:StartingAbilities` as today.
 6. **Die.** `PlayerDeathHandler` calls `DeathSystem.Respawn`, which resolves `RespawnComponent.RoomBlueprintId` (the hub start for dev-world characters). If that is unresolvable, it uses one read of the snapshot (R16).
 7. **Admin declares in game.** `StartRoomCommand` handles `startroom here`:
@@ -109,11 +109,11 @@ Resolution itself publishes nothing. The loader is a system, so the snapshot swa
 | `IWorldManifestStore` / `WorldManifestStore` (`Core/Modules/World/Systems/`) | file store (World module) | **new** | `string FilePath`; `WorldManifestReadResult Read()` → `(WorldManifest Manifest, bool Exists, string? Error)`; `Task WriteAsync(WorldManifest, CancellationToken)` (`AtomicFileWrite`, camelCase, nulls omitted) |
 | `StartingRoomResolver` (`Core/Modules/World/Systems/`) | static pure helper (precedent: `RoomCoordinateCollisions`) | **new** | `StartingRoomDecision Resolve(string? manifestId, string? configId, IReadOnlyCollection<string> roomIds)` → `(string? BlueprintId, StartingRoomSource Source, IReadOnlyList<string> Warnings)`, case-insensitive |
 | `ResolvedStartingRoom` + `StartingRoomSource` (`Core/`, beside `WorldConfiguration`) | immutable record + enum | **new** | `(uint EntityId, string? BlueprintId, StartingRoomSource Source, string? DeclaredId)`; enum `Manifest, Configuration, VoidFallback, AnyRoomFallback, Unresolved` |
-| `WorldConfiguration` | runtime config singleton | **changed** | `ResolvedStartingRoom StartingRoom { get; set; }` backed by `Volatile.Read`/`Write`; `StartingRoomEntityId`/`StartingRoomBlueprintId` become **get-only read-throughs** |
+| `WorldConfiguration` | runtime config singleton | **changed** | `ResolvedStartingRoom StartingRoom { get; set; }` backed by `Volatile.Read`/`Write`, **defaulting to a non-null `Unresolved` snapshot** (`CompositionRoot.cs:125` and four test files construct `new WorldConfiguration()` without setting it); `StartingRoomEntityId`/`StartingRoomBlueprintId` become **get-only read-throughs** |
 | `IWorldContentLoader` / `WorldContentLoader` | domain system | **changed** | + ctor `IWorldManifestStore`; private `ResolveStartingRoom` becomes public `ResolvedStartingRoom ResolveStartingRoom()` (re-reads the manifest, resolves over the live room set, publishes, returns) |
 | `AccountSystem.CreateCharacterAsync` | domain system | **changed (read only)** | one snapshot read feeds Location and Respawn |
 | `DeathSystem.Respawn` | domain system | **changed (read only)** | the fallback reads the snapshot once |
-| `CharacterHydrationHandler` | handler | **unchanged** | reads `StartingRoomEntityId` once (read-through), so it is tear-free as is |
+| `CharacterHydrationHandler` | handler | **changed (read only)** | `ResetToStartingRoom` takes one `StartingRoom` snapshot and sets `RoomEntityId` and `RoomBlueprintId` from it. Previously it read `StartingRoomEntityId` twice, a torn read across a concurrent `reload`/`startroom`. The existing `SaveEntityAsync` stays unchanged (acknowledged debt). |
 | `IWorldManifestAuthoring` (`Core/Modules/Authoring/Systems/`) | authoring interface, implemented by `ContentDefinitionCatalog` | **new** | `WorldManifestView Load()`; `WorldManifestView Preview(WorldManifest draft)`; `Task<ContentWriteResult> SaveAsync(WorldManifest, CancellationToken)`. `WorldManifestView = (Manifest, FilePath, Exists, ConfigFallbackId, StartingRoomDecision Preview)`. A separate interface keeps the four `IContentDefinitionCatalog` test fakes untouched; DI forwards the catalog singleton under both (precedent: `IVerbRegistry` forwarding in `CompositionRoot`) |
 | `ContentDefinitionCatalog.RenameCoreAsync` | authoring system | **changed** | + ctor `IWorldManifestStore`; rewrites a matching manifest declaration under the gate; the config advisory text is kept |
 | `StartRoomCommand` (`Core/Modules/Admin/Commands/`) | admin command (Initiator) | **new** | `startroom [here]`, `AdminRequirement`, `CommandMatchingMode.Full` |
@@ -143,11 +143,13 @@ Resolution itself publishes nothing. The loader is a system, so the snapshot swa
   - `features/world/world-content.md`: the manifest subsection, startup phase 7, the content-file-shape table row for `world.yaml`, and the config-keys consideration. Also fix the phase-7 drift: it says "fail fast", but the code falls back.
   - `features/world/world.md`: config keys.
   - `features/combat/death-system.md` line 38 and `features/accounts/account-system.md` (the snapshot read).
+  - `reference/handlers.md` (`CharacterHydrationHandler` row: one snapshot read).
+  - `architecture/checklist.md` (INV-26 *Code* clause) and `architecture/07-testing.md` (~line 168): remove `AccountSystem` from the wall-clock-debt list. It already uses the injected `IClock` (`AccountSystem.cs:70/93/168`), so the text is stale.
   - `architecture/05-configuration.md`: the starting room becomes Category 2 (manifest) with a Category 1 fallback.
   - Flows 01, 05, 07, 20.
   - The `reference/systems.md` rows for `WorldContentLoader` (its dependency list is stale: it reads `IOptions<WorldOptions>`, not `IConfiguration`), `WorldManifestStore` and `StartingRoomResolver`.
 - **Depends on:** nothing.
-- **Out of scope:** any authoring surface (WP2), dev-world content and profile (WP3), and `CharacterHydrationHandler`, which is untouched.
+- **Out of scope:** any authoring surface (WP2), dev-world content and profile (WP3), and any change to `CharacterHydrationHandler` beyond its single snapshot read (its save behavior stays as is).
 - **Exit criterion:** the WP1 tests in the Test plan are green; `dotnet build` and `dotnet test` are green; booting against a directory with no `world.yaml` behaves exactly as before (Postcondition 3).
 
 ### WP2 — Manifest authoring and inspection tooling (INV-18)
@@ -167,6 +169,8 @@ Resolution itself publishes nothing. The loader is a system, so the snapshot swa
 - **Docs:**
   - `features/admin-authoring/admin-commands.md` (`startroom`);
   - `features/admin-authoring/content-tooling.md` (World page; rename cascade);
+  - `features/admin-authoring/content-authoring.md` (~line 23, the editor-page list: add `/world`);
+  - `.claude/skills/add-command/SKILL.md`, section "Admin blueprint-authoring commands (INV-21)": one line for admin mutation of a **non-entity world definition** (write the definition file, re-resolve the live derived state through the owning system, no `SaveEntityAsync`), with `startroom` as the precedent (INV-20). Help topics in slice 4 repeat the pattern;
   - `reference/commands.md` (`startroom`);
   - `reference/handlers.md` (`AdminAuditHandler` subscription);
   - `reference/systems.md` (`IContentDefinitionCatalog` row: the manifest authoring interface and the rename cascade);
@@ -188,6 +192,7 @@ Resolution itself publishes nothing. The loader is a system, so the snapshot swa
      - `features/world/world-content.md` (the "Content ownership" table row and the "Keep `content/dev-world/` generic" bullet; also correct the phantom `isSafe`/`lightLevel` in the room row of the content-file-shape table, since neither field exists);
      - `CLAUDE.md` (line 17: "sized to the mechanic" goes; line 15's "test world" becomes "the primary playable baseline");
      - `content/dev-world/README.md`, `content/README.md` and the root `README.md` §"Your world, your content" (each restates the old clause, so all must agree; INV-27 one-fact-one-home: each keeps a one-line summary plus a link);
+     - the root `README.md` **Configuration** section (`README.md:82-102`): the `DevWorld` environment profile and `DOTNET_ENVIRONMENT=DevWorld`; `appsettings.{env}.json` layering for the hosts and run modes; the `World` row (~`:88`) now says `World:StartingRoomBlueprintId` is the **fallback** behind `world.yaml`. Also correct `README.md:82` ("Each host reads an `appsettings.json` next to its project") to whatever the entry check establishes;
      - `docs/roadmap/plan.md`: the "Content ownership shapes the program" paragraph (line 49), which now states the decided answer: acceptance, CI goldens and playtests run on dev-world, and the operator's world is outside Phase 5's definition of done.
   2. **Profile.** Add the following and **leave the default `appsettings.json` content directory unchanged**:
      - `Server/appsettings.DevWorld.json` (`World:ContentDirectory=content/dev-world/`, `Persistence:DatabasePath=data/dev-world.db`; `CopyToOutputDirectory` in the csproj);
@@ -271,9 +276,10 @@ startingRoomId: room.hub.square  # optional; room blueprint id where new charact
 - **`WorldConfiguration.StartingRoom`: guarded by immutability.**
   - **Writers:** `WorldContentBootstrap` (startup, before the listener), `ReloadCommand` and `startroom` (session threads), and `Apply.razor` → `ReloadAsync` (a circuit thread, in the web host's own process).
   - **Readers:** session threads (character creation), the heartbeat (`PlayerDeathHandler` → `DeathSystem`) and `CharacterHydrationHandler`.
-  - **Guarantee:** every write publishes one new `ResolvedStartingRoom` with a `Volatile.Write`, and every reader takes one `Volatile.Read`. This fixes the existing two-field torn-read window. Concurrent writers are last-writer-wins on a whole snapshot, and both writers derive from the same file.
+  - **Guarantee:** every write publishes one new `ResolvedStartingRoom` with a `Volatile.Write`. **Every reader takes exactly one read of `StartingRoom` per operation** and uses that snapshot for both the entity and blueprint ids: `AccountSystem`, `DeathSystem` and `CharacterHydrationHandler` (changed in this slice; it previously read `StartingRoomEntityId` twice). The get-only read-through properties exist only for single-field callers; no caller may combine two of them. This fixes the existing two-field torn-read window. Concurrent writers are last-writer-wins on a whole snapshot, and both writers derive from the same file.
 - **`WorldManifestStore`: confined/stateless.** It keeps no cached manifest and builds a YamlDotNet (de)serializer per call (YamlDotNet is not thread-safe; precedent: the `ThreadLocal` deserializers). Writes go through `AtomicFileWrite`.
   - **In the web host:** every manifest write goes through the catalog's `_writeGate`, so it serializes with rename cascades.
+  - **In the Server process:** `startroom` writes are **not** gated (the gate is the web host's catalog). Two admins running `startroom here` at once is last-writer-wins on the file (`AtomicFileWrite` keeps each write whole), and the live snapshot converges because each resolution re-reads the file.
   - **Cross-process:** `startroom` in the Server and the editor in Web can both write `world.yaml`. That is the existing, backlogged cross-process staleness between telnet builder verbs and the editor; this slice does not widen it.
 - **Live world components:** no new mutation path. `startroom` mutates only the config snapshot and a file.
 
@@ -283,7 +289,7 @@ startingRoomId: room.hub.square  # optional; room blueprint id where new charact
   - `RespawnComponent` (`[Persistent]`) and `LocationComponent` are touched as **values only**, with no shape change. They are correctly persistent for characters.
   - `WorldConfiguration` and `ResolvedStartingRoom` are not components. They are runtime state re-derived on every load/reload and never persisted.
   - `world.yaml` is content YAML and never SQLite (INV-23).
-- **Level 3 — save-on-change:** no new `SaveEntityAsync` anywhere. `startroom` changes no persistent entity: existing characters' respawn points are deliberately left alone (`setrespawn` exists for that). *Pre-existing, untouched:* `CharacterHydrationHandler` already saves a character it resets. This slice does not modify that handler.
+- **Level 3 — save-on-change:** no new `SaveEntityAsync` anywhere. `startroom` changes no persistent entity: existing characters' respawn points are deliberately left alone (`setrespawn` exists for that). *Pre-existing, acknowledged debt (SR-2):* `CharacterHydrationHandler` already saves a character it resets (`CharacterHydrationHandler.cs:70`), which falls outside INV-22's three permitted boundary saves. This slice changes only that handler's snapshot read, not its save. The debt is tracked in the backlog's persistence save-on-change audit entry ([`../roadmap/backlog.md`](../roadmap/backlog.md), "Persistence save-on-change cleanup + manual `save`/`quit` commands").
 
 ## Flows introduced or modified
 
@@ -305,28 +311,29 @@ No new canonical flow: manifest resolution is a sub-step of the startup and relo
 | # | Tier | Target | Asserts | Postcondition |
 |---|---|---|---|---|
 | T1 | system-unit | `StartingRoomResolverTests` | declared + present → `Manifest`; declared + missing → `Configuration` with a warning; manifest null → `Configuration` (no warning); config missing → `VoidFallback`; no void → `AnyRoomFallback` picks the ordinal-least id regardless of input order; empty set → `Unresolved`; case-insensitive match | 1, 2, 3 |
-| T2 | system-unit (temp dir) | `WorldManifestStoreTests` | missing file → `Empty`, `Exists=false`, no error; write→read round-trip preserves `StartingRoomId`/`SchemaVersion`; malformed YAML → `Empty` + `Error`, no throw; an unknown key is ignored; a null `StartingRoomId` is omitted from the written file and reads back null | 4, 8 |
-| T3 | flow (temp content dir, real loader + registry) | `WorldContentLoaderStartingRoomTests` | `world.yaml` + rooms → `StartingRoom = (entity, id, Manifest)`; `world.yaml` naming a **mob** blueprint → not accepted (falls to config); a root `world.yaml` registers no template and logs no load error; after editing `world.yaml`, `ReloadAsync` → the snapshot names the new room (and is a new reference); public `ResolveStartingRoom()` re-reads the file | 1, 2, 5, 13 |
+| T2 | system-unit (temp dir) | `WorldManifestStoreTests` | missing file → `Empty`, `Exists=false`, no error; write→read round-trip preserves `StartingRoomId`/`SchemaVersion`; malformed YAML → `Empty` + `Error`, no throw; an unknown key is ignored on read and absent after a rewrite; a null `StartingRoomId` is omitted from the written file and reads back null | 4, 8 |
+| T3 | flow (temp content dir, real loader + registry) | `WorldContentLoaderStartingRoomTests` | `world.yaml` + rooms → `StartingRoom = (entity, id, Manifest)`; `world.yaml` naming a **mob** blueprint → not accepted (falls to config); a root `world.yaml` registers no template and logs no load error; after editing `world.yaml`, `ReloadAsync` → the snapshot names the new room (and is a new reference); public `ResolveStartingRoom()` re-reads the file; a content directory with **no room templates** → `StartingRoom.Source == Unresolved` with entity id 0, an error logged and no throw | 1, 2, 5, 13 |
 | T4 | flow (existing) | `WorldContentLoaderTests`, `WorldContentReloadTests` (on touch) | still green with a stub/empty store; no-manifest behavior unchanged | 3 |
 | T5 | system-unit | `AccountSystemTests` (extend `CreateCharacterAsync_attaches_RespawnComponent` / `_attaches_LocationComponent`) | Location entity id + blueprint id and `RespawnComponent.RoomBlueprintId` all equal the snapshot's values; fixtures move from setting the two old fields to setting `StartingRoom` | 6 |
 | T6 | system-unit | `DeathSystemTests` (update the two `Respawn_falls_back_to_starting_room_*` tests) | the fallback location equals the snapshot's `(EntityId, BlueprintId)` | 7 |
 | T7 | flow | `StartRoomCommandFlowTests` | admin in room X runs `startroom here` → `world.yaml` declares X with other fields preserved; `StartingRoom.Source == Manifest` and its entity is X; `StartingRoomSetByAdminEvent` is captured with the previous id; a character created afterwards lands at X with respawn X; a pre-existing character's `RespawnComponent` is unchanged; no persistence save is recorded | 8 |
-| T8 | flow | same class | `startroom here` with the invoker in a non-room location → error output; file unchanged; snapshot reference unchanged; no event | 9 |
+| T8 | flow | same class | `startroom here` with the invoker in a non-room location → error output; file unchanged; snapshot reference unchanged; no event. `startroom here` with a **malformed existing `world.yaml`** → error, file byte-identical, no event. `startroom bogus` → usage error, nothing changed | 4, 9, 10 |
 | T9 | system-unit (temp dir) | `ContentDefinitionCatalogTests` | `Rename_ManifestStartingRoom_RewritesWorldYaml` (the manifest now names the new id, and the advisory is present); the existing `Rename_StartingRoom_EmitsAdvisoryWarning_NoConfigOrSqliteWrite` stays green (no manifest present); renaming a non-starting room leaves `world.yaml` byte-identical | 11 |
 | T10 | system-unit (temp dir) | `WorldManifestAuthoringTests` (against `ContentDefinitionCatalog`) | `SaveAsync` refuses a malformed id (error, nothing written); unknown room → `Success` + warning; null → writes a manifest with no `startingRoomId`; `Preview` returns the resolver decision over catalog room ids plus the config fallback | 12 |
 | T11 | system-unit | `RunModeConfigurationTests` (temp dir) | `appsettings.{env}.json` overrides `appsettings.json`; a missing env file is tolerated; a null environment loads the base only | 14 |
 | T12 | flow (fixture guard) | `DevWorldFixtureTests` | copy the repo's `content/dev-world/` (located by walking up to `Hedron.sln`) to a temp dir; boot the real loader; assert: `StartingRoom.Source == Manifest` and its id is `room.hub.square`; `area.hub` exists with `Pvp == false`; **every** dev-world room template has `X`/`Y`/`Z`; every room is reachable from the start, and the start is reachable from every room (BFS over template exits both ways); no `room.void` template. The guard keeps paying as content drops grow the world (R6) | 15 |
+| T14 | handler (on-touch ratchet; the handler had no tests) | `CharacterHydrationHandlerTests` | a character whose stored room is unresolvable is reset to the snapshot's `(EntityId, BlueprintId)` as a pair (both from one `StartingRoom` read); a character with a resolvable room is untouched | 7 |
+| T15 | system-unit (extend existing) | `ContentDefinitionCatalogWriteSerializationTests.Every_public_mutator_completes_in_sequence_without_deadlock` (`Hedron.Tests/Authoring/ContentDefinitionCatalogWriteSerializationTests.cs:128`) | add `IWorldManifestAuthoring.SaveAsync` **and** a room rename that rewrites the manifest to the mutator sequence; both complete without deadlock under the non-re-entrant `_writeGate` | 12 (serialization), 11 |
 | T13 | architecture-guard (existing) | DI-smoke `CompositionRoot_resolves_all_commands_handlers_and_systems` | resolves `StartRoomCommand`, `IWorldManifestStore` and `IWorldManifestAuthoring` (no new guard; the existing test covers new registrations) | — |
 
 **Skipped (with reason):**
 - `World.razor` markup (presentation tier; its logic is T10).
 - The exact prose of `startroom` output and the advisories (assert type/severity only).
 - `StartingRoomSetByAdminEvent` (a thin payload record).
-- `AdminAuditHandler`'s new branch: a one-line structured log, with the fan-in covered by T7's event capture. If the handler has existing tests, the implementer adds the case on touch.
+- `AdminAuditHandler`'s new branch: a one-line structured log. `AdminAuditHandler` has no tests today, and the branch makes no decision. T7's event capture covers the fan-in.
 - The `appsettings.DevWorld.json` files themselves, and `UseStaticWebAssets`: host lifetime and config data, covered by the WP3 manual smoke plus T11 for the layering logic.
 - Policy prose.
 - The `WorldConfiguration` volatile swap's thread-safety: a reference assignment, with no meaningful deterministic test. T3 asserts that a new reference is published on reload.
-- `CharacterHydrationHandler`: unchanged, so the on-touch ratchet is not triggered.
 
 **Testability gaps:** none. Resolution is a pure function, the store takes its directory from options (temp-dir testable), and nothing touches randomness or wall-clock time.
 
@@ -357,7 +364,10 @@ No new canonical flow: manifest resolution is a sub-step of the startup and relo
    - The `generate`/`simulate` run modes call `AddJsonFile("appsettings.json")` with no base path.
    - `dotnet run --project Server` keeps the shell's working directory.
 
-   So from the repo root, `Server/appsettings.json` is most likely **not loaded today**. The match between `WorldOptions` defaults and the file hides it. WP3's first step confirms this empirically. **If confirmed**, the proposed fix (anchor the JSON sources to `AppContext.BaseDirectory`; data paths stay cwd-relative) needs explicit user sign-off before implementation, because it changes which `appsettings.json` copy an operator's edits take effect from.
+   So from the repo root, `Server/appsettings.json` is most likely **not loaded today**. The match between `WorldOptions` defaults and the file hides it. WP3's first step confirms this empirically. **If confirmed**, the proposed fix (anchor the JSON sources to `AppContext.BaseDirectory`; data paths stay cwd-relative) needs explicit user sign-off before implementation, because it changes which `appsettings.json` copy an operator's edits take effect from. Not load-bearing for any INV (spec review: SR-5 clear); WP1–WP2 don't depend on it. **If confirmed and approved, the fix also covers:**
+   - the README configuration text (above);
+   - routing the Server and Web hosts' JSON sources through the shared `RunModeConfiguration` too (INV-19), so there's no third and fourth hand-rolled layering;
+   - a guard that the anchored JSON sources never take precedence over per-test overrides, specifically `AuthoringApiFactory`'s `World:ContentDirectory` (`Hedron.Tests/Web/Api/AuthoringApiFactory.cs:48-52`). Pin this in T11 so the Tier-6 tests can never write into the repo's content tree.
 
 ## Related
 
