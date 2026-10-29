@@ -53,6 +53,7 @@ Three things land in this slice. First, the dev-world becomes the primary playab
 11. ◆ Catalog `RenameAsync(Room, old, new)` behaves as follows:
     - If `world.yaml` declares `old` (case-insensitive), it rewrites the manifest to `new` under the catalog write gate (file-only) and adds an advisory.
     - If `World:StartingRoomBlueprintId == old`, the existing config advisory is still emitted.
+    - If `world.yaml` is **malformed**, a **room** rename is refused, because the cascade can't tell whether the manifest declares `old`. This is intended: fix the manifest by hand first. The manifest parse check runs **before any referrer write** in the gated operation, so a refused rename leaves no partial cascade. Renames of other kinds never read the manifest and are unaffected.
 12. ◆ `IWorldManifestAuthoring.SaveAsync`:
     - refuses a malformed room id (format errors from `ValidateBlueprintId`);
     - saves an id that matches no authored room, with a warning;
@@ -129,7 +130,7 @@ Resolution itself publishes nothing. The loader is a system, so the snapshot swa
   - add `WorldManifest`, `IWorldManifestStore`/`WorldManifestStore`, `StartingRoomResolver`, `ResolvedStartingRoom`/`StartingRoomSource`, and the `WorldConfiguration` snapshot;
   - make `WorldContentLoader.ResolveStartingRoom()` public and manifest-aware over a **room-only** live set (today's map includes every blueprint kind, so a mob id would "resolve"; this fixes that);
   - make the any-room fallback deterministic (ordinal-least);
-  - convert `AccountSystem` and `DeathSystem` to a single snapshot read;
+  - convert `AccountSystem`, `DeathSystem` and `CharacterHydrationHandler.ResetToStartingRoom` to a single snapshot read (the handler change is read-only; its save is untouched);
   - register the store in `WorldModule`.
 - **Files:**
   - `Core/Modules/World/{WorldManifest.cs, WorldModule.cs}`;
@@ -137,14 +138,18 @@ Resolution itself publishes nothing. The loader is a system, so the snapshot swa
   - `Core/WorldConfiguration.cs` (+ `ResolvedStartingRoom.cs`);
   - `Core/Modules/Account/Systems/AccountSystem.cs`;
   - `Core/Modules/Death/Systems/DeathSystem.cs`;
-  - tests under `Hedron.Tests/World/`, `Account/`, `Death/`;
+  - `Core/Modules/Account/Handlers/CharacterHydrationHandler.cs`;
+  - tests under `Hedron.Tests/World/`, `Account/` (including T14 `CharacterHydrationHandlerTests`), `Death/`;
   - the existing `new WorldContentLoader(...)` test harnesses (2 files) get a stub store.
 - **Docs:**
   - `features/world/world-content.md`: the manifest subsection, startup phase 7, the content-file-shape table row for `world.yaml`, and the config-keys consideration. Also fix the phase-7 drift: it says "fail fast", but the code falls back.
   - `features/world/world.md`: config keys.
   - `features/combat/death-system.md` line 38 and `features/accounts/account-system.md` (the snapshot read).
   - `reference/handlers.md` (`CharacterHydrationHandler` row: one snapshot read).
-  - `architecture/checklist.md` (INV-26 *Code* clause) and `architecture/07-testing.md` (~line 168): remove `AccountSystem` from the wall-clock-debt list. It already uses the injected `IClock` (`AccountSystem.cs:70/93/168`), so the text is stale.
+  - **INV-26 wall-clock-debt text (this slice owns the fix; PT-1 defers to it):** both systems it names already use the injected `IClock`: `AccountSystem.cs:70/93/168`, and `SpawnSystem` (`_clock.UtcNow`). So the debt is gone, and three places still list it:
+    - `architecture/checklist.md`, INV-26 *Code* clause: drop the "pre-existing wall-clock reads in `AccountSystem` and `SpawnSystem`" parenthetical;
+    - `architecture/07-testing.md` ~line 168: time is now fully sealed;
+    - `.claude/agents/architecture-reviewer.md:44`: replace the private debt list with a pointer to the checklist (INV-20 / INV-27; no private copy).
   - `architecture/05-configuration.md`: the starting room becomes Category 2 (manifest) with a Category 1 fallback.
   - Flows 01, 05, 07, 20.
   - The `reference/systems.md` rows for `WorldContentLoader` (its dependency list is stale: it reads `IOptions<WorldOptions>`, not `IConfiguration`), `WorldManifestStore` and `StartingRoomResolver`.
@@ -318,13 +323,13 @@ No new canonical flow: manifest resolution is a sub-step of the startup and relo
 | T6 | system-unit | `DeathSystemTests` (update the two `Respawn_falls_back_to_starting_room_*` tests) | the fallback location equals the snapshot's `(EntityId, BlueprintId)` | 7 |
 | T7 | flow | `StartRoomCommandFlowTests` | admin in room X runs `startroom here` → `world.yaml` declares X with other fields preserved; `StartingRoom.Source == Manifest` and its entity is X; `StartingRoomSetByAdminEvent` is captured with the previous id; a character created afterwards lands at X with respawn X; a pre-existing character's `RespawnComponent` is unchanged; no persistence save is recorded | 8 |
 | T8 | flow | same class | `startroom here` with the invoker in a non-room location → error output; file unchanged; snapshot reference unchanged; no event. `startroom here` with a **malformed existing `world.yaml`** → error, file byte-identical, no event. `startroom bogus` → usage error, nothing changed | 4, 9, 10 |
-| T9 | system-unit (temp dir) | `ContentDefinitionCatalogTests` | `Rename_ManifestStartingRoom_RewritesWorldYaml` (the manifest now names the new id, and the advisory is present); the existing `Rename_StartingRoom_EmitsAdvisoryWarning_NoConfigOrSqliteWrite` stays green (no manifest present); renaming a non-starting room leaves `world.yaml` byte-identical | 11 |
-| T10 | system-unit (temp dir) | `WorldManifestAuthoringTests` (against `ContentDefinitionCatalog`) | `SaveAsync` refuses a malformed id (error, nothing written); unknown room → `Success` + warning; null → writes a manifest with no `startingRoomId`; `Preview` returns the resolver decision over catalog room ids plus the config fallback | 12 |
+| T9 | system-unit (temp dir) | `ContentDefinitionCatalogTests` | `Rename_ManifestStartingRoom_RewritesWorldYaml` (the manifest now names the new id, and the advisory is present); the existing `Rename_StartingRoom_EmitsAdvisoryWarning_NoConfigOrSqliteWrite` stays green (no manifest present); renaming a non-starting room leaves `world.yaml` byte-identical; with a **malformed `world.yaml`**, a room rename → error, `world.yaml` **and every referrer file** byte-identical (no half-cascade); a non-room rename (e.g. an item) → succeeds, unaffected by the manifest | 4, 11 |
+| T10 | system-unit (temp dir) | `WorldManifestAuthoringTests` (against `ContentDefinitionCatalog`) | `SaveAsync` refuses a malformed id (error, nothing written); `SaveAsync` over a **malformed existing `world.yaml`** → error, file byte-identical; unknown room → `Success` + warning; null → writes a manifest with no `startingRoomId`; `Preview` returns the resolver decision over catalog room ids plus the config fallback | 4, 12 |
 | T11 | system-unit | `RunModeConfigurationTests` (temp dir) | `appsettings.{env}.json` overrides `appsettings.json`; a missing env file is tolerated; a null environment loads the base only | 14 |
 | T12 | flow (fixture guard) | `DevWorldFixtureTests` | copy the repo's `content/dev-world/` (located by walking up to `Hedron.sln`) to a temp dir; boot the real loader; assert: `StartingRoom.Source == Manifest` and its id is `room.hub.square`; `area.hub` exists with `Pvp == false`; **every** dev-world room template has `X`/`Y`/`Z`; every room is reachable from the start, and the start is reachable from every room (BFS over template exits both ways); no `room.void` template. The guard keeps paying as content drops grow the world (R6) | 15 |
+| T13 | architecture-guard (existing) | DI-smoke `CompositionRoot_resolves_all_commands_handlers_and_systems` | resolves `StartRoomCommand`, `IWorldManifestStore` and `IWorldManifestAuthoring` (no new guard; the existing test covers new registrations) | — |
 | T14 | handler (on-touch ratchet; the handler had no tests) | `CharacterHydrationHandlerTests` | a character whose stored room is unresolvable is reset to the snapshot's `(EntityId, BlueprintId)` as a pair (both from one `StartingRoom` read); a character with a resolvable room is untouched | 7 |
 | T15 | system-unit (extend existing) | `ContentDefinitionCatalogWriteSerializationTests.Every_public_mutator_completes_in_sequence_without_deadlock` (`Hedron.Tests/Authoring/ContentDefinitionCatalogWriteSerializationTests.cs:128`) | add `IWorldManifestAuthoring.SaveAsync` **and** a room rename that rewrites the manifest to the mutator sequence; both complete without deadlock under the non-re-entrant `_writeGate` | 12 (serialization), 11 |
-| T13 | architecture-guard (existing) | DI-smoke `CompositionRoot_resolves_all_commands_handlers_and_systems` | resolves `StartRoomCommand`, `IWorldManifestStore` and `IWorldManifestAuthoring` (no new guard; the existing test covers new registrations) | — |
 
 **Skipped (with reason):**
 - `World.razor` markup (presentation tier; its logic is T10).
