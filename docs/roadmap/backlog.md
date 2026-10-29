@@ -341,6 +341,12 @@ The aspect-foundation generic is built to keep this additive: rows are **instanc
 
 **Update (sim-3, 2026-07-16).** `SimScenarioStore` gaining `SaveAsync`/`List` ([`../features/simulation/simulation-engine.md`](../features/simulation/simulation-engine.md)) is **instance #2**: a second hand-rolled per-family YAML save path, same posture as instance #1. Still two families — below the ≥3 trigger; this entry still stands.
 
+**Update (Phase 5 planning, 2026-10-29) — trigger crossed, extraction scheduled.**
+- **Instance #3 is the world manifest** (`world.yaml`, Phase 5 slice 1 [`dev-world-foundation`](../implementation-plans/dev-world-foundation.md)). It ships hand-rolled as accepted bounded debt.
+- **Instance #4 is help topics.** The extraction lands in Phase 5 slice 4 (`help-topics`, [program brief](../implementation-plans/phase-5-content-baseline-program.md)), which migrates standards, scenarios and the manifest onto the shared store.
+- **Shape obligation:** the extracted store must cover the **single-document** shape (standards, the world manifest) as well as the per-file family shape (scenarios, help topics).
+- **Still open here:** Ability/Effect compiled-plus-YAML coexistence.
+
 ### 🔵 Web background-job service generalization (promotion trigger recorded, sim-3)
 
 `SimulationRunService` (`Hedron.Web/Services/`, [`../architecture/08-blazor.md`](../architecture/08-blazor.md) "Background tooling jobs") is the web host's first background-job pattern: a singleton FIFO queue with per-run status, progress, and cooperative cancellation over a long-running engine call. It is deliberately sim-specific — a generic web-job framework now would be premature (INV-19's bar is ≥3 instances, or a new player-facing surface *framework* need; this is one designer-facing instance).

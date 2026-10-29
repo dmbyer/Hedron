@@ -46,7 +46,10 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 
 | Status | Plan | Slice |
 |---|---|---|
-| `planned` | [`playtest-automation-program.md`](playtest-automation-program.md) | Phase 5 agentic playtest harness — scripted bots + LLM persona agents (strategy seed — awaiting `/refine` → `/advise`) |
+| `planned` | [`phase-5-content-baseline-program.md`](phase-5-content-baseline-program.md) | Phase 5 umbrella — content baseline → functional MVP on dev-world (requirements + architecture brief — awaiting `/new-plan` per slice) |
+| `planned` | [`dev-world-foundation.md`](dev-world-foundation.md) | Phase 5 slice 1 — content-policy amendment, `world.yaml` starting-room manifest, `DevWorld` launch profile, hub skeleton (R1–R3, R15) |
+| `planned` | [`playtest-automation-program.md`](playtest-automation-program.md) | Phase 5 agentic playtest harness — scripted bots + LLM persona agents (requirements + architecture brief — awaiting `/new-plan` per slice) |
+| `planned` | [`playtest-world-substrate.md`](playtest-world-substrate.md) | Playtest PT-1 — subscription + session-entry extractions, per-world composition, tick driver, `BotSession` + agent formatter, bot-critical typed messages, R27 policy (R2–R6, R27–R28) |
 | `planned` | [`tiered-overworld-program.md`](tiered-overworld-program.md) | Phase 6 world program (requirements seed — awaiting `/advise`) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 
