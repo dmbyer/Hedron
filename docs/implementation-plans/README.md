@@ -47,7 +47,7 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 | Status | Plan | Slice |
 |---|---|---|
 | `planned` | [`phase-5-content-baseline-program.md`](phase-5-content-baseline-program.md) | Phase 5 umbrella — content baseline → functional MVP on dev-world (requirements + architecture brief — awaiting `/new-plan` per slice) |
-| `planned` | [`playtest-automation-program.md`](playtest-automation-program.md) | Phase 5 agentic playtest harness — scripted bots + LLM persona agents (strategy seed — awaiting `/refine` → `/advise`) |
+| `planned` | [`playtest-automation-program.md`](playtest-automation-program.md) | Phase 5 agentic playtest harness — scripted bots + LLM persona agents (requirements seed — awaiting `/advise`) |
 | `planned` | [`tiered-overworld-program.md`](tiered-overworld-program.md) | Phase 6 world program (requirements seed — awaiting `/advise`) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 
