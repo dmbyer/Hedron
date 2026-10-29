@@ -251,7 +251,7 @@ Both run against seeded, replayable worlds and report against designer-stated ex
 ### Invariants in tension
 
 - **INV-12:** many worlds per process. This is the sandbox nuance already accepted for `SandboxWorld`; the feature doc states it explicitly.
-- **INV-26:** all gameplay time and chance come through the stepped clock and the seeded `IRandom`. The known wall-clock debt in `AccountSystem` (creation timestamps) must not reach any reported or graded value. Either the report excludes it, or the substrate slice fixes that debt with the injected clock (the planner chooses, and should prefer the fix).
+- **INV-26:** all gameplay time and chance come through the stepped clock and the seeded `IRandom`. *(The once-suspected `AccountSystem` wall-clock debt turned out to be already fixed in code; both `AccountSystem` and `SpawnSystem` use `IClock`. The stale doc text is corrected by Phase 5 slice 1, [`dev-world-foundation.md`](dev-world-foundation.md).)*
 - **INV-31:** confine per world; the MCP transport marshals; no harness thread touches a live server world.
 - **INV-5 / INV-9 / INV-10:** the recorder is a handler; the grader and stores are pure systems; the run modes and tick driver are initiators; policies act only by dispatching command lines.
 - **INV-19:** three frameworks land in the substrate (subscriptions, session entry, agent formatter + message ratchet), plus the YAML store if it lands third.
@@ -411,7 +411,7 @@ Resolved at `/refine` (2026-10-29). See [Resolved decisions](#resolved-decisions
 - **Static or shared state across worlds.** Confirm that no registry, cache or singleton is process-static in a way that two playtest worlds in one process would share and mutate. Where one is (for example a static registry populated at boot), PT-1 makes it per-container or proves it immutable. *(Planner, PT-1, with code access; load-bearing for parallel sweeps.)*
 - **Bot-critical message list.** The exact `PlainMessage` sites PT-1 converts, derived from what the acceptance walker must branch on. *(Planner, PT-1.)*
 - **Session-entry extraction boundary.** Which steps of the post-login sequence (hydration, `PlayerConnectedEvent`, starting room and respawn defaults) move into the shared piece. *(Planner, PT-1.)*
-- **`AccountSystem` wall-clock debt.** Fix it with the injected clock in PT-1 (preferred), or exclude account timestamps from reports. *(Planner, PT-1.)*
+- ~~**`AccountSystem` wall-clock debt.**~~ **Resolved at PT-1 planning:** already fixed in code (`IClock`); only stale doc text remained, owned by `dev-world-foundation`.
 - **Golden runtime budget.** The maximum wall time for the per-PR golden, which bounds the scenario's length and tick count. *(User + planner, PT-2.)*
 - **Stuck-detection window and budget defaults.** Tuning values, set during PT-3. *(Planner/designer.)*
 - **MCP SDK choice and project MCP config shape** for `playtest-mcp`. *(Planner, PT-4.)*

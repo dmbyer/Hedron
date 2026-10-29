@@ -106,7 +106,7 @@ Resolution itself publishes nothing. The loader is a system, so the snapshot swa
 
 | Piece | Kind | Status | Change |
 |---|---|---|---|
-| `WorldManifest` (`Core/Modules/World/WorldManifest.cs`) | sealed record (data) | **new** | `int? SchemaVersion`, `string? StartingRoomId`; `static Empty` |
+| `WorldManifest` (`Core/Modules/World/WorldManifest.cs`) | sealed record (data) | **new** | `int? SchemaVersion`, `string? StartingRoomId`; `static Empty` (joins PT-1's T4 read-only static-record allowlist, as does any static default `Unresolved` snapshot, whichever slice merges second) |
 | `IWorldManifestStore` / `WorldManifestStore` (`Core/Modules/World/Systems/`) | file store (World module) | **new** | `string FilePath`; `WorldManifestReadResult Read()` → `(WorldManifest Manifest, bool Exists, string? Error)`; `Task WriteAsync(WorldManifest, CancellationToken)` (`AtomicFileWrite`, camelCase, nulls omitted) |
 | `StartingRoomResolver` (`Core/Modules/World/Systems/`) | static pure helper (precedent: `RoomCoordinateCollisions`) | **new** | `StartingRoomDecision Resolve(string? manifestId, string? configId, IReadOnlyCollection<string> roomIds)` → `(string? BlueprintId, StartingRoomSource Source, IReadOnlyList<string> Warnings)`, case-insensitive |
 | `ResolvedStartingRoom` + `StartingRoomSource` (`Core/`, beside `WorldConfiguration`) | immutable record + enum | **new** | `(uint EntityId, string? BlueprintId, StartingRoomSource Source, string? DeclaredId)`; enum `Manifest, Configuration, VoidFallback, AnyRoomFallback, Unresolved` |
@@ -118,7 +118,7 @@ Resolution itself publishes nothing. The loader is a system, so the snapshot swa
 | `IWorldManifestAuthoring` (`Core/Modules/Authoring/Systems/`) | authoring interface, implemented by `ContentDefinitionCatalog` | **new** | `WorldManifestView Load()`; `WorldManifestView Preview(WorldManifest draft)`; `Task<ContentWriteResult> SaveAsync(WorldManifest, CancellationToken)`. `WorldManifestView = (Manifest, FilePath, Exists, ConfigFallbackId, StartingRoomDecision Preview)`. A separate interface keeps the four `IContentDefinitionCatalog` test fakes untouched; DI forwards the catalog singleton under both (precedent: `IVerbRegistry` forwarding in `CompositionRoot`) |
 | `ContentDefinitionCatalog.RenameCoreAsync` | authoring system | **changed** | + ctor `IWorldManifestStore`; rewrites a matching manifest declaration under the gate; the config advisory text is kept |
 | `StartRoomCommand` (`Core/Modules/Admin/Commands/`) | admin command (Initiator) | **new** | `startroom [here]`, `AdminRequirement`, `CommandMatchingMode.Full` |
-| `AdminAuditHandler` | handler | **changed** | + `IEventHandler<StartingRoomSetByAdminEvent>`; subscribed in `Server/Program.cs` |
+| `AdminAuditHandler` | handler | **changed** | + `IEventHandler<StartingRoomSetByAdminEvent>`; subscribed in `Server/Program.cs`, or in `CompositionRoot.SubscribeGameplayHandlers` if PT-1 ([`playtest-world-substrate.md`](playtest-world-substrate.md)) has merged first; PT-1's T1/T2 enforce this |
 | `RunModeConfiguration` (`Server/RunModeConfiguration.cs`) | host plumbing | **new** | `IConfiguration Build(string basePath, string? environmentName)`; shared by `generate` and `simulate` (replaces two hand-rolled builders) |
 | `World.razor` (`Hedron.Web/Components/Pages/World.razor`, route `/world`) + nav link | Blazor page | **new** | binds `IWorldManifestAuthoring`; no logic in the component (INV-8) |
 
@@ -155,7 +155,7 @@ Resolution itself publishes nothing. The loader is a system, so the snapshot swa
   - The `reference/systems.md` rows for `WorldContentLoader` (its dependency list is stale: it reads `IOptions<WorldOptions>`, not `IConfiguration`), `WorldManifestStore` and `StartingRoomResolver`.
 - **Depends on:** nothing.
 - **Out of scope:** any authoring surface (WP2), dev-world content and profile (WP3), and any change to `CharacterHydrationHandler` beyond its single snapshot read (its save behavior stays as is).
-- **Exit criterion:** the WP1 tests in the Test plan are green; `dotnet build` and `dotnet test` are green; booting against a directory with no `world.yaml` behaves exactly as before (Postcondition 3).
+- **Exit criterion:** the WP1 tests (T1–T6, T14) are green; `dotnet build` and `dotnet test` are green; booting against a directory with no `world.yaml` behaves exactly as before (Postcondition 3).
 
 ### WP2 — Manifest authoring and inspection tooling (INV-18)
 
@@ -166,7 +166,7 @@ Resolution itself publishes nothing. The loader is a system, so the snapshot swa
   - the `/world` editor page and its nav link.
 - **Files:**
   - `Core/Modules/Admin/{Commands/StartRoomCommand.cs, Events/StartingRoomSetByAdminEvent.cs, Handlers/AdminAuditHandler.cs, AdminModule.cs}`;
-  - `Server/Program.cs` (subscription);
+  - `Server/Program.cs` (subscription). **If PT-1 has merged first,** the subscription goes in `CompositionRoot.SubscribeGameplayHandlers` instead (PT-1's T1/T2 enforce this), and the WP1 flow-01 edit targets that step;
   - `Core/Modules/Authoring/{Systems/IWorldManifestAuthoring.cs, Systems/ContentDefinitionCatalog.cs, WorldManifestView.cs, AuthoringModule.cs}`;
   - `Hedron.Web/Components/Pages/World.razor`, `Hedron.Web/Components/Layout/MainLayout.razor`;
   - tests under `Hedron.Tests/Admin/` (or `World/`) and `Authoring/`;
@@ -186,7 +186,7 @@ Resolution itself publishes nothing. The loader is a system, so the snapshot swa
   - a delete guard: deleting the declared room leaves a dangling declaration, which the loader warns about and the World page preview shows (`ContentDeleteResult` has no warnings channel; widening it is not worth it here);
   - an integrity-sweep entry for the manifest.
 - **Exit criterion:**
-  - the WP2 tests are green;
+  - the WP2 tests (T7–T10, T13, T15) are green;
   - the DI-smoke guard resolves `StartRoomCommand` and `IWorldManifestAuthoring`;
   - a manual smoke shows the `/world` page loading, previewing and saving a manifest against a temp content directory.
 
@@ -218,7 +218,7 @@ Resolution itself publishes nothing. The loader is a system, so the snapshot swa
   - an `isSafe` mechanic (Open question 1);
   - the playtest harness.
 - **Exit criterion:**
-  - the fixture guard test is green;
+  - the WP3 tests (T11, T12 fixture guard) are green;
   - a manual smoke of `DOTNET_ENVIRONMENT=DevWorld dotnet run --project Server` from the repo root, connecting and creating a character, puts it in `Hub Square`; `startroom` shows `Source: world.yaml`; `data/dev-world.db` is created and `data/hedron.db` is untouched;
   - `DOTNET_ENVIRONMENT=DevWorld dotnet run --project Hedron.Web` serves an interactive editor listing the three hub rooms.
 
