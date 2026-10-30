@@ -255,7 +255,7 @@ The engine's built mechanics get exercised by authored content, and the function
 
 ### Observers, contributors, ordering
 
-- **No new events are required.**
+- **No new gameplay events are required.** The only new event is slice 2's admin audit event, `SpawnRuleAuthoredByAdminEvent`, on the established `*ByAdminEvent` → `AdminAuditHandler` fan-in ([`spawn-authoring.md`](spawn-authoring.md)).
   - Spawn keeps the `MobDiedEvent` / `ItemPickedUpEvent` vacancy path.
   - `consider` is read-only output.
   - Help is read-only.
@@ -304,7 +304,7 @@ Each gap slice runs the full per-slice loop (`/new-plan` → spec gate → build
 | # | Slice | Contents | Requirements | Depends on |
 |---|---|---|---|---|
 | 1 | [`dev-world-foundation`](dev-world-foundation.md) | Policy amendment (world-content.md, CLAUDE.md, plan.md, dev-world README); world manifest; dev-world launch profile; hub skeleton with starting room and respawn | R1–R3, R15 | — |
-| 2 | `spawn-authoring` | Rule-keyed slots + count; room-editor and admin authoring; mob-side spawn-room retirement/warning | R9, R12, R30 | 1 |
+| 2 | [`spawn-authoring`](spawn-authoring.md) | Rule-keyed slots + count; room-editor and admin authoring; mob-side spawn-room removal | R9, R12, R30 | 1 |
 | 3 | `area-designation` | Area tier/band-range field + editor; audit out-of-designation check | R4, R23 | 1 (parallel with 2) |
 | 4 | `help-topics` | Shared YAML store extraction (+ standards/scenarios/**world-manifest** migration; the manifest store from slice 1 is accepted bounded debt); topic registry with engine + world layers; `help` topic step; topic editor; engine topic set | R18–R19 | — (parallel) |
 | 5 | `relative-power-consider` | Relative-power read; anti-grind on effective power, extended to the ability-use and damage-taken rows when there's an opponent (balance re-pin); `consider`; `power` migration; progression doc-accuracy fixes | R20–R22 | — (parallel) |
@@ -341,8 +341,8 @@ Each gap slice runs the full per-slice loop (`/new-plan` → spec gate → build
 
 ## Open questions
 
-- **Mob-side `spawnRoomBlueprintId`:** migrate it into an editor shortcut that writes a room rule, or keep it with a validation warning. Either way the room rule is the single truth. *(Planner, slice 2.)*
-- **Rule identity:** how a spawn rule is identified, by position or by an authored id. Identity has to survive editor reordering, and a later pool rule must be expressible. *(Planner, slice 2.)*
+- ~~**Mob-side `spawnRoomBlueprintId`.**~~ **Resolved in [`spawn-authoring.md`](spawn-authoring.md):** the field is removed. The mob/item editors' "Spawns in" panel writes room rules instead. Legacy `spawnRoomBlueprintId`/`spawnRoomId` keys are a hard-break load error, and the operator converts by hand.
+- ~~**Rule identity.**~~ **Resolved in [`spawn-authoring.md`](spawn-authoring.md):** an authored id, unique within the room, defaulting to the blueprint id. Explicit ids are required when two rules share a blueprint.
 - **Engine help layer location:** the committed path and how it reaches the server output (`content/help/`, copied to output, configured by a `Help:` option). *(Planner, slice 4.)*
 - **Use-based award gathering:** where exactly each use-based award handler resolves its opponent to gather the ratio. For damage taken the opponent is the attacker; for an ability use it is the resolved target. The behaviour is settled (resolved decision 7): with no opponent, the ratio is not applied. *(Planner, slice 5.)*
 - **XP-cost curve shape:** whether each improvement should cost progressively more XP (lever (a)), and by how much. To be answered from evidence once the B1–B3 content exists, during balance closure (R24–R25): the simulator's `progressionRate` sweep, and the playtest bots' XP-per-hour and kills-per-improvement metrics. The question is whether peer-level progress feels too fast. If the curve changes, it is a `ThresholdIncrement`/curve change under the `balance-tuning` skill, with re-pins. *(User + designer, during balance closure.)*
