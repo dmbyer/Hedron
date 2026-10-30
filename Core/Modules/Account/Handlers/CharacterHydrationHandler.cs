@@ -100,10 +100,10 @@ namespace Hedron.Core.Modules.Account.Handlers
 
         private void ResetToStartingRoom(LocationComponent location)
         {
-            location.RoomEntityId = _worldConfig.StartingRoomEntityId;
-            location.RoomBlueprintId = _entityService.TryGet<BlueprintComponent>(_worldConfig.StartingRoomEntityId, out var bp)
-                ? bp.BlueprintId
-                : null;
+            // One snapshot read for both ids — a concurrent reload/startroom swaps the whole snapshot (INV-31).
+            var start = _worldConfig.StartingRoom;
+            location.RoomEntityId = start.EntityId;
+            location.RoomBlueprintId = start.BlueprintId;
         }
 
         private Dictionary<string, uint> BuildLiveBlueprintMap()

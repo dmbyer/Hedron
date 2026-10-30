@@ -30,6 +30,7 @@ Authorization is layered:
 | `setarea <roomBp> <areaBp>` | `IAreaSystem.AssignRoomToArea` | room template via `IRoomContentWriter` | `RoomAreaAssignedByAdminEvent` |
 | `list <area\|room>` | `EntityService.GetAllComponents<T>()` (direct scan) | — | none |
 | `reload` | `IWorldContentLoader.ReloadAsync` | — | `ContentReloadedEvent` |
+| `startroom [here]` | `IWorldManifestStore` + `IWorldContentLoader.ResolveStartingRoom` | `world.yaml` (`here` only; refused while malformed) | `StartingRoomSetByAdminEvent` (`here` only) |
 | `spawn <blueprintId>` | `ITemplateRegistry.Spawn` | — | `EntitySpawnedByAdminEvent` |
 | `teleport <target>` | `IMovementSystem` (teleport path) | — | `PlayerTeleportedByAdminEvent` |
 

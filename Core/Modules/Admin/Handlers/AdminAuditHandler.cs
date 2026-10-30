@@ -46,7 +46,8 @@ namespace Hedron.Core.Modules.Admin.Handlers
         IEventHandler<RoomAreaAssignedByAdminEvent>,
         IEventHandler<AreaCreatedByAdminEvent>,
         IEventHandler<WalletSetByAdminEvent>,
-        IEventHandler<PlayerAscendedByAdminEvent>
+        IEventHandler<PlayerAscendedByAdminEvent>,
+        IEventHandler<StartingRoomSetByAdminEvent>
     {
         private readonly EntityService _entityService;
         private readonly ILogger<AdminAuditHandler> _logger;
@@ -208,6 +209,14 @@ namespace Hedron.Core.Modules.Admin.Handlers
             _logger.LogInformation(
                 "AdminCommandExecuted: admin={Admin} command=ascend target={TargetEntityId} newTier={NewTier}",
                 ResolveName(e.AdminEntityId), e.TargetEntityId, e.NewTier);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(StartingRoomSetByAdminEvent e)
+        {
+            _logger.LogInformation(
+                "AdminCommandExecuted: admin={Admin} command=startroom room={RoomEntityId} blueprint={RoomBlueprintId} previous={PreviousStartingRoomId}",
+                ResolveName(e.AdminEntityId), e.RoomEntityId, e.RoomBlueprintId, e.PreviousStartingRoomId);
             return Task.CompletedTask;
         }
 

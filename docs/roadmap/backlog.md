@@ -110,6 +110,10 @@ The content-editor reference-integrity slice ([`completed/content-editor-integri
 
 **Update (blueprint-id-editing).** The blueprint-id rename cascade (`RenameAsync`, [`completed/blueprint-id-editing.md`](completed/blueprint-id-editing.md)) shares this **exact** best-effort posture — it cascade-*rewrites* `oldId → newId` across referrers (the same traversal delete uses, generalized so clear = rewrite-to-empty), writes the new-id file, then deletes the old, none of it transactional. Covered by the same transactional-cascade fix; no separate work.
 
+### 🔵 Server's `appsettings*.json` collide in referencing projects' output (found by dev-world-foundation review)
+
+`Server.csproj` marks `appsettings.json` and `appsettings.DevWorld.json` as `Content` with `CopyToOutputDirectory`, so they flow into every project that references `Server` (`Hedron.Web`, `Hedron.Tests`) and collide with that project's own same-named files in `bin/`. Harmless under `dotnet run` (Web reads its JSON from its content root, the project folder), but `dotnet publish` of `Hedron.Web` can hit NETSDK1152, and a Web host launched with `bin/` as its working directory could load Server's profile. Pre-existing for `appsettings.json`; the DevWorld profile adds a second instance. Fix when publishing `Hedron.Web` is next touched: stop the files flowing transitively (e.g. a `Link`/`CopyToOutputDirectory` scoped to the Server project, or exclude them in the referencing projects).
+
 ### 🔵 Cross-process content-cache coherence (acknowledged debt from authoring-editor-repair)
 
 `ContentDefinitionCatalog` now serves reads from an in-memory index that **every catalog mutator invalidates**. That makes the editor coherent with its own writes, but the catalog is *not* the only writer of content YAML: the `generate` CLI runs in a separate process against the same directory ([Flow 29](../architecture/flows/flow-29-bulk-content-generation.md) leg A), and the game host's `mk*`/`set*`/`dig` verbs write through the `I*ContentWriter` family directly. Neither invalidates a running editor host's index, so a long-lived editor can serve a stale listing after an out-of-process write.
@@ -342,7 +346,7 @@ The aspect-foundation generic is built to keep this additive: rows are **instanc
 **Update (sim-3, 2026-07-16).** `SimScenarioStore` gaining `SaveAsync`/`List` ([`../features/simulation/simulation-engine.md`](../features/simulation/simulation-engine.md)) is **instance #2**: a second hand-rolled per-family YAML save path, same posture as instance #1. Still two families — below the ≥3 trigger; this entry still stands.
 
 **Update (Phase 5 planning, 2026-10-29) — trigger crossed, extraction scheduled.**
-- **Instance #3 is the world manifest** (`world.yaml`, Phase 5 slice 1 [`dev-world-foundation`](../implementation-plans/dev-world-foundation.md)). It ships hand-rolled as accepted bounded debt.
+- **Instance #3 is the world manifest** (`world.yaml`, Phase 5 slice 1 [`dev-world-foundation`](completed/dev-world-foundation.md)). It ships hand-rolled as accepted bounded debt.
 - **Instance #4 is help topics.** The extraction lands in Phase 5 slice 4 (`help-topics`, [program brief](../implementation-plans/phase-5-content-baseline-program.md)), which migrates standards, scenarios and the manifest onto the shared store.
 - **Shape obligation:** the extracted store must cover the **single-document** shape (standards, the world manifest) as well as the per-file family shape (scenarios, help topics).
 - **Still open here:** Ability/Effect compiled-plus-YAML coexistence.

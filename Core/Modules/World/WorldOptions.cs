@@ -9,8 +9,9 @@ namespace Hedron.Core.Modules.World
     {
         /// <summary>
         /// Root directory for authored YAML content (rooms, items, mobs, areas).
-        /// May be an absolute path or relative to the working directory.
-        /// Default: <c>data/content/</c>.
+        /// Absolute, or relative to the Hedron root; when unset in configuration the host derives it
+        /// as <c>&lt;Paths:DataDirectory&gt;/content</c> (see <c>Server/DataPaths</c>). The class default
+        /// below only applies when the options are constructed directly (tests).
         /// </summary>
         public string ContentDirectory { get; set; } = "data/content/";
 

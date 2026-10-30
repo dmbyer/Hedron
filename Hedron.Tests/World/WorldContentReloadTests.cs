@@ -59,6 +59,7 @@ namespace Hedron.Tests.World
                 registry,
                 serializer,
                 new RoomContentWriter(options),
+                new WorldManifestStore(options),
                 new WorldConfiguration(),
                 options,
                 NullLogger<WorldContentLoader>.Instance);

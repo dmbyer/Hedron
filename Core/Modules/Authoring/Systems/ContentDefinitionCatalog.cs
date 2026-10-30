@@ -118,7 +118,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
     /// shared instance would leak in-progress edits into the index.
     /// </para>
     /// </remarks>
-    public sealed class ContentDefinitionCatalog : IContentDefinitionCatalog
+    public sealed class ContentDefinitionCatalog : IContentDefinitionCatalog, IWorldManifestAuthoring
     {
         private readonly IContentSerializer _serializer;
         private readonly IContentValidator _validator;
@@ -130,6 +130,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
         private readonly IMobContentWriter _mobWriter;
         private readonly ILogger<ContentDefinitionCatalog> _logger;
         private readonly IContentFileReader _fileReader;
+        private readonly IWorldManifestStore _manifestStore;
         private readonly string _contentDirectory;
         private readonly string _startingRoomBlueprintId;
 
@@ -155,7 +156,8 @@ namespace Hedron.Core.Modules.Authoring.Systems
             IMobContentWriter mobWriter,
             IOptions<WorldOptions> options,
             ILogger<ContentDefinitionCatalog> logger,
-            IContentFileReader? fileReader = null)
+            IContentFileReader? fileReader = null,
+            IWorldManifestStore? manifestStore = null)
             : this(
                 serializer,
                 validator,
@@ -167,7 +169,8 @@ namespace Hedron.Core.Modules.Authoring.Systems
                 mobWriter,
                 options,
                 logger,
-                fileReader)
+                fileReader,
+                manifestStore)
         {
         }
 
@@ -186,7 +189,8 @@ namespace Hedron.Core.Modules.Authoring.Systems
             IMobContentWriter mobWriter,
             IOptions<WorldOptions> options,
             ILogger<ContentDefinitionCatalog> logger,
-            IContentFileReader? fileReader = null)
+            IContentFileReader? fileReader = null,
+            IWorldManifestStore? manifestStore = null)
         {
             _serializer = serializer;
             _validator = validator;
@@ -198,6 +202,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
             _mobWriter = mobWriter;
             _logger = logger;
             _fileReader = fileReader ?? new ContentFileReader();
+            _manifestStore = manifestStore ?? new WorldManifestStore(options);
             _contentDirectory = options.Value.ContentDirectory;
             _startingRoomBlueprintId = options.Value.StartingRoomBlueprintId;
         }
@@ -282,6 +287,9 @@ namespace Hedron.Core.Modules.Authoring.Systems
 
         public Task<ContentWriteResult> CreateAsync(ContentDefinition definition, CancellationToken ct = default) =>
             UnderWriteGateAsync(() => CreateCoreAsync(definition, ct), ct);
+
+        public Task<ContentWriteResult> SaveAsync(WorldManifest manifest, CancellationToken ct = default) =>
+            UnderWriteGateAsync(() => SaveManifestCoreAsync(manifest, ct), ct);
 
         public Task<ContentWriteResult> RemoveRoomExitAsync(
             string roomBlueprintId, Direction direction, bool bidirectional, CancellationToken ct = default) =>
@@ -441,6 +449,22 @@ namespace Hedron.Core.Modules.Authoring.Systems
                 });
             }
 
+            // 3b. A room rename may need to rewrite world.yaml. A malformed manifest cannot be checked
+            // for a declaration of oldId, so refuse here, before any write, leaving no half-cascade.
+            WorldManifestReadResult? manifestRead = null;
+            if (kind == ContentKind.Room)
+            {
+                manifestRead = _manifestStore.Read();
+                if (manifestRead.Error is not null)
+                {
+                    return ContentRenameResult.Failed(oldId, newId, new[]
+                    {
+                        $"world.yaml is malformed, so the rename cannot tell whether it declares '{oldId}' " +
+                        $"as the starting room. Fix '{_manifestStore.FilePath}' by hand first. ({manifestRead.Error})",
+                    });
+                }
+            }
+
             // 4. Build a fresh template carrying newId, copying all state and rewriting the
             // target's own self-referential fields (e.g. a self-loop exit) oldId → newId.
             var newTemplate = CloneWithNewId(kind, target.Template, oldId, newId);
@@ -464,6 +488,17 @@ namespace Hedron.Core.Modules.Authoring.Systems
                     cascadeEdits.Add(referrer);
             }
 
+            // 5b. The manifest is a referrer too: rewrite a declared starting room oldId -> newId.
+            var manifestRewritten = false;
+            if (manifestRead is { Exists: true } &&
+                string.Equals(manifestRead.Manifest.StartingRoomId, oldId, StringComparison.OrdinalIgnoreCase))
+            {
+                var update = await _manifestStore
+                    .UpdateAsync(m => m with { StartingRoomId = newId }, ct)
+                    .ConfigureAwait(false);
+                manifestRewritten = update.Success;
+            }
+
             // 6. Delete the old file. (File-only — no EntityService, no SQLite, INV-22/23.)
             var oldPath = DefinitionPath(kind, oldId);
             DeleteFile(oldPath);
@@ -480,6 +515,13 @@ namespace Hedron.Core.Modules.Authoring.Systems
                     $"until the world is reloaded; a parked player recovers via the existing " +
                     $"starting-room fallback in the meantime.");
 
+                if (manifestRewritten)
+                {
+                    warnings.Add(
+                        $"Room '{oldId}' is the starting room declared in world.yaml; the declaration was " +
+                        $"rewritten to '{newId}'. It takes effect on reload or restart.");
+                }
+
                 if (string.Equals(oldId, _startingRoomBlueprintId, StringComparison.Ordinal))
                 {
                     warnings.Add(
@@ -489,6 +531,71 @@ namespace Hedron.Core.Modules.Authoring.Systems
             }
 
             return ContentRenameResult.Ok(oldPath, newPath, oldId, newId, cascadeEdits, warnings);
+        }
+
+        // ── World manifest authoring (IWorldManifestAuthoring) ───────────────────────
+
+        public WorldManifestView Load()
+        {
+            var read = _manifestStore.Read();
+            return BuildManifestView(read.Manifest, read);
+        }
+
+        public WorldManifestView Preview(WorldManifest draft) =>
+            BuildManifestView(draft, _manifestStore.Read());
+
+        private WorldManifestView BuildManifestView(WorldManifest manifest, WorldManifestReadResult read)
+        {
+            var decision = StartingRoomResolver.Resolve(
+                manifest.StartingRoomId, _startingRoomBlueprintId, AuthoredRoomIds());
+            return new WorldManifestView(
+                manifest, _manifestStore.FilePath, read.Exists, read.Error, _startingRoomBlueprintId, decision);
+        }
+
+        private IReadOnlyCollection<string> AuthoredRoomIds()
+        {
+            var rooms = List(ContentKind.Room);
+            var ids = new List<string>(rooms.Count);
+            foreach (var summary in rooms)
+                ids.Add(summary.BlueprintId);
+            return ids;
+        }
+
+        private async Task<ContentWriteResult> SaveManifestCoreAsync(WorldManifest manifest, CancellationToken ct)
+        {
+            const string resultId = WorldManifestStore.FileName;
+            var startingRoomId = string.IsNullOrWhiteSpace(manifest.StartingRoomId) ? null : manifest.StartingRoomId.Trim();
+
+            var warnings = new List<string>();
+            if (startingRoomId is not null)
+            {
+                var idReport = _validator.ValidateBlueprintId(ContentKind.Room, startingRoomId);
+                if (!idReport.IsValid)
+                    return ContentWriteResult.Failed(resultId, idReport.Errors);
+                warnings.AddRange(idReport.Warnings);
+            }
+
+            var update = await _manifestStore
+                .UpdateAsync(existing => new WorldManifest(manifest.SchemaVersion ?? existing.SchemaVersion, startingRoomId), ct)
+                .ConfigureAwait(false);
+            if (!update.Success)
+            {
+                return ContentWriteResult.Failed(resultId, new[]
+                {
+                    $"world.yaml is malformed and was not changed; fix '{_manifestStore.FilePath}' by hand first. ({update.Error})",
+                });
+            }
+
+            if (startingRoomId is not null && !_referenceIndex.Resolves(ContentKind.Room, startingRoomId))
+            {
+                warnings.Add(
+                    $"No authored room '{startingRoomId}' exists; the world falls back to " +
+                    "World:StartingRoomBlueprintId until it does.");
+            }
+
+            return warnings.Count == 0
+                ? ContentWriteResult.Ok(resultId)
+                : ContentWriteResult.OkWithWarnings(resultId, warnings);
         }
 
         public ContentDefinition CreateNew(ContentKind kind, string name) =>

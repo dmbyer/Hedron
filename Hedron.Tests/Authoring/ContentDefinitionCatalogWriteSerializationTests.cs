@@ -144,7 +144,12 @@ namespace Hedron.Tests.Authoring
                 "RemoveRoomExitAsync")).Success);
 
             Assert.True((await WithinTimeout(
-                catalog.RenameAsync(ContentKind.Room, "room.b", "room.c"), "RenameAsync")).Success);
+                catalog.SaveAsync(new WorldManifest(1, "room.b")), "IWorldManifestAuthoring.SaveAsync")).Success);
+
+            // A room rename that also rewrites the manifest, inside the same gated operation.
+            var rename = await WithinTimeout(catalog.RenameAsync(ContentKind.Room, "room.b", "room.c"), "RenameAsync");
+            Assert.True(rename.Success);
+            Assert.Equal("room.c", catalog.Load().Manifest.StartingRoomId);
 
             await WithinTimeout(catalog.DeleteAsync(ContentKind.Room, "room.c"), "DeleteAsync");
             Assert.Null(catalog.Load(ContentKind.Room, "room.c"));

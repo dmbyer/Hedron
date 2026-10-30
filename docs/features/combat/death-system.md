@@ -35,7 +35,7 @@ On a 0-or-below crossing for a player not already incapacitated: `OnHpChanged` c
 `PlayerDeathHandler` (priority 20, `PlayerDiedEvent`) calls `IDeathSystem.Respawn(entityId)`, which:
 
 1. Calls `IEntityStateService.ExitState(entityId, Incapacitated)`.
-2. Resolves `RespawnComponent.RoomBlueprintId` to a live room entity id (same blueprint→entity map as `CharacterHydrationHandler`). Falls back to `WorldConfiguration.StartingRoomBlueprintId` with a warning if unresolvable.
+2. Resolves `RespawnComponent.RoomBlueprintId` to a live room entity id (same blueprint→entity map as `CharacterHydrationHandler`). Falls back to the resolved starting room with a warning if unresolvable — one read of the `WorldConfiguration.StartingRoom` snapshot supplies both the entity id and the blueprint id.
 3. Updates `LocationComponent` to the resolved room.
 4. Calls `IEffectSystem.RemoveImpermanent(entityId)` — strips all non-`UntilRemoved` effects. Permanent (`UntilRemoved`) effects persist through death.
 5. Restores all four pools to `floor(Max × Death:RespawnPoolPercent)` (default 25%) via `IAttributeSystem`.

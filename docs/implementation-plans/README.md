@@ -1,4 +1,4 @@
-﻿# Implementation Plans
+# Implementation Plans
 
 **Transient per-slice build artifacts.** An implementation plan captures *what is being built right now* — the behavior spec **plus** the implementation plan, cross-cutting audit, flows, test plan, and reference diffs that the planner, the spec-review gate, and `implement-plan` all operate on. It is the single source of truth for a slice **while in flight**, and it is **deleted on ship** — its durable content moves into the living docs.
 
@@ -47,7 +47,6 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 | Status | Plan | Slice |
 |---|---|---|
 | `planned` | [`phase-5-content-baseline-program.md`](phase-5-content-baseline-program.md) | Phase 5 umbrella — content baseline → functional MVP on dev-world (requirements + architecture brief — awaiting `/new-plan` per slice) |
-| `planned` | [`dev-world-foundation.md`](dev-world-foundation.md) | Phase 5 slice 1 — content-policy amendment, `world.yaml` starting-room manifest, `DevWorld` launch profile, hub skeleton (R1–R3, R15) |
 | `planned` | [`playtest-automation-program.md`](playtest-automation-program.md) | Phase 5 agentic playtest harness — scripted bots + LLM persona agents (requirements + architecture brief — awaiting `/new-plan` per slice) |
 | `planned` | [`playtest-world-substrate.md`](playtest-world-substrate.md) | Playtest PT-1 — subscription + session-entry extractions, per-world composition, tick driver, `BotSession` + agent formatter, bot-critical typed messages, R27 policy (R2–R6, R27–R28) |
 | `planned` | [`playtest-run-mode.md`](playtest-run-mode.md) | Playtest PT-2 — `playtest` CLI, scenario YAML on the shared YAML store, recorder, metrics + grader, `playtestExpectations` standards family, report writer, acceptance walker, ≤10 s dev-world hub smoke golden (R1, R7 walker, R10–R14, R25) |

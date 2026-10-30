@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using Hedron.Core;
 
 namespace Hedron.Core.Modules.World.Systems
 {
@@ -12,9 +13,8 @@ namespace Hedron.Core.Modules.World.Systems
     {
         /// <summary>
         /// Initial startup load. Discovers and registers all templates, then spawns the
-        /// rooms and areas that aren't already in the live world. Resolves
-        /// <c>WorldConfiguration.StartingRoomEntityId</c> from the configured starting
-        /// blueprint id. Called once by <c>WorldContentBootstrap</c>.
+        /// rooms and areas that aren't already in the live world, then runs
+        /// <see cref="ResolveStartingRoom"/>. Called once by <c>WorldContentBootstrap</c>.
         /// </summary>
         Task LoadAndSpawnAsync(CancellationToken ct = default);
 
@@ -25,6 +25,14 @@ namespace Hedron.Core.Modules.World.Systems
         /// <c>ContentReloadedEvent</c>.
         /// </summary>
         Task<ContentReloadResult> ReloadAsync(CancellationToken ct = default);
+
+        /// <summary>
+        /// Re-reads <c>world.yaml</c>, resolves the starting room over the live <b>room</b> set
+        /// (manifest → <c>World:StartingRoomBlueprintId</c> → <c>room.void</c> → ordinal-least room),
+        /// publishes the result to <c>WorldConfiguration.StartingRoom</c> as one snapshot, and
+        /// returns it. Never throws for a missing room or malformed manifest — it logs and falls back.
+        /// </summary>
+        ResolvedStartingRoom ResolveStartingRoom();
     }
 
     /// <summary>Result of <see cref="IWorldContentLoader.ReloadAsync"/>.</summary>

@@ -8,14 +8,13 @@ namespace Hedron.Core.Modules.Simulation
     {
         /// <summary>
         /// Directory <see cref="Systems.ISimReportWriter"/> writes JSON report artifacts into.
-        /// May be an absolute path or relative to the working directory. Default: <c>data/sim/reports</c>.
+        /// Absolute, or relative to the Hedron root; when unset in configuration the host derives it under <c>Paths:DataDirectory</c> (see <c>Server/DataPaths</c>) as <c>sim/reports</c>.
         /// </summary>
         public string ReportDirectory { get; set; } = "data/sim/reports";
 
         /// <summary>
         /// Directory <see cref="Systems.ISimScenarioStore.SaveAsync"/> writes editor-composed
-        /// scenario YAML into (sim-3). May be an absolute path or relative to the working
-        /// directory. Default: <c>data/sim/scenarios</c>.
+        /// scenario YAML into (sim-3). Absolute, or relative to the Hedron root; when unset in configuration the host derives it under <c>Paths:DataDirectory</c> (see <c>Server/DataPaths</c>) as <c>sim/scenarios</c>.
         /// </summary>
         public string ScenarioDirectory { get; set; } = "data/sim/scenarios";
     }

@@ -114,7 +114,7 @@ The testing discipline. Full explanation: [`07-testing.md`](07-testing.md). Chec
 
 **INV-26 — Determinism seam.** Chance- and time-dependent decisions inside a System (wherever it resides — `Core/Systems/` or `Core/Modules/<Feature>/Systems/`) resolve through an injected seam: `IRandom` for chance; the heartbeat-supplied `Elapsed`/`Timestamp` (or an injected clock) for time. Never `Random.Shared`/`new Random()`, nor a direct wall-clock read (`DateTime`/`DateTimeOffset` `.Now`/`.UtcNow`/`.Today`), inside a system. This preserves the pure-system property (INV-3, INV-5) and makes outcomes deterministically testable. Event records stamping `OccurredAt = DateTime.UtcNow` are payloads, not systems — out of scope. Explanation: [07-testing.md](07-testing.md#determinism-inv-26).
 - *Spec:* does any Main-Flow step direct a system to roll randomness or branch on wall-clock time without an injected seam?
-- *Code:* `Random.Shared`/`new Random()`, or a `DateTime`/`DateTimeOffset` `.Now`/`.UtcNow`/`.Today` read, inside a file under a `Systems/` path. (Randomness is fully sealed by the `IRandom` seam; pre-existing wall-clock reads in `AccountSystem` and `SpawnSystem` are acknowledged debt for a future injected clock — see [`../roadmap/backlog.md`](../roadmap/backlog.md).)
+- *Code:* `Random.Shared`/`new Random()`, or a `DateTime`/`DateTimeOffset` `.Now`/`.UtcNow`/`.Today` read, inside a file under a `Systems/` path. (Randomness is fully sealed by the `IRandom` seam and wall-clock time by the `IClock` seam; there is no pre-existing debt.)
 
 ## I. Concurrency
 

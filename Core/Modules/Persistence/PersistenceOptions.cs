@@ -8,9 +8,9 @@ namespace Hedron.Core.Modules.Persistence
     public sealed class PersistenceOptions
     {
         /// <summary>
-        /// Path to the SQLite database file. May be absolute or relative to the working directory.
-        /// Use <c>:memory:</c> for an in-memory database (tests only).
-        /// Default: <c>data/hedron.db</c>.
+        /// Path to the SQLite database file: absolute, or relative to the Hedron root; when unset in configuration the host derives it under <c>Paths:DataDirectory</c> (see <c>Server/DataPaths</c>) as
+        /// <c>hedron.db</c>. Use <c>:memory:</c> for an in-memory database (tests only). The class default
+        /// below only applies when the options are constructed directly (tests).
         /// </summary>
         public string DatabasePath { get; set; } = "data/hedron.db";
 

@@ -9,7 +9,7 @@ namespace Hedron.Core.Modules.World
 {
     /// <summary>
     /// DI composition entry point for the World module: cross-cutting template registry,
-    /// YAML content serializer, content loader, and the existing <c>look</c> command.
+    /// YAML content serializer, world manifest store, content loader, and the existing <c>look</c> command.
     /// </summary>
     /// <remarks>
     /// <see cref="ITemplateRegistry"/> lives at <c>Core/Systems/</c> because every future
@@ -22,6 +22,7 @@ namespace Hedron.Core.Modules.World
         {
             services.AddSingleton<ITemplateRegistry, TemplateRegistry>();
             services.AddSingleton<IContentSerializer, YamlContentSerializer>();
+            services.AddSingleton<IWorldManifestStore, WorldManifestStore>();
             services.AddSingleton<IWorldContentLoader, WorldContentLoader>();
             services.AddSingleton<IRoomContentWriter, RoomContentWriter>();
             services.AddSingleton<IAreaContentWriter, AreaContentWriter>();

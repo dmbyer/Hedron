@@ -96,8 +96,10 @@ namespace Hedron.Core.Modules.Death.Systems
                     "falling back to starting room.",
                     entityId, respawn?.RoomBlueprintId);
 
-                targetRoomEntityId = _worldConfig.StartingRoomEntityId;
-                targetBlueprintId = _worldConfig.StartingRoomBlueprintId;
+                // One snapshot read for both ids (INV-31).
+                var start = _worldConfig.StartingRoom;
+                targetRoomEntityId = start.EntityId;
+                targetBlueprintId = start.BlueprintId;
             }
 
             if (_entityService.TryGet<LocationComponent>(entityId, out var location))

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Core;
 using Hedron.Core.ECS;
@@ -1333,6 +1334,148 @@ namespace Hedron.Tests.Authoring
 
             Assert.False(result.Success);
             Assert.NotEmpty(result.Errors);
+        }
+
+        // ── World manifest: rename cascade (T9) ─────────────────────────────────────
+
+        private const string MalformedManifest = "startingRoomId: [unclosed\n  : : :";
+
+        private static string ManifestPath(string contentDir) => Path.Combine(contentDir, "world.yaml");
+
+        [Fact]
+        public async Task Rename_ManifestStartingRoom_RewritesWorldYaml()
+        {
+            var (catalog, _) = NewCatalog(out var contentDir);
+            await catalog.CreateAsync(catalog.CreateNew(ContentKind.Room, "Hub", "room.hub"));
+            File.WriteAllText(ManifestPath(contentDir), "schemaVersion: 1\nstartingRoomId: room.hub\n");
+
+            var result = await catalog.RenameAsync(ContentKind.Room, "room.hub", "room.plaza");
+
+            Assert.True(result.Success);
+            Assert.Equal("room.plaza", catalog.Load().Manifest.StartingRoomId);
+            Assert.Contains(result.Warnings, w => w.Contains("world.yaml"));
+        }
+
+        [Fact]
+        public async Task Rename_NonStartingRoom_LeavesWorldYamlByteIdentical()
+        {
+            var (catalog, _) = NewCatalog(out var contentDir);
+            await catalog.CreateAsync(catalog.CreateNew(ContentKind.Room, "Hub", "room.hub"));
+            await catalog.CreateAsync(catalog.CreateNew(ContentKind.Room, "Side", "room.side"));
+            File.WriteAllText(ManifestPath(contentDir), "schemaVersion: 1\nstartingRoomId: room.hub\n");
+            var before = File.ReadAllBytes(ManifestPath(contentDir));
+
+            var result = await catalog.RenameAsync(ContentKind.Room, "room.side", "room.alley");
+
+            Assert.True(result.Success);
+            Assert.Equal(before, File.ReadAllBytes(ManifestPath(contentDir)));
+        }
+
+        [Fact]
+        public async Task Rename_Room_WithMalformedWorldYaml_IsRefused_AndNothingIsWritten()
+        {
+            var (catalog, _) = NewCatalog(out var contentDir);
+            await catalog.CreateAsync(catalog.CreateNew(ContentKind.Room, "B", "room.b"));
+            var a = catalog.CreateNew(ContentKind.Room, "A", "room.a");
+            ((RoomTemplate)a.Template).Exits[Direction.East] = "room.b";
+            await catalog.CreateAsync(a);
+            File.WriteAllText(ManifestPath(contentDir), MalformedManifest);
+
+            var snapshot = new Dictionary<string, byte[]>();
+            foreach (var file in Directory.GetFiles(contentDir, "*", SearchOption.AllDirectories))
+                snapshot[file] = File.ReadAllBytes(file);
+
+            var result = await catalog.RenameAsync(ContentKind.Room, "room.b", "room.c");
+
+            Assert.False(result.Success);
+            Assert.NotEmpty(result.Errors);
+            var after = Directory.GetFiles(contentDir, "*", SearchOption.AllDirectories);
+            Assert.Equal(snapshot.Keys.OrderBy(k => k), after.OrderBy(k => k));
+            foreach (var (file, bytes) in snapshot)
+                Assert.Equal(bytes, File.ReadAllBytes(file));
+        }
+
+        [Fact]
+        public async Task Rename_NonRoom_IsUnaffected_ByMalformedWorldYaml()
+        {
+            var (catalog, _) = NewCatalog(out var contentDir);
+            var item = catalog.CreateNew(ContentKind.Item, "Stone", "item.stone");
+            await catalog.CreateAsync(item);
+            File.WriteAllText(ManifestPath(contentDir), MalformedManifest);
+
+            var result = await catalog.RenameAsync(ContentKind.Item, "item.stone", "item.pebble");
+
+            Assert.True(result.Success, string.Join("; ", result.Errors));
+        }
+
+        // ── World manifest authoring: IWorldManifestAuthoring (T10) ─────────────────
+
+        [Fact]
+        public async Task ManifestSave_MalformedRoomId_IsRefused_AndNothingWritten()
+        {
+            var (catalog, _) = NewCatalog(out var contentDir);
+
+            var result = await catalog.SaveAsync(new WorldManifest(1, "bad id with spaces"));
+
+            Assert.False(result.Success);
+            Assert.False(File.Exists(ManifestPath(contentDir)));
+        }
+
+        [Fact]
+        public async Task ManifestSave_OverMalformedExistingFile_IsRefused_FileByteIdentical()
+        {
+            var (catalog, _) = NewCatalog(out var contentDir);
+            await catalog.CreateAsync(catalog.CreateNew(ContentKind.Room, "Hub", "room.hub"));
+            File.WriteAllText(ManifestPath(contentDir), MalformedManifest);
+            var before = File.ReadAllBytes(ManifestPath(contentDir));
+
+            var result = await catalog.SaveAsync(new WorldManifest(1, "room.hub"));
+
+            Assert.False(result.Success);
+            Assert.Equal(before, File.ReadAllBytes(ManifestPath(contentDir)));
+        }
+
+        [Fact]
+        public async Task ManifestSave_UnknownRoom_SucceedsWithWarning()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var result = await catalog.SaveAsync(new WorldManifest(1, "room.nowhere"));
+
+            Assert.True(result.Success);
+            Assert.NotEmpty(result.Warnings);
+            Assert.Equal("room.nowhere", catalog.Load().Manifest.StartingRoomId);
+        }
+
+        [Fact]
+        public async Task ManifestSave_NullStartingRoom_WritesManifestWithoutDeclaration()
+        {
+            var (catalog, _) = NewCatalog(out var contentDir);
+
+            var result = await catalog.SaveAsync(new WorldManifest(null, null));
+
+            Assert.True(result.Success);
+            Assert.True(File.Exists(ManifestPath(contentDir)));
+            Assert.DoesNotContain("startingRoomId", File.ReadAllText(ManifestPath(contentDir)));
+            Assert.Null(catalog.Load().Manifest.StartingRoomId);
+        }
+
+        [Fact]
+        public async Task ManifestPreview_ResolvesOverCatalogRooms_WithConfigFallback()
+        {
+            var (catalog, _) = NewCatalog();
+            await catalog.CreateAsync(catalog.CreateNew(ContentKind.Room, "Hub", "room.hub"));
+            // Default WorldOptions.StartingRoomBlueprintId is "room.crossroads".
+            await catalog.CreateAsync(catalog.CreateNew(ContentKind.Room, "Crossroads", "room.crossroads"));
+
+            var declared = catalog.Preview(new WorldManifest(1, "room.hub"));
+            var undeclared = catalog.Preview(new WorldManifest(1, null));
+
+            Assert.Equal("room.hub", declared.Preview.BlueprintId);
+            Assert.Equal(StartingRoomSource.Manifest, declared.Preview.Source);
+            Assert.Equal("room.crossroads", undeclared.Preview.BlueprintId);
+            Assert.Equal(StartingRoomSource.Configuration, undeclared.Preview.Source);
+            Assert.Equal("room.crossroads", undeclared.ConfigFallbackId);
         }
     }
 }

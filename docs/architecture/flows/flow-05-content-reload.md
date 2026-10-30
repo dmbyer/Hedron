@@ -22,7 +22,7 @@ sequenceDiagram
     CD->>RC: ExecuteAsync
     RC->>Pers: FlushAllAsync (force-save persistent state)
     RC->>WCL: ReloadAsync → ContentReloadResult
-    Note over WCL: destroy world content → clear registry → re-scan → re-spawn → link + place
+    Note over WCL: destroy world content → clear registry → re-scan → re-spawn → link + place → re-resolve starting room
     RC->>Bus: Publish(WorldContentReadyEvent)
     Bus->>Subs: shop re-seed · spawn slots · player re-hydration
     RC->>Sess: confirmation (IOutputWriter)
@@ -37,8 +37,9 @@ sequenceDiagram
 3. **Tear down world content.** `WorldContentLoader.ReloadAsync` destroys every entity carrying a `BlueprintComponent` but not `PersistentEntity` (`DestroyWorldContent`) — rooms, areas, mobs, world/dropped items, shop base stock and buy-back items. Persistent entities are left intact.
 4. **Registry refresh.** Snapshots previous template ids, clears the registry, re-scans `World:ContentDirectory`, and re-registers all templates.
 5. **Re-spawn the world.** `SpawnAndPlaceWorld` spawns every template fresh, links room exits, places items/mobs in their rooms, and links rooms to areas — the same path startup uses. (The world blueprint map excludes persistent entities, so a player-owned copy never suppresses an authored re-spawn.)
-6. **Post-load fan-out.** `ReloadCommand` publishes `WorldContentReadyEvent`. `ShopkeeperSpawnHandler` seeds tills + base stock on the fresh shops; `SpawnSystem` clears and rebuilds its slot tracker; `CharacterHydrationHandler` re-resolves each persistent entity's room from its durable `RoomBlueprintId`, moving characters whose room no longer exists to the starting room.
-7. **Result + audit.** `ReloadAsync` returns `ContentReloadResult { loaded, unchanged, removed }` (template-file diff); the command writes a confirmation and publishes `ContentReloadedEvent`; `AdminAuditHandler` (p=80) logs the event.
+6. **Re-resolve the starting room.** `ReloadAsync` ends with `ResolveStartingRoom()`: it re-reads `world.yaml`, re-resolves over the fresh room set, and swaps `WorldConfiguration.StartingRoom` as one new immutable snapshot (an edited manifest takes effect here).
+7. **Post-load fan-out.** `ReloadCommand` publishes `WorldContentReadyEvent`. `ShopkeeperSpawnHandler` seeds tills + base stock on the fresh shops; `SpawnSystem` clears and rebuilds its slot tracker; `CharacterHydrationHandler` re-resolves each persistent entity's room from its durable `RoomBlueprintId`, moving characters whose room no longer exists to the resolved starting room (one snapshot read).
+8. **Result + audit.** `ReloadAsync` returns `ContentReloadResult { loaded, unchanged, removed }` (template-file diff); the command writes a confirmation and publishes `ContentReloadedEvent`; `AdminAuditHandler` (p=80) logs the event.
 
 **Note.** Reload is a full rebuild, so edits to existing rooms/mobs/items now take effect immediately — no restart required. Because world entities are destroyed and re-created, transient combat/effect references to a destroyed mob are dropped (acceptable for an admin maintenance operation). Concurrency with the heartbeat thread is the known deferred [thread-safety review](../../roadmap/backlog.md) concern.
 

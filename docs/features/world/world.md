@@ -35,7 +35,7 @@ The room-to-area relationship uses a **bidirectional via component field + scan*
 - **Events** — `PlayerMovedEvent` (thin, past-tense). See [`../../reference/handlers.md`](../../reference/handlers.md).
 - **Components** — `RoomComponent`, `AreaComponent`, `LocationComponent`, `SpawnConfigComponent`, `BlueprintComponent`. See [`../../reference/components.md`](../../reference/components.md).
 - **Admin commands** — `spawn <blueprintId>`, `teleport <target>`, `reload`, `dig <direction> [name]`, `set <property> <value>`, `area [blueprintId]`, `setarea <roomBlueprintId> <areaBlueprintId>`. See [`../../reference/commands.md`](../../reference/commands.md).
-- **Config keys** — `World:ContentDirectory` (default `data/content/`), `World:StartingRoomBlueprintId` (default `room.crossroads`), `Admin:PrivilegedNames`, `Heartbeat:IntervalMs` (default 2000). See [`../../architecture/05-configuration.md`](../../architecture/05-configuration.md).
+- **Config keys** — `Paths:DataDirectory` (default `data/`; holds `content/`, `hedron.db`, … — see [05-configuration](../../architecture/05-configuration.md#data-locations--one-rule)), `World:StartingRoomBlueprintId` (default `room.crossroads`; the fallback behind a world's `world.yaml` `startingRoomId` — see [world-content.md](world-content.md#world-manifest--worldyaml)), `Admin:PrivilegedNames`, `Heartbeat:IntervalMs` (default 2000). See [`../../architecture/05-configuration.md`](../../architecture/05-configuration.md).
 
 ## Flows
 

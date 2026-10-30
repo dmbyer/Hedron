@@ -52,24 +52,23 @@ public static class Program
         // Initiator): they compose DI, run one operation, and exit — no telnet/heartbeat.
         if (GenerationRunMode.Matches(args))
         {
-            var configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json", optional: true)
-                .AddEnvironmentVariables("HEDRON_")
-                .Build();
+            var configuration = RunModeConfiguration.Build(
+                AppContext.BaseDirectory, RunModeConfiguration.CurrentEnvironmentName());
             return await GenerationRunMode.RunAsync(args, configuration);
         }
 
         if (SimulateRunMode.Matches(args))
         {
-            var configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json", optional: true)
-                .AddEnvironmentVariables("HEDRON_")
-                .Build();
+            var configuration = RunModeConfiguration.Build(
+                AppContext.BaseDirectory, RunModeConfiguration.CurrentEnvironmentName());
             return await SimulateRunMode.RunAsync(args, configuration);
         }
 
         var host = Host.CreateDefaultBuilder(args)
-            .ConfigureAppConfiguration((_, cfg) => cfg.AddEnvironmentVariables("HEDRON_"))
+            // Build-output JSON instead of content-root (= working-directory) JSON, so
+            // `dotnet run --project Server` from the repo root still loads Server/appsettings*.json.
+            .ConfigureAppConfiguration((context, cfg) => RunModeConfiguration.ConfigureHost(
+                cfg, AppContext.BaseDirectory, context.HostingEnvironment.EnvironmentName, args))
             .ConfigureServices((context, services) =>
             {
                 services.Register(context.Configuration);
@@ -146,6 +145,7 @@ public static class Program
         bus.Subscribe<AreaCreatedByAdminEvent>(audit);
         bus.Subscribe<WalletSetByAdminEvent>(audit);
         bus.Subscribe<PlayerAscendedByAdminEvent>(audit);
+        bus.Subscribe<StartingRoomSetByAdminEvent>(audit);
 
         var characterHydration = host.Services.GetRequiredService<CharacterHydrationHandler>();
         bus.Subscribe<WorldContentReadyEvent>(characterHydration);

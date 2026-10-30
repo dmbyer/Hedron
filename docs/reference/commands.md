@@ -664,6 +664,20 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 
 ---
 
+### `startroom`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Admin/Commands/StartRoomCommand.cs`  
+**Description:** Inspects or declares the world's starting room ([world manifest](../features/world/world-content.md#world-manifest--worldyaml)). With no argument it is read-only: shows the resolved room's name and id, its source (`world.yaml`, config fallback, void or any-room fallback, unresolved), and any declared-but-unresolved id. `startroom here` requires the invoker to stand in a world room: it writes `world.yaml` with `startingRoomId` set to that room (keeping `schemaVersion`; unknown keys are not preserved), re-resolves the live snapshot via `IWorldContentLoader.ResolveStartingRoom()`, and publishes `StartingRoomSetByAdminEvent` with the previous **resolved** id. Refuses with an error, changing nothing, outside a world room or while the existing `world.yaml` is malformed; any other token writes the usage line. No `SaveEntityAsync` — existing characters' `RespawnComponent` is untouched (`setrespawn` exists for that). In the Server process the write is not gated: two concurrent `startroom here` are last-writer-wins on the file, and each resolution re-reads it.  
+**Usage:** `startroom [here]`  
+**Schema:** `Token string "mode"` (optional, `here`)  
+**Dependencies:** `EntityService`, `IWorldManifestStore`, `IWorldContentLoader`, `WorldConfiguration`, `IEventBus`  
+**Events:** `StartingRoomSetByAdminEvent` (`here` only)  
+**RequiredPrivileges:** `AdminRequirement`
+
+---
+
 ### `reload`
 
 **Aliases:** none  

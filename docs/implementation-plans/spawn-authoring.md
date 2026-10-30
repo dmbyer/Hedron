@@ -24,7 +24,7 @@
     - the mob/item "Spawns in" panel;
     - a mob-DTO strict-shape change for the JSON API.
   - Feature homes: [`world/spawn-system.md`](../features/world/spawn-system.md), [`world/world-content.md`](../features/world/world-content.md), [`admin-authoring/`](../features/admin-authoring/admin-authoring.md).
-- **Program:** slice 2 of [`phase-5-content-baseline-program.md`](phase-5-content-baseline-program.md#slice-decomposition). Covers **R9, R12, R30**, plus the "Spawn rule keyed by rule, with count" seam and resolved decision 4. Depends on slice 1 ([`dev-world-foundation.md`](dev-world-foundation.md)).
+- **Program:** slice 2 of [`phase-5-content-baseline-program.md`](phase-5-content-baseline-program.md#slice-decomposition). Covers **R9, R12, R30**, plus the "Spawn rule keyed by rule, with count" seam and resolved decision 4. Depends on slice 1 ([`dev-world-foundation.md`](../roadmap/completed/dev-world-foundation.md)).
 
 ## Description
 
@@ -610,7 +610,7 @@ No new canonical flow is needed.
 ## Related
 
 - [`phase-5-content-baseline-program.md`](phase-5-content-baseline-program.md): the umbrella (R9, R12, R30; the "Spawn rule keyed by rule, with count" seam; resolved decision 4).
-- [`dev-world-foundation.md`](dev-world-foundation.md): slice 1. A loader neighbor; its hub has no rules; precedents for the catalog interface and the audit event.
+- [`dev-world-foundation.md`](../roadmap/completed/dev-world-foundation.md): slice 1. A loader neighbor; its hub has no rules; precedents for the catalog interface and the audit event.
 - [`tiered-overworld-program.md`](tiered-overworld-program.md): Stage B weighted area pools.
 - [`playtest-world-substrate.md`](playtest-world-substrate.md): PT-1 subscription site; per-world composition.
 - Features: [`spawn-system.md`](../features/world/spawn-system.md) · [`world-content.md`](../features/world/world-content.md) · [`world.md`](../features/world/world.md) · [`mob-system.md`](../features/mobs/mob-system.md) · [`item-inventory-system.md`](../features/items/item-inventory-system.md) · [`admin-commands.md`](../features/admin-authoring/admin-commands.md) · [`content-tooling.md`](../features/admin-authoring/content-tooling.md) · [`content-authoring.md`](../features/admin-authoring/content-authoring.md) · [`shop-system.md`](../features/economy/shop-system.md)

@@ -1,0 +1,11 @@
+schemaVersion: 
+id: room.hub.south
+name: Hub South
+description: The south end of the hub. The square lies to the north.
+areaId: area.hub
+x: 0
+y: -1
+z: 0
+exits:
+  North: room.hub.square
+spawnRules: 

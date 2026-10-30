@@ -17,7 +17,11 @@ namespace Hedron.Core.Modules.Authoring
             // so the composition-root smoke guard covers the catalog's read seam.
             services.AddSingleton<IContentFileReader, ContentFileReader>();
             services.AddSingleton<IContentReferenceIndex, ContentReferenceIndex>();
-            services.AddSingleton<IContentDefinitionCatalog, ContentDefinitionCatalog>();
+            services.AddSingleton<ContentDefinitionCatalog>();
+            services.AddSingleton<IContentDefinitionCatalog>(sp => sp.GetRequiredService<ContentDefinitionCatalog>());
+            // Same singleton under the manifest-authoring interface, so manifest saves share the
+            // catalog's write gate with the rename cascade (INV-31).
+            services.AddSingleton<IWorldManifestAuthoring>(sp => sp.GetRequiredService<ContentDefinitionCatalog>());
             services.AddSingleton<IContentGenerationSystem, ContentGenerationSystem>();
             services.AddSingleton<IAreaLayoutSystem, AreaLayoutSystem>();
 

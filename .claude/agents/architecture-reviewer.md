@@ -41,7 +41,7 @@ A spec-mode review blocks `implement-plan` until blocking findings are resolved 
    - `IEventBus`/`PublishAsync` inside a file under `Systems/` → INV-5
    - `is SomeType` / `as SomeType` on entities where `HasComponent<T>`/`TryGet<T>` is meant → INV-4
    - direct `session.SendLineAsync` in a command body or dispatcher branch after slice 3 → INV-11
-   - `Random.Shared` / `new Random(` / `DateTime[Offset].Now`/`.UtcNow`/`.Today` inside a file under a `Systems/` path → INV-26 (randomness must be `IRandom`; pre-existing wall-clock debt: `AccountSystem`, `SpawnSystem` — flag only if the diff adds a *new* such read or touches those systems)
+   - `Random.Shared` / `new Random(` / `DateTime[Offset].Now`/`.UtcNow`/`.Today` inside a file under a `Systems/` path → INV-26 (randomness must be `IRandom`, time the heartbeat or `IClock`; any acknowledged debt is listed in the checklist's INV-26 entry, not here)
 5. **Cross-cutting-surface audit (INV-19).** For each surface in the implementation plan: "Adequate" → spot-check no new file hand-rolled what the surface should absorb; "Gap exposed" → confirm the framework landed here or in a merged prerequisite; "Acknowledged debt" → confirm the backlog entry exists.
 6. **Pattern-repetition sweep (INV-19).** Any hand-rolled pattern in ≥3 new/modified files (arg parsing, privilege checks, output formatting, `PersistentEntity` queries, `[Persistent]` component loops) → framework-promotion finding.
 7. **Flows-doc audit (INV-17).** For each flow in the doc's "Flows introduced or modified," open `flows/README.md` and verify body **and** mermaid match the as-built code.

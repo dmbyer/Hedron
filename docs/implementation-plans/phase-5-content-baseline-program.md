@@ -303,7 +303,7 @@ Each gap slice runs the full per-slice loop (`/new-plan` → spec gate → build
 
 | # | Slice | Contents | Requirements | Depends on |
 |---|---|---|---|---|
-| 1 | [`dev-world-foundation`](dev-world-foundation.md) | Policy amendment (world-content.md, CLAUDE.md, plan.md, dev-world README); world manifest; dev-world launch profile; hub skeleton with starting room and respawn | R1–R3, R15 | — |
+| 1 | ✅ [`dev-world-foundation`](../roadmap/completed/dev-world-foundation.md) (shipped) | Policy amendment (world-content.md, CLAUDE.md, plan.md, dev-world README); world manifest; dev-world launch profile; hub skeleton with starting room and respawn | R1–R3, R15 | — |
 | 2 | [`spawn-authoring`](spawn-authoring.md) | Rule-keyed slots + count; room-editor and admin authoring; mob-side spawn-room removal | R9, R12, R30 | 1 |
 | 3 | `area-designation` | Area tier/band-range field + editor; audit out-of-designation check | R4, R23 | 1 (parallel with 2) |
 | 4 | `help-topics` | Shared YAML store extraction (+ standards/scenarios/**world-manifest** migration; the manifest store from slice 1 is accepted bounded debt); topic registry with engine + world layers; `help` topic step; topic editor; engine topic set | R18–R19 | — (parallel) |

@@ -1,0 +1,12 @@
+schemaVersion: 
+id: room.hub.square
+name: Hub Square
+description: The central square of the hub. New characters arrive here. Paths lead north and south.
+areaId: area.hub
+x: 0
+y: 0
+z: 0
+exits:
+  North: room.hub.north
+  South: room.hub.south
+spawnRules: 

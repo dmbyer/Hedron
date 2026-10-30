@@ -1,0 +1,152 @@
+@page "/world"
+@using Hedron.Core.Modules.World
+@inject IWorldManifestAuthoring ManifestAuthoring
+@inject IContentDefinitionCatalog Catalog
+
+<PageTitle>World</PageTitle>
+
+<h1>World</h1>
+
+<p class="hint">
+    Authors the world's <span class="mono">world.yaml</span> manifest — world-level facts for this
+    content directory. The starting room is where new characters land and where a character whose
+    respawn room no longer exists falls back to.
+</p>
+
+<p class="callout">
+    Reload-to-apply: a saved manifest takes effect on the next <strong>reload</strong> or host start.
+    Existing characters keep their own respawn points.
+</p>
+
+@if (_view is not null)
+{
+    <dl class="meta">
+        <dt>File</dt>
+        <dd><span class="mono">@_view.FilePath</span> @(_view.Exists ? "" : "(not created yet)")</dd>
+        <dt>Config fallback</dt>
+        <dd><span class="mono">@_view.ConfigFallbackId</span> (<span class="mono">World:StartingRoomBlueprintId</span>)</dd>
+    </dl>
+
+    @if (_view.ReadError is not null)
+    {
+        <div class="error-box">
+            <strong>world.yaml is malformed.</strong> Fix it by hand before saving here; it will not be overwritten.
+            <div class="mono">@_view.ReadError</div>
+        </div>
+    }
+
+    <fieldset>
+        <legend>Starting room</legend>
+        <div class="field">
+            <label>Declared starting room</label>
+            <select value="@(_startingRoomId ?? "")" @onchange="OnStartingRoomChanged">
+                <option value="">Not declared — use host fallback</option>
+                @if (_startingRoomId is not null && !_rooms.Any(r => r.BlueprintId == _startingRoomId))
+                {
+                    <option value="@_startingRoomId">@_startingRoomId (no such room)</option>
+                }
+                @foreach (var room in _rooms)
+                {
+                    <option value="@room.BlueprintId">@room.Name (@room.BlueprintId)</option>
+                }
+            </select>
+        </div>
+    </fieldset>
+
+    <h2>Resolution preview</h2>
+    <p>
+        Resolves to <span class="mono">@(_view.Preview.BlueprintId ?? "nothing")</span>
+        from <strong>@_view.Preview.Source</strong>.
+    </p>
+    @if (_view.Preview.Warnings.Count > 0)
+    {
+        <ul class="hint">
+            @foreach (var w in _view.Preview.Warnings)
+            {
+                <li>@w</li>
+            }
+        </ul>
+    }
+
+    <button class="btn" disabled="@(_saving || _view.ReadError is not null)" @onclick="SaveAsync">Save</button>
+
+    @if (_errors.Count > 0)
+    {
+        <div class="error-box">
+            <strong>Cannot save:</strong>
+            <ul>
+                @foreach (var err in _errors)
+                {
+                    <li>@err</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (_warnings.Count > 0)
+    {
+        <div class="warning-box">
+            <strong>Saved with notices:</strong>
+            <ul>
+                @foreach (var w in _warnings)
+                {
+                    <li>@w</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (_saved)
+    {
+        <p class="success">Saved <span class="mono">world.yaml</span>.</p>
+    }
+}
+
+@code {
+    private WorldManifestView? _view;
+    private IReadOnlyList<ContentSummary> _rooms = Array.Empty<ContentSummary>();
+    private string? _startingRoomId;
+    private bool _saving;
+    private bool _saved;
+    private IReadOnlyList<string> _errors = Array.Empty<string>();
+    private IReadOnlyList<string> _warnings = Array.Empty<string>();
+
+    protected override void OnInitialized()
+    {
+        _rooms = Catalog.List(ContentKind.Room).OrderBy(r => r.BlueprintId, StringComparer.Ordinal).ToList();
+        _view = ManifestAuthoring.Load();
+        _startingRoomId = _view.Manifest.StartingRoomId;
+    }
+
+    private void OnStartingRoomChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        _startingRoomId = string.IsNullOrEmpty(value) ? null : value;
+        _saved = false;
+        _view = ManifestAuthoring.Preview(Draft());
+    }
+
+    private WorldManifest Draft() => _view!.Manifest with { StartingRoomId = _startingRoomId };
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _saved = false;
+        try
+        {
+            var result = await ManifestAuthoring.SaveAsync(Draft());
+            _errors = result.Errors;
+            _warnings = result.Warnings;
+            _saved = result.Success;
+            if (result.Success)
+            {
+                _view = ManifestAuthoring.Load();
+                _startingRoomId = _view.Manifest.StartingRoomId;
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}
