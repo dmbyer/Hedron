@@ -270,9 +270,9 @@ Both run against seeded, replayable worlds and report against designer-stated ex
 | # | Slice | Contents | Requirements | Depends on |
 |---|---|---|---|---|
 | PT-1 | [`playtest-world-substrate`](playtest-world-substrate.md) | Subscription + session-entry extractions; per-world composition; tick driver; `BotSession` + agent formatter + bot-critical message conversion; R27 policy amendment; tests drive a world by command lines, with no bots yet | R2–R6, R27–R28 | — (can start alongside Phase 5 slice 1; boots through `world.yaml` once that lands, or config until then) |
-| PT-2 | `playtest-run-mode` | Recorder; grader + `playtestExpectations` family; scenario YAML + store; `playtest` CLI; report writer; acceptance-walker policy; a smoke golden on the hub skeleton | R1, R7 (walker), R10–R14, R25 | PT-1; Phase 5 slice 1 |
+| PT-2 | [`playtest-run-mode`](playtest-run-mode.md) | Recorder; grader + `playtestExpectations` family; scenario YAML + store; `playtest` CLI; report writer; acceptance-walker policy; a smoke golden on the hub skeleton | R1, R7 (walker), R10–R14, R25 | PT-1; Phase 5 slice 1 |
 | PT-3 | `scripted-bots` | Explorer, grinder, shopper, die-and-recover, newcomer; stuck detection; N bots per world; multi-seed sweep runner; per-run findings files | R7–R9, R15, R21 | PT-2 |
-| — | Acceptance golden (= Phase 5 slice 9) | A1–A8 graded on dev-world | R14 + Phase 5 R26–R29 | PT-2; Phase 5 drops B1–B3 |
+| — | Acceptance golden (= Phase 5 slice 9) | A1–A8 graded on dev-world | R14 + Phase 5 R26–R29 | PT-2; PT-3 (A8 needs R8 stuck detection); Phase 5 drops B1–B3 |
 | PT-4 | `persona-layer` | `playtest-mcp` run mode + `report_finding` tool; five personas; defect-overlay calibration; analyst agent + ledger (including the balance-reviewer role); `run-playtest` skill | R16–R24 | PT-2 (PT-3 recommended first) |
 | PT-5 | `playtest-editor-page` | Blazor Playtest page: compose, launch, reports, ledger browser | R26 | PT-2 |
 
@@ -412,6 +412,6 @@ Resolved at `/refine` (2026-10-29). See [Resolved decisions](#resolved-decisions
 - **Bot-critical message list.** The exact `PlainMessage` sites PT-1 converts, derived from what the acceptance walker must branch on. *(Planner, PT-1.)*
 - **Session-entry extraction boundary.** Which steps of the post-login sequence (hydration, `PlayerConnectedEvent`, starting room and respawn defaults) move into the shared piece. *(Planner, PT-1.)*
 - ~~**`AccountSystem` wall-clock debt.**~~ **Resolved at PT-1 planning:** already fixed in code (`IClock`); only stale doc text remained, owned by `dev-world-foundation`.
-- **Golden runtime budget.** The maximum wall time for the per-PR golden, which bounds the scenario's length and tick count. *(User + planner, PT-2.)*
+- ~~**Golden runtime budget.**~~ **Resolved at PT-2 planning:** the per-PR smoke golden runs in **≤ 10 s wall time** inside the normal `dotnet test` run; the scenario's length and tick count are sized to that ceiling ([`playtest-run-mode.md`](playtest-run-mode.md#resolved-decisions-pt-2-planning)).
 - **Stuck-detection window and budget defaults.** Tuning values, set during PT-3. *(Planner/designer.)*
 - **MCP SDK choice and project MCP config shape** for `playtest-mcp`. *(Planner, PT-4.)*
