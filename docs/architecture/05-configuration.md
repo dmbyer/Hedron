@@ -27,16 +27,47 @@ Rationale: These settings are environment-specific, operator-controlled, and alr
 **Naming convention:** `"Section:Key"` form, e.g.:
 
 ```
+"Paths:DataDirectory"                (default "data" — every data location lives under it; see below)
 "Persistence:FlushIntervalSeconds"   (default 60)
-"Persistence:DatabasePath"           (default "data/hedron.db")
-"World:ContentDirectory"             (default "data/content/")
-"World:StartingRoomBlueprintId"      (default "room.crossroads")
+"World:StartingRoomBlueprintId"      (default "room.crossroads"; fallback behind world.yaml, see Category 2)
 "Admin:PrivilegedNames"              (default [], string array — bootstrap admin allowlist)
 "Server:Port"                        (default 4000)
-"Balance:StandardsPath"              (default "data/balance/standards.yaml")
 ```
 
-Defaults live in `appsettings.json`. Overrides live in environment variables or `appsettings.Production.json`. No magic numbers in C# source for these settings.
+Defaults live in `appsettings.json`. No magic numbers in C# source for these settings.
+
+### Data locations — one rule
+
+Everything Hedron reads and writes at runtime lives under **one data directory**, `Paths:DataDirectory` (default `data`):
+
+| Location | Path under the data directory | Per-location override key |
+|---|---|---|
+| World content (YAML) | `content/` | `World:ContentDirectory` |
+| Player database (SQLite) | `hedron.db` | `Persistence:DatabasePath` |
+| Balance standards | `balance/standards.yaml` | `Balance:StandardsPath` |
+| Simulation reports / saved scenarios | `sim/reports/`, `sim/scenarios/` | `Simulation:ReportDirectory`, `Simulation:ScenarioDirectory` |
+
+- **Point Hedron at your data:** set `Paths:DataDirectory`. That one setting moves all five locations.
+- **Relative paths resolve against the Hedron root**, never the working directory. The root is your source checkout (the folder holding `Hedron.sln`) when run from source, and the install folder when published. So `data` means `<checkout>/data/` for every host, run mode, IDE and launcher, and `<install>/data/` in a deployment. Absolute paths are used as given.
+- **Override a single location** only when one must live apart from the rest. The committed `DevWorld` profile does this for content (`content/dev-world/`) and the database (`data/dev-world.db`). Because an explicit location beats the data directory, the profile works even on a machine whose own data directory is set.
+- Implemented once, in `Server/DataPaths` (applied by the composition root that every host and run mode shares), and pinned by `DataPathsTests`.
+
+### Setting values — sources & precedence
+
+Lowest to highest:
+1. `appsettings.json` (each host has its own: `Server/`, `Hedron.Web/`);
+2. `appsettings.{Environment}.json`, selected by `DOTNET_ENVIRONMENT` (e.g. the committed `DevWorld` profile, or an operator's `Production` file);
+3. command-line `--Section:Key=value`;
+4. `HEDRON_`-prefixed environment variables (`__` separates sections, e.g. `HEDRON_Paths__DataDirectory`), which win over everything. This is the **one** environment-variable mechanism.
+
+**Recipes:**
+- **Local development:** nothing to set; data lives in the checkout's gitignored `data/`.
+- **Dev-world baseline:** `DOTNET_ENVIRONMENT=DevWorld`.
+- **Your own world on this machine:** `HEDRON_Paths__DataDirectory=<folder>` (that folder holds `content/`, `hedron.db`, …).
+- **Deployment / container:** `HEDRON_Paths__DataDirectory=/var/hedron` (or leave the default, `<install>/data`), and mount that one folder as the volume.
+- **Tests:** `dotnet test` reads no runtime configuration. Tests construct their options or set temp paths explicitly, so no environment variable affects them.
+
+The Server process (telnet host and `generate`/`simulate`) reads its JSON from its build output, so it loads whatever the working directory; the run modes take their environment from `DOTNET_ENVIRONMENT`. `Hedron.Web` reads its JSON from its content root.
 
 ---
 
@@ -44,9 +75,11 @@ Defaults live in `appsettings.json`. Overrides live in environment variables or 
 
 **Examples:** Area respawn rates, mob stat blocks, loot tables, shop inventories, item definitions, room descriptions, spell lists.
 
-**Recommended tool: YAML data files under `World:ContentDirectory` (default `data/content/`), loaded via `TemplateRegistry`**
+**Recommended tool: YAML data files under the content directory (`<Paths:DataDirectory>/content`, default `data/content/`), loaded via `TemplateRegistry`**
 
 Rationale: Content is authored by designers, not operators. It doesn't belong in appsettings.json (wrong audience, wrong diff noise, wrong access model). It is plain text the world's owner can version in their own repository, live-reloadable via `@reload`, and has a schema independent of the C# type system. `TemplateRegistry.Spawn` is the bridge between these files and live entities.
+
+**World-level facts** live in the optional `world.yaml` manifest at the content root, not in a template kind. The starting room is the first: `startingRoomId` is the world's declaration, and the Category 1 `World:StartingRoomBlueprintId` key is only the operator fallback when the manifest is absent or names no live room (see [`../features/world/world-content.md`](../features/world/world-content.md#world-manifest--worldyaml)).
 
 **The engine repository ships no game world.** The content directory is gitignored; the only committed content is the generic development world under `content/dev-world/`. See [content ownership](../features/world/world-content.md#content-ownership--the-engine-ships-no-game-world).
 

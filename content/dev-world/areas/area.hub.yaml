@@ -1,0 +1,11 @@
+schemaVersion: 
+id: area.hub
+name: Hub
+description: The central hub where new characters arrive. No hostile spawns.
+respawnRate: 0
+pvp: false
+rooms:
+- room.hub.square
+- room.hub.north
+- room.hub.south
+aspectAffinities: 

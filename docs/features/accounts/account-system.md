@@ -31,7 +31,7 @@ Separation keeps each entity's component set clean and avoids coupling the login
 
 ### Character creation
 
-`CreateCharacterAsync(accountEntityId, characterName)` validates the name (2–16 letters, globally unique), creates the character entity, attaches `CharacterComponent { AccountEntityId, CharacterName, CreatedAtUtc }`, `LocationComponent { RoomBlueprintId = WorldConfiguration.StartingRoomBlueprintId }`, `AttributesComponent { Level=1, Mind=10, Body=10, Spirit=10, Attunement=10 }`, `PoolsComponent { MaxHp=100, CurrentHp=100, MaxMana=50, CurrentMana=50, MaxStamina=50, CurrentStamina=50, MaxAstra=10, CurrentAstra=10 }`, `RespawnComponent`, `AbilitiesComponent`, `AspectAffinitiesComponent`, and `PersistentEntity`; appends the character id to `AccountComponent.CharacterEntityIds`. Returns `CharacterEntityId`. `LoginFlow` saves character-first, then account (crash-safety ordering: an orphaned character file is recoverable; a dangling account pointer to a missing character is not).
+`CreateCharacterAsync(accountEntityId, characterName)` validates the name (2–16 letters, globally unique), creates the character entity, attaches `CharacterComponent { AccountEntityId, CharacterName, CreatedAtUtc }`, `LocationComponent { RoomEntityId, RoomBlueprintId }` from one read of the resolved `WorldConfiguration.StartingRoom` snapshot, `AttributesComponent { Level=1, Mind=10, Body=10, Spirit=10, Attunement=10 }`, `PoolsComponent { MaxHp=100, CurrentHp=100, MaxMana=50, CurrentMana=50, MaxStamina=50, CurrentStamina=50, MaxAstra=10, CurrentAstra=10 }`, `RespawnComponent { RoomBlueprintId }` (seeded from the same snapshot), `AbilitiesComponent`, `AspectAffinitiesComponent`, and `PersistentEntity`; appends the character id to `AccountComponent.CharacterEntityIds`. Returns `CharacterEntityId`. `LoginFlow` saves character-first, then account (crash-safety ordering: an orphaned character file is recoverable; a dangling account pointer to a missing character is not).
 
 ### Logout recording
 
@@ -39,9 +39,9 @@ Separation keeps each entity's component set clean and avoids coupling the login
 
 ### `CharacterHydrationHandler`
 
-Subscribes to `WorldContentReadyEvent` (not `WorldLoadedEvent`) and validates each character's `LocationComponent.RoomBlueprintId`. If the blueprint no longer resolves (e.g. a room was deleted between restarts) it resets the character to the starting room. `WorldContentReadyEvent` is the correct trigger — both persistence-hydrated and YAML-authored rooms exist, and `StartingRoomEntityId` is set.
+Subscribes to `WorldContentReadyEvent` (not `WorldLoadedEvent`) and validates each character's `LocationComponent.RoomBlueprintId`. If the blueprint no longer resolves (e.g. a room was deleted between restarts) it resets the character to the starting room, taking both ids from one read of the `WorldConfiguration.StartingRoom` snapshot. `WorldContentReadyEvent` is the correct trigger — both persistence-hydrated and YAML-authored rooms exist, and the starting room is resolved.
 
-### Wall-clock debt (INV-26)
+### Clock seam (INV-26)
 
 `AccountSystem` uses `IClock.UtcNow` (injected) for `CreatedAtUtc` and `LastLoginUtc` timestamps. The `IClock` seam was added in the testing-harness slice. See [`../../roadmap/backlog.md`](../../roadmap/backlog.md) for the testing-harness WP-3 entry.
 

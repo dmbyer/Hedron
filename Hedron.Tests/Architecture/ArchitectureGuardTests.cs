@@ -807,7 +807,8 @@ namespace Hedron.Tests.Architecture
                     ["Persistence:FlushIntervalSeconds"]       = "60",
                     ["Persistence:DatabasePath"]               = ":memory:",
                     // World
-                    ["World:ContentDirectory"]                 = "data/content/",
+                    // Data locations derive from here; a never-created temp path keeps composition off the checkout.
+                    ["Paths:DataDirectory"]                    = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hedron-di-smoke-unused"),
                     ["World:StartingRoomBlueprintId"]          = "room.crossroads",
                     // Admin
                     ["Admin:PrivilegedNames:0"]                = "admin",

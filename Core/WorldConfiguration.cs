@@ -1,3 +1,6 @@
+using System;
+using System.Threading;
+
 namespace Hedron.Core
 {
     /// <summary>
@@ -5,14 +8,29 @@ namespace Hedron.Core
     /// </summary>
     public class WorldConfiguration
     {
-        /// <summary>Entity id of the room new players are placed in on connect.</summary>
-        public uint StartingRoomEntityId { get; set; }
+        private ResolvedStartingRoom _startingRoom = ResolvedStartingRoom.Unresolved;
 
         /// <summary>
-        /// Blueprint id of the starting room. Populated alongside <see cref="StartingRoomEntityId"/>
-        /// by <c>WorldContentLoader.ResolveStartingRoom</c>. Used as a cross-restart-stable
-        /// fallback reference (e.g. for <c>RespawnComponent</c> at character creation).
+        /// The resolved starting room, published by <c>WorldContentLoader.ResolveStartingRoom</c> as one
+        /// immutable snapshot (startup, <c>reload</c>, <c>startroom</c>). A caller needing both the entity
+        /// id and the blueprint id reads this property <b>once</b> and uses that snapshot (INV-31).
         /// </summary>
-        public string? StartingRoomBlueprintId { get; set; }
+        public ResolvedStartingRoom StartingRoom
+        {
+            get => Volatile.Read(ref _startingRoom);
+            set => Volatile.Write(ref _startingRoom, value ?? throw new ArgumentNullException(nameof(value)));
+        }
+
+        /// <summary>
+        /// Entity id of the resolved starting room. Single-field read-through of <see cref="StartingRoom"/>;
+        /// never combine with <see cref="StartingRoomBlueprintId"/> — take one <see cref="StartingRoom"/> read instead.
+        /// </summary>
+        public uint StartingRoomEntityId => StartingRoom.EntityId;
+
+        /// <summary>
+        /// Blueprint id of the resolved starting room. Single-field read-through of <see cref="StartingRoom"/>;
+        /// never combine with <see cref="StartingRoomEntityId"/> — take one <see cref="StartingRoom"/> read instead.
+        /// </summary>
+        public string? StartingRoomBlueprintId => StartingRoom.BlueprintId;
     }
 }

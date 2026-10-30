@@ -43,6 +43,11 @@ public class Program
 
         builder.Configuration.AddEnvironmentVariables("HEDRON_");
 
+        // Blazor's static web assets are only auto-wired in Development; the DevWorld profile is a
+        // local build-output run too, so wire them explicitly there.
+        if (builder.Environment.IsEnvironment("DevWorld"))
+            builder.WebHost.UseStaticWebAssets();
+
         // Shared engine DI (pure) + this host's trimmed hosted-service set (bootstraps only).
         builder.Services.Register(builder.Configuration);
         builder.Services.AddContentBootstrapHostedServices();

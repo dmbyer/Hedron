@@ -12,15 +12,16 @@ Project layout:
 - **Server** (`Server/`) — generic-host console app that runs the telnet listener, owns DI composition, and hosts the headless `generate`/`simulate` run modes
 - **Web** (`Hedron.Web/`) — Blazor Server content-authoring editor + loopback JSON authoring API (boots the engine via `Server`'s composition root)
 - **Tests** (`Hedron.Tests/`) — xUnit suite (system / handler / flow / persistence / architecture-guard tiers); **live** and enforced on every PR via CI (INV-25) — strategy in [`docs/architecture/07-testing.md`](docs/architecture/07-testing.md)
-- **Content** (`content/`) — committed generic fixtures only: the `dev-world/` test world and `generate` example profiles. Persistence (SQLite) lives in `Core/`; there is no separate `Data` project, and the standalone test bot (`Bot/`) was removed in Phase 1 and has not been rebuilt.
+- **Content** (`content/`) — committed generic content only: `dev-world/`, the primary playable baseline, and `generate` example profiles. Persistence (SQLite) lives in `Core/`; there is no separate `Data` project, and the standalone test bot (`Bot/`) was removed in Phase 1 and has not been rebuilt.
 
-**The repo ships no game world.** Operators (the maintainer included) author and own their world under `World:ContentDirectory` (default `data/content/`, gitignored) and version it outside this repo. Never commit, move, or un-ignore operator content. Fixture content a slice needs goes in `content/dev-world/`, kept generic (no lore or setting) and sized to the mechanic. Policy: [content ownership](docs/features/world/world-content.md#content-ownership--the-engine-ships-no-game-world).
+**The repo ships no game world.** Operators (the maintainer included) author and own their world under `Paths:DataDirectory` (default `data/`, gitignored) and version it outside this repo. Never commit, move, or un-ignore operator content. Content a slice needs goes in `content/dev-world/`, kept generic (no lore or setting, functional names). Policy: [content ownership](docs/features/world/world-content.md#content-ownership--the-engine-ships-no-game-world).
 
 ## Commands
 
 ```bash
 dotnet build Hedron.sln
 dotnet run --project Server
+DOTNET_ENVIRONMENT=DevWorld dotnet run --project Server   # agents: smoke-test on the dev-world baseline, never the operator's world
 dotnet test Hedron.sln          # verification gate (INV-25) — live; enforced on every PR via CI
 ```
 

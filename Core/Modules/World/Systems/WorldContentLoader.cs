@@ -27,12 +27,13 @@ namespace Hedron.Core.Modules.World.Systems
         private const string RoomsSubdirectory = "rooms";
         private const string ItemsSubdirectory = "items";
         private const string MobsSubdirectory = "mobs";
-        private const string VoidRoomBlueprintId = "room.void";
+        private const string VoidRoomBlueprintId = StartingRoomResolver.VoidRoomBlueprintId;
 
         private readonly EntityService _entityService;
         private readonly ITemplateRegistry _templateRegistry;
         private readonly IContentSerializer _serializer;
         private readonly IRoomContentWriter _roomContentWriter;
+        private readonly IWorldManifestStore _manifestStore;
         private readonly Hedron.Core.WorldConfiguration _worldConfig;
         private readonly ILogger<WorldContentLoader> _logger;
         private readonly string _contentDirectory;
@@ -43,6 +44,7 @@ namespace Hedron.Core.Modules.World.Systems
             ITemplateRegistry templateRegistry,
             IContentSerializer serializer,
             IRoomContentWriter roomContentWriter,
+            IWorldManifestStore manifestStore,
             Hedron.Core.WorldConfiguration worldConfig,
             IOptions<WorldOptions> options,
             ILogger<WorldContentLoader> logger)
@@ -51,6 +53,7 @@ namespace Hedron.Core.Modules.World.Systems
             _templateRegistry = templateRegistry;
             _serializer = serializer;
             _roomContentWriter = roomContentWriter;
+            _manifestStore = manifestStore;
             _worldConfig = worldConfig;
             _logger = logger;
             _contentDirectory = options.Value.ContentDirectory;
@@ -310,41 +313,31 @@ namespace Hedron.Core.Modules.World.Systems
             }
         }
 
-        private void ResolveStartingRoom()
+        public ResolvedStartingRoom ResolveStartingRoom()
         {
-            var liveBlueprints = BuildLiveBlueprintMap();
-            if (liveBlueprints.TryGetValue(_startingRoomBlueprintId, out var entityId))
-            {
-                _worldConfig.StartingRoomEntityId = entityId;
-                _worldConfig.StartingRoomBlueprintId = _startingRoomBlueprintId;
-                return;
-            }
-
-            if (liveBlueprints.TryGetValue(VoidRoomBlueprintId, out var voidEntityId))
-            {
-                _logger.LogWarning(
-                    "WorldContentLoader: configured starting room '{Id}' not found; falling back to void room.",
-                    _startingRoomBlueprintId);
-                _worldConfig.StartingRoomEntityId = voidEntityId;
-                _worldConfig.StartingRoomBlueprintId = VoidRoomBlueprintId;
-                return;
-            }
-
-            var anyRoom = liveBlueprints.FirstOrDefault(kvp => kvp.Key.StartsWith("room.", StringComparison.OrdinalIgnoreCase));
-            if (!string.IsNullOrEmpty(anyRoom.Key))
-            {
-                _logger.LogWarning(
-                    "WorldContentLoader: configured starting room '{Id}' not found; falling back to '{Fallback}'.",
-                    _startingRoomBlueprintId, anyRoom.Key);
-                _worldConfig.StartingRoomEntityId = anyRoom.Value;
-                _worldConfig.StartingRoomBlueprintId = anyRoom.Key;
-            }
-            else
-            {
+            var read = _manifestStore.Read();
+            if (read.Error is not null)
                 _logger.LogError(
-                    "WorldContentLoader: no rooms available to resolve starting room '{Id}'.",
-                    _startingRoomBlueprintId);
-            }
+                    "WorldContentLoader: world manifest '{File}' is malformed and is treated as empty: {Error}",
+                    _manifestStore.FilePath, read.Error);
+            else if (read.Manifest.SchemaVersion is { } version && version != WorldManifest.CurrentSchemaVersion)
+                _logger.LogWarning(
+                    "WorldContentLoader: world manifest '{File}' declares schemaVersion {Version}; this engine reads {Expected}.",
+                    _manifestStore.FilePath, version, WorldManifest.CurrentSchemaVersion);
+
+            var rooms = BuildLiveRoomMap();
+            var decision = StartingRoomResolver.Resolve(
+                read.Manifest.StartingRoomId, _startingRoomBlueprintId, rooms.Keys);
+
+            foreach (var warning in decision.Warnings)
+                _logger.LogWarning("WorldContentLoader: {Warning}", warning);
+            if (decision.Source == StartingRoomSource.Unresolved)
+                _logger.LogError("WorldContentLoader: no rooms available to resolve a starting room.");
+
+            var entityId = decision.BlueprintId is not null && rooms.TryGetValue(decision.BlueprintId, out var id) ? id : 0u;
+            var resolved = new ResolvedStartingRoom(entityId, decision.BlueprintId, decision.Source, read.Manifest.StartingRoomId);
+            _worldConfig.StartingRoom = resolved;
+            return resolved;
         }
 
         private void LinkRoomAreas(Dictionary<string, uint> liveBlueprints)
@@ -403,6 +396,24 @@ namespace Hedron.Core.Modules.World.Systems
 
             foreach (var entityId in worldEntities)
                 _entityService.DestroyEntity(entityId);
+        }
+
+        /// <summary>
+        /// Maps blueprint id → live world <b>room</b> entity (<see cref="RoomComponent"/> +
+        /// <see cref="BlueprintComponent"/>, excluding <see cref="PersistentEntity"/>) — the candidate
+        /// set for starting-room resolution, so a non-room id (a mob, an item) never "resolves".
+        /// </summary>
+        private Dictionary<string, uint> BuildLiveRoomMap()
+        {
+            var map = new Dictionary<string, uint>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (entityId, _) in _entityService.GetAllComponents<RoomComponent>())
+            {
+                if (_entityService.HasComponent<PersistentEntity>(entityId)) continue;
+                if (!_entityService.TryGet<BlueprintComponent>(entityId, out var bp) ||
+                    string.IsNullOrEmpty(bp.BlueprintId)) continue;
+                map[bp.BlueprintId] = entityId;
+            }
+            return map;
         }
 
         /// <summary>

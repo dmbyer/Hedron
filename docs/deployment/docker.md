@@ -15,8 +15,8 @@ Containerises the Hedron .NET 8 MUD server. The migration is non-breaking: confi
 **1. Make the telnet port configurable.**
 `Server/Sessions/TelnetServer.cs` currently hardcodes `Port = 4000`. Wire it to `IConfiguration["Telnet:Port"]` (default 4000) so `docker-compose.yml` can override it via environment variable. This is a one-line constructor change.
 
-**2. Update `appsettings.json` to absolute paths.**
-Container working directory is `/app`. Relative paths resolve from there but explicit absolute paths avoid surprises:
+**2. Point the data directory at the volume.**
+*(Superseded by the data-location rule, see [`../architecture/05-configuration.md`](../architecture/05-configuration.md#data-locations--one-rule): set `HEDRON_Paths__DataDirectory=/app/data` and mount that one folder; content, database and the rest follow. The original per-path snippet is kept below for history.)*
 
 ```json
 {
@@ -109,8 +109,7 @@ services:
       - hedron-db:/app/data
     environment:
       DOTNET_ENVIRONMENT: Production
-      Persistence__DatabasePath: /app/data/hedron.db
-      World__ContentDirectory: /app/data/content/
+      HEDRON_Paths__DataDirectory: /app/data
       Telnet__Port: 4000
       Logging__LogLevel__Default: Information
 

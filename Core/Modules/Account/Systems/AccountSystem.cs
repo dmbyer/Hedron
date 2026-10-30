@@ -99,14 +99,13 @@ namespace Hedron.Core.Modules.Account.Systems
                 CreatedAtUtc = now,
                 LastLoginUtc = now,
             });
-            string? startingBlueprintId = null;
-            if (_entityService.TryGet<BlueprintComponent>(_worldConfig.StartingRoomEntityId, out var startingBp))
-                startingBlueprintId = startingBp.BlueprintId;
+            // One snapshot read seeds both Location and Respawn (INV-31; R15).
+            var start = _worldConfig.StartingRoom;
 
             _entityService.AddComponent(entity.Id, new LocationComponent
             {
-                RoomEntityId = _worldConfig.StartingRoomEntityId,
-                RoomBlueprintId = startingBlueprintId,
+                RoomEntityId = start.EntityId,
+                RoomBlueprintId = start.BlueprintId,
             });
             _entityService.AddComponent(entity.Id, new InventoryComponent());
             _entityService.AddComponent(entity.Id, new EquipmentComponent());
@@ -130,7 +129,7 @@ namespace Hedron.Core.Modules.Account.Systems
             });
             _entityService.AddComponent(entity.Id, new RespawnComponent
             {
-                RoomBlueprintId = _worldConfig.StartingRoomBlueprintId,
+                RoomBlueprintId = start.BlueprintId,
             });
             _entityService.AddComponent(entity.Id, new AspectAffinitiesComponent());
             _entityService.AddComponent(entity.Id, new PersistentEntity());

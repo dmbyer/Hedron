@@ -251,7 +251,7 @@ Both run against seeded, replayable worlds and report against designer-stated ex
 ### Invariants in tension
 
 - **INV-12:** many worlds per process. This is the sandbox nuance already accepted for `SandboxWorld`; the feature doc states it explicitly.
-- **INV-26:** all gameplay time and chance come through the stepped clock and the seeded `IRandom`. *(The once-suspected `AccountSystem` wall-clock debt turned out to be already fixed in code; both `AccountSystem` and `SpawnSystem` use `IClock`. The stale doc text is corrected by Phase 5 slice 1, [`dev-world-foundation.md`](dev-world-foundation.md).)*
+- **INV-26:** all gameplay time and chance come through the stepped clock and the seeded `IRandom`. *(The once-suspected `AccountSystem` wall-clock debt turned out to be already fixed in code; both `AccountSystem` and `SpawnSystem` use `IClock`. The stale doc text is corrected by Phase 5 slice 1, [`dev-world-foundation`](../roadmap/completed/dev-world-foundation.md).)*
 - **INV-31:** confine per world; the MCP transport marshals; no harness thread touches a live server world.
 - **INV-5 / INV-9 / INV-10:** the recorder is a handler; the grader and stores are pure systems; the run modes and tick driver are initiators; policies act only by dispatching command lines.
 - **INV-19:** three frameworks land in the substrate (subscriptions, session entry, agent formatter + message ratchet), plus the YAML store if it lands third.
@@ -345,7 +345,7 @@ Those are exactly what the Phase 5 acceptance test asks about, and what manual p
 
 *Ranked by how much they block.*
 
-1. **No content to play.** The repo ships no game world ([content ownership](../features/world/world-content.md#content-ownership--the-engine-ships-no-game-world)). `content/dev-world/` is an empty fixture, and the `generate` CLI produces no shops, currency loot or respawn points. Bots need a world; this couples the program to the Phase 5 content work.
+1. **No content to play.** The repo ships no game world ([content ownership](../features/world/world-content.md#content-ownership--the-engine-ships-no-game-world)). `content/dev-world/` was an empty fixture at seeding (slice 1 has since grown it into a hub skeleton), and the `generate` CLI produces no shops, currency loot or respawn points. Bots need a world; this couples the program to the Phase 5 content work.
 2. **Gameplay handler wiring lives in `Server/Program.cs` `Main`** (~69 `Subscribe` lines), not in a reusable composition method. A harness would have to copy it and the copy would drift. Extracting it is the INV-19 framework piece.
 3. **No world-boot helper.** Nothing loads content, runs bootstraps, and connects a player without hosted services. `PersistenceTestHarness` (in-memory SQLite) is a starting point.
 4. **Much combat and death output is still `PlainMessage` prose,** and `IOutputFormatter.Format` returns `string`. A JSON agent formatter would also be the structured-output path [`design/client-tier.md`](../design/client-tier.md) already calls for, so it isn't throwaway work.

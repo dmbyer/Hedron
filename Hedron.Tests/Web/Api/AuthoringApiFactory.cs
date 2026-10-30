@@ -50,6 +50,8 @@ namespace Hedron.Tests.Web.Api
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["World:ContentDirectory"] = ContentDirectory,
+                    // Every other data location (standards, sim) derives from here — keep it off the checkout.
+                    ["Paths:DataDirectory"] = Path.Combine(ContentDirectory, "data"),
                     // Nothing in the authoring host touches SQLite, but pin it away from the repo's
                     // database file so a mistake cannot reach it.
                     ["Persistence:DatabasePath"] = ":memory:",

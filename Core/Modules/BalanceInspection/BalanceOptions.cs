@@ -7,9 +7,8 @@ namespace Hedron.Core.Modules.BalanceInspection
     public sealed class BalanceOptions
     {
         /// <summary>
-        /// Path to the balance-standards YAML file. May be an absolute path or relative to the
-        /// working directory. Absent file falls back to <see cref="Standards.BalanceStandardsDefaults"/>.
-        /// Default: <c>data/balance/standards.yaml</c>.
+        /// Path to the balance-standards YAML file: absolute, or relative to the Hedron root; when unset in configuration the host derives it under <c>Paths:DataDirectory</c> (see <c>Server/DataPaths</c>) as
+        /// <c>balance/standards.yaml</c>. Absent file falls back to <see cref="Standards.BalanceStandardsDefaults"/>.
         /// </summary>
         public string StandardsPath { get; set; } = "data/balance/standards.yaml";
     }

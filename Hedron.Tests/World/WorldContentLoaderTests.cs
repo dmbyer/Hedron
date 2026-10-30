@@ -71,6 +71,7 @@ namespace Hedron.Tests.World
                 registry,
                 new StubSerializer(),
                 new StubRoomContentWriter(),
+                new WorldManifestStore(options),
                 worldConfig,
                 options,
                 NullLogger<WorldContentLoader>.Instance);

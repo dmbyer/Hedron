@@ -93,6 +93,9 @@ public static class CompositionRoot
             configuration.GetSection("Balance"));
         services.Configure<SimulationOptions>(
             configuration.GetSection("Simulation"));
+        // One rule for every data location (Paths:DataDirectory + per-location overrides,
+        // relative to the Hedron root) — see DataPaths.
+        services.AddDataPaths(configuration, AppContext.BaseDirectory);
         // ECS world
         var world = new EntityService();
         EcsManager.SetWorld(world);

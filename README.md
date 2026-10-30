@@ -20,7 +20,7 @@ Persistence (SQLite) and content loading currently live inside `Core/` modules; 
 
 ## Your world, your content
 
-Hedron is an engine, so **this repository ships no game world**. If you run a server, you author your own world (rooms, areas, mobs, items) under `World:ContentDirectory` (default `data/content/`, gitignored) and keep it in your own repository. The only committed content is generic development material in [`content/`](content/): the [`dev-world/`](content/dev-world/) test fixture and example generation profiles. A fresh clone pointed at an empty content directory boots into a single placeholder "void" room, ready for authoring. See [content ownership](docs/features/world/world-content.md#content-ownership--the-engine-ships-no-game-world).
+Hedron is an engine, so **this repository ships no game world**. If you run a server, you author your own world (rooms, areas, mobs, items) under `Paths:DataDirectory` (default `data/`, gitignored) and keep it in your own repository. The only committed content is generic development material in [`content/`](content/): the [`dev-world/`](content/dev-world/) baseline (generic and lore-free; boot it with `DOTNET_ENVIRONMENT=DevWorld`) and example generation profiles. A fresh clone pointed at an empty content directory boots into a single placeholder "void" room, ready for authoring. See [content ownership](docs/features/world/world-content.md#content-ownership--the-engine-ships-no-game-world).
 
 ## Build & test
 
@@ -79,28 +79,31 @@ Prints a win-rate/time-to-kill/verdict summary and writes a JSON report artifact
 
 ## Configuration
 
-Each host reads an `appsettings.json` next to its project — [`Server/appsettings.json`](Server/appsettings.json) and [`Hedron.Web/appsettings.json`](Hedron.Web/appsettings.json). Settings are grouped by section:
+Each host reads its own `appsettings.json` — [`Server/appsettings.json`](Server/appsettings.json) (the telnet host and the `generate`/`simulate` run modes) and [`Hedron.Web/appsettings.json`](Hedron.Web/appsettings.json). Settings are grouped by section:
 
 | Section | Controls |
 |---|---|
 | `Server` | Telnet listener port |
 | `Web` | Web host bind URL (`Hedron.Web`) |
-| `World` | Content directory + starting room blueprint |
-| `Persistence` | SQLite database path + flush interval |
+| `Paths` | `DataDirectory` — where all data lives (see below) |
+| `World` | Starting room blueprint (the fallback behind a world's `world.yaml`); optional content-directory override |
+| `Persistence` | Flush interval; optional database-path override |
 | `Heartbeat` | Game-loop tick interval |
 | `Admin` | Privileged account names |
-| `Balance` | Balance-standards YAML file path (`data/balance/standards.yaml`) |
-| `Simulation` | Simulation report output directory (`data/sim/reports/`) + editor-saved scenario directory (`data/sim/scenarios/`) |
 | `CharacterDefaults` · `Death` · `Output` · `Logging` · `Shop` | Starting stats/abilities, death tuning, output color, log levels, shop buy/sell ratios |
 
 The concrete keys and defaults live in the `appsettings.json` files and are not duplicated here.
 
-**Environment overrides.** Any setting can be overridden with a `HEDRON_`-prefixed environment variable, using `__` as the section separator — handy for pointing a worktree at a machine-local content/data location without editing tracked files:
+**Where data lives — one setting.** Everything Hedron reads and writes at runtime (world content, the player database, balance standards, simulation reports) lives under `Paths:DataDirectory`, default `data`. A relative path resolves against the Hedron root: your checkout when run from source, the install folder when published. It never depends on the working directory or launcher.
 
-```
-HEDRON_World__ContentDirectory=C:\hedron-world\content\
-HEDRON_Persistence__DatabasePath=C:\hedron-world\hedron.db
-```
+| Situation | Set |
+|---|---|
+| Local development | nothing — data lives in the checkout's gitignored `data/` |
+| The dev-world baseline | `DOTNET_ENVIRONMENT=DevWorld` (committed profile: [`content/dev-world/`](content/dev-world/) + `data/dev-world.db`) |
+| Your own world elsewhere on this machine | `HEDRON_Paths__DataDirectory=C:\hedron-world` (holds `content\`, `hedron.db`, …) |
+| A deployment / container | `HEDRON_Paths__DataDirectory=/var/hedron`, mounted as one volume |
+
+**Overrides.** `appsettings.{Environment}.json` (selected by `DOTNET_ENVIRONMENT`) layers over `appsettings.json`, and any setting can be overridden with a `HEDRON_`-prefixed environment variable (`__` separates sections), which wins over every file. Full rules: [`05-configuration.md`](docs/architecture/05-configuration.md#data-locations--one-rule).
 
 ## Learn more
 

@@ -156,6 +156,8 @@ Write the YAML file immediately via the appropriate content writer. Without this
 **2. Keep template and live entity in sync on mutation.**
 A `set*` command that changes a property must update both the live entity (via the domain system) and the YAML file on disk. Player-owned instances are independent — they were promoted to persistent when picked up and are NOT retroactively updated.
 
+**Non-entity world definitions follow the same two-sided rule.** When a command mutates a world-level definition that seeds no entity (precedent: `startroom here` and `world.yaml`), write the definition file, then re-resolve the live derived state through the owning system (e.g. `IWorldContentLoader.ResolveStartingRoom()`); no `SaveEntityAsync`, since no persistent entity changed.
+
 **`BlueprintComponent` is NOT cleared on pickup (INV-21).**
 When a player picks up a world-spawn item, `ItemContextHandler` promotes the item entity to persistent by adding `PersistentEntity`. `BlueprintComponent` stays on the entity as an origin record. Spawn-slot vacancy is tracked by `SpawnSystem` via `ItemPickedUpEvent`, not by inspecting `BlueprintComponent` on live entities. Do not remove `BlueprintComponent` from item entities.
 

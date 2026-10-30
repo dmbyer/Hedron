@@ -210,8 +210,7 @@ namespace Hedron.Tests.Death
             var registry    = new StubTemplateRegistry(validBlueprintIds ?? Array.Empty<string>());
             var worldConfig = new WorldConfiguration
             {
-                StartingRoomEntityId   = 1u,
-                StartingRoomBlueprintId = "start_room",
+                StartingRoom = new ResolvedStartingRoom(1u, "start_room", StartingRoomSource.Configuration, null),
             };
 
             var options = Options.Create(new DeathOptions
@@ -559,7 +558,8 @@ namespace Hedron.Tests.Death
             system.Respawn(player);
 
             var location = ecs.Get<LocationComponent>(player);
-            Assert.Equal(worldConfig.StartingRoomEntityId, location.RoomEntityId);
+            Assert.Equal(worldConfig.StartingRoom.EntityId, location.RoomEntityId);
+            Assert.Equal(worldConfig.StartingRoom.BlueprintId, location.RoomBlueprintId);
         }
 
         /// <summary>
@@ -579,7 +579,8 @@ namespace Hedron.Tests.Death
             system.Respawn(player);
 
             var location = ecs.Get<LocationComponent>(player);
-            Assert.Equal(worldConfig.StartingRoomEntityId, location.RoomEntityId);
+            Assert.Equal(worldConfig.StartingRoom.EntityId, location.RoomEntityId);
+            Assert.Equal(worldConfig.StartingRoom.BlueprintId, location.RoomBlueprintId);
         }
 
         // ═══════════════════════════════════════════════════════════════════════════

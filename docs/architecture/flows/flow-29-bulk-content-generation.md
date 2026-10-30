@@ -4,7 +4,7 @@
 
 **Source:** [`../../features/admin-authoring/admin-authoring.md`](../../features/admin-authoring/admin-authoring.md)
 
-**Summary.** Four offline authoring paths share the loopback `Hedron.Web` host (three share the same content-definition layer). (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline editor** browses/loads/edits/saves/renames definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`; blueprint-id-editing added a **rename leg** (`RenameAsync`, cascading `oldId → newId` through the content graph, structural sibling of the existing delete cascade) and a **choose-at-creation** path (`CreateAsync`, a deliberate id on the New form) to this leg, and authoring-api-surface added a **second caller** to it — a loopback JSON endpoint tier reaching the same catalog operations through a DTO mapping seam, with no apply/reload counterpart. (B2) The **Standards page** (sim-1) edits the balance-standards document via `IBalanceStandardsStore` — a single criteria file deliberately outside the catalog (seed OQ1), with no `reload` leg (restart-to-apply instead). (B3) The **Integrity page's conformance fitter** (sim-5) closes the observation→correction loop: it scales a flagged template's stat vector into its target (Tier, Band) range and writes it through the same `SaveAsync` path as B. (B4) The **visual grid area editor** (world-editor-grid) is a click-driven extension of leg B: it renders one area's rooms on a 2-D grid, seeded by `IAreaLayoutSystem.Propose`, and every action (create/disconnect/edit/delete/rename) composes the same catalog verbs B already uses, plus one earned bidirectional-disconnect verb; **connect** goes through `IAreaLayoutSystem.ConnectAsync`, which owns the connect policy (authoring-api-surface WP1). No path mutates the live world directly (INV-12/23).
+**Summary.** Five offline authoring paths share the loopback `Hedron.Web` host (three share the same content-definition layer). (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline editor** browses/loads/edits/saves/renames definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`; blueprint-id-editing added a **rename leg** (`RenameAsync`, cascading `oldId → newId` through the content graph, structural sibling of the existing delete cascade) and a **choose-at-creation** path (`CreateAsync`, a deliberate id on the New form) to this leg, and authoring-api-surface added a **second caller** to it — a loopback JSON endpoint tier reaching the same catalog operations through a DTO mapping seam, with no apply/reload counterpart. (B1) The **World page** edits the `world.yaml` manifest through `IWorldManifestAuthoring` on the same catalog (shared write gate), applying on `reload`/restart. (B2) The **Standards page** (sim-1) edits the balance-standards document via `IBalanceStandardsStore` — a single criteria file deliberately outside the catalog (seed OQ1), with no `reload` leg (restart-to-apply instead). (B3) The **Integrity page's conformance fitter** (sim-5) closes the observation→correction loop: it scales a flagged template's stat vector into its target (Tier, Band) range and writes it through the same `SaveAsync` path as B. (B4) The **visual grid area editor** (world-editor-grid) is a click-driven extension of leg B: it renders one area's rooms on a 2-D grid, seeded by `IAreaLayoutSystem.Propose`, and every action (create/disconnect/edit/delete/rename) composes the same catalog verbs B already uses, plus one earned bidirectional-disconnect verb; **connect** goes through `IAreaLayoutSystem.ConnectAsync`, which owns the connect policy (authoring-api-surface WP1). No path mutates the live world directly (INV-12/23).
 
 ---
 
@@ -56,6 +56,7 @@ sequenceDiagram
     participant Val as IContentValidator
     participant W as I*ContentWriter
     participant WCL as IWorldContentLoader
+    participant Store as IWorldManifestStore
 
     UI->>Cat: List(kind) / Load(kind, id) / CreateNew(kind, name)
     Note over Cat: served from the in-memory index; cold index sweeps once (see "Read semantics" below)
@@ -93,7 +94,10 @@ sequenceDiagram
     Cat-->>UI: ContentDeleteResult(DeletedPath, DeletedBlueprintId, CascadeEdits)
     UI->>Cat: RenameAsync(kind, oldId, newId)
     Cat->>Val: ValidateBlueprintId(kind, newId)
-    alt malformed or already-taken
+    opt kind == Room
+        Cat->>Store: Read()  [before any write]
+    end
+    alt malformed or already-taken id, or (room) malformed world.yaml
         Cat-->>UI: ContentRenameResult.Failed(errors)  [oldId file intact, nothing written]
     else valid
         Cat->>Cat: build fresh template(newId), copy state, rewrite self-refs
@@ -102,6 +106,9 @@ sequenceDiagram
         Idx-->>Cat: ReferrerEdit[]
         loop per external referrer
             Cat->>W: WriteAsync(referrer with field rewritten oldId→newId)
+        end
+        opt room rename and world.yaml declares oldId
+            Cat->>Store: UpdateAsync(startingRoomId = newId)
         end
         Cat->>Cat: File.Delete(oldId YAML)
         Cat->>Cat: Invalidate() — every rewritten referrer must be re-read
@@ -181,7 +188,10 @@ not make the multi-file write cascade atomic.
    through the same writer path delete uses (best-effort, matching delete's posture), and the `oldId`
    file is deleted. **YAML-file-only** (INV-22/23) — out-of-YAML advisories (persistent player/item
    locations re-keying on `reload`; a specific note when the room matches
-   `World:StartingRoomBlueprintId`) surface as `Warnings`, never a SQLite or config write. Returns
+   `World:StartingRoomBlueprintId`) surface as `Warnings`, never a SQLite or config write. The world
+   manifest is the exception that **is** rewritten: a room rename whose `oldId` is the `world.yaml`
+   `startingRoomId` rewrites the manifest in the same gated operation (with an advisory), and a
+   malformed `world.yaml` refuses a room rename before any write. Returns
    `ContentRenameResult`; the page navigates to the new id's edit route on success.
 7. Integrity page: delegates to `ContentIntegritySweepService` (`Hedron.Web/Services/`), which runs
    `IContentReferenceIndex.SweepBroken()` and `IBalanceAuditSystem.Audit()` on a background task and
@@ -194,6 +204,48 @@ not make the multi-file write cascade atomic.
    Counts rendered. No live entities mutated.
 
 The `Hedron.Web` host runs `AddContentBootstrapHostedServices` only (content load + registry validation; no telnet/heartbeat/persistence). Loopback-only for v1.
+
+---
+
+## B1 — World page (`/world`, dev-world-foundation)
+
+**Trigger:** Designer opens `/world` in `Hedron.Web`.
+
+```mermaid
+sequenceDiagram
+    participant UI as World.razor
+    participant Auth as IWorldManifestAuthoring (catalog)
+    participant Val as IContentValidator
+    participant Idx as IContentReferenceIndex
+    participant Store as IWorldManifestStore
+
+    UI->>Auth: Load()
+    Auth->>Store: Read()
+    Auth-->>UI: WorldManifestView (+ StartingRoomResolver preview over authored rooms)
+    UI->>Auth: Preview(draft)  [no write]
+    Auth-->>UI: WorldManifestView
+    UI->>Auth: SaveAsync(manifest)
+    Note over Auth: under the catalog write gate
+    Auth->>Val: ValidateBlueprintId(Room, id)
+    alt malformed id
+        Auth-->>UI: ContentWriteResult.Failed  [nothing written]
+    else valid id
+        Auth->>Store: UpdateAsync(manifest)
+        alt existing world.yaml malformed
+            Store-->>Auth: refused  [file untouched]
+            Auth-->>UI: ContentWriteResult.Failed
+        else written (atomic)
+            Auth->>Idx: Resolves(Room, id)  [unknown room → warning]
+            Auth-->>UI: ContentWriteResult.Ok [+ Warnings]
+        end
+    end
+    Note over UI: applies on reload / restart (Flow 5)
+```
+
+1. The page calls `IWorldManifestAuthoring.Load()` (the catalog) for the on-disk `world.yaml`, its path, any parse error, the `World:StartingRoomBlueprintId` fallback, and a `StartingRoomResolver` preview over the catalog's authored room ids; it lists rooms via `IContentDefinitionCatalog.List(Room)`.
+2. Choosing a room (or "not declared") calls `Preview(draft)` — no write.
+3. Save calls `SaveAsync(manifest)` under the catalog write gate: a malformed id refuses; the write goes through `IWorldManifestStore.UpdateAsync`, which refuses (file untouched) while the existing file is malformed; an unknown room saves with a warning; null writes no declaration.
+4. The change applies on `reload` (Apply page) or restart — `ReloadAsync` re-reads `world.yaml` ([Flow 5](flow-05-content-reload.md)). No live entity or snapshot is touched by the page.
 
 ---
 
@@ -350,7 +402,7 @@ No event is published anywhere in this leg (INV-5) — `IAreaLayoutSystem` and t
 - INV-5: `IContentGenerationSystem`, `IContentDefinitionCatalog`, `IAreaLayoutSystem`, and `IContentReferenceIndex` return results; they never touch the event bus.
 - INV-8: no authoring logic in the run-mode CLI or Blazor components — everything lives in the Core systems.
 - INV-10: the `generate` run-mode is a no-chain Initiator: composes, runs one operation, writes files, exits; publishes nothing.
-- INV-12 / INV-23: YAML only — no `EntityService.CreateEntity`, no `PersistentEntity`, no SQLite in either path. **`DeleteAsync`/`RenameAsync` are YAML-file-only**: they call `File.Delete`/`File.Move` + `I*ContentWriter` rewrites and never invoke `EntityService.DestroyEntity`, no SQLite write, and no live-world mutation. `RenameAsync`'s out-of-YAML advisories (persistent player/item locations, `World:StartingRoomBlueprintId`) surface as warnings, never a write.
+- INV-12 / INV-23: YAML only — no `EntityService.CreateEntity`, no `PersistentEntity`, no SQLite in either path. **`DeleteAsync`/`RenameAsync` are YAML-file-only**: they call `File.Delete`/`File.Move` + `I*ContentWriter` rewrites and never invoke `EntityService.DestroyEntity`, no SQLite write, and no live-world mutation. `RenameAsync`'s out-of-YAML advisories (persistent player/item locations, `World:StartingRoomBlueprintId`) surface as warnings, never a write; its one non-template referrer write is the `world.yaml` manifest (content YAML, not config), rewritten under the same gate.
 - INV-19: the six cross-definition reference edges (room→area, exit→room, item→spawnRoom, mob→spawnRoom, area→room, room.spawnRules→{mob,item}) are declared once in `IContentReferenceIndex`'s edge set and drive all consumers (delete-cascade, rename-cascade, save-warn, integrity sweep, filter-association) without per-edge code paths. The spawn-rule edge is two-kind — `Referrers` matches either target kind; `SweepBroken`/`BrokenFor` flag broken only when neither resolves (blueprint-id-editing).
 - INV-26: all randomness in `ContentGenerationSystem` flows through `SeededRandom`; blueprint ids are counter-derived; no wall clock read. Fixed-seed run is byte-reproducible.
 - **Warn-but-allow:** a `SaveAsync`/`SaveRoomAsync` result with `Success = true` may carry a non-empty `Warnings` list — these are cross-reference notices, not errors; the file was still written. Structural failures are still `Success = false` / no write.

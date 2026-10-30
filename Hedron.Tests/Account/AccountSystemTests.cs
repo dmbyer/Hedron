@@ -88,8 +88,9 @@ namespace Hedron.Tests.Account
             var clock = new FakeClock(BaseTime);
             var worldConfig = new WorldConfiguration
             {
-                StartingRoomEntityId = startingRoomId,
-                StartingRoomBlueprintId = startingRoomId == 0u ? null : startingRoomId.ToString(),
+                StartingRoom = startingRoomId == 0u
+                    ? ResolvedStartingRoom.Unresolved
+                    : new ResolvedStartingRoom(startingRoomId, $"room.{startingRoomId}", StartingRoomSource.Manifest, null),
             };
 
             var system = new AccountSystem(
@@ -343,6 +344,7 @@ namespace Hedron.Tests.Account
             Assert.True(ecs.HasComponent<LocationComponent>(charId));
             var loc = ecs.Get<LocationComponent>(charId);
             Assert.Equal(42u, loc.RoomEntityId);
+            Assert.Equal("room.42", loc.RoomBlueprintId);
         }
 
         [Fact]
@@ -415,12 +417,13 @@ namespace Hedron.Tests.Account
         [Fact]
         public async Task CreateCharacterAsync_attaches_RespawnComponent()
         {
-            var (system, ecs, _) = Build();
+            var (system, ecs, _) = Build(startingRoomId: 42u);
             var accountId = await system.CreateAccountAsync("vera", "pw");
 
             var charId = await system.CreateCharacterAsync(accountId, "Celeborn");
 
             Assert.True(ecs.HasComponent<RespawnComponent>(charId));
+            Assert.Equal("room.42", ecs.Get<RespawnComponent>(charId).RoomBlueprintId);
         }
 
         [Fact]
