@@ -16,7 +16,11 @@ using Hedron.Core.Modules.EntityState.Systems;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Abilities.Commands;
 using Hedron.Core.Modules.Abilities.Systems;
+using Hedron.Core.Modules.Ascension;
+using Hedron.Core.Modules.Ascension.Components;
+using Hedron.Core.Modules.Ascension.Systems;
 using Hedron.Core.Modules.Effects;
+using Hedron.Core.Modules.Items;
 using Hedron.Core.Modules.Preferences;
 using Hedron.Core.Modules.Preferences.Commands;
 using Hedron.Core.Modules.Preferences.Systems;
@@ -25,6 +29,7 @@ using Hedron.Core.Modules.Progression.Commands;
 using Hedron.Core.Modules.Progression.Handlers;
 using Hedron.Core.Modules.Progression.Systems;
 using Hedron.Core.Modules.Stats;
+using Hedron.Core.Modules.Simulation.Systems;
 using Hedron.Core.Modules.Stats.Systems;
 using Hedron.Core.Output;
 using Hedron.Core.Systems;
@@ -38,7 +43,10 @@ namespace Hedron.Tests.Progression
     /// <summary>
     /// Tier 3 — flow test for the mob-death → combat-XP-award → contribute-on-read path
     /// (flow-31). Wires real systems + handlers + a dispatching bus with seeded <c>IRandom</c>,
-    /// kills a mob, and asserts the Main-Flow postconditions end-to-end.
+    /// kills a mob, and asserts the Main-Flow postconditions end-to-end. Extended by the
+    /// relative-power slice (WP-2): the kill ratio on effective power (gear lowers it), the
+    /// ability-use gather through the real <see cref="AbilityInvocationPipeline"/>, and the
+    /// live/sandbox parity pin (SR11).
     ///
     /// Modelled on <see cref="Hedron.Tests.Modules.Economy.CurrencyLootFlowTests"/>.
     /// </summary>
@@ -63,6 +71,8 @@ namespace Hedron.Tests.Progression
             public EntityService Ecs { get; }
             public IStatSystem Stats { get; }
             public IProgressionSystem Progression { get; }
+            public IRelativePowerSystem RelativePower { get; }
+            public AbilityInvocationPipeline Pipeline { get; }
             public CombatSystem Combat { get; }
             public EntityStateService EntityState { get; }
             public RecordingEventBus Bus { get; }
@@ -73,13 +83,13 @@ namespace Hedron.Tests.Progression
             {
                 Ecs = new EntityService();
 
-                Progression = new ProgressionSystem(
-                    Ecs, rng, new PowerBudgetSystem(PowerBudgetTunables.Default), new AdvancementRuleRegistry());
+                Progression = new ProgressionSystem(Ecs, rng, new AdvancementRuleRegistry());
                 var contributor = new ProgressionEffectContributor(Progression);
-                var effects = new EffectSystem(Ecs, new IEffectContributor[] { contributor });
+                var effects = new EffectSystem(Ecs, new IEffectContributor[] { new EquipmentEffectContributor(Ecs), contributor });
                 var deathOpts = Options.Create(new DeathOptions { HpFloor = -10 });
                 var attributes = new AttributeSystem(Ecs, effects, deathOpts);
                 Stats = new StatSystem(attributes, effects);
+                RelativePower = new RelativePowerSystem(Ecs, Stats, new PowerBudgetSystem(PowerBudgetTunables.Default));
 
                 var aspects = new AspectSystem(Ecs);
                 Combat = new CombatSystem(Ecs, Stats, attributes, aspects, rng);
@@ -92,24 +102,51 @@ namespace Hedron.Tests.Progression
                 var mobDeathHandler = new CombatMobDeathHandler(Ecs, EntityState, Bus);
                 Broadcast = new RecordingBroadcastSystem();
                 Preferences = new PreferenceSystem(Ecs);
-                var advancement = new AdvancementHandler(Progression, new AbilityRegistry(), Bus);
+                var advancement = new AdvancementHandler(Progression, RelativePower, new AbilityRegistry(), Bus);
                 var narration = new ProgressionNarrationHandler(Preferences, Broadcast);
+
+                var abilities = new AbilitySystem(
+                    Ecs, new AbilityRegistry(), effects, new Hedron.Core.Modules.Effects.EffectRegistry(), attributes, EntityState);
+                Pipeline = new AbilityInvocationPipeline(
+                    abilities, Combat, EntityState, Ecs, Bus, NullLogger<AbilityInvocationPipeline>.Instance);
+                var strikeHandler = new AbilityStrikeHandler(Ecs, Broadcast, new AbilityRegistry(), Bus);
 
                 Bus.Subscribe<Hedron.Core.Modules.Time.Events.HeartbeatTickEvent>(tickHandler);
                 Bus.Subscribe<CombatEndedEvent>(mobDeathHandler);
                 Bus.Subscribe<Hedron.Core.Modules.Mobs.Events.MobDiedEvent>(advancement);
                 Bus.Subscribe<CombatRoundEvent>(advancement);
                 Bus.Subscribe<Hedron.Core.Modules.Abilities.Events.AbilityActivatedEvent>(advancement);
+                Bus.Subscribe<AbilityStrikeResolvedEvent>(strikeHandler);
+                Bus.Subscribe<AbilityStrikeResolvedEvent>(advancement);
                 Bus.Subscribe<Hedron.Core.Modules.Progression.Events.ExperienceAwardedEvent>(narration);
                 Bus.Subscribe<Hedron.Core.Modules.Progression.Events.TrackImprovedEvent>(narration);
             }
         }
 
+        /// <summary>
+        /// A peer of the 100-HP fresh player on effective power (MaxHp 100), wounded to 1 HP so a
+        /// single 1-damage blow kills it. Effective power ignores current HP (SR3), so the kill
+        /// ratio is exactly 1.0. (Pre-slice these fixtures used a 1-max-HP mob, which the raw
+        /// attribute proxy could not see; on effective power that mob is a ratio-0.49 kill.)
+        /// </summary>
+        private static uint MakeWoundedPeerRat(EntityService ecs, uint roomId, int body = 10)
+        {
+            var id = new EntityBuilder(ecs)
+                .AsMob("rat")
+                .WithAttributes(body: body)
+                .WithPools(hp: 100)
+                .InRoom(roomId)
+                .With(new BlueprintComponent { BlueprintId = "mob.rat" })
+                .Build();
+            ecs.Get<PoolsComponent>(id).CurrentHp = 1;
+            return id;
+        }
+
         [Fact]
         public async Task MobDeath_awards_combat_experience_and_folds_into_effective_score()
         {
-            // combat: hit=20, damage=1 (kills 1-HP mob); progression: Body base=12, HpMax base=12
-            // (killer/victim both power 40 → peer scale 1.0, full base each).
+            // combat: hit=20, damage=1 (kills the 1-HP wounded mob); progression: Body base=12,
+            // HpMax base=12 (killer/victim both effective power 386 → peer scale 1.0, full base each).
             var rng = new FakeRandom(20, 1, 12, 12);
             var world = new TestWorld(rng);
 
@@ -121,13 +158,7 @@ namespace Hedron.Tests.Progression
                 .InRoom(roomId)
                 .Build();
 
-            var mobId = new EntityBuilder(world.Ecs)
-                .AsMob("rat")
-                .WithAttributes(body: 10)
-                .WithPools(hp: 1)
-                .InRoom(roomId)
-                .With(new BlueprintComponent { BlueprintId = "mob.rat" })
-                .Build();
+            var mobId = MakeWoundedPeerRat(world.Ecs, roomId);
 
             var bodyBefore = world.Stats.Get(playerId, ScoreId.Body);
 
@@ -179,17 +210,7 @@ namespace Hedron.Tests.Progression
                 .InRoom(roomId)
                 .Build();
 
-            uint MakeMob()
-            {
-                var id = new EntityBuilder(world.Ecs)
-                    .AsMob("rat")
-                    .WithAttributes(body: 10)
-                    .WithPools(hp: 1)
-                    .InRoom(roomId)
-                    .With(new BlueprintComponent { BlueprintId = "mob.rat" })
-                    .Build();
-                return id;
-            }
+            uint MakeMob() => MakeWoundedPeerRat(world.Ecs, roomId);
 
             var tick = 1u;
             while (world.Progression.GetImprovementCount(playerId, ScoreId.Body) == 0 && tick < 20)
@@ -208,6 +229,200 @@ namespace Hedron.Tests.Progression
             var improved = world.Bus.Published.OfType<Hedron.Core.Modules.Progression.Events.TrackImprovedEvent>()
                 .Where(e => e.Track == ProgressionTrack.Of(ScoreId.Body)).ToList();
             Assert.Single(improved);
+        }
+
+        // ── Anti-grind on effective power (relative-power WP-2) ──────────────────
+
+        /// <summary>
+        /// SR8 headline: the <b>same</b> kill awards less XP once the killer wears gear — the
+        /// ratio is victim ÷ killer on effective power, so the killer's gear lowers it (Post 8).
+        /// </summary>
+        [Fact]
+        public async Task The_same_kill_awards_less_once_the_killer_wears_gear()
+        {
+            // Two kills, 4 ints each: combat hit+damage, then progression Body+HpMax base (12, 12).
+            var rng = new FakeRandom(20, 1, 12, 12, 20, 1, 12, 12);
+            var world = new TestWorld(rng);
+
+            const uint roomId = 5u;
+            var playerId = new EntityBuilder(world.Ecs)
+                .AsPlayer().WithAttributes(body: 10).WithPools(hp: 100).InRoom(roomId).Build();
+
+            async Task<int> KillOneAsync(uint tick)
+            {
+                var mobId = MakeWoundedPeerRat(world.Ecs, roomId);
+                var before = world.Progression.GetXp(playerId, ScoreId.Body);
+                world.EntityState.TryEnterState(playerId, EntityStateFlags.InCombat, out _);
+                world.EntityState.TryEnterState(mobId, EntityStateFlags.InCombat, out _);
+                world.Combat.StartCombat(playerId, mobId);
+                await world.Bus.PublishAsync(Ticks.At(tick));
+                Assert.False(world.Ecs.HasComponent<MobDataComponent>(mobId), "the mob must have died");
+                return world.Progression.GetXp(playerId, ScoreId.Body) - before;
+            }
+
+            var unarmed = await KillOneAsync(1);
+
+            var weapon = world.Ecs.CreateEntity().Id;
+            world.Ecs.AddComponent(weapon, new ItemDataComponent
+            {
+                StatBonuses = { new EquipmentStatBonus(ScoreId.AttackPower, 25) },
+            });
+            world.Ecs.AddComponent(playerId, new EquipmentComponent { Slots = { [Hedron.Core.WornSlot.MainHand] = weapon } });
+
+            // The ratio the handler will gather for an identical (fresh, peer) rat, read up front.
+            var probe = MakeWoundedPeerRat(world.Ecs, 999u);
+            var armedRatio = world.RelativePower.Relate(playerId, probe).Ratio;
+            world.Ecs.DestroyEntity(probe);
+
+            var armed = await KillOneAsync(2);
+
+            Assert.Equal(12, unarmed);
+            Assert.True(armedRatio < 1.0, $"gear must lower the kill ratio (got {armedRatio})");
+            Assert.Equal((int)System.Math.Round(12 * armedRatio, System.MidpointRounding.AwayFromZero), armed);
+            Assert.True(armed < unarmed, $"armed kill awarded {armed}, unarmed {unarmed}");
+        }
+
+        /// <summary>
+        /// Verified 2: <see cref="AbilityInvocationPipeline"/> publishes <c>AbilityActivatedEvent</c>
+        /// before the strike resolves, so a killing-blow <c>kick</c> has its ratio gathered while the
+        /// target is still live — the use is scaled by the target's ratio, never treated as
+        /// unreadable (which would award nothing).
+        /// </summary>
+        [Fact]
+        public async Task A_killing_blow_kick_applies_the_targets_ratio_gathered_before_the_strike()
+        {
+            // Ability use (2 candidates: ability:kick, Body): chance roll + amount 6 each; strike
+            // damage roll 1; then the kill award: Body + HpMax base 10 each.
+            var rng = new FakeRandom(6, 6, 1, 10, 10);
+            rng.EnqueueDouble(0.0);
+            rng.EnqueueDouble(0.0);
+            var world = new TestWorld(rng);
+
+            const uint roomId = 6u;
+            var playerId = new EntityBuilder(world.Ecs)
+                .AsPlayer().WithAttributes(body: 10).WithPools(hp: 100).InRoom(roomId)
+                .With(new AbilitiesComponent { Known = { "kick" } })
+                .Build();
+            // A weaker (Body 5) wounded rat: ratio < 1 so a scaled award is distinguishable from
+            // both the unscaled 6 and the unreadable 0.
+            var mobId = MakeWoundedPeerRat(world.Ecs, roomId, body: 5);
+            var ratio = world.RelativePower.Relate(playerId, mobId).Ratio;
+            Assert.InRange(ratio, ProgressionConstants.AntiGrindFloorRatio, 0.99);
+
+            var output = new RecordingOutput();
+            await world.Pipeline.InvokeAsync(
+                playerId, "kick", new AbilityRegistry().Get("kick"), "rat", output.WriterFor(playerId), "test");
+
+            Assert.False(world.Ecs.HasComponent<MobDataComponent>(mobId), "the kick must have killed and destroyed the mob");
+            var activated = Assert.Single(world.Bus.Published.OfType<Hedron.Core.Modules.Abilities.Events.AbilityActivatedEvent>());
+            Assert.True(activated.IsOffensive);
+            Assert.Equal(mobId, activated.TargetEntityId);
+
+            var expected = (int)System.Math.Round(6 * ratio, System.MidpointRounding.AwayFromZero);
+            Assert.Equal(expected, world.Progression.GetXp(playerId, ProgressionTrack.Ability("kick")));
+            Assert.True(expected is > 0 and < 6);
+        }
+
+        /// <summary>
+        /// Verified 1: a self-cast <c>empower</c> publishes a <b>non-null</b> target (the actor) with
+        /// <c>IsOffensive == false</c> — so the handler names no opponent and the use is awarded on
+        /// today's draws.
+        /// </summary>
+        [Fact]
+        public async Task A_self_cast_empower_publishes_IsOffensive_false_with_the_actor_as_target()
+        {
+            var rng = new FakeRandom(5, 5);
+            rng.EnqueueDouble(0.0);
+            rng.EnqueueDouble(0.0);
+            var world = new TestWorld(rng);
+
+            var playerId = new EntityBuilder(world.Ecs)
+                .AsPlayer().WithAttributes().WithPools(hp: 100).InRoom(7u)
+                .With(new AbilitiesComponent { Known = { "empower" } })
+                .Build();
+
+            var output = new RecordingOutput();
+            await world.Pipeline.InvokeAsync(
+                playerId, "empower", new AbilityRegistry().Get("empower"), null, output.WriterFor(playerId), "test");
+
+            var activated = Assert.Single(world.Bus.Published.OfType<Hedron.Core.Modules.Abilities.Events.AbilityActivatedEvent>());
+            Assert.False(activated.IsOffensive);
+            Assert.Equal(playerId, activated.TargetEntityId);
+
+            Assert.Equal(5, world.Progression.GetXp(playerId, ProgressionTrack.Ability("empower")));
+            Assert.Equal(5, world.Progression.GetXp(playerId, ScoreId.Mind));
+        }
+
+        /// <summary>
+        /// SR11 / Post 12 — live/sandbox parity: the same killer/victim pair, composed in a live
+        /// world (production contributor set; a mob's tier on <c>MobDataComponent.Tier</c>) and in
+        /// <see cref="SandboxWorldFactory.Create"/> (a combatant's tier on <c>AscensionComponent</c>,
+        /// as <c>SimCombatantFactory</c> materializes it), gathers the same ratio and produces the
+        /// same award rows kill-for-kill at the same seed — including after the killer's own
+        /// improvements move the ratio.
+        /// </summary>
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        public void A_live_kill_and_a_sandbox_kill_of_the_same_pair_gather_the_same_ratio_and_rows(int victimTier)
+        {
+            const int seed = 2026;
+            const int kills = 15; // crosses the first threshold on both tracks, so the ratio moves
+
+            // ── Live composition ──
+            var liveEcs = new EntityService();
+            var liveProgression = new ProgressionSystem(liveEcs, new FakeRandom(seed), new AdvancementRuleRegistry());
+            var abilityRegistry = new AbilityRegistry();
+            var effectRegistry = new Hedron.Core.Modules.Effects.EffectRegistry();
+            var liveEffects = new EffectSystem(liveEcs, new IEffectContributor[]
+            {
+                new EquipmentEffectContributor(liveEcs),
+                new AbilityEffectContributor(liveEcs, abilityRegistry, effectRegistry),
+                new ProgressionEffectContributor(liveProgression),
+                new AscensionEffectContributor(new AscensionSystem(liveEcs)),
+            });
+            var liveAttributes = new AttributeSystem(liveEcs, liveEffects, Options.Create(new DeathOptions { HpFloor = -10 }));
+            var liveRelative = new RelativePowerSystem(
+                liveEcs, new StatSystem(liveAttributes, liveEffects), new PowerBudgetSystem(PowerBudgetTunables.Default));
+
+            var liveKiller = new EntityBuilder(liveEcs).AsPlayer().WithAttributes().WithPools(hp: 100).Build();
+            var liveVictim = new EntityBuilder(liveEcs).AsMob("wolf").WithAttributes().WithPools(hp: 100).Build();
+            liveEcs.Get<MobDataComponent>(liveVictim).Tier = victimTier;
+
+            // ── Sandbox composition ──
+            var sandbox = new SandboxWorldFactory(
+                    abilityRegistry, effectRegistry, new PowerBudgetSystem(PowerBudgetTunables.Default),
+                    Options.Create(new DeathOptions()))
+                .Create(new FakeRandom(seed));
+
+            uint Materialize(int tier)
+            {
+                // Mirrors SimCombatantFactory.Materialize: mob-shaped, tier on AscensionComponent.
+                var id = sandbox.EntityService.CreateEntity().Id;
+                sandbox.EntityService.AddComponent(id, new MobDataComponent { Name = "combatant" });
+                sandbox.EntityService.AddComponent(id, new AttributesComponent { Level = 1, Mind = 10, Body = 10, Spirit = 10, Attunement = 10 });
+                sandbox.EntityService.AddComponent(id, new PoolsComponent { MaxHp = 100, CurrentHp = 100 });
+                if (tier > 0)
+                    sandbox.EntityService.AddComponent(id, new AscensionComponent { Tier = tier });
+                return id;
+            }
+
+            var simKiller = Materialize(0);
+            var simVictim = Materialize(victimTier);
+
+            for (var kill = 1; kill <= kills; kill++)
+            {
+                var liveRatio = liveRelative.Relate(liveKiller, liveVictim).Ratio;
+                var simRatio = sandbox.RelativePower.Relate(simKiller, simVictim).Ratio;
+                Assert.Equal(liveRatio, simRatio);
+
+                var liveRows = liveProgression.AwardCombatExperience(liveKiller, liveVictim, liveRatio).Tracks;
+                var simRows = sandbox.Progression.AwardCombatExperience(simKiller, simVictim, simRatio).Tracks;
+                Assert.Equal(liveRows, simRows);
+            }
+
+            Assert.True(liveProgression.GetImprovementCount(liveKiller, ScoreId.Body) >= 1,
+                "the run must reach an improvement so the parity covers a moved ratio");
         }
 
         // ── Use-based sources (progression-use-based-xp) ──────────────────────────
@@ -304,10 +519,7 @@ namespace Hedron.Tests.Progression
             const uint roomId = 70u;
             var playerId = new EntityBuilder(world.Ecs)
                 .AsPlayer().WithAttributes(body: 10).WithPools(hp: 100).InRoom(roomId).Build();
-            var mobId = new EntityBuilder(world.Ecs)
-                .AsMob("rat").WithAttributes(body: 10).WithPools(hp: 1).InRoom(roomId)
-                .With(new BlueprintComponent { BlueprintId = "mob.rat" })
-                .Build();
+            var mobId = MakeWoundedPeerRat(world.Ecs, roomId);
 
             // config progressionxp off
             var configOutput = new RecordingOutput();

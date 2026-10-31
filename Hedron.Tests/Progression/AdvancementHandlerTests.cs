@@ -3,16 +3,23 @@ using System.Threading.Tasks;
 using Hedron.Core.ECS;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Abilities.Events;
+using Hedron.Core.Modules.Attributes.Systems;
 using Hedron.Core.Modules.Combat;
 using Hedron.Core.Modules.Combat.Events;
+using Hedron.Core.Modules.Death;
+using Hedron.Core.Modules.Effects;
+using Hedron.Core.Modules.Effects.Systems;
+using Hedron.Core.Modules.Items;
 using Hedron.Core.Modules.Mobs.Events;
 using Hedron.Core.Modules.Progression;
 using Hedron.Core.Modules.Progression.Events;
 using Hedron.Core.Modules.Progression.Handlers;
 using Hedron.Core.Modules.Progression.Systems;
 using Hedron.Core.Modules.Stats;
+using Hedron.Core.Modules.Stats.Systems;
 using Hedron.Core.Systems;
 using Hedron.Tests.Harness;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Hedron.Tests.Progression
@@ -23,7 +30,9 @@ namespace Hedron.Tests.Progression
     /// Migrated from <c>ExperienceAwardHandlerTests</c> when the per-source handler pattern was
     /// promoted to the advancement-rule registry (INV-19), and extended to the two new trigger
     /// events. Coverage contract: the Events-fired postconditions of
-    /// docs/implementation-plans/progression-use-based-xp.md.
+    /// docs/implementation-plans/progression-use-based-xp.md, extended by the relative-power slice
+    /// (WP-2) with the per-trigger opponent-ratio gather — every case reads power through a real
+    /// <see cref="RelativePowerSystem"/> over a real <see cref="StatSystem"/>.
     /// </summary>
     public sealed class AdvancementHandlerTests
     {
@@ -37,10 +46,17 @@ namespace Hedron.Tests.Progression
             public TestWorld(FakeRandom rng)
             {
                 Ecs = new EntityService();
-                Progression = new ProgressionSystem(
-                    Ecs, rng, new PowerBudgetSystem(PowerBudgetTunables.Default), new AdvancementRuleRegistry());
+                Progression = new ProgressionSystem(Ecs, rng, new AdvancementRuleRegistry());
+                var effects = new EffectSystem(Ecs, new IEffectContributor[]
+                {
+                    new EquipmentEffectContributor(Ecs),
+                    new ProgressionEffectContributor(Progression),
+                });
+                var attributes = new AttributeSystem(Ecs, effects, Options.Create(new DeathOptions { HpFloor = -10 }));
+                var relativePower = new RelativePowerSystem(
+                    Ecs, new StatSystem(attributes, effects), new PowerBudgetSystem(PowerBudgetTunables.Default));
                 Bus = new RecordingEventBus(dispatch: false);
-                Handler = new AdvancementHandler(Progression, new AbilityRegistry(), Bus);
+                Handler = new AdvancementHandler(Progression, relativePower, new AbilityRegistry(), Bus);
             }
         }
 
@@ -49,6 +65,16 @@ namespace Hedron.Tests.Progression
 
         private static uint CreateMob(EntityService ecs, int power = 10)
             => new EntityBuilder(ecs).AsMob("rat").WithAttributes(power, power, power, power).Build();
+
+        /// <summary>
+        /// Effective power ~15 against a fresh 386 — ratio ≈ 0.04, far under the 0.25 floor.
+        /// HpMax is weighted, so the pool is shrunk too (attributes alone would not make it trivial).
+        /// </summary>
+        private static uint CreateTrivialMob(EntityService ecs)
+            => new EntityBuilder(ecs).AsMob("gnat").WithAttributes(1, 1, 1, 1).WithPools(hp: 1).Build();
+
+        private static uint CreateTrivialPlayer(EntityService ecs)
+            => new EntityBuilder(ecs).AsPlayer().WithAttributes(1, 1, 1, 1).WithPools(hp: 1).Build();
 
         // ── CombatKill (behaviour preserved from the pre-slice handler) ───────────
 
@@ -117,7 +143,90 @@ namespace Hedron.Tests.Progression
             Assert.Empty(world.Bus.Published);
         }
 
+        [Fact]
+        public async Task Trivial_victim_kill_publishes_nothing()
+        {
+            // Ratio gathered on effective power (victim ÷ killer) is under the floor — ineligible,
+            // and an empty FakeRandom proves zero draws (any draw would throw).
+            var world = new TestWorld(new FakeRandom());
+            var killer = CreateCombatant(world.Ecs);
+            var victim = CreateTrivialMob(world.Ecs);
+
+            await world.Handler.HandleAsync(new MobDiedEvent(victim, "mob.gnat", killer));
+
+            Assert.Empty(world.Bus.Published);
+        }
+
         // ── AbilityUse ───────────────────────────────────────────────────────────
+
+        [Fact]
+        public async Task Offensive_ability_use_against_a_trivial_target_publishes_nothing()
+        {
+            var world = new TestWorld(new FakeRandom()); // zero draws — any draw would throw
+            var actor = CreateCombatant(world.Ecs);
+            var target = CreateTrivialMob(world.Ecs);
+
+            await world.Handler.HandleAsync(new AbilityActivatedEvent(actor, "kick", target, IsOffensive: true));
+
+            Assert.Empty(world.Bus.Published);
+        }
+
+        [Fact]
+        public async Task Offensive_ability_use_against_an_already_destroyed_target_is_ineligible()
+        {
+            // Defensive backstop: an opponent named but unreadable reads Ratio 0.0 — ineligible,
+            // never a fallback to ratio-free XP (Post 11).
+            var world = new TestWorld(new FakeRandom()); // zero draws — any draw would throw
+            var actor = CreateCombatant(world.Ecs);
+            var target = CreateMob(world.Ecs);
+            world.Ecs.DestroyEntity(target);
+
+            await world.Handler.HandleAsync(new AbilityActivatedEvent(actor, "kick", target, IsOffensive: true));
+
+            Assert.Empty(world.Bus.Published);
+        }
+
+        [Fact]
+        public async Task Self_targeted_use_is_awarded_as_without_an_opponent()
+        {
+            // Targeting.Self publishes the actor's own id as the target (Verified 1) but is not
+            // offensive — no opponent, no ratio, today's award.
+            var rng = new FakeRandom(new[] { 4, 4 });
+            rng.EnqueueDouble(0.0);
+            rng.EnqueueDouble(0.0);
+            var world = new TestWorld(rng);
+            var actor = CreateCombatant(world.Ecs);
+
+            await world.Handler.HandleAsync(new AbilityActivatedEvent(actor, "empower", actor, IsOffensive: false));
+
+            var awarded = world.Bus.Published.OfType<ExperienceAwardedEvent>().ToList();
+            Assert.Equal(2, awarded.Count);
+            Assert.All(awarded, e => Assert.Equal(4, e.Amount));
+        }
+
+        [Fact]
+        public async Task Ally_targeted_non_offensive_use_applies_no_ratio_even_on_a_trivially_weak_target()
+        {
+            // A non-offensive use on ANOTHER entity names no opponent. Were the target's ratio
+            // applied, this trivially weak target would make the use ineligible; instead the award
+            // and draw sequence are exactly the no-opponent ones.
+            var rng = new FakeRandom(new[] { 4, 4 });
+            rng.EnqueueDouble(0.0);
+            rng.EnqueueDouble(0.0);
+            var world = new TestWorld(rng);
+            var actor = CreateCombatant(world.Ecs);
+            var ally = CreateTrivialPlayer(world.Ecs);
+
+            await world.Handler.HandleAsync(new AbilityActivatedEvent(actor, "kick", ally, IsOffensive: false));
+
+            var awarded = world.Bus.Published.OfType<ExperienceAwardedEvent>().ToList();
+            Assert.Equal(2, awarded.Count);
+            Assert.All(awarded, e =>
+            {
+                Assert.Equal(actor, e.EntityId);
+                Assert.Equal(4, e.Amount);
+            });
+        }
 
         [Fact]
         public async Task Ability_use_awards_the_ability_track_and_its_attribute_track()
@@ -197,6 +306,23 @@ namespace Hedron.Tests.Progression
                 Assert.Equal(XpSource.DamageTaken, e.Source);
             });
             Assert.Equal(0, world.Progression.GetXp(attacker, ScoreId.Body));
+        }
+
+        [Fact]
+        public async Task Combat_round_from_a_trivial_attacker_gives_the_defender_nothing()
+        {
+            // The attacker is the defender's opponent: attacker ÷ defender under the floor is
+            // ineligible with zero draws (any draw on the empty FakeRandom would throw).
+            var world = new TestWorld(new FakeRandom());
+            var attacker = CreateTrivialMob(world.Ecs);
+            var defender = CreateCombatant(world.Ecs);
+
+            await world.Handler.HandleAsync(new CombatRoundEvent(
+                attacker, defender, RoomEntityId: 1u,
+                new CombatRoundResult(attacker, defender, DamageDealt: 7, AttackerHit: true, CombatRoundOutcome.Hit)));
+
+            Assert.Empty(world.Bus.Published);
+            Assert.Equal(0, world.Progression.GetXp(defender, ScoreId.Body));
         }
 
         [Fact]

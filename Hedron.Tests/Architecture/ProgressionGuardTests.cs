@@ -1,6 +1,8 @@
 using System.Linq;
 using System.Reflection;
 using Hedron.Core.ECS;
+using Hedron.Core.Modules.Ascension;
+using Hedron.Core.Modules.BalanceInspection.Standards;
 using Hedron.Core.Modules.Effects.Systems;
 using Hedron.Core.Modules.Progression;
 using Hedron.Core.Modules.Progression.Systems;
@@ -14,7 +16,8 @@ namespace Hedron.Tests.Architecture
 {
     /// <summary>
     /// Architecture guards specific to the progression substrate: the display-only contract for
-    /// ability rank (D3) and the standing DI-cycle guard on <see cref="ProgressionSystem"/>.
+    /// ability rank (D3), the standing DI-cycle / stat-free guard on <see cref="ProgressionSystem"/>,
+    /// and the tier-mirror guard behind the relative-power read's live/sandbox parity.
     /// </summary>
     public sealed class ProgressionGuardTests
     {
@@ -24,7 +27,6 @@ namespace Hedron.Tests.Architecture
             var progression = new ProgressionSystem(
                 ecs,
                 new FakeRandom(seed: 1),
-                new PowerBudgetSystem(PowerBudgetTunables.Default),
                 new AdvancementRuleRegistry());
             return (progression, ecs);
         }
@@ -79,16 +81,21 @@ namespace Hedron.Tests.Architecture
         }
 
         /// <summary>
-        /// Standing DI-cycle guard: <see cref="ProgressionSystem"/> must not reach for
-        /// <c>IStatSystem</c> / <c>IEffectSystem</c>. Its own contributor is registered on the
-        /// <c>IEffectContributor</c> port those systems aggregate, so depending on them would
-        /// close the cycle StatSystem → EffectSystem → ProgressionEffectContributor →
-        /// IProgressionSystem → StatSystem. The anti-grind proxy reads raw attributes instead.
+        /// Standing DI-cycle guard, extended by the relative-power slice (Post 13):
+        /// <see cref="ProgressionSystem"/> must not reach for <c>IStatSystem</c> / <c>IEffectSystem</c>
+        /// (its own contributor is registered on the <c>IEffectContributor</c> port those systems
+        /// aggregate, so depending on them would close the cycle StatSystem → EffectSystem →
+        /// ProgressionEffectContributor → IProgressionSystem → StatSystem), nor for
+        /// <c>IRelativePowerSystem</c> / <c>IPowerBudgetSystem</c> — it never measures power. The
+        /// anti-grind ratio is an input, gathered on effective power by the caller.
         /// </summary>
         [Fact]
-        public void ProgressionSystem_does_not_depend_on_the_stat_or_effect_systems()
+        public void ProgressionSystem_does_not_depend_on_the_stat_effect_relative_power_or_power_budget_systems()
         {
-            var forbidden = new[] { typeof(IStatSystem), typeof(IEffectSystem) };
+            var forbidden = new[]
+            {
+                typeof(IStatSystem), typeof(IEffectSystem), typeof(IRelativePowerSystem), typeof(IPowerBudgetSystem),
+            };
             var type = typeof(ProgressionSystem);
 
             var offendingParams = type
@@ -106,7 +113,7 @@ namespace Hedron.Tests.Architecture
 
             Assert.True(
                 offendingParams.Count == 0 && offendingFields.Count == 0,
-                "ProgressionSystem must not depend on IStatSystem/IEffectSystem (DI cycle). Offenders: " +
+                "ProgressionSystem must not depend on IStatSystem/IEffectSystem/IRelativePowerSystem/IPowerBudgetSystem. Offenders: " +
                 string.Join(", ", offendingParams.Concat(offendingFields)));
         }
 
@@ -141,6 +148,25 @@ namespace Hedron.Tests.Architecture
             Assert.False(kill.Eligibility.RequiresPlayerEarner);
             Assert.True(registry.Get(XpSource.AbilityUse).Eligibility.RequiresPlayerEarner);
             Assert.True(registry.Get(XpSource.DamageTaken).Eligibility.RequiresPlayerEarner);
+        }
+
+        /// <summary>
+        /// Tier mirror (relative-power parity caveat): a live mob's tier is priced by the oracle from
+        /// <see cref="PowerBudgetTunables.TierBaselineStep"/> / <see cref="PowerBudgetTunables.TrackedScores"/>,
+        /// while a player's and a sandbox combatant's tier arrive through
+        /// <c>AscensionEffectContributor</c> from the compiled <see cref="AscensionConstants"/>. The two
+        /// representations price a tier identically — and the live/sandbox kill ratio agrees — only
+        /// while these values match. The standards store's load-time drift warning covers an
+        /// operator-edited file; this pins the compiled defaults.
+        /// </summary>
+        [Fact]
+        public void The_default_tier_baseline_mirrors_AscensionConstants()
+        {
+            foreach (var tunables in new[] { PowerBudgetTunables.Default, BalanceStandardsDefaults.Document.Tunables })
+            {
+                Assert.Equal(AscensionConstants.TierBaselineStep, tunables.TierBaselineStep);
+                Assert.Equal(AscensionConstants.TrackedScores, tunables.TrackedScores.ToArray());
+            }
         }
     }
 }

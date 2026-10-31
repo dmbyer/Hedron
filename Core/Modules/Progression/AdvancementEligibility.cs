@@ -21,10 +21,12 @@ namespace Hedron.Core.Modules.Progression
     /// that dealt no damage grants nothing to the defender.
     /// </param>
     /// <param name="AppliesAntiGrindPowerRatio">
-    /// The award is scaled by the victim-vs-earner power ratio. A ratio below
-    /// <see cref="ProgressionConstants.AntiGrindFloorRatio"/> is an <b>eligibility failure</b>, not
-    /// a zero multiplier: the candidate consumes <b>zero</b> <c>IRandom</c> draws, preserving the
-    /// trivial-victim draw contract (INV-26).
+    /// The award is scaled by the opponent-vs-earner effective-power ratio. Applied when the context
+    /// supplies <see cref="Systems.UseAwardContext.OpponentPowerRatio"/>; absent
+    /// (<see langword="null"/>) means no opponent, and the rule then applies no ratio. A ratio below
+    /// <see cref="ProgressionConstants.AntiGrindFloorRatio"/> — including an unreadable opponent's
+    /// <c>0.0</c> — is an <b>eligibility failure</b>, not a zero multiplier: the candidate consumes
+    /// <b>zero</b> <c>IRandom</c> draws, preserving the trivial-opponent draw contract (INV-26).
     /// </param>
     public readonly record struct AdvancementEligibility(
         bool RequiresAttributableActor = false,

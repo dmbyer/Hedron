@@ -134,7 +134,11 @@ namespace Hedron.Core.Modules.Abilities.Commands
             AbilityActivationResult result)
         {
             // Publish ability activated event
-            await _eventBus.PublishAsync(new AbilityActivatedEvent(actor, abilityId, targetEntityId))
+            // IsOffensive describes the use, not the code path: honest even though this admin
+            // command bypasses combat entry.
+            await _eventBus.PublishAsync(new AbilityActivatedEvent(
+                    actor, abilityId, targetEntityId,
+                    IsOffensive: _abilitySystem.IsOffensive(abilityId) && targetEntityId.HasValue))
                 .ConfigureAwait(false);
 
             // Publish EffectAppliedEvent for each applied effect

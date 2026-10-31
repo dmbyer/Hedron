@@ -22,8 +22,7 @@ namespace Hedron.Tests.Progression
         private static (ProgressionSystem System, EntityService Ecs) CreateSystem(IRandom rng)
         {
             var ecs = new EntityService();
-            var system = new ProgressionSystem(
-                ecs, rng, new PowerBudgetSystem(PowerBudgetTunables.Default), new AdvancementRuleRegistry());
+            var system = new ProgressionSystem(ecs, rng, new AdvancementRuleRegistry());
             return (system, ecs);
         }
 
@@ -130,16 +129,21 @@ namespace Hedron.Tests.Progression
                     "Each successive cumulative threshold must exceed the previous (slowing-rate invariant).");
         }
 
-        // ── Anti-grind scale (three cases) ───────────────────────────────────────
+        // ── Anti-grind scale on a caller-supplied ratio (relative-power WP-2) ────
+        // ProgressionSystem no longer measures power: the ratio is gathered on EFFECTIVE power by
+        // the caller (IRelativePowerSystem) and passed in. The inverse of the deleted
+        // "ignores worn gear and uses only raw attributes" test lives in RelativePowerSystemTests
+        // and ProgressionAwardFlowTests (worn gear now lowers the kill award).
 
         [Fact]
-        public void AwardCombatExperience_floors_to_zero_when_victim_far_below_killer()
+        public void AwardCombatExperience_below_the_floor_awards_nothing_and_draws_nothing()
         {
-            var (system, ecs) = CreateSystem(new FakeRandom(seed: 1)); // no ints should be drawn
-            var killer = CreateEntity(ecs, mind: 25, body: 25, spirit: 25, attunement: 25); // power 100
-            var victim = CreateEntity(ecs, mind: 2, body: 2, spirit: 2, attunement: 2);     // power 8, ratio 0.08 < 0.25
+            var rng = new CountingRandom();
+            var (system, ecs) = CreateSystem(rng);
+            var killer = CreateEntity(ecs);
+            var victim = CreateEntity(ecs);
 
-            var result = system.AwardCombatExperience(killer, victim);
+            var result = system.AwardCombatExperience(killer, victim, opponentPowerRatio: 0.2);
 
             Assert.Equal(ProgressionConstants.CombatTracks.Length, result.Tracks.Count);
             Assert.All(result.Tracks, row =>
@@ -147,6 +151,7 @@ namespace Hedron.Tests.Progression
                 Assert.Equal(0, row.AmountAwarded);
                 Assert.Equal(0, row.ImprovementsGained);
             });
+            Assert.Empty(rng.Draws);
         }
 
         [Fact]
@@ -154,10 +159,10 @@ namespace Hedron.Tests.Progression
         {
             var rng = new FakeRandom(new[] { 10, 10 }); // one draw per combat track
             var (system, ecs) = CreateSystem(rng);
-            var killer = CreateEntity(ecs, mind: 25, body: 25, spirit: 25, attunement: 25); // power 100
-            var victim = CreateEntity(ecs, mind: 25, body: 25, spirit: 25, attunement: 25); // power 100, ratio 1.0
+            var killer = CreateEntity(ecs);
+            var victim = CreateEntity(ecs);
 
-            var result = system.AwardCombatExperience(killer, victim);
+            var result = system.AwardCombatExperience(killer, victim, opponentPowerRatio: 1.0);
 
             Assert.All(result.Tracks, row => Assert.Equal(10, row.AmountAwarded));
         }
@@ -167,43 +172,150 @@ namespace Hedron.Tests.Progression
         {
             var rng = new FakeRandom(new[] { 10, 10 });
             var (system, ecs) = CreateSystem(rng);
-            var killer = CreateEntity(ecs, mind: 12, body: 13, spirit: 12, attunement: 13); // power 50
-            var victim = CreateEntity(ecs, mind: 50, body: 50, spirit: 50, attunement: 50); // power 200, ratio 4.0 → capped 1.5
+            var killer = CreateEntity(ecs);
+            var victim = CreateEntity(ecs);
 
-            var result = system.AwardCombatExperience(killer, victim);
+            var result = system.AwardCombatExperience(killer, victim, opponentPowerRatio: 3.0);
 
-            // amount = round(10 * 1.5) = 15
+            // amount = round(10 * min(3.0, 1.5)) = 15
             Assert.All(result.Tracks, row => Assert.Equal(15, row.AmountAwarded));
         }
 
-        // ── Anti-grind rewire (power-budget-inspector WP-2, P9) ──────────────────
+        [Fact]
+        public void AwardCombatExperience_with_an_unreadable_ratio_is_ineligible_with_zero_draws()
+        {
+            // 0.0 is RelativePowerReading.Unreadable's ratio: an opponent named but unreadable is
+            // ineligible — never a fallback to ratio-free XP (Post 11).
+            var rng = new CountingRandom();
+            var (system, ecs) = CreateSystem(rng);
+            var killer = CreateEntity(ecs);
+            var victim = CreateEntity(ecs);
+
+            var result = system.AwardCombatExperience(killer, victim, opponentPowerRatio: 0.0);
+
+            Assert.All(result.Tracks, row => Assert.Equal(0, row.AmountAwarded));
+            Assert.Empty(rng.Draws);
+        }
+
+        [Theory]
+        [InlineData(double.NaN)]
+        [InlineData(double.PositiveInfinity)]
+        [InlineData(double.NegativeInfinity)]
+        public void A_non_finite_ratio_is_ineligible_with_zero_draws(double ratio)
+        {
+            var rng = new CountingRandom();
+            var (system, ecs) = CreateSystem(rng);
+            var killer = CreateEntity(ecs);
+            var victim = CreateEntity(ecs);
+
+            var kill = system.AwardCombatExperience(killer, victim, ratio);
+            var use = system.AwardUseExperience(killer, XpSource.AbilityUse, new UseAwardContext(
+                SubjectAbilityId: "kick", OpponentPowerRatio: ratio));
+
+            Assert.All(kill.Tracks, row => Assert.Equal(0, row.AmountAwarded));
+            Assert.All(use.Tracks, row => Assert.Equal(0, row.AmountAwarded));
+            Assert.Empty(rng.Draws);
+        }
+
+        // ── Anti-grind on the use rows (relative-power WP-2; SR9, SR10, SR12) ────
 
         [Fact]
-        public void AwardCombatExperience_ignores_worn_gear_and_uses_only_raw_attributes()
+        public void An_ability_use_against_a_below_floor_opponent_consumes_no_draws()
         {
-            // GetEffectivePower's snapshot must come from raw AttributesComponent fields, never
-            // IStatSystem.Get — reading the effect-folded value would recreate the DI cycle this
-            // proxy exists to avoid (see ProgressionSystem.GetEffectivePower). A killer with heavily
-            // buffed gear but the SAME raw attributes as the victim must still read as a peer
-            // (full base award), not as inflated by the gear.
-            var rng = new FakeRandom(new[] { 10, 10 });
+            var rng = new CountingRandom();
             var (system, ecs) = CreateSystem(rng);
-            var killer = CreateEntity(ecs, mind: 25, body: 25, spirit: 25, attunement: 25);
-            var victim = CreateEntity(ecs, mind: 25, body: 25, spirit: 25, attunement: 25);
+            var entity = CreateEntity(ecs);
 
-            var weapon = ecs.CreateEntity().Id;
-            ecs.AddComponent(weapon, new Hedron.Core.ECS.Components.ItemDataComponent
+            var result = system.AwardUseExperience(entity, XpSource.AbilityUse, new UseAwardContext(
+                SubjectAbilityId: "kick", OpponentPowerRatio: 0.2));
+
+            var row = Assert.Single(result.Tracks); // the candidate track stays in play, ineligible
+            Assert.Equal(0, row.AmountAwarded);
+            Assert.Empty(rng.Draws);
+        }
+
+        [Fact]
+        public void An_ability_use_with_no_opponent_draws_exactly_as_before_anti_grind()
+        {
+            // Null ratio = no opponent: the flagged rule applies nothing, so the draw sequence is
+            // the pre-slice one — one chance roll, then (on a pass) one amount draw in [3, 6].
+            var rng = new CountingRandom(ints: new[] { 5 }, doubles: new[] { 0.1 });
+            var (system, ecs) = CreateSystem(rng);
+            var entity = CreateEntity(ecs);
+
+            var result = system.AwardUseExperience(entity, XpSource.AbilityUse, new UseAwardContext(
+                SubjectAbilityId: "kick", OpponentPowerRatio: null));
+
+            Assert.Equal(5, Assert.Single(result.Tracks).AmountAwarded);
+            Assert.Equal(
+                new[]
+                {
+                    new CountingRandom.Draw("NextDouble", 0, 0),
+                    new CountingRandom.Draw("Next", 3, 7),
+                },
+                rng.Draws);
+        }
+
+        [Fact]
+        public void An_ability_use_with_an_unreadable_opponent_is_ineligible_with_zero_draws()
+        {
+            var rng = new CountingRandom();
+            var (system, ecs) = CreateSystem(rng);
+            var entity = CreateEntity(ecs);
+
+            var result = system.AwardUseExperience(entity, XpSource.AbilityUse, new UseAwardContext(
+                SubjectAbilityId: "kick", OpponentPowerRatio: 0.0));
+
+            Assert.Equal(0, Assert.Single(result.Tracks).AmountAwarded);
+            Assert.Empty(rng.Draws);
+        }
+
+        [Fact]
+        public void Damage_taken_from_a_below_floor_attacker_consumes_no_draws()
+        {
+            var rng = new CountingRandom();
+            var (system, ecs) = CreateSystem(rng);
+            var entity = CreateEntity(ecs);
+
+            var result = system.AwardUseExperience(entity, XpSource.DamageTaken, new UseAwardContext(
+                Magnitude: 10, OpponentPowerRatio: 0.2));
+
+            Assert.Equal(ProgressionConstants.CombatTracks.Length, result.Tracks.Count);
+            Assert.All(result.Tracks, row => Assert.Equal(0, row.AmountAwarded));
+            Assert.Empty(rng.Draws);
+        }
+
+        [Fact]
+        public void Damage_taken_from_a_peer_attacker_matches_the_ratio_free_award_and_draws()
+        {
+            // Ratio 1.0 is a ×1 scale, so a peer attacker awards and draws exactly what the
+            // pre-slice (ratio-free) damage-taken row did: per track one chance roll, then on a
+            // pass one amount draw in [2, 4].
+            (int[] Amounts, CountingRandom.Draw[] Draws) Run(double? ratio)
             {
-                StatBonuses = { new Hedron.Core.ECS.Components.EquipmentStatBonus(ScoreId.AttackPower, 500) },
-            });
-            ecs.AddComponent(killer, new Hedron.Core.ECS.Components.EquipmentComponent
-            {
-                Slots = { [Hedron.Core.WornSlot.MainHand] = weapon },
-            });
+                var rng = new CountingRandom(ints: new[] { 3, 4 }, doubles: new[] { 0.05, 0.05 });
+                var (system, ecs) = CreateSystem(rng);
+                var entity = CreateEntity(ecs);
+                var result = system.AwardUseExperience(entity, XpSource.DamageTaken, new UseAwardContext(
+                    Magnitude: 10, OpponentPowerRatio: ratio));
+                return (result.Tracks.Select(t => t.AmountAwarded).ToArray(), rng.Draws.ToArray());
+            }
 
-            var result = system.AwardCombatExperience(killer, victim);
+            var peer = Run(1.0);
+            var ratioFree = Run(null);
 
-            Assert.All(result.Tracks, row => Assert.Equal(10, row.AmountAwarded));
+            Assert.Equal(new[] { 3, 4 }, peer.Amounts);
+            Assert.Equal(ratioFree.Amounts, peer.Amounts);
+            Assert.Equal(
+                new[]
+                {
+                    new CountingRandom.Draw("NextDouble", 0, 0),
+                    new CountingRandom.Draw("Next", 2, 5),
+                    new CountingRandom.Draw("NextDouble", 0, 0),
+                    new CountingRandom.Draw("Next", 2, 5),
+                },
+                peer.Draws);
+            Assert.Equal(ratioFree.Draws, peer.Draws);
         }
 
         // ── The RNG draw contract (INV-26) ───────────────────────────────────────
@@ -218,10 +330,10 @@ namespace Hedron.Tests.Progression
             // indirectly via "the goldens did not move".
             var rng = new CountingRandom(ints: new[] { 10, 10 });
             var (system, ecs) = CreateSystem(rng);
-            var killer = CreateEntity(ecs, mind: 25, body: 25, spirit: 25, attunement: 25);
-            var victim = CreateEntity(ecs, mind: 25, body: 25, spirit: 25, attunement: 25);
+            var killer = CreateEntity(ecs);
+            var victim = CreateEntity(ecs);
 
-            system.AwardCombatExperience(killer, victim);
+            system.AwardCombatExperience(killer, victim, opponentPowerRatio: 1.0);
 
             Assert.Equal(
                 new[]
@@ -239,10 +351,10 @@ namespace Hedron.Tests.Progression
             // must not reach either the chance roll or the amount draw.
             var rng = new CountingRandom();
             var (system, ecs) = CreateSystem(rng);
-            var killer = CreateEntity(ecs, mind: 25, body: 25, spirit: 25, attunement: 25);
-            var victim = CreateEntity(ecs, mind: 2, body: 2, spirit: 2, attunement: 2);
+            var killer = CreateEntity(ecs);
+            var victim = CreateEntity(ecs);
 
-            system.AwardCombatExperience(killer, victim);
+            system.AwardCombatExperience(killer, victim, opponentPowerRatio: 0.08);
 
             Assert.Empty(rng.Draws);
         }
@@ -324,8 +436,7 @@ namespace Hedron.Tests.Progression
                 var rng = new FakeRandom(new[] { 5 });
                 rng.EnqueueDouble(roll);
                 var ecs = new EntityService();
-                var system = new ProgressionSystem(
-                    ecs, rng, new PowerBudgetSystem(PowerBudgetTunables.Default), new AdvancementRuleRegistry());
+                var system = new ProgressionSystem(ecs, rng, new AdvancementRuleRegistry());
                 var entity = new EntityBuilder(ecs).AsPlayer().WithAttributes(10, 10, 10, 10).Build();
 
                 var track = ProgressionTrack.Ability("kick");
@@ -348,9 +459,10 @@ namespace Hedron.Tests.Progression
         [Fact]
         public void Two_slowing_curves_compose_deliberately_on_one_track()
         {
-            // A track fed by a chance-gated source slows twice over: the XP threshold grows AND
-            // the award chance decays. Pinned so the interaction stays deliberate — the XP needed
-            // per rank rises while the chance of any given use contributing falls.
+            // A track fed by a chance-gated source has two curves: the CUMULATIVE XP threshold grows
+            // (each step costs a flat ThresholdIncrement) AND the award chance decays. Pinned so the
+            // interaction stays deliberate — the cumulative total rises while the chance of any
+            // given use contributing falls.
             var registry = new AdvancementRuleRegistry();
             var rule = registry.Get(XpSource.AbilityUse);
 
@@ -407,14 +519,14 @@ namespace Hedron.Tests.Progression
         {
             var rng = new FakeRandom(new[] { 10, 10 });
             var (system, ecs) = CreateSystem(rng);
-            var killer = CreateEntity(ecs, mind: 25, body: 25, spirit: 25, attunement: 25);
+            var killer = CreateEntity(ecs);
             var victim = new EntityBuilder(ecs)
                 .AsMob("worthless")
                 .WithAttributes(25, 25, 25, 25)
                 .Build();
             ecs.Get<Hedron.Core.ECS.Components.MobDataComponent>(victim)!.XpScale = 0.0;
 
-            var result = system.AwardCombatExperience(killer, victim);
+            var result = system.AwardCombatExperience(killer, victim, opponentPowerRatio: 1.0);
 
             Assert.All(result.Tracks, row => Assert.Equal(0, row.AmountAwarded));
         }
@@ -444,10 +556,10 @@ namespace Hedron.Tests.Progression
             {
                 var rng = new FakeRandom(new[] { 10, 10 });
                 var (system, ecs) = CreateSystem(rng);
-                var killer = CreateEntity(ecs, mind: 25, body: 25, spirit: 25, attunement: 25);
-                var victim = CreateEntity(ecs, mind: 25, body: 25, spirit: 25, attunement: 25);
+                var killer = CreateEntity(ecs);
+                var victim = CreateEntity(ecs);
 
-                var result = system.AwardCombatExperience(killer, victim);
+                var result = system.AwardCombatExperience(killer, victim, opponentPowerRatio: 1.0);
                 return (result.Tracks.Sum(t => t.AmountAwarded), system.GetImprovementCount(killer, ScoreId.Body));
             }
 

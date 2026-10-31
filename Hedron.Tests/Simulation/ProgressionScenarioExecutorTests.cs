@@ -97,10 +97,12 @@ namespace Hedron.Tests.Simulation
             // Victim power << killer power (ratio well under AntiGrindFloorRatio 0.25) -> every
             // award rounds to zero -> the run exhausts the cap with no improvement whatsoever.
             // scale <= 0 short-circuits the random draw, so an empty FakeRandom is safe here.
+            // The victim's pool is shrunk too: on effective power HpMax is weighted, so a
+            // 1000-HP victim would read ~0.5 of the subject, not trivial (relative-power WP-2).
             var random = new FakeRandom();
             var world = NewWorld(random);
             var subject = NewCombatant(world, body: 100, mind: 100, spirit: 100, attunement: 100);
-            var victim = NewCombatant(world, body: 1, mind: 1, spirit: 1, attunement: 1);
+            var victim = NewCombatant(world, body: 1, mind: 1, spirit: 1, attunement: 1, hp: 1);
             var settings = new ProgressionSettings(ScoreId.Body, TargetImprovements: 1, MaxKillsPerRun: 10);
 
             var record = new ProgressionScenarioExecutor().ExecuteRun(world, subject, victim, settings, runIndex: 0);
@@ -110,6 +112,31 @@ namespace Hedron.Tests.Simulation
             Assert.Empty(record.MilestoneKills);
             Assert.Equal(0, record.FinalXp[ScoreId.Body]);
             Assert.Equal(0, record.FinalXp[ScoreId.HpMax]);
+        }
+
+        [Fact]
+        public void ExecuteRun_RegathersTheRatioPerKill_SoALaterKillReflectsTheSubjectsGrownPower()
+        {
+            // Main flow 10: the executor gathers world.RelativePower.Relate(subject, victim) once
+            // PER KILL. Kills 1-9 are peers (ratio 1.0) at base 12 -> 108 XP crosses the first
+            // threshold on both tracks at kill 9. From kill 10 the subject's effective power has
+            // grown (+Body, +HpMax improvements), so the same base draw of 12 scales below 12.
+            // A small HP pool keeps the improvement visible against the weighted HpMax.
+            var random = new FakeRandom(Enumerable.Repeat(12, 20).ToArray());
+            var world = NewWorld(random);
+            var subject = NewCombatant(world, body: 10, hp: 10);
+            var victim = NewCombatant(world, body: 10, hp: 10);
+            var settings = new ProgressionSettings(ScoreId.Body, TargetImprovements: 5, MaxKillsPerRun: 10);
+
+            var record = new ProgressionScenarioExecutor().ExecuteRun(world, subject, victim, settings, runIndex: 0);
+
+            Assert.Equal(1, record.FinalImprovements[ScoreId.Body]);
+            var grownRatio = world.RelativePower.Relate(subject, victim).Ratio;
+            Assert.True(grownRatio < 1.0, $"the subject's improvement must lower the ratio (got {grownRatio})");
+
+            var killTenAward = record.FinalXp[ScoreId.Body] - 9 * 12;
+            Assert.Equal((int)System.Math.Round(12 * grownRatio, System.MidpointRounding.AwayFromZero), killTenAward);
+            Assert.True(killTenAward < 12, $"kill 10 awarded {killTenAward}, kill 1 awarded 12");
         }
 
         [Fact]

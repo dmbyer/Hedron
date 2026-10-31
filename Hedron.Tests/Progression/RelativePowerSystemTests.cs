@@ -44,7 +44,7 @@ namespace Hedron.Tests.Progression
             // a real StatSystem — so GetEffectivePower sees exactly what IStatSystem.Get folds in DI.
             public TestWorld()
             {
-                Progression = new ProgressionSystem(Ecs, new FakeRandom(seed: 1), PowerBudget, new AdvancementRuleRegistry());
+                Progression = new ProgressionSystem(Ecs, new FakeRandom(seed: 1), new AdvancementRuleRegistry());
                 Effects = new EffectSystem(Ecs, new IEffectContributor[]
                 {
                     new EquipmentEffectContributor(Ecs),
@@ -257,6 +257,31 @@ namespace Hedron.Tests.Progression
 
             Assert.Equal(ratio < ProgressionConstants.AntiGrindFloorRatio,
                 system.Classify(ratio) == RelativePowerLabel.Trivial);
+        }
+
+        [Theory]
+        [InlineData(ProgressionConstants.AntiGrindFloorRatio - 1e-9)]
+        [InlineData(ProgressionConstants.AntiGrindFloorRatio)]
+        [InlineData(ProgressionConstants.AntiGrindFloorRatio + 1e-9)]
+        [InlineData(0.0)]
+        [InlineData(1.0)]
+        public void A_trivial_reading_is_exactly_a_zero_award_zero_draw_kill(double ratio)
+        {
+            // One constant, one meaning — cross-system (SR5, Post 4): the read's Trivial label and
+            // ProgressionSystem's anti-grind ineligibility are the same predicate on the same ratio.
+            // A real ProgressionSystem over a CountingRandom proves "ineligible" means zero draws,
+            // not merely a zero amount.
+            var world = new TestWorld();
+            var rng = new CountingRandom(ints: new[] { 10, 10 });
+            var progression = new ProgressionSystem(world.Ecs, rng, new AdvancementRuleRegistry());
+            var killer = world.FreshPlayer();
+            var victim = world.Mob();
+
+            var trivial = world.RelativePower.Classify(ratio) == RelativePowerLabel.Trivial;
+            var result = progression.AwardCombatExperience(killer, victim, ratio);
+            var zeroAwardZeroDraws = result.Tracks.All(row => row.AmountAwarded == 0) && rng.Draws.Count == 0;
+
+            Assert.Equal(trivial, zeroAwardZeroDraws);
         }
 
         // ── Readability (Post 11) ────────────────────────────────────────────────

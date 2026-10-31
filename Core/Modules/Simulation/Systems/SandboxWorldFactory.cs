@@ -53,9 +53,10 @@ namespace Hedron.Core.Modules.Simulation.Systems
 
             // No dependency cycle: the contributors below depend only on EntityService and each
             // other's backing system — never on IEffectSystem/IStatSystem — so EffectSystem can be
-            // built before AttributeSystem/StatSystem need it (same guard ProgressionSystem's
-            // anti-grind proxy observes against IStatSystem).
-            var progression = new ProgressionSystem(ecs, random, _powerBudget, new AdvancementRuleRegistry());
+            // built before AttributeSystem/StatSystem need it. ProgressionSystem is stat-free and
+            // oracle-free: its anti-grind ratio is gathered by the caller (the executor) through
+            // the relative-power read built below.
+            var progression = new ProgressionSystem(ecs, random, new AdvancementRuleRegistry());
             var ascension = new AscensionSystem(ecs);
 
             var contributors = new List<IEffectContributor>
@@ -69,6 +70,7 @@ namespace Hedron.Core.Modules.Simulation.Systems
             var effects = new EffectSystem(ecs, contributors);
             var attributes = new AttributeSystem(ecs, effects, _deathOptions);
             var stats = new StatSystem(attributes, effects);
+            var relativePower = new RelativePowerSystem(ecs, stats, _powerBudget);
             var aspects = new AspectSystem(ecs);
             var combat = new CombatSystem(ecs, stats, attributes, aspects, random);
             var entityState = new EntityStateService(ecs);
@@ -79,7 +81,7 @@ namespace Hedron.Core.Modules.Simulation.Systems
 
             return new SandboxWorld(
                 ecs, random, effects, attributes, stats, aspects, combat,
-                abilities, entityState, regeneration, progression, ascension,
+                abilities, entityState, regeneration, progression, ascension, relativePower,
                 arenaRoom.Id);
         }
     }

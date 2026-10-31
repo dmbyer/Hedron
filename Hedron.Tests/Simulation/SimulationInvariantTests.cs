@@ -99,7 +99,9 @@ namespace Hedron.Tests.Simulation
             // [CombatAwardMin, CombatAwardMax] = [8, 12] (ProgressionConstants). Reaching
             // ThresholdBase (100) therefore takes between ceil(100/12)=9 and ceil(100/8)=13 kills,
             // regardless of the actual random sequence -- and the cap (50) is far above the 13-kill
-            // worst case, so every run is guaranteed to reach the target.
+            // worst case, so every run is guaranteed to reach the target. Since the relative-power
+            // slice the ratio is regathered per kill on EFFECTIVE power, but it stays exactly 1.0
+            // until the subject's first improvement, so this pin did not move with that change.
             var runner = SimulationTestFixtures.NewRunner(new FakeClock());
             var scenario = SimulationTestFixtures.ProgressionScenario(
                 "ci-progression-first-improvement", seed: 2026, iterations: 200, maxKillsPerRun: 50,
@@ -123,8 +125,10 @@ namespace Hedron.Tests.Simulation
         [Fact]
         public void ProgressionRate_MilestoneGapMonotonicity_KillsBetweenSuccessiveImprovementsNeverDecrease()
         {
-            // Equal power + a generous cap (worst case ceil(200/8)=25 kills for 3 improvements,
-            // cap 50) guarantees every run reaches the full target, so every milestone's mean is
+            // Equal power + a generous cap (worst case ceil(200/8)=25 kills for 3 improvements at
+            // ratio 1.0; after each improvement the subject outgrows the victim slightly on
+            // effective power and awards scale a little below the roll, still far inside cap 50)
+            // guarantees every run reaches the full target, so every milestone's mean is
             // averaged over the identical full run population. Each individual run's own kill
             // counter is non-decreasing by construction (milestones are appended in encounter
             // order), so the averaged sequence must be non-decreasing too -- a mathematical
