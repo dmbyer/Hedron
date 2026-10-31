@@ -1,6 +1,6 @@
 # Area Model
 
-> Bidirectional room-to-area membership: how rooms know their area, how areas enumerate their rooms, and how elemental affinities are authored on areas. **Authoring checkpoint:** area-model slice. Living document.
+> Bidirectional room-to-area membership: how rooms know their area, how areas enumerate their rooms, how elemental affinities are authored on areas, and an area's (Tier, Band) designation with its out-of-designation check. **Authoring checkpoints:** area-model slice; area-designation (Phase 5 slice 3). Living document.
 
 ## What it is / does
 
@@ -28,17 +28,50 @@ All three use the same ECS primitives — no new machinery:
 
 `AreaTemplate` carries an optional `aspectAffinities` map (`Dictionary<AspectId, int>`). `AreaTemplate.Apply` attaches `AspectAffinitiesComponent` to the area entity when the map is non-null. `RegistryValidationBootstrap` validates at boot: weights must be empty or sum to 100 (fail-fast, full report). No system consumes area affinities in the current slice — they are authored and stored for future area-aura mechanics (ambient buffs/debuffs for entities inside the area).
 
+### Area designation
+
+An area may carry an optional **designation**: the range of (Tier, Band) cells it is meant to hold. Phase 5 authors one tier with a band range (`Tier 0, Bands 1-2`). Undesignated means unchecked.
+
+- **Shape.** [`AreaDesignation`](../../../Core/Modules/World/AreaDesignation.cs) stores `Min`/`Max` as `PowerBand` cells. `AreaDesignationValidation.Errors` is the single shape check:
+  - tier in `0..AscensionConstants.MaxTier`;
+  - bands in `1..3`, the same bounds as the mob/item `Band` tag;
+  - `bandMin ≤ bandMax`;
+  - both cells in one tier.
+
+  It has three callers: the area deserializer (throws `ContentShapeException`, so boot fails and `reload` refuses), `IContentValidator.Validate` (refuses an editor save) and `IAreaBuilderSystem.SetAreaDesignation` (refuses an admin mutation). Cross-tier ranges are shaped for later (tiered-overworld borders): allowing them means deleting the same-tier rule.
+- **YAML.** `designation: { tier, bandMin, bandMax }`. All three keys are required when the block is present, and an absent block means undesignated. The writer omits the key for an undesignated area.
+- **Live form.** `AreaTemplate.Apply` attaches `AreaDesignationComponent` only when designated, mirroring affinities. It is world content and not `[Persistent]` (INV-23).
+- **The out-of-designation check.** [`AreaPlacementCheck`](../../../Core/Modules/World/Systems/AreaPlacementCheck.cs) is one pure judgement over *authored* tags; it never calls the power oracle.
+  - It flags a room spawn rule only when: the room has an area, the area is designated, the placed mob/item is banded (`Band ≠ 0`), and its authored (Tier, Band) is outside the designation.
+  - `Sweep` yields one `PlacementFinding` per offending (room, rule), ordered by room then rule id, optionally filtered to one area (case-insensitive).
+  - `PlacementFinding.Describe()` is the one text every surface shows.
+  - Findings are **advisory**: never an error, never a gate.
+- **Two sources, one judgement.** The check reads content through [`IAreaPlacementSource`](../../../Core/Modules/World/Systems/IAreaPlacementSource.cs), and the source follows the surface:
+  - `RegistryPlacementSource` reads the template registry, which in-game verbs mutate. It is wrapped by `IAreaPlacementSystem` (`Findings`, `JudgeRule`).
+  - The Authoring `CatalogPlacementSource` reads disk, which is what the editors write ([content-tooling](../admin-authoring/content-tooling.md#iareadesignationaudit--out-of-designation-findings-on-disk)).
+  - Both key area membership on `RoomTemplate.AreaId`, and a parity test pins identical findings.
+- **Where findings surface:**
+  - the boot `ValidateRegistry` report as warnings (boot-only, like the other registry warnings);
+  - the `area` verb;
+  - `Warning:` lines from `spawnrule`/`mkmob`/`mkitem`;
+  - the area editor's findings list;
+  - the Integrity page;
+  - web spawn-rule save warnings, for new or changed rules only.
+- **Independent of band drift.** Band drift (authored vs. *computed* power, `IBalanceAuditSystem`) and designation fit (authored vs. the area) are separate checks. A mis-tagged and misplaced mob appears in both.
+
 ### `@dig` area inheritance
 
 When an admin digs a new room, `DigCommand` reads the source room's `AreaEntityId`, looks up the area entity's `BlueprintComponent.BlueprintId`, and passes it as `areaId` to `RoomBuilderSystem.CreateRoom`. The new room is automatically assigned to the source room's area; its YAML includes `areaId`. If the source room has no area, the new room inherits none.
 
 ### Admin inspection and mutation
 
-- `area [blueprintId]` — no args = area of the admin's current room; with an id = that area. Reads `AreaComponent` for name/description, `AspectAffinitiesComponent` if present, and calls `GetRoomsInArea` for the room list.
+- `area [blueprintId]` — no args = area of the admin's current room; with an id = that area. Reads `AreaComponent` for name/description, `AspectAffinitiesComponent` if present, `AreaDesignationComponent` (or "undesignated") with the area's out-of-designation findings (`IAreaPlacementSystem.Findings`), and calls `GetRoomsInArea` for the room list.
+- `areaset <areaBlueprintId> <name|description|designation> <value>` — the area member of the `setitem`/`setmob` setter family. `designation` takes `<tier> <band>`, `<tier> <band>-<band>`, or `clear`/`none` (`AreaDesignation.TryParseOrClear`). `IAreaBuilderSystem` updates the registered template and the live area entity (INV-21); the command writes YAML via `IAreaContentWriter` and publishes `AreaPropertySetByAdminEvent`.
 - `setarea <roomBlueprintId> <areaBlueprintId>` — calls `IAreaSystem.AssignRoomToArea`, writes updated room YAML via `IRoomContentWriter`, and publishes `RoomAreaAssignedByAdminEvent`.
 
 ## Interface
 
+- [`IAreaPlacementSystem.cs`](../../../Core/Modules/World/Systems/IAreaPlacementSystem.cs) — `Findings(areaBlueprintId?)` / `JudgeRule(roomBlueprintId, rule)`, registry-backed out-of-designation queries. Stateless; publishes nothing.
 - [`IAreaSystem.cs`](../../../Core/Modules/World/Systems/IAreaSystem.cs) — `GetRoomsInArea(areaEntityId)` / `GetAreaForRoom(roomEntityId)` / `AssignRoomToArea(roomEntityId, areaEntityId, areaBlueprintId)`. Pure ECS mutations; no event bus (INV-5).
 
 ## Considerations
@@ -48,6 +81,8 @@ When an admin digs a new room, `DigCommand` reads the source room's `AreaEntityI
 - **O(n) scan is acceptable.** At MUD-scale room counts this is not a hot path. A cache layer inside `AreaSystem` is a future optimization tracked in backlog.
 
 ## Extensibility
+
+- **Designation consumers (tiered-overworld).** Stage A's boundary banner and adjacent-tier gradient warning, Stage B's generator designations and weighted pools, and Stage E's `map` region view all read the live `AreaDesignationComponent`. A designation's cells also map to a power window through `IPowerBudgetSystem.TargetRange`, the "cell anchor" input of the planned relative-power read.
 
 - **Area aura mechanics** — `AspectAffinitiesComponent` is authored and stored; a future slice can add ambient resistance modifiers for entities inside the area by reading the area entity's `AffinityWeights`.
 - **Coordinate system** — room-to-area enforcement via a coordinate grid is a remaining "Locale enhancements" backlog item.
@@ -60,3 +95,4 @@ When an admin digs a new room, `DigCommand` reads the source room's `AreaEntityI
 - [`../../reference/systems.md`](../../reference/systems.md) — `AreaSystem` / `IAreaSystem` catalog row.
 - [`../../reference/components.md`](../../reference/components.md) — `RoomComponent` (`AreaEntityId` field), `AreaComponent` rows.
 - [`../../roadmap/completed/area-model.md`](../../roadmap/completed/area-model.md) — as-built history and design decisions.
+- [`../../roadmap/completed/area-designation.md`](../../roadmap/completed/area-designation.md) — designation slice history and decisions.

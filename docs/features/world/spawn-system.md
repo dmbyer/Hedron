@@ -45,7 +45,7 @@ Slots key on **`(room entity, rule id, ordinal)`** — never on blueprint or fil
 - `SpawnSyncResult SyncRoom(uint roomEntityId)` reconciles the tracker with the room's live `SpawnConfigComponent`: a new rule spawns `Count` now; a count increase spawns the delta now; a decrease or removed rule drops surplus slots — **vacant first** — and **detaches** any dropped occupant (alive, untracked; its death schedules nothing — despawning in front of players would need narration the engine lacks); an unchanged rule keeps its entities and pending timers; a changed delay applies from the next vacancy, a changed blueprint from the next spawn (a slot disabled by an unknown blueprint is re-armed). Returns `(SpawnedEntityIds, SlotsAdded, SlotsDetached)`.
 - `IReadOnlyList<SpawnRuleStatus> DescribeRoom(uint roomEntityId)` — per rule: id, blueprint, count, live, delay, next due time.
 
-`RoomBuilderSystem` is the only caller of `SyncRoom` (admin `spawnrule`, `mkmob`, `mkitem` — see [admin-authoring](../admin-authoring/admin-authoring.md)).
+`RoomBuilderSystem` is the only caller of `SyncRoom` (admin `spawnrule`, `mkmob`, `mkitem` — see [admin-authoring](../admin-authoring/admin-authoring.md)). After an added or updated rule commits, it also judges the placement against the room's area designation (`IAreaPlacementSystem.JudgeRule`) and returns any finding on `SpawnRuleMutationResult.Findings`. This is advisory: the rule is saved either way, and the commands print it as a `Warning:` line ([area designation](area-model.md#area-designation)).
 
 ### INV-21 — blueprint/instance separation
 

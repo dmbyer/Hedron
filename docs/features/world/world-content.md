@@ -49,7 +49,7 @@ All files are `*.yaml` under the content directory (`<Paths:DataDirectory>/conte
 | Kind | Path | Key fields |
 |---|---|---|
 | `room` | `rooms/<id>.yaml` | `id`, `name`, `description`, `exits` (`east: room.east_end`), `areaId`, `spawnRules` (see [Spawn rules](#spawn-rules)), `x`/`y`/`z` (optional `int`, authoring-side grid coordinates — see below) |
-| `area` | `areas/<id>.yaml` | `id`, `name`, `description`, `respawnRate`, `pvp`, room-id list, `aspectAffinities` |
+| `area` | `areas/<id>.yaml` | `id`, `name`, `description`, `respawnRate`, `pvp`, room-id list, `aspectAffinities`, `designation` (optional `{ tier, bandMin, bandMax }`; a malformed or partial block is a fail-fast shape error — see [area designation](area-model.md#area-designation)) |
 | `item` | `items/<id>.yaml` | `id`, `name`, `description`, `keywords`, `type`, … — **no spawn location** (placed by room rules) |
 | `mob` | `mobs/<id>.yaml` | `id`, `name`, `description`, `keywords`, `type`, attributes, pools, … — **no spawn location** (placed by room rules) |
 | world manifest | `world.yaml` (content root, optional) | `schemaVersion`, `startingRoomId` — see [World manifest](#world-manifest--worldyaml) |

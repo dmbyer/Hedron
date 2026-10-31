@@ -123,7 +123,10 @@ history for the promotion itself.
    classifies each, and returns every content past the drift tolerance plus a bucket count by
    computed `(Tier, Band)` — a free "how much content exists at power level X" report. Soft and
    advisory only; never a build/reload/CI gate. Authored `Band = 0` (unbanded) is excluded from the
-   drift list but still bucketed.
+   drift list but still bucketed. The Integrity page also shows a **sibling check that is not this
+   audit**: out-of-designation placements ([area designation](../world/area-model.md#area-designation)).
+   That check compares authored tags with the area's designation and never calls the oracle, so the
+   two checks are independent: a mis-tagged and misplaced mob appears in both.
 4. **`ProgressionSystem.GetEffectivePower`** (the anti-grind proxy) — builds a raw-attribute
    snapshot (`Mind`/`Body`/`Spirit`/`Attunement`, never `IStatSystem.Get`) and calls `Estimate`
    with no tier. See [`progression-system.md`](progression-system.md#anti-grind-proxy-reads-raw-attributes)

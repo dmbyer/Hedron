@@ -128,7 +128,7 @@ The content-editor reference-integrity slice ([`completed/content-editor-integri
 
 `IContentValidator.ValidateRegistry` runs only from `RegistryValidationBootstrap` at host start; `reload` never calls it. `reload` stages content and fails fast on shape errors, which the deserializers throw. But area-affinity normalization (weights must be empty or sum to 100) is a `ValidateRegistry` **error**, not a deserializer shape check. So a hand-edited bad affinity map stops a restart but is accepted by `reload`.
 
-The same boot-only scope applies to `ValidateRegistry`'s **warnings**: room-coordinate collisions, unknown spawn-rule blueprints, and area-designation's out-of-designation findings ([`../implementation-plans/area-designation.md`](../implementation-plans/area-designation.md), Planner refinements). After a `reload` they appear only on the Integrity page and the `area` verb.
+The same boot-only scope applies to `ValidateRegistry`'s **warnings**: room-coordinate collisions, unknown spawn-rule blueprints, and area-designation's out-of-designation findings ([`completed/area-designation.md`](completed/area-designation.md#decisions)). After a `reload` they appear only on the Integrity page and the `area` verb.
 
 Acceptable for now: affinities have no consumer yet ([area-model](../features/world/area-model.md)), and area-designation does not widen the gap. Its malformed designations fail fast in the deserializer on `reload` too.
 

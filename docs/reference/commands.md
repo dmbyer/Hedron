@@ -428,11 +428,25 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none  
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/Admin/Commands/AreaCommand.cs`  
-**Description:** Inspects an area entity. Without an argument, shows the area for the room the invoker is currently in. With a blueprint id, inspects the named area entity. Displays the area name, description, aspect affinities (if any), and the list of rooms assigned to the area (name + blueprint id per room). Writes an error if the current room has no area assignment, or if the given blueprint id is not found. No events fired.  
+**Description:** Inspects an area entity. Without an argument, shows the area for the room the invoker is currently in. With a blueprint id, inspects the named area entity. Displays the area name, description, aspect affinities (if any), the designation (or `undesignated`) with the area's out-of-designation placements (`IAreaPlacementSystem.Findings`, one `PlacementFinding.Describe()` line each, or `none`), and the list of rooms assigned to the area (name + blueprint id per room). Writes an error if the current room has no area assignment, or if the given blueprint id is not found. No events fired.  
 **Usage:** `area [blueprintId]`  
 **Schema:** `Token string "blueprintId"` (optional)  
-**Dependencies:** `IAreaSystem`, `EntityService`  
+**Dependencies:** `IAreaSystem`, `IAreaPlacementSystem`, `EntityService`  
 **Events:** none  
+**RequiredPrivileges:** `AdminRequirement`
+
+---
+
+### `areaset`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Admin/Commands/AreaSetCommand.cs`  
+**Description:** Sets a property on an area blueprint; the area member of the `setitem`/`setmob` family (`setarea` assigns a room to an area). `name` and `description` take free text. `designation` takes `<tier> <band>` or `<tier> <band>-<band>` (for example `0 1-2`), or `clear`/`none` to remove it (`AreaDesignation.TryParseOrClear`). `IAreaBuilderSystem` updates the registered template and the live area entity (INV-21); the command writes the area YAML via `IAreaContentWriter`, publishes the audit event and echoes the result. A parse error, a malformed designation (`AreaDesignationValidation`), an unknown property or an unknown area writes an error and changes nothing. See [`../features/world/area-model.md`](../features/world/area-model.md#area-designation).  
+**Usage:** `areaset <areaBlueprintId> <name|description|designation> <value>`  
+**Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `designation`), `RestOfLine string "value"` (required)  
+**Dependencies:** `IAreaBuilderSystem`, `IAreaContentWriter`, `IEventBus`  
+**Events:** `AreaPropertySetByAdminEvent`  
 **RequiredPrivileges:** `AdminRequirement`
 
 ---
@@ -522,7 +536,7 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none  
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/Admin/Commands/SpawnRuleCommand.cs`  
-**Description:** Inspects or authors the invoker's room's spawn rules. With no action it is read-only: per rule, id, blueprint, live/count, respawn delay and next respawn (`ISpawnSystem.DescribeRoom`). `add <blueprintId> [count] [delaySeconds] [id]` (count 1–20, default 1; delay default 300; id minted when omitted), `set <ruleId> <count|delay|blueprint> <value>` and `remove <ruleId>` go through `IRoomBuilderSystem`, which updates the registered `RoomTemplate`, the live `SpawnConfigComponent` and the tracker (`SyncRoom` — new/increased slots spawn now; shrinking detaches surplus instances, which live until they die or the world reloads); the command then writes the room YAML and publishes. Refusals (not in a registered room, unknown blueprint, a room/area blueprint, unknown rule id, invalid count/delay/id) change nothing and publish nothing. No `SaveEntityAsync`. Wrong arity or a non-integer where one is required writes that sub-action's usage line.  
+**Description:** Inspects or authors the invoker's room's spawn rules. With no action it is read-only: per rule, id, blueprint, live/count, respawn delay and next respawn (`ISpawnSystem.DescribeRoom`). `add <blueprintId> [count] [delaySeconds] [id]` (count 1–20, default 1; delay default 300; id minted when omitted), `set <ruleId> <count|delay|blueprint> <value>` and `remove <ruleId>` go through `IRoomBuilderSystem`, which updates the registered `RoomTemplate`, the live `SpawnConfigComponent` and the tracker (`SyncRoom` — new/increased slots spawn now; shrinking detaches surplus instances, which live until they die or the world reloads); the command then writes the room YAML and publishes. After its confirmation it prints any out-of-designation finding the builder attached (`SpawnRuleAuthoringOutcome.WriteFindingsAsync`) as a `Warning:` line; the rule is saved either way. Refusals (not in a registered room, unknown blueprint, a room/area blueprint, unknown rule id, invalid count/delay/id) change nothing and publish nothing. No `SaveEntityAsync`. Wrong arity or a non-integer where one is required writes that sub-action's usage line.  
 **Usage:** `spawnrule [add <blueprintId> [count] [delaySeconds] [id] | set <ruleId> <count|delay|blueprint> <value> | remove <ruleId>]`  
 **Schema:** `Token SpawnRuleAction "action"` (optional: `Add`, `Set`, `Remove`; prefix-matched), `Token string "arg1"`…`"arg4"` (optional) — per-action arity checked in the command (no parser sub-action support yet).  
 **Dependencies:** `EntityService`, `IRoomBuilderSystem`, `ISpawnSystem`, `SpawnRuleAuthoringOutcome` (shared with `mkmob`/`mkitem`: writes the room YAML + publishes the audit event), `IClock`  
