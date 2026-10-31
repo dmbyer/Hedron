@@ -26,135 +26,98 @@ namespace Hedron.Core.Modules.Items.Systems
             _logger = logger;
         }
 
-        public ItemCreationResult CreateItem(string name, uint roomEntityId)
+        public ItemCreationResult CreateItem(string name)
         {
             var blueprintId = GenerateUniqueBlueprintId();
-
-            var spawnRoomBlueprintId = string.Empty;
-            if (_entityService.TryGet<BlueprintComponent>(roomEntityId, out var roomBp))
-                spawnRoomBlueprintId = roomBp.BlueprintId;
-
-            var entity = _entityService.CreateEntity();
-            _entityService.AddComponent(entity.Id, new ItemDataComponent { Name = name });
-            _entityService.AddComponent(entity.Id, new BlueprintComponent { BlueprintId = blueprintId });
-            _entityService.AddComponent(entity.Id, new LocationComponent
-            {
-                RoomEntityId = roomEntityId,
-                RoomBlueprintId = spawnRoomBlueprintId,
-            });
-
-            var template = new ItemTemplate(blueprintId)
-            {
-                Name = name,
-                SpawnRoomBlueprintId = spawnRoomBlueprintId,
-            };
+            var template = new ItemTemplate(blueprintId) { Name = name };
             _templateRegistry.Register(blueprintId, template);
 
-            _logger.LogDebug(
-                "ItemBuilderSystem: created item entity={EntityId} blueprint={BlueprintId} spawnRoom={SpawnRoom}",
-                entity.Id, blueprintId, spawnRoomBlueprintId);
-
-            return new ItemCreationResult(entity.Id, blueprintId, template);
+            _logger.LogDebug("ItemBuilderSystem: registered item template blueprint={BlueprintId}", blueprintId);
+            return new ItemCreationResult(blueprintId, template);
         }
 
-        public void SetItemName(uint itemEntityId, string name)
-        {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-                item.Name = name;
-            var tpl = TryGetTemplate(itemEntityId);
-            if (tpl is not null) tpl.Name = name;
-        }
+        public int SetItemName(string blueprintId, string name) =>
+            Apply(blueprintId, tpl => tpl.Name = name, item => item.Name = name);
 
-        public void SetItemDescription(uint itemEntityId, string description)
-        {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-                item.Description = description;
-            var tpl = TryGetTemplate(itemEntityId);
-            if (tpl is not null) tpl.Description = description;
-        }
+        public int SetItemDescription(string blueprintId, string description) =>
+            Apply(blueprintId, tpl => tpl.Description = description, item => item.Description = description);
 
-        public void SetItemKeywords(uint itemEntityId, IReadOnlyList<string> keywords)
-        {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-            {
-                item.Keywords.Clear();
-                item.Keywords.AddRange(keywords);
-            }
-            var tpl = TryGetTemplate(itemEntityId);
-            if (tpl is not null)
-            {
-                tpl.Keywords.Clear();
-                tpl.Keywords.AddRange(keywords);
-            }
-        }
-
-        public void SetItemType(uint itemEntityId, ItemType itemType)
-        {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-                item.ItemType = itemType;
-            var tpl = TryGetTemplate(itemEntityId);
-            if (tpl is not null) tpl.ItemType = itemType;
-        }
-
-        public void SetItemSlots(uint itemEntityId, IReadOnlyList<WornSlot> slots)
-        {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-            {
-                if (slots.Count == 0)
-                    item.WornSlots = null;
-                else
+        public int SetItemKeywords(string blueprintId, IReadOnlyList<string> keywords) =>
+            Apply(blueprintId,
+                tpl =>
                 {
-                    item.WornSlots ??= new List<WornSlot>();
-                    item.WornSlots.Clear();
-                    item.WornSlots.AddRange(slots);
-                }
-            }
-            var tpl = TryGetTemplate(itemEntityId);
-            if (tpl is not null)
+                    tpl.Keywords.Clear();
+                    tpl.Keywords.AddRange(keywords);
+                },
+                item =>
+                {
+                    item.Keywords.Clear();
+                    item.Keywords.AddRange(keywords);
+                });
+
+        public int SetItemType(string blueprintId, ItemType itemType) =>
+            Apply(blueprintId, tpl => tpl.ItemType = itemType, item => item.ItemType = itemType);
+
+        public int SetItemSlots(string blueprintId, IReadOnlyList<WornSlot> slots) =>
+            Apply(blueprintId,
+                tpl =>
+                {
+                    tpl.WornSlots.Clear();
+                    tpl.WornSlots.AddRange(slots);
+                },
+                item =>
+                {
+                    if (slots.Count == 0)
+                        item.WornSlots = null;
+                    else
+                    {
+                        item.WornSlots ??= new List<WornSlot>();
+                        item.WornSlots.Clear();
+                        item.WornSlots.AddRange(slots);
+                    }
+                });
+
+        public int SetItemStatBonus(string blueprintId, ScoreId score, int magnitude) =>
+            Apply(blueprintId,
+                tpl => ApplyStatBonus(tpl.StatBonuses, score, magnitude),
+                item => ApplyStatBonus(item.StatBonuses, score, magnitude));
+
+        public int ClearItemStatBonuses(string blueprintId) =>
+            Apply(blueprintId, tpl => tpl.StatBonuses.Clear(), item => item.StatBonuses.Clear());
+
+        public int SetItemValue(string blueprintId, long value) =>
+            Apply(blueprintId, tpl => tpl.Value = value, item => item.Value = value);
+
+        public int SetItemTier(string blueprintId, int tier) =>
+            Apply(blueprintId, tpl => tpl.Tier = tier, item => item.Tier = tier);
+
+        public int SetItemBand(string blueprintId, int band) =>
+            Apply(blueprintId, tpl => tpl.Band = band, item => item.Band = band);
+
+        /// <summary>
+        /// Applies a mutation to the item template and every live world instance of the blueprint
+        /// (an <see cref="ItemDataComponent"/> entity whose <see cref="BlueprintComponent"/> matches,
+        /// excluding <see cref="PersistentEntity"/> — player-owned copies keep their own state, INV-21).
+        /// Returns the instance count, or <c>-1</c> for no item template.
+        /// </summary>
+        private int Apply(string blueprintId, Action<ItemTemplate> onTemplate, Action<ItemDataComponent> onInstance)
+        {
+            if (!_templateRegistry.TryGet(blueprintId, out var raw) || raw is not ItemTemplate template)
+                return -1;
+
+            onTemplate(template);
+
+            var instances = new List<ItemDataComponent>();
+            foreach (var (entityId, bp) in _entityService.GetAllComponents<BlueprintComponent>())
             {
-                tpl.WornSlots.Clear();
-                tpl.WornSlots.AddRange(slots);
+                if (!string.Equals(bp.BlueprintId, blueprintId, StringComparison.OrdinalIgnoreCase)) continue;
+                if (_entityService.HasComponent<PersistentEntity>(entityId)) continue;
+                if (!_entityService.TryGet<ItemDataComponent>(entityId, out var item)) continue;
+                instances.Add(item);
             }
-        }
-
-        public void SetItemStatBonus(uint itemEntityId, ScoreId score, int magnitude)
-        {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-                ApplyStatBonus(item.StatBonuses, score, magnitude);
-            var tpl = TryGetTemplate(itemEntityId);
-            if (tpl is not null) ApplyStatBonus(tpl.StatBonuses, score, magnitude);
-        }
-
-        public void ClearItemStatBonuses(uint itemEntityId)
-        {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-                item.StatBonuses.Clear();
-            var tpl = TryGetTemplate(itemEntityId);
-            if (tpl is not null) tpl.StatBonuses.Clear();
-        }
-
-        public void SetItemValue(uint itemEntityId, long value)
-        {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-                item.Value = value;
-            var tpl = TryGetTemplate(itemEntityId);
-            if (tpl is not null) tpl.Value = value;
-        }
-
-        public void SetItemTier(uint itemEntityId, int tier)
-        {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-                item.Tier = tier;
-            var tpl = TryGetTemplate(itemEntityId);
-            if (tpl is not null) tpl.Tier = tier;
-        }
-
-        public void SetItemBand(uint itemEntityId, int band)
-        {
-            if (_entityService.TryGet<ItemDataComponent>(itemEntityId, out var item))
-                item.Band = band;
-            var tpl = TryGetTemplate(itemEntityId);
-            if (tpl is not null) tpl.Band = band;
+            foreach (var item in instances)
+                onInstance(item);
+            return instances.Count;
         }
 
         // Keep one row per ScoreId: drop any existing row for this score, then add the new one
@@ -164,15 +127,6 @@ namespace Hedron.Core.Modules.Items.Systems
             bonuses.RemoveAll(b => b.TargetScore == score);
             if (magnitude != 0)
                 bonuses.Add(new EquipmentStatBonus(score, magnitude));
-        }
-
-        private ItemTemplate? TryGetTemplate(uint itemEntityId)
-        {
-            if (_entityService.TryGet<BlueprintComponent>(itemEntityId, out var bp) &&
-                _templateRegistry.TryGet(bp.BlueprintId, out var template) &&
-                template is ItemTemplate itemTemplate)
-                return itemTemplate;
-            return null;
         }
 
         private string GenerateUniqueBlueprintId()

@@ -236,101 +236,49 @@ namespace Hedron.Tests.Authoring
             Assert.Equal("Exits[East]", referrers[0].FieldLabel);
         }
 
-        [Fact]
-        public async Task Referrers_MatchesItem_ViaSpawnRoomBlueprintId()
-        {
-            var (index, catalog) = NewFixture();
-
-            var room = catalog.CreateNew(ContentKind.Room, "Armory");
-            await catalog.SaveAsync(room);
-
-            var item = catalog.CreateNew(ContentKind.Item, "Sword");
-            ((ItemTemplate)item.Template).SpawnRoomBlueprintId = room.BlueprintId;
-            await catalog.SaveAsync(item);
-
-            var referrers = index.Referrers(ContentKind.Room, room.BlueprintId);
-
-            Assert.Contains(referrers, r =>
-                r.ReferrerKind == ContentKind.Item
-                && r.ReferrerBlueprintId == item.BlueprintId
-                && r.FieldLabel == "SpawnRoomBlueprintId");
-        }
-
-        [Fact]
-        public async Task Referrers_MatchesMob_ViaSpawnRoomBlueprintId()
-        {
-            var (index, catalog) = NewFixture();
-
-            var room = catalog.CreateNew(ContentKind.Room, "Guard Post");
-            await catalog.SaveAsync(room);
-
-            var mob = catalog.CreateNew(ContentKind.Mob, "Guard");
-            ((MobTemplate)mob.Template).SpawnRoomBlueprintId = room.BlueprintId;
-            await catalog.SaveAsync(mob);
-
-            var referrers = index.Referrers(ContentKind.Room, room.BlueprintId);
-
-            Assert.Contains(referrers, r =>
-                r.ReferrerKind == ContentKind.Mob
-                && r.ReferrerBlueprintId == mob.BlueprintId
-                && r.FieldLabel == "SpawnRoomBlueprintId");
-        }
-
         // ── SweepBroken — enumerates exactly the dangling edges ──────────────────────
 
         [Fact]
         public async Task SweepBroken_EnumeratesExactlyDanglingEdges_MixedFixture()
         {
+            // The declared edge set is exactly four: Room.AreaId, Room.Exits[dir], Area.Rooms[],
+            // Room.SpawnRules[<rule id>]. One dangling reference per edge → exactly four broken,
+            // and no mob/item → room spawn-room edge exists any more (spawn-authoring).
             var (index, catalog) = NewFixture();
 
-            // Room with a dangling AreaId → no area file on disk
             var roomBrokenArea = catalog.CreateNew(ContentKind.Room, "Orphan Room");
             ((RoomTemplate)roomBrokenArea.Template).AreaId = "area.adhoc.missing";
             await catalog.SaveAsync(roomBrokenArea);
 
-            // Room with a dangling exit → no target room file on disk
             var roomBrokenExit = catalog.CreateNew(ContentKind.Room, "Dead End");
             ((RoomTemplate)roomBrokenExit.Template).Exits[Direction.North] = "room.adhoc.nowhere";
             await catalog.SaveAsync(roomBrokenExit);
 
-            // Item with a dangling SpawnRoomBlueprintId → no room file on disk
-            var itemBroken = catalog.CreateNew(ContentKind.Item, "Lost Sword");
-            ((ItemTemplate)itemBroken.Template).SpawnRoomBlueprintId = "room.adhoc.ghost";
-            await catalog.SaveAsync(itemBroken);
+            var areaBroken = catalog.CreateNew(ContentKind.Area, "Hollow Area");
+            ((AreaTemplate)areaBroken.Template).Rooms.Add("room.adhoc.vanished");
+            await catalog.SaveAsync(areaBroken);
 
-            // Mob with a dangling SpawnRoomBlueprintId → no room file on disk
-            var mobBroken = catalog.CreateNew(ContentKind.Mob, "Shadow Wraith");
-            ((MobTemplate)mobBroken.Template).SpawnRoomBlueprintId = "room.adhoc.phantom";
-            await catalog.SaveAsync(mobBroken);
+            var roomBrokenRule = catalog.CreateNew(ContentKind.Room, "Haunted Room");
+            ((RoomTemplate)roomBrokenRule.Template).SpawnRules.Add(new SpawnRule("wraiths", "mob.adhoc.phantom", 2, 60));
+            await catalog.SaveAsync(roomBrokenRule);
+
+            // A mob and item with no placement carry no reference at all.
+            await catalog.SaveAsync(catalog.CreateNew(ContentKind.Mob, "Unplaced Mob"));
+            await catalog.SaveAsync(catalog.CreateNew(ContentKind.Item, "Unplaced Item"));
 
             var broken = index.SweepBroken();
 
-            // Exactly four broken references — one per declared edge kind.
             Assert.Equal(4, broken.Count);
-
-            Assert.Contains(broken, b =>
-                b.SourceKind == ContentKind.Room
-                && b.SourceBlueprintId == roomBrokenArea.BlueprintId
-                && b.FieldLabel == "AreaId"
-                && b.MissingTargetId == "area.adhoc.missing");
-
-            Assert.Contains(broken, b =>
-                b.SourceKind == ContentKind.Room
-                && b.SourceBlueprintId == roomBrokenExit.BlueprintId
-                && b.FieldLabel == "Exits[North]"
-                && b.MissingTargetId == "room.adhoc.nowhere");
-
-            Assert.Contains(broken, b =>
-                b.SourceKind == ContentKind.Item
-                && b.SourceBlueprintId == itemBroken.BlueprintId
-                && b.FieldLabel == "SpawnRoomBlueprintId"
-                && b.MissingTargetId == "room.adhoc.ghost");
-
-            Assert.Contains(broken, b =>
-                b.SourceKind == ContentKind.Mob
-                && b.SourceBlueprintId == mobBroken.BlueprintId
-                && b.FieldLabel == "SpawnRoomBlueprintId"
-                && b.MissingTargetId == "room.adhoc.phantom");
+            Assert.Contains(broken, b => b.SourceBlueprintId == roomBrokenArea.BlueprintId
+                && b.FieldLabel == "AreaId" && b.MissingTargetId == "area.adhoc.missing");
+            Assert.Contains(broken, b => b.SourceBlueprintId == roomBrokenExit.BlueprintId
+                && b.FieldLabel == "Exits[North]" && b.MissingTargetId == "room.adhoc.nowhere");
+            Assert.Contains(broken, b => b.SourceKind == ContentKind.Area
+                && b.SourceBlueprintId == areaBroken.BlueprintId && b.MissingTargetId == "room.adhoc.vanished");
+            Assert.Contains(broken, b => b.SourceBlueprintId == roomBrokenRule.BlueprintId
+                && b.FieldLabel == "SpawnRules[wraiths]" && b.MissingTargetId == "mob.adhoc.phantom");
+            Assert.DoesNotContain(broken, b => b.FieldLabel.Contains("SpawnRoom"));
+            Assert.DoesNotContain(broken, b => b.SourceKind is ContentKind.Mob or ContentKind.Item);
         }
 
         [Fact]
@@ -351,12 +299,14 @@ namespace Hedron.Tests.Authoring
             await catalog.SaveAsync(roomB);
 
             var item = catalog.CreateNew(ContentKind.Item, "Key");
-            ((ItemTemplate)item.Template).SpawnRoomBlueprintId = roomA.BlueprintId;
             await catalog.SaveAsync(item);
 
             var mob = catalog.CreateNew(ContentKind.Mob, "Guard");
-            ((MobTemplate)mob.Template).SpawnRoomBlueprintId = roomA.BlueprintId;
             await catalog.SaveAsync(mob);
+
+            ((RoomTemplate)roomA.Template).SpawnRules.Add(new SpawnRule(item.BlueprintId, item.BlueprintId, 1, 300));
+            ((RoomTemplate)roomA.Template).SpawnRules.Add(new SpawnRule(mob.BlueprintId, mob.BlueprintId, 1, 300));
+            await catalog.SaveAsync(roomA);
 
             Assert.Empty(index.SweepBroken());
         }
@@ -403,44 +353,6 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public void BrokenFor_ReturnsDanglingRefs_ForInMemoryItemWithBadSpawnRoom()
-        {
-            var (index, _) = NewFixture();
-
-            var item = new ItemTemplate("item.adhoc.test")
-            {
-                Name = "Lost Gem",
-                SpawnRoomBlueprintId = "room.adhoc.nowhere",
-            };
-
-            var broken = index.BrokenFor(item);
-
-            Assert.Single(broken);
-            Assert.Equal("SpawnRoomBlueprintId", broken[0].FieldLabel);
-            Assert.Equal("room.adhoc.nowhere", broken[0].MissingTargetId);
-            Assert.Equal(ContentKind.Item, broken[0].SourceKind);
-        }
-
-        [Fact]
-        public void BrokenFor_ReturnsDanglingRefs_ForInMemoryMobWithBadSpawnRoom()
-        {
-            var (index, _) = NewFixture();
-
-            var mob = new MobTemplate("mob.adhoc.test")
-            {
-                Name = "Ghost",
-                SpawnRoomBlueprintId = "room.adhoc.phantom",
-            };
-
-            var broken = index.BrokenFor(mob);
-
-            Assert.Single(broken);
-            Assert.Equal("SpawnRoomBlueprintId", broken[0].FieldLabel);
-            Assert.Equal("room.adhoc.phantom", broken[0].MissingTargetId);
-            Assert.Equal(ContentKind.Mob, broken[0].SourceKind);
-        }
-
-        [Fact]
         public void BrokenFor_ReturnsDanglingRefs_ForRoomWithBadExits()
         {
             var (index, _) = NewFixture();
@@ -470,7 +382,7 @@ namespace Hedron.Tests.Authoring
             var room = catalog.CreateNew(ContentKind.Room, "Placeless");
             await catalog.SaveAsync(room);
 
-            // Item with empty SpawnRoomBlueprintId — not a broken reference
+            // Item placed by no rule — carries no reference at all
             var item = catalog.CreateNew(ContentKind.Item, "Floating Orb");
             await catalog.SaveAsync(item);
 
@@ -549,7 +461,7 @@ namespace Hedron.Tests.Authoring
             await catalog.SaveAsync(mob);
 
             var room = catalog.CreateNew(ContentKind.Room, "Spawn Room");
-            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule(mob.BlueprintId, 1, 3, 60));
+            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule("goblins", mob.BlueprintId, 3, 60));
             await catalog.SaveAsync(room);
 
             var referrers = index.Referrers(ContentKind.Mob, mob.BlueprintId);
@@ -557,7 +469,7 @@ namespace Hedron.Tests.Authoring
             Assert.Contains(referrers, r =>
                 r.ReferrerKind == ContentKind.Room
                 && r.ReferrerBlueprintId == room.BlueprintId
-                && r.FieldLabel == $"SpawnRules[{mob.BlueprintId}]");
+                && r.FieldLabel == "SpawnRules[goblins]");
         }
 
         [Fact]
@@ -569,7 +481,7 @@ namespace Hedron.Tests.Authoring
             await catalog.SaveAsync(item);
 
             var room = catalog.CreateNew(ContentKind.Room, "Spawn Room");
-            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule(item.BlueprintId, 1, 5, 30));
+            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule("coins", item.BlueprintId, 5, 30));
             await catalog.SaveAsync(room);
 
             var referrers = index.Referrers(ContentKind.Item, item.BlueprintId);
@@ -577,7 +489,7 @@ namespace Hedron.Tests.Authoring
             Assert.Contains(referrers, r =>
                 r.ReferrerKind == ContentKind.Room
                 && r.ReferrerBlueprintId == room.BlueprintId
-                && r.FieldLabel == $"SpawnRules[{item.BlueprintId}]");
+                && r.FieldLabel == "SpawnRules[coins]");
         }
 
         [Fact]
@@ -591,14 +503,14 @@ namespace Hedron.Tests.Authoring
             await catalog.SaveAsync(item);
 
             var room = catalog.CreateNew(ContentKind.Room, "Potion Room");
-            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule(item.BlueprintId, 1, 2, 15));
+            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule("potions", item.BlueprintId, 2, 15));
             await catalog.SaveAsync(room);
 
             var broken = index.SweepBroken();
 
             Assert.DoesNotContain(broken, b =>
                 b.SourceKind == ContentKind.Room
-                && b.FieldLabel == $"SpawnRules[{item.BlueprintId}]");
+                && b.FieldLabel == "SpawnRules[potions]");
         }
 
         [Fact]
@@ -607,7 +519,7 @@ namespace Hedron.Tests.Authoring
             var (index, catalog) = NewFixture();
 
             var room = catalog.CreateNew(ContentKind.Room, "Ghost Room");
-            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule("mob.adhoc.nonexistent", 1, 1, 10));
+            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule("ghosts", "mob.adhoc.nonexistent", 1, 10));
             await catalog.SaveAsync(room);
 
             var broken = index.SweepBroken();
@@ -615,7 +527,7 @@ namespace Hedron.Tests.Authoring
             Assert.Contains(broken, b =>
                 b.SourceKind == ContentKind.Room
                 && b.SourceBlueprintId == room.BlueprintId
-                && b.FieldLabel == "SpawnRules[mob.adhoc.nonexistent]"
+                && b.FieldLabel == "SpawnRules[ghosts]"
                 && b.MissingTargetId == "mob.adhoc.nonexistent");
         }
 
@@ -625,12 +537,12 @@ namespace Hedron.Tests.Authoring
             var (index, _) = NewFixture();
 
             var room = new RoomTemplate("room.adhoc.spawner") { Name = "Spawner Room" };
-            room.SpawnRules.Add(new SpawnRule("item.adhoc.missing", 1, 1, 20));
+            room.SpawnRules.Add(new SpawnRule("lost", "item.adhoc.missing", 1, 20));
 
             var broken = index.BrokenFor(room);
 
             Assert.Single(broken);
-            Assert.Equal("SpawnRules[item.adhoc.missing]", broken[0].FieldLabel);
+            Assert.Equal("SpawnRules[lost]", broken[0].FieldLabel);
             Assert.Equal("item.adhoc.missing", broken[0].MissingTargetId);
             Assert.Equal(ContentKind.Room, broken[0].SourceKind);
         }

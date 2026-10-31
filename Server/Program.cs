@@ -146,6 +146,7 @@ public static class Program
         bus.Subscribe<WalletSetByAdminEvent>(audit);
         bus.Subscribe<PlayerAscendedByAdminEvent>(audit);
         bus.Subscribe<StartingRoomSetByAdminEvent>(audit);
+        bus.Subscribe<SpawnRuleAuthoredByAdminEvent>(audit);
 
         var characterHydration = host.Services.GetRequiredService<CharacterHydrationHandler>();
         bus.Subscribe<WorldContentReadyEvent>(characterHydration);

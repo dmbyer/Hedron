@@ -9,7 +9,7 @@ namespace Hedron.Core.Modules.Authoring
     /// <param name="SourceKind">The kind of definition that carries the reference field.</param>
     /// <param name="FieldLabel">
     /// Human-readable name for the reference field, used in broken-reference reports
-    /// (e.g. <c>"AreaId"</c>, <c>"Exits[North]"</c>, <c>"SpawnRoomBlueprintId"</c>).
+    /// (e.g. <c>"AreaId"</c>, <c>"Exits[North]"</c>, <c>"SpawnRules[mob.rat]"</c>).
     /// </param>
     /// <param name="TargetKind">The kind the reference points at.</param>
     public sealed record ReferenceEdge(ContentKind SourceKind, string FieldLabel, ContentKind TargetKind);
@@ -21,7 +21,7 @@ namespace Hedron.Core.Modules.Authoring
     /// <param name="SourceBlueprintId">Blueprint id of the definition that holds the broken reference.</param>
     /// <param name="FieldLabel">
     /// The field / selector that carries the broken reference
-    /// (e.g. <c>"AreaId"</c>, <c>"Exits[East]"</c>, <c>"SpawnRoomBlueprintId"</c>).
+    /// (e.g. <c>"AreaId"</c>, <c>"Exits[East]"</c>, <c>"SpawnRules[mob.rat]"</c>).
     /// </param>
     /// <param name="MissingTargetId">The target blueprint id that does not resolve on disk.</param>
     public sealed record BrokenReference(
@@ -39,7 +39,7 @@ namespace Hedron.Core.Modules.Authoring
     /// <param name="ReferrerBlueprintId">Blueprint id of the referring definition.</param>
     /// <param name="FieldLabel">
     /// The field / selector that carries the reference
-    /// (e.g. <c>"AreaId"</c>, <c>"Exits[North]"</c>, <c>"SpawnRoomBlueprintId"</c>, <c>"Rooms"</c>).
+    /// (e.g. <c>"AreaId"</c>, <c>"Exits[North]"</c>, <c>"SpawnRules[mob.rat]"</c>, <c>"Rooms"</c>).
     /// </param>
     public sealed record ReferrerEdit(
         ContentKind ReferrerKind,

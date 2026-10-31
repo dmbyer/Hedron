@@ -17,11 +17,16 @@ using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Mobs.Commands
 {
+    /// <summary>
+    /// Admin verb <c>setmob</c>. Sets a property on a mob <b>blueprint</b>: the builder updates the
+    /// template and every live world instance (never a <c>PersistentEntity</c> copy, INV-21); with no
+    /// live instances only the template changes. The command writes the YAML and publishes
+    /// <see cref="MobPropertySetByAdminEvent"/> with the instance count.
+    /// </summary>
     public sealed class SetMobCommand : ICommand
     {
         private readonly IMobBuilderSystem _mobBuilder;
         private readonly IMobContentWriter _contentWriter;
-        private readonly EntityService _entityService;
         private readonly ITemplateRegistry _templateRegistry;
         private readonly IEventBus _eventBus;
 
@@ -31,7 +36,8 @@ namespace Hedron.Core.Modules.Mobs.Commands
         public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
         public string ShortDescription => "Set a property on a mob.";
         public string LongDescription =>
-            "Sets a property on the mob with the given blueprint id. " +
+            "Sets a property on the mob blueprint with the given id, updating the template and every " +
+            "live world instance of it. " +
             "Valid properties: name, description, keywords (space-separated), type (none/vendor/guard/creature), " +
             "level, hp, mind, body, spirit, attunement, maxmana, maxstamina, maxastra, " +
             "protection (comma or space-separated flags: none, untargetable, effectimmune), " +
@@ -56,13 +62,11 @@ namespace Hedron.Core.Modules.Mobs.Commands
         public SetMobCommand(
             IMobBuilderSystem mobBuilder,
             IMobContentWriter contentWriter,
-            EntityService entityService,
             ITemplateRegistry templateRegistry,
             IEventBus eventBus)
         {
             _mobBuilder = mobBuilder;
             _contentWriter = contentWriter;
-            _entityService = entityService;
             _templateRegistry = templateRegistry;
             _eventBus = eventBus;
         }
@@ -81,38 +85,20 @@ namespace Hedron.Core.Modules.Mobs.Commands
                 return;
             }
 
-            uint mobEntityId = 0;
-            foreach (var (entityId, bp) in _entityService.GetAllComponents<BlueprintComponent>())
-            {
-                if (string.Equals(bp.BlueprintId, blueprintId, StringComparison.OrdinalIgnoreCase) &&
-                    _entityService.HasComponent<MobDataComponent>(entityId))
-                {
-                    mobEntityId = entityId;
-                    break;
-                }
-            }
-
-            if (mobEntityId == 0)
-            {
-                await context.Output.WriteAsync(new PlainMessage(
-                    $"Mob '{blueprintId}' has no live entity in the world.",
-                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
-                return;
-            }
-
+            var instances = 0;
             switch (property)
             {
                 case "name":
-                    _mobBuilder.SetMobName(mobEntityId, value);
+                    instances = _mobBuilder.SetMobName(blueprintId, value);
                     break;
 
                 case "description":
-                    _mobBuilder.SetMobDescription(mobEntityId, value);
+                    instances = _mobBuilder.SetMobDescription(blueprintId, value);
                     break;
 
                 case "keywords":
                     var keywords = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    _mobBuilder.SetMobKeywords(mobEntityId, keywords);
+                    instances = _mobBuilder.SetMobKeywords(blueprintId, keywords);
                     break;
 
                 case "type":
@@ -123,7 +109,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
                             OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
-                    _mobBuilder.SetMobType(mobEntityId, mobType);
+                    instances = _mobBuilder.SetMobType(blueprintId, mobType);
                     break;
 
                 case "level":
@@ -142,7 +128,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
                             OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
-                    _mobBuilder.SetAttribute(mobEntityId, template, property, numericValue);
+                    instances = _mobBuilder.SetAttribute(blueprintId, property, numericValue);
                     break;
 
                 case "protection":
@@ -170,7 +156,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
                         }
                     }
                     if (parseError) return;
-                    _mobBuilder.SetMobProtection(mobEntityId, combined);
+                    instances = _mobBuilder.SetMobProtection(blueprintId, combined);
                     break;
 
                 case "tier":
@@ -181,7 +167,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
                             OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
-                    _mobBuilder.SetMobTier(mobEntityId, tier);
+                    instances = _mobBuilder.SetMobTier(blueprintId, tier);
                     break;
 
                 case "band":
@@ -192,7 +178,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
                             OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
-                    _mobBuilder.SetMobBand(mobEntityId, band);
+                    instances = _mobBuilder.SetMobBand(blueprintId, band);
                     break;
 
                 case "xpscale":
@@ -204,7 +190,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
                             OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
-                    _mobBuilder.SetMobXpScale(mobEntityId, xpScale);
+                    instances = _mobBuilder.SetMobXpScale(blueprintId, xpScale);
                     break;
 
                 case "shop":
@@ -224,7 +210,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
                     var toggle = shopTokens[0].ToLowerInvariant();
                     if (toggle is "off" or "false" or "none")
                     {
-                        _mobBuilder.SetMobShop(mobEntityId, isShop: false);
+                        instances = _mobBuilder.SetMobShop(blueprintId, isShop: false);
                         break;
                     }
                     if (toggle is not ("on" or "true"))
@@ -254,7 +240,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
                         return;
                     }
 
-                    _mobBuilder.SetMobShop(mobEntityId, isShop: true, currency, tillSeed, ratioOverride: null, baseStock: null);
+                    instances = _mobBuilder.SetMobShop(blueprintId, isShop: true, currency, tillSeed, ratioOverride: null, baseStock: null);
                     break;
 
                 default:
@@ -268,12 +254,13 @@ namespace Hedron.Core.Modules.Mobs.Commands
 
             await _eventBus.PublishAsync(new MobPropertySetByAdminEvent(
                 context.InvokerEntityId,
-                mobEntityId,
+                template.BlueprintId,
                 property,
-                value)).ConfigureAwait(false);
+                value,
+                instances)).ConfigureAwait(false);
 
             await context.Output.WriteAsync(new PlainMessage(
-                $"Mob {property} set to '{value}'.",
+                $"Mob {property} set to '{value}' ({instances} live instance(s) updated).",
                 OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
         }
     }

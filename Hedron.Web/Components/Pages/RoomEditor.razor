@@ -23,6 +23,8 @@ else if (_template is not null)
 
     <RoomExitsEditor Room="_template" Rooms="_rooms" />
 
+    <RoomSpawnRulesEditor Room="_template" Spawnables="_spawnables" />
+
     <div class="bidir-toggle">
         <input type="checkbox" id="bidir" @bind="_bidirectional" />
         <label for="bidir">Write inverse exits (bidirectional) &mdash; also writes the reverse exit on each target room; skips with a warning if the target already has a different exit in that direction.</label>
@@ -107,6 +109,7 @@ else if (_template is not null)
     private IReadOnlyList<string> _warnings = Array.Empty<string>();
     private IReadOnlyList<ContentSummary> _areas = Array.Empty<ContentSummary>();
     private IReadOnlyList<ContentSummary> _rooms = Array.Empty<ContentSummary>();
+    private IReadOnlyList<ContentSummary> _spawnables = Array.Empty<ContentSummary>();
 
     private bool IsNew => _forceNew || string.IsNullOrEmpty(BlueprintId);
 
@@ -121,6 +124,7 @@ else if (_template is not null)
         _focusPending = true;
         _areas = Catalog.List(ContentKind.Area);
         _rooms = Catalog.List(ContentKind.Room);
+        _spawnables = Catalog.List(ContentKind.Mob).Concat(Catalog.List(ContentKind.Item)).ToList();
 
         if (IsNew)
         {

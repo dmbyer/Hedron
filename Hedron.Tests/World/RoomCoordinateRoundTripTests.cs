@@ -120,17 +120,14 @@ name: Legacy Room
         public async Task SpawnRules_survive_write_then_read()
         {
             var original = new RoomTemplate("room.spawn.test") { Name = "Spawn Room" };
-            original.SpawnRules.Add(new SpawnRule("mob.rat", 1, 3, 300));
-            original.SpawnRules.Add(new SpawnRule("item.torch", 0, 1, 600));
+            original.SpawnRules.Add(new SpawnRule("mob.rat", "mob.rat", 3, 300));
+            original.SpawnRules.Add(new SpawnRule("torch-east", "item.torch", 1, 600));
 
             var (loaded, _) = await RoundTrip(original);
 
             Assert.Equal(2, loaded.SpawnRules.Count);
-            Assert.Equal("mob.rat", loaded.SpawnRules[0].BlueprintId);
-            Assert.Equal(1, loaded.SpawnRules[0].MinCount);
-            Assert.Equal(3, loaded.SpawnRules[0].MaxCount);
-            Assert.Equal(300, loaded.SpawnRules[0].RespawnDelaySeconds);
-            Assert.Equal("item.torch", loaded.SpawnRules[1].BlueprintId);
+            Assert.Equal(new SpawnRule("mob.rat", "mob.rat", 3, 300), loaded.SpawnRules[0]);
+            Assert.Equal(new SpawnRule("torch-east", "item.torch", 1, 600), loaded.SpawnRules[1]);
         }
 
         [Fact]

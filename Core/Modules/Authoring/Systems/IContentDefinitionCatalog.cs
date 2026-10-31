@@ -39,8 +39,8 @@ namespace Hedron.Core.Modules.Authoring.Systems
         /// <summary>
         /// Enumerates the definitions of <paramref name="kind"/> present on disk. Each returned
         /// <see cref="ContentSummary"/> carries the resolved <see cref="ContentSummary.AreaBlueprintId"/>
-        /// for rooms (one-hop via <c>RoomTemplate.AreaId</c>), items, and mobs (two-hop via
-        /// <c>SpawnRoomBlueprintId</c> → that room's <c>AreaId</c>). Areas always yield
+        /// for rooms (one-hop via <c>RoomTemplate.AreaId</c>), items, and mobs (the <c>AreaId</c> of the
+        /// ordinal-least room whose spawn rule names them). Areas always yield
         /// <c>null</c>; missing/blank/dangling references also yield <c>null</c>.
         /// </summary>
         IReadOnlyList<ContentSummary> List(ContentKind kind);
@@ -87,7 +87,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
         /// <list type="bullet">
         ///   <item>Room referencing via <c>AreaId</c> → <c>AreaId</c> cleared to empty.</item>
         ///   <item>Room referencing via <c>Exits[dir]</c> → that exit entry removed.</item>
-        ///   <item>Item or mob with <c>SpawnRoomBlueprintId == blueprintId</c> → field cleared.</item>
+        ///   <item>Room spawn rule naming the deleted mob/item → rule removed.</item>
         ///   <item>Area with <c>blueprintId</c> in its <c>Rooms</c> list → entry removed.</item>
         /// </list>
         /// Returns a <see cref="ContentDeleteResult"/> describing the deleted file and each cascade
@@ -175,7 +175,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
         ///   <item><strong>Room</strong> — <c>AreaId</c> carries; name, description, exits, coordinates reset.</item>
         ///   <item><strong>Item</strong> — Tier, Band, <c>ItemType</c>, <c>WornSlots</c> carry; name,
         ///     description, stat bonuses, value reset.</item>
-        ///   <item><strong>Mob</strong> — Tier, Band, <c>SpawnRoomBlueprintId</c> carry; name,
+        ///   <item><strong>Mob</strong> — Tier, Band, <c>XpScale</c> carry; name,
         ///     description, attributes, pools, loot, shop config reset.</item>
         /// </list>
         /// Which fields carry is authoring policy plus kind dispatch, so it lives here rather than

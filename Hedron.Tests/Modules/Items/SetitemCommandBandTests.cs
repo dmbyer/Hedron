@@ -55,7 +55,16 @@ namespace Hedron.Tests.Modules.Items
                 Builder = new ItemBuilderSystem(Ecs, Registry, NullLogger<ItemBuilderSystem>.Instance);
                 Writer = new NoOpContentWriter();
                 Bus = new RecordingEventBus(dispatch: false);
-                Command = new SetitemCommand(Builder, Writer, Ecs, Registry, Bus);
+                Command = new SetitemCommand(Builder, Writer, Registry, Bus);
+            }
+
+            /// <summary>Registers a template and spawns one live world instance (a count-1 rule's shape).</summary>
+            public (uint ItemEntityId, string BlueprintId) CreateLive(string name, uint roomId)
+            {
+                var result = Builder.CreateItem(name);
+                var entity = Registry.Spawn(result.BlueprintId);
+                Ecs.AddComponent(entity.Id, new LocationComponent { RoomEntityId = roomId });
+                return (entity.Id, result.BlueprintId);
             }
         }
 
@@ -94,7 +103,7 @@ namespace Hedron.Tests.Modules.Items
         {
             var world = new TestWorld();
             var roomId = MakeRoom(world.Ecs);
-            var result = world.Builder.CreateItem("Tiered Blade", roomId);
+            var result = world.CreateLive("Tiered Blade", roomId);
 
             var output = new RecordingOutput();
             var ctx = MakeContext(MakeArgs(result.BlueprintId, "tier", "2"), output);
@@ -108,7 +117,9 @@ namespace Hedron.Tests.Modules.Items
             var itemTemplate = Assert.IsType<ItemTemplate>(template);
             Assert.Equal(2, itemTemplate.Tier);
 
-            Assert.Single(world.Bus.Published.OfType<ItemPropertySetByAdminEvent>());
+            var published = Assert.Single(world.Bus.Published.OfType<ItemPropertySetByAdminEvent>());
+            Assert.Equal(result.BlueprintId, published.BlueprintId);
+            Assert.Equal(1, published.InstancesUpdated);
         }
 
         [Fact]
@@ -116,7 +127,7 @@ namespace Hedron.Tests.Modules.Items
         {
             var world = new TestWorld();
             var roomId = MakeRoom(world.Ecs);
-            var result = world.Builder.CreateItem("Tiered Blade", roomId);
+            var result = world.CreateLive("Tiered Blade", roomId);
 
             var output = new RecordingOutput();
             var ctx = MakeContext(MakeArgs(result.BlueprintId, "tier", "7"), output);
@@ -134,7 +145,7 @@ namespace Hedron.Tests.Modules.Items
         {
             var world = new TestWorld();
             var roomId = MakeRoom(world.Ecs);
-            var result = world.Builder.CreateItem("Tiered Blade", roomId);
+            var result = world.CreateLive("Tiered Blade", roomId);
 
             var output = new RecordingOutput();
             var ctx = MakeContext(MakeArgs(result.BlueprintId, "tier", "-1"), output);
@@ -151,7 +162,7 @@ namespace Hedron.Tests.Modules.Items
         {
             var world = new TestWorld();
             var roomId = MakeRoom(world.Ecs);
-            var result = world.Builder.CreateItem("Banded Blade", roomId);
+            var result = world.CreateLive("Banded Blade", roomId);
 
             var output = new RecordingOutput();
             var ctx = MakeContext(MakeArgs(result.BlueprintId, "band", "2"), output);
@@ -173,7 +184,7 @@ namespace Hedron.Tests.Modules.Items
         {
             var world = new TestWorld();
             var roomId = MakeRoom(world.Ecs);
-            var result = world.Builder.CreateItem("Banded Blade", roomId);
+            var result = world.CreateLive("Banded Blade", roomId);
 
             var output = new RecordingOutput();
             var ctx = MakeContext(MakeArgs(result.BlueprintId, "band", "4"), output);
@@ -191,7 +202,7 @@ namespace Hedron.Tests.Modules.Items
         {
             var world = new TestWorld();
             var roomId = MakeRoom(world.Ecs);
-            var result = world.Builder.CreateItem("Banded Blade", roomId);
+            var result = world.CreateLive("Banded Blade", roomId);
 
             var output = new RecordingOutput();
             var ctx = MakeContext(MakeArgs(result.BlueprintId, "band", "-1"), output);

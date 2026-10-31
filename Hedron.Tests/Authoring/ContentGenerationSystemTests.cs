@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hedron.Core.ECS.Components;
 using Hedron.Core;
 using Hedron.Core.Modules.Authoring;
 using Hedron.Core.Modules.Authoring.Systems;
@@ -122,11 +123,14 @@ namespace Hedron.Tests.Authoring
 
             // Writer-input level: the captured templates match too (mob stats, exits, affinities).
             Assert.Equal(
-                first.Mobs.Written.Select(m => (m.BlueprintId, m.Level, m.MaxHp, m.SpawnRoomBlueprintId)),
-                second.Mobs.Written.Select(m => (m.BlueprintId, m.Level, m.MaxHp, m.SpawnRoomBlueprintId)));
+                first.Mobs.Written.Select(m => (m.BlueprintId, m.Level, m.MaxHp)),
+                second.Mobs.Written.Select(m => (m.BlueprintId, m.Level, m.MaxHp)));
             Assert.Equal(
-                first.Items.Written.Select(i => (i.BlueprintId, StatBonusKey(i), i.SpawnRoomBlueprintId)),
-                second.Items.Written.Select(i => (i.BlueprintId, StatBonusKey(i), i.SpawnRoomBlueprintId)));
+                first.Items.Written.Select(i => (i.BlueprintId, StatBonusKey(i))),
+                second.Items.Written.Select(i => (i.BlueprintId, StatBonusKey(i))));
+            Assert.Equal(
+                first.Rooms.Written.SelectMany(r => r.SpawnRules.Select(rule => (r.BlueprintId, rule))),
+                second.Rooms.Written.SelectMany(r => r.SpawnRules.Select(rule => (r.BlueprintId, rule))));
             Assert.Equal(
                 first.Areas.Written.Select(AspectKey),
                 second.Areas.Written.Select(AspectKey));
@@ -139,6 +143,27 @@ namespace Hedron.Tests.Authoring
             area.AspectAffinities is { Count: > 0 }
                 ? string.Join(",", area.AspectAffinities.Select(kv => $"{kv.Key}:{kv.Value}"))
                 : "(none)";
+
+        [Fact]
+        public async Task ContentGeneration_PlacesEveryMobAndItemWithExactlyOneCountOneRoomRule()
+        {
+            var h = NewSystem();
+            await h.System.GenerateAsync(SampleProfile(seed: 7));
+
+            var rules = h.Rooms.Written.SelectMany(r => r.SpawnRules).ToList();
+            var placed = h.Mobs.Written.Select(m => m.BlueprintId)
+                .Concat(h.Items.Written.Select(i => i.BlueprintId))
+                .ToList();
+
+            Assert.NotEmpty(placed);
+            foreach (var id in placed)
+            {
+                var rule = Assert.Single(rules, r => r.BlueprintId == id);
+                Assert.Equal(1, rule.Count);
+                Assert.Equal(SpawnRuleLimits.DefaultRespawnDelaySeconds, rule.RespawnDelaySeconds);
+            }
+            Assert.Equal(placed.Count, rules.Count);
+        }
 
         [Fact]
         public async Task ContentGeneration_DifferentSeed_DiffersStructurally()

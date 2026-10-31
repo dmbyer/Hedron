@@ -36,8 +36,8 @@ sequenceDiagram
 1. `Program.Main` detects the `generate` token and branches before building the listener host. `--profile` is required; missing → exit 2.
 2. `GenerationRunMode` deserializes the profile YAML into `GenerationProfile`. Invalid file/values → exit 2.
 3. DI is composed via `CompositionRoot.Register` without `AddGameplayHostedServices` — no telnet, no heartbeat, no world-content entity spawn (INV-12/23).
-4. `IContentGenerationSystem.GenerateAsync(profile)` seeds `SeededRandom(profile.Seed)`, composes connected area/room/mob/item graphs (rooms wired east/west per area; areas joined up/down), calls each `I*ContentWriter.WriteAsync` atomically. Blueprint ids are `prefix + per-kind counter`, never `Guid` (INV-26). Returns `GenerationResult`; never publishes (INV-5).
-5. The run-mode validates each emitted definition via `IContentValidator.Validate` (single-definition, in-memory — no live entities).
+4. `IContentGenerationSystem.GenerateAsync(profile)` seeds `SeededRandom(profile.Seed)`, composes connected area/room/mob/item graphs (rooms wired east/west per area; areas joined up/down) and places each generated mob/item with a **count-1 spawn rule on its room** (no spawn-room key; the rule adds no randomness, so same-seed output stays byte-identical), calls each `I*ContentWriter.WriteAsync` atomically. Blueprint ids are `prefix + per-kind counter`, never `Guid` (INV-26). Returns `GenerationResult`; never publishes (INV-5).
+5. The run-mode validates each emitted definition via `IContentValidator.Validate` (single-definition, in-memory — no live entities) and `ValidateEmitted` re-reads the output through the same fail-fast deserializers boot uses.
 6. Prints counts + first 10 blueprint ids + validation result; returns `0` (clean) or non-zero (validation/write failure).
 
 ---
@@ -129,7 +129,7 @@ dispatch stays out of the entry-point surface. **Neither caller publishes**: the
 transport adapter, not an Initiator. The apply-to-live step at the bottom of this diagram is
 therefore Blazor-only — an HTTP apply/reload endpoint *would* be an Initiator and is deliberately not
 part of this surface. The JSON surface is scoped to the mob kind for writes plus read-only area/room
-lookups and a power-readout projection; see [08-blazor.md](../08-blazor.md#the-authoring-http-surface-api).
+lookups and a power-readout projection; see [08-blazor.md](../08-blazor.md#the-authoring-http-surface-api). The mob DTO is a **strict full shape**: it has no `spawnRoomBlueprintId` (mob placement is a room spawn rule), and a body carrying it — or any unmapped member — is a `400` with nothing written.
 
 **Concurrency on this leg (INV-31).** With a second caller, request threads join the Blazor circuits
 as concurrent writers. Every catalog mutator runs under one `SemaphoreSlim(1,1)` spanning the write
@@ -200,8 +200,16 @@ not make the multi-file write cascade atomic.
    broken edge across all kinds; UI tabulates them with edit links back to each offending
    definition's editor. The bulk conformance apply on the same page still runs on the circuit
    thread (recorded in [backlog.md](../../roadmap/backlog.md)).
-8. "Apply to live": page calls `IWorldContentLoader.ReloadAsync()` — [Flow 5](flow-05-content-reload.md).
-   Counts rendered. No live entities mutated.
+9. **Spawn rules.** The room editor and the grid editor's room panel bind `RoomSpawnRulesEditor` to
+   `RoomTemplate.SpawnRules` (rows: id, mob/item picker, count, delay; "Add rule" mints the id via
+   `SpawnRuleIds.Mint`); the rule set is validated by `ContentValidator` (`SpawnRuleValidation`) on
+   `SaveAsync`/`SaveRoomAsync`. The mob/item editors' **Spawns in** panel (`SpawnSitesPanel`) lists
+   `ISpawnRuleAuthoring.SpawnSitesFor(kind, id)` and writes the room directly through
+   `UpsertSpawnRuleAsync` (area→room "Add to room", blank id minted) / `RemoveSpawnRuleAsync` —
+   both under the catalog write gate, refused with nothing written when invalid.
+8. "Apply": page calls `IWorldContentLoader.ReloadAsync()` on the **web host's own preview world** —
+   [Flow 5](flow-05-content-reload.md); whole-or-nothing (a shape error is shown, nothing changes).
+   The Server's live game world applies these edits on the Server's `reload` or a restart.
 
 The `Hedron.Web` host runs `AddContentBootstrapHostedServices` only (content load + registry validation; no telnet/heartbeat/persistence). Loopback-only for v1.
 
@@ -403,7 +411,7 @@ No event is published anywhere in this leg (INV-5) — `IAreaLayoutSystem` and t
 - INV-8: no authoring logic in the run-mode CLI or Blazor components — everything lives in the Core systems.
 - INV-10: the `generate` run-mode is a no-chain Initiator: composes, runs one operation, writes files, exits; publishes nothing.
 - INV-12 / INV-23: YAML only — no `EntityService.CreateEntity`, no `PersistentEntity`, no SQLite in either path. **`DeleteAsync`/`RenameAsync` are YAML-file-only**: they call `File.Delete`/`File.Move` + `I*ContentWriter` rewrites and never invoke `EntityService.DestroyEntity`, no SQLite write, and no live-world mutation. `RenameAsync`'s out-of-YAML advisories (persistent player/item locations, `World:StartingRoomBlueprintId`) surface as warnings, never a write; its one non-template referrer write is the `world.yaml` manifest (content YAML, not config), rewritten under the same gate.
-- INV-19: the six cross-definition reference edges (room→area, exit→room, item→spawnRoom, mob→spawnRoom, area→room, room.spawnRules→{mob,item}) are declared once in `IContentReferenceIndex`'s edge set and drive all consumers (delete-cascade, rename-cascade, save-warn, integrity sweep, filter-association) without per-edge code paths. The spawn-rule edge is two-kind — `Referrers` matches either target kind; `SweepBroken`/`BrokenFor` flag broken only when neither resolves (blueprint-id-editing).
+- INV-19: the four cross-definition reference edges (room→area, exit→room, area→room, room.spawnRules[<rule id>]→{mob,item}) are declared once in `IContentReferenceIndex`'s edge set and drive all consumers (delete-cascade, rename-cascade, save-warn, integrity sweep, filter-association) without per-edge code paths. The spawn-rule edge is two-kind — `Referrers` matches either target kind; `SweepBroken`/`BrokenFor` flag broken only when neither resolves (blueprint-id-editing).
 - INV-26: all randomness in `ContentGenerationSystem` flows through `SeededRandom`; blueprint ids are counter-derived; no wall clock read. Fixed-seed run is byte-reproducible.
 - **Warn-but-allow:** a `SaveAsync`/`SaveRoomAsync` result with `Success = true` may carry a non-empty `Warnings` list — these are cross-reference notices, not errors; the file was still written. Structural failures are still `Success = false` / no write.
 - **Bidirectional warn-and-skip:** when `SaveRoomAsync(bidirectional: true)` encounters a target room that already has a *different* exit in the inverse direction, that paired write is skipped and a warning is added. The source room's own file is always written. No silent overwrite.

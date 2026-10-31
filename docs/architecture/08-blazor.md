@@ -62,11 +62,13 @@ A deliberately narrow JSON surface over `IContentDefinitionCatalog`, scoped to w
 
 | Route | Purpose |
 |---|---|
-| `GET /api/{areas,rooms,mobs}` (optional `?area=`) | Listings, kind-parameterised. The `?area=` filter is the spawn-room picker's narrowing; it keys on the catalog's resolved `AreaBlueprintId`. |
+| `GET /api/{areas,rooms,mobs}` (optional `?area=`) | Listings, kind-parameterised. The `?area=` filter is the room pickers' narrowing; it keys on the catalog's resolved `AreaBlueprintId`. |
 | `GET`/`POST`/`PUT`/`DELETE /api/mobs[/{blueprintId}]` | The mob editor's load / create / save / delete. **Area and Room are read-only here** — the bakeoff ports the mob editor. |
 | `POST /api/power/mob` | The live power readout, over a **posted** definition rather than a saved one — the readout updates as the author types, so it must project unsaved form state. Writes nothing. Backed by `IMobPowerReadoutSystem`, the same composition `MobEditor` renders. |
 
 **`ContentWriteResult` → status code**, established once in `Api/ContentResults.cs` so a second kind inherits it: refused (validation failure, id collision, malformed id) → `400` with the catalog's errors; written → `200` (`201` on create, with `Location`); absent → `404`. **Warnings never change the status code** — the catalog's cross-reference policy is warn-but-allow (INV-19), and collapsing that into a failure status would misreport a file that was written.
+
+**Strict mob shape.** `MobDefinitionDto` is a full-shape contract: it carries `[JsonUnmappedMemberHandling(Disallow)]`, so a body with an unknown or removed member — notably the pre-spawn-authoring `spawnRoomBlueprintId` (mob placement now lives only in room spawn rules) — is a `400` and writes nothing, rather than being silently dropped by the host's ignore-unknown default. Scoped to that DTO; other kinds keep the host default.
 
 **Contract artifact.** An OpenAPI document is emitted at build to `Hedron.Web/Hedron.Web_authoring.json` and checked in; CI regenerates it and fails on drift, so a DTO change nobody meant to publish is caught at review. Framework-neutral and dotnet-only to produce — no TypeScript artifact is generated and no second toolchain enters CI, since [`../design/client-tier.md`](../design/client-tier.md) books both as React-branch costs not paid before the gate. The bakeoff hand-writes its one interface from the document.
 

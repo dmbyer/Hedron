@@ -81,7 +81,6 @@ namespace Hedron.Core.Modules.Mobs.Systems
                 Description = template.Description,
                 Keywords = new List<string>(template.Keywords),
                 Type = template.MobType.ToString(),
-                SpawnRoomBlueprintId = template.SpawnRoomBlueprintId,
                 Level = template.Level,
                 MaxHp = template.MaxHp,
                 Mind = template.Mind,
@@ -118,7 +117,6 @@ namespace Hedron.Core.Modules.Mobs.Systems
             public string Description { get; set; } = string.Empty;
             public List<string> Keywords { get; set; } = new();
             public string Type { get; set; } = string.Empty;
-            public string SpawnRoomBlueprintId { get; set; } = string.Empty;
             public int Level { get; set; }
             public int MaxHp { get; set; }
             public int Mind { get; set; }

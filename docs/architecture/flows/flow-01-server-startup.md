@@ -14,6 +14,7 @@ sequenceDiagram
     participant Bus as IEventBus
     participant WCB as WorldContentBootstrap
     participant WCL as WorldContentLoader
+    participant Spawn as SpawnSystem
     participant RVB as RegistryValidationBootstrap
     participant TS as TelnetServer
 
@@ -21,10 +22,12 @@ sequenceDiagram
     Host->>BSR: IBalanceStandardsStore.Load() (fail-fast + drift warnings)
     Host->>PB: StartAsync → LoadAllAsync (SQLite hydration)
     PB->>Bus: EntityHydratedEvent × N, then WorldLoadedEvent
-    Host->>WCB: StartAsync → LoadAndSpawnAsync (templates + world entities)
-    Note over WCL: ResolveStartingRoom: world.yaml → config → void → least room
+    Host->>WCB: StartAsync → LoadAndSpawnAsync
+    Note over WCL: staged corpus read — any shape error → ContentLoadException → host start fails
+    Note over WCL: register templates → spawn areas/rooms → link → ResolveStartingRoom
     WCB->>Bus: WorldContentReadyEvent
-    Note over Bus: CharacterHydrationHandler resolves player locations
+    Bus->>Spawn: State (10): fill every room rule's slots (mobs, found items)
+    Note over Bus: Domain (20): ShopkeeperSpawnHandler seeds rule-placed shops · CharacterHydrationHandler resolves player locations
     Host->>RVB: StartAsync → registry sweep (fail-fast)
     Host->>TS: StartAsync → listener opens
     Note over Host: PersistenceFlushTimer + HeartbeatBackgroundService start after TS
@@ -35,7 +38,7 @@ sequenceDiagram
 1. **DI registration & build.** `Program.Main` configures all singletons and hosted services; handler subscriptions are wired after `Build()` and before `RunAsync()`.
 2. **Balance standards composition.** The generic host constructs every registered `IHostedService` before calling any of their `StartAsync` methods; `RegistryValidationBootstrap`'s constructor depends on `IBalanceStandardsRegistry`, so this is the point that forces its singleton factory to run: `IBalanceStandardsStore.Load()` reads `Balance:StandardsPath` (default `data/balance/standards.yaml`), falls back to compiled defaults if absent, throws on structural violation (fail-fast), and returns one warning per mirror-drifted field or unknown ability-kit id — logged here, never silently absorbed. `PowerBudgetTunables` and `IPowerBudgetSystem` are then composed from the loaded registry. Applies to both hosts (`Server` and `Hedron.Web`), since `RegistryValidationBootstrap` is registered by both `AddGameplayHostedServices` and `AddContentBootstrapHostedServices`.
 3. **Hydration.** `PersistenceBootstrap` calls `PersistenceSystem.LoadAllAsync` — reads SQLite, restores `[Persistent]` components on each entity (no events during hydration), then publishes `EntityHydratedEvent` per entity and `WorldLoadedEvent` when complete. Handlers on `EntityHydratedEvent` must not query other entities; cross-entity startup work belongs on `WorldLoadedEvent`.
-4. **World content.** `WorldContentBootstrap` calls `WorldContentLoader.LoadAndSpawnAsync`: registers area/room/item/mob templates from YAML, spawns any template with no live counterpart, links room exits, places newly-spawned items and mobs, then `ResolveStartingRoom()` reads the optional root `world.yaml` (read, but not a template kind) and resolves manifest → `World:StartingRoomBlueprintId` → `room.void` → ordinal-least room over the live room set, publishing one `ResolvedStartingRoom` snapshot to `WorldConfiguration.StartingRoom`; `WorldContentBootstrap` then publishes `WorldContentReadyEvent`. World entities carry no `PersistentEntity` — they are never written to SQLite.
+4. **World content.** `WorldContentBootstrap` calls `WorldContentLoader.LoadAndSpawnAsync`: a **staged read** deserializes every content file first; if any raised a `ContentShapeException` (a legacy spawn key or malformed spawn rule) it throws `ContentLoadException` listing every offending file — nothing is registered, `WorldContentBootstrap` logs the report critical and rethrows, and **the host does not start** (same on the web host). On a clean read it registers area/room/item/mob templates, spawns every **area and room** with no live counterpart (never mobs/items), links room exits and areas, then `ResolveStartingRoom()` reads the optional root `world.yaml` (read, but not a template kind) and resolves manifest → `World:StartingRoomBlueprintId` → `room.void` → ordinal-least room over the live room set, publishing one `ResolvedStartingRoom` snapshot to `WorldConfiguration.StartingRoom`; `WorldContentBootstrap` then publishes `WorldContentReadyEvent`. **Spawn fill:** `SpawnSystem` (State 10) builds its rule-keyed tracker and immediately spawns every rule's `Count` instances into their rooms (with `LocationComponent { RoomEntityId, RoomBlueprintId }`); `ShopkeeperSpawnHandler` (Domain 20) then seeds the rule-placed shopkeepers. World entities carry no `PersistentEntity` — they are never written to SQLite.
 5. **Character location resolution.** `CharacterHydrationHandler` (on `WorldContentReadyEvent`) resolves each persistent character's `RoomBlueprintId` to a live `RoomEntityId`, resetting unknowns to the resolved starting room (one snapshot read for both ids), and attaches missing migration components.
 6. **Registry validation.** `RegistryValidationBootstrap` asserts ability→effect/aspect refs and `AspectComposition` sums; throws with a full error report on any failure.
 7. **Listener + heartbeat open.** `PersistenceFlushTimer` arms, then `TelnetServer` opens the TCP listener, then `HeartbeatBackgroundService` arms — this ordering guarantees the world is fully assembled before any connection or tick can land.

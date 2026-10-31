@@ -12,16 +12,18 @@ namespace Hedron.Core.Modules.World.Systems
     public interface IWorldContentLoader
     {
         /// <summary>
-        /// Initial startup load. Discovers and registers all templates, then spawns the
-        /// rooms and areas that aren't already in the live world, then runs
-        /// <see cref="ResolveStartingRoom"/>. Called once by <c>WorldContentBootstrap</c>.
+        /// Initial startup load. Reads every content file first (staged); a content shape error in
+        /// any file throws <see cref="Hedron.Core.Systems.ContentLoadException"/> listing them all, with
+        /// nothing registered. Otherwise registers all templates, spawns the rooms and areas that
+        /// aren't already in the live world (never mobs/items — room spawn rules place those), then
+        /// runs <see cref="ResolveStartingRoom"/>. Called once by <c>WorldContentBootstrap</c>.
         /// </summary>
         Task LoadAndSpawnAsync(CancellationToken ct = default);
 
         /// <summary>
-        /// Re-scan the content directory and refresh the registry. Templates that have
-        /// no live counterpart are seeded; existing live entities are not mutated.
-        /// Returns the result counts that <c>ReloadCommand</c> wraps in
+        /// Full, whole-or-nothing rebuild: stages and validates the whole corpus first (throwing
+        /// <see cref="Hedron.Core.Systems.ContentLoadException"/> with the live world untouched on a
+        /// shape error), then tears down world content and re-spawns areas and rooms. Returns the result counts that <c>ReloadCommand</c> wraps in
         /// <c>ContentReloadedEvent</c>.
         /// </summary>
         Task<ContentReloadResult> ReloadAsync(CancellationToken ct = default);

@@ -16,9 +16,6 @@ namespace Hedron.Core.Modules.Mobs.Templates
         public List<string> Keywords { get; set; } = new();
         public MobType MobType { get; set; } = MobType.None;
 
-        /// <summary>Blueprint id of the room this mob spawns in. Empty means no spawn location.</summary>
-        public string SpawnRoomBlueprintId { get; set; } = string.Empty;
-
         public int Level { get; set; } = 0;
         public int MaxHp { get; set; } = 0;
         public int Mind { get; set; } = 0;
@@ -162,9 +159,10 @@ namespace Hedron.Core.Modules.Mobs.Templates
 
             // Add ShopComponent + InventoryComponent only when this mob is a shopkeeper (opt-in default).
             // Till seeding and base-stock entity spawning are deferred to ShopkeeperSpawnHandler (the
-            // WorldContentReadyEvent second pass, analogous to how items receive LocationComponent after
-            // load), because those steps require IShopSystem, ITemplateRegistry, and ShopOptions — none of
-            // which are available in Apply. ShopComponent carries all authored values needed by that pass.
+            // WorldContentReadyEvent Domain pass, after SpawnSystem's State-priority fill has placed
+            // rule-spawned shopkeepers), because those steps require IShopSystem, ITemplateRegistry, and
+            // ShopOptions — none of which are available in Apply. ShopComponent carries all authored
+            // values needed by that pass.
             if (IsShop)
             {
                 entityService.AddComponent(entity.Id, new ShopComponent

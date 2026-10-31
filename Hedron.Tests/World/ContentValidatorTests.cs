@@ -1,3 +1,4 @@
+using Hedron.Core.ECS.Components;
 using System;
 using System.Collections.Generic;
 using Hedron.Core.ECS;
@@ -330,6 +331,52 @@ namespace Hedron.Tests.World
 
             Assert.False(report.IsValid);
             Assert.NotEmpty(report.Errors);
+        }
+
+        // ── Spawn rules (spawn-authoring T13) ─────────────────────────────────────
+
+        [Fact]
+        public void Validate_Room_RefusesWithTheSpawnRuleValidationErrors()
+        {
+            var room = new RoomTemplate("room.cellar");
+            room.SpawnRules.Add(new SpawnRule("rats", "mob.rat", 0, 10));
+            room.SpawnRules.Add(new SpawnRule("RATS", "", 1, -5));
+            room.SpawnRules.Add(new SpawnRule("bad id", "mob.bat", 1, 10));
+
+            var report = Build().Validate(room);
+
+            Assert.False(report.IsValid);
+            Assert.Equal(SpawnRuleValidation.Errors(room.BlueprintId, room.SpawnRules), report.Errors);
+            Assert.Equal(5, report.Errors.Count);
+        }
+
+        [Fact]
+        public void Validate_Room_AcceptsValidSpawnRules()
+        {
+            var room = new RoomTemplate("room.cellar");
+            room.SpawnRules.Add(new SpawnRule("rats", "mob.rat", 3, 60));
+
+            Assert.True(Build().Validate(room).IsValid);
+        }
+
+        [Fact]
+        public void ValidateRegistry_WarnsOnSpawnRuleNamingUnknownOrNonSpawnableTemplate()
+        {
+            var ecs = new EntityService();
+            var registry = new TemplateRegistry(ecs);
+            var room = new RoomTemplate("room.cellar");
+            room.SpawnRules.Add(new SpawnRule("ghosts", "mob.missing", 1, 10));
+            room.SpawnRules.Add(new SpawnRule("loop", "room.cellar", 1, 10));
+            room.SpawnRules.Add(new SpawnRule("rats", "mob.rat", 1, 10));
+            registry.Register(room.BlueprintId, room);
+            registry.Register("mob.rat", new MobTemplate("mob.rat"));
+
+            var report = Build(ecs: ecs, templateRegistry: registry).ValidateRegistry(Array.Empty<string>());
+
+            Assert.True(report.IsValid);
+            Assert.Equal(2, report.Warnings.Count);
+            Assert.Contains(report.Warnings, w => w.Contains("'ghosts'") && w.Contains("unknown"));
+            Assert.Contains(report.Warnings, w => w.Contains("'loop'") && w.Contains("not a mob or item"));
         }
 
         [Fact]

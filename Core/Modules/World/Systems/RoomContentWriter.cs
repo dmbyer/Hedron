@@ -46,9 +46,9 @@ namespace Hedron.Core.Modules.World.Systems
                 {
                     spawnRuleDtos.Add(new SpawnRuleDto
                     {
+                        Id = rule.Id,
                         BlueprintId = rule.BlueprintId,
-                        MinCount = rule.MinCount,
-                        MaxCount = rule.MaxCount,
+                        Count = rule.Count,
                         RespawnDelaySeconds = rule.RespawnDelaySeconds,
                     });
                 }
@@ -92,9 +92,9 @@ namespace Hedron.Core.Modules.World.Systems
         // DTO shape must stay in sync with RoomTemplateDeserializer.SpawnRuleDto.
         private sealed class SpawnRuleDto
         {
+            public string Id { get; set; } = string.Empty;
             public string BlueprintId { get; set; } = string.Empty;
-            public int MinCount { get; set; }
-            public int MaxCount { get; set; }
+            public int Count { get; set; }
             public int RespawnDelaySeconds { get; set; }
         }
     }

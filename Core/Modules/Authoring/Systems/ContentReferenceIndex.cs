@@ -102,22 +102,6 @@ namespace Hedron.Core.Modules.Authoring.Systems
                     return refs;
                 }),
 
-            // (Item, SpawnRoomBlueprintId) → Room
-            new EdgeDeclaration(
-                ContentKind.Item,
-                ContentKind.Room,
-                t => t is ItemTemplate i && !string.IsNullOrEmpty(i.SpawnRoomBlueprintId)
-                    ? new[] { ("SpawnRoomBlueprintId", i.SpawnRoomBlueprintId) }
-                    : Array.Empty<(string, string)>()),
-
-            // (Mob, SpawnRoomBlueprintId) → Room
-            new EdgeDeclaration(
-                ContentKind.Mob,
-                ContentKind.Room,
-                t => t is MobTemplate m && !string.IsNullOrEmpty(m.SpawnRoomBlueprintId)
-                    ? new[] { ("SpawnRoomBlueprintId", m.SpawnRoomBlueprintId) }
-                    : Array.Empty<(string, string)>()),
-
             // (Area, Rooms[]) → Room  — one tuple per room blueprint id in the area's Rooms list
             new EdgeDeclaration(
                 ContentKind.Area,
@@ -137,7 +121,9 @@ namespace Hedron.Core.Modules.Authoring.Systems
                 }),
 
             // (Room, SpawnRules[].BlueprintId) → Mob or Item — two-kind target, resolves against
-            // either kind since a SpawnRule id carries no kind discriminator.
+            // either kind since a SpawnRule's blueprint id carries no kind discriminator. The field
+            // label is keyed by the rule's identity (its Id), not its blueprint.  Room spawn rules
+            // are the single spawn truth, so this is the only mob/item placement edge.
             new EdgeDeclaration(
                 ContentKind.Room,
                 new[] { ContentKind.Mob, ContentKind.Item },
@@ -150,7 +136,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
                     foreach (SpawnRule rule in r.SpawnRules)
                     {
                         if (!string.IsNullOrEmpty(rule.BlueprintId))
-                            refs.Add(($"SpawnRules[{rule.BlueprintId}]", rule.BlueprintId));
+                            refs.Add(($"SpawnRules[{rule.Id}]", rule.BlueprintId));
                     }
                     return refs;
                 }),

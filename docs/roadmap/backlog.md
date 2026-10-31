@@ -44,6 +44,8 @@ The one open decision left from the retired thread-safety review (the rest becam
 
 Decide before any feature that adds a *new* concurrent writer to world state (mob AI on its own scheduler, live web editing, instanced-content workers); until then INV-31's "don't widen the exposure" clause holds the line. Marshal is the architecturally cleaner endpoint; guard is the cheaper patch.
 
+**Known instance — reload teardown vs heartbeat respawn** (pre-existing; recorded by spawn-authoring). `reload` runs `DestroyWorldContent` on a session thread while the heartbeat can fire `SpawnSystem.TryRespawn` against the old tracker before `WorldContentReadyEvent` rebuilds it. Mostly closed in-slice: inside the tracker lock a due slot whose room has lost its `RoomComponent` is skipped. What remains — a tick interleaved *between* individual `DestroyEntity` calls (room alive, its mobs already gone) — needs this decision. See [Flow 5](../architecture/flows/flow-05-content-reload.md).
+
 ## Phase 3+ ideas (not yet a slice)
 
 ### 🔵 Crafting & potions (punted out of the MVP, 2026-07-17)
@@ -73,6 +75,14 @@ Not a Phase 5 blocker (the authoring workflow tolerates a restart), but it is th
 ### 🔵 Broadcast channel mode (global / newbie chat)
 
 Acknowledged debt from Phase 3 slice 4 ([`../implementation-plans/output-framework.md`](../features/output/output.md)). Slice 4's broadcast expansion ships room-scope-with-audience-filter and system-wide `SendToAllAsync`, but **channel mode** (global/newbie chat membership) is deferred: it requires per-entity channel-membership state that no slice has introduced yet. Lands with whichever later slice introduces channel membership (likely alongside or after account / character creation, slice 5). The `IBroadcastSystem` interface shaped in slice 4 should accommodate a `SendToChannelAsync` addition without breaking the room/system modes.
+
+### 🔵 Command sub-action schema support: promote at the 3rd sub-action verb (trigger recorded by spawn-authoring)
+
+`spawnrule` is the engine's first verb whose argument *arity and types* depend on a sub-action (`add <blueprintId> [count] [delaySeconds] [id]` / `set <ruleId> <field> <value>` / `remove <ruleId>`). The parser has no sub-action schema support, so it declares an optional `SpawnRuleAction` enum token plus four optional string tokens and hand-rolls per-action arity/type checks. Slice 1's `startroom [here]` is a candidate second (a single literal sub-action). **Trigger:** at the **third** verb of this shape, promote sub-action schemas (per-action argument lists, usage lines, help) into the command framework (`CommandArgumentSchema` / `CommandArgumentParser`) and migrate the hand-rolled verbs onto it.
+
+### 🔵 Seed shop tills on non-boot spawn (acknowledged debt from spawn-authoring)
+
+`ShopkeeperSpawnHandler` seeds the till only on `WorldContentReadyEvent`, so a shopkeeper spawned by `SpawnSystem` outside it starts with an empty till (base stock self-heals via `ShopRestockTickHandler`/`PlanRestock`). That covers a heartbeat respawn of a killed, targetable shopkeeper, and `SyncRoom` via `spawnrule add` or a count increase on a shop mob's rule. Heartbeat path unreachable while shopkeepers are `untargetable` (Phase 5 hub, R3); admin path reachable, and `reload` restores the till. Needs a spawn-completion seam: `SpawnSystem` returns spawned ids but may not publish (INV-5), so either an Initiator-side notification (`spawnrule`/`mk*` can call `IShopSystem.SeedTill` on returned ids) or a heartbeat-side seeding path. Surfaced by spawn-authoring (Phase 5 slice 2).
 
 ### 🔵 Command-arg log redaction (acknowledged debt from slice 3)
 

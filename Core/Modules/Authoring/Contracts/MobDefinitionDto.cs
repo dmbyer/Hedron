@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Economy;
 
@@ -34,7 +35,13 @@ namespace Hedron.Core.Modules.Authoring.Contracts
     /// Renaming a property here is a breaking contract change and is caught by the OpenAPI drift
     /// gate. Renaming a property on <c>MobTemplate</c> is caught earlier, by the compiler, at the
     /// mapper.
+    /// <para>
+    /// <b>Strict shape.</b> Unmapped members are disallowed on this DTO, so a body carrying an unknown
+    /// or removed member (e.g. the pre-spawn-authoring <c>spawnRoomBlueprintId</c> — placement now
+    /// lives only in room spawn rules) is rejected with 400 rather than silently dropped.
+    /// </para>
     /// </remarks>
+    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     public sealed class MobDefinitionDto
     {
         /// <summary>
@@ -47,9 +54,6 @@ namespace Hedron.Core.Modules.Authoring.Contracts
         public string Description { get; set; } = string.Empty;
         public List<string> Keywords { get; set; } = new();
         public MobType MobType { get; set; } = MobType.None;
-
-        /// <summary>Blueprint id of the room this mob spawns in; empty means no spawn location.</summary>
-        public string SpawnRoomBlueprintId { get; set; } = string.Empty;
 
         public int Level { get; set; }
         public int MaxHp { get; set; }

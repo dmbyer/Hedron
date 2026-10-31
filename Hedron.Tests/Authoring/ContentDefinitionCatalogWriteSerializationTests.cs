@@ -1,3 +1,4 @@
+using Hedron.Core.ECS.Components;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -150,6 +151,11 @@ namespace Hedron.Tests.Authoring
             var rename = await WithinTimeout(catalog.RenameAsync(ContentKind.Room, "room.b", "room.c"), "RenameAsync");
             Assert.True(rename.Success);
             Assert.Equal("room.c", catalog.Load().Manifest.StartingRoomId);
+
+            Assert.True((await WithinTimeout(
+                catalog.UpsertSpawnRuleAsync("room.a", new SpawnRule("", "mob.rat", 1, 60)), "UpsertSpawnRuleAsync")).Success);
+            Assert.True((await WithinTimeout(
+                catalog.RemoveSpawnRuleAsync("room.a", "mob.rat"), "RemoveSpawnRuleAsync")).Success);
 
             await WithinTimeout(catalog.DeleteAsync(ContentKind.Room, "room.c"), "DeleteAsync");
             Assert.Null(catalog.Load(ContentKind.Room, "room.c"));

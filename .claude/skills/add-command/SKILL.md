@@ -102,7 +102,7 @@ Admin commands declare `MatchingMode.Full` so they are never accidentally dispat
 Two persistence domains exist; which one the command touches determines what it does for durability:
 
 **World content commands (`dig`, `mkitem`, `mkmob`, `set`, `setitem`, `setmob`).**
-World entities carry **no** `PersistentEntity` — they are never in the SQLite flush pool. Their sole durable form is the YAML file. A world-content command calls the domain system (which mutates the live entity) and writes the YAML template; it never calls `SaveEntityAsync`.
+World entities carry **no** `PersistentEntity` — they are never in the SQLite flush pool. Their sole durable form is the YAML file. A world-content command calls the domain system (which mutates the template plus every live world instance — never a `PersistentEntity`) and writes the YAML template; it never calls `SaveEntityAsync`.
 
 ```csharp
 // ✅ admin room creation — YAML is the only durable form, no SaveEntityAsync
@@ -154,7 +154,9 @@ When the command creates or mutates a **blueprint** — a template that seeds li
 Write the YAML file immediately via the appropriate content writer. Without this the blueprint definition evaporates on restart.
 
 **2. Keep template and live entity in sync on mutation.**
-A `set*` command that changes a property must update both the live entity (via the domain system) and the YAML file on disk. Player-owned instances are independent — they were promoted to persistent when picked up and are NOT retroactively updated.
+A `set*` command that changes a property must update **the template plus every live world instance (never `PersistentEntity`)** — via a blueprint-keyed domain-system setter that returns the instance count — and the YAML file on disk. Player-owned instances are independent — they were promoted to persistent when picked up and are NOT retroactively updated.
+
+**Spawn-rule mutations.** A command that adds/changes/removes a room spawn rule (`spawnrule`, and the count-1 rule `mkmob`/`mkitem` author) goes builder → template + live `SpawnConfigComponent` + `ISpawnSystem.SyncRoom` (all inside `IRoomBuilderSystem`); the command only writes the room YAML and publishes `SpawnRuleAuthoredByAdminEvent`. No hand-rolled triple in the command.
 
 **Non-entity world definitions follow the same two-sided rule.** When a command mutates a world-level definition that seeds no entity (precedent: `startroom here` and `world.yaml`), write the definition file, then re-resolve the live derived state through the owning system (e.g. `IWorldContentLoader.ResolveStartingRoom()`); no `SaveEntityAsync`, since no persistent entity changed.
 
@@ -162,11 +164,16 @@ A `set*` command that changes a property must update both the live entity (via t
 When a player picks up a world-spawn item, `ItemContextHandler` promotes the item entity to persistent by adding `PersistentEntity`. `BlueprintComponent` stays on the entity as an origin record. Spawn-slot vacancy is tracked by `SpawnSystem` via `ItemPickedUpEvent`, not by inspecting `BlueprintComponent` on live entities. Do not remove `BlueprintComponent` from item entities.
 
 ```csharp
-// ✅ blueprint-authoring command: write YAML, no SaveEntityAsync
-var result = _itemBuilder.CreateItem(name, roomEntityId);
-await _itemContentWriter.WriteAsync(result.Template, ct); // write to data/content/items/
+// ✅ blueprint-authoring command (mkitem): validate the room FIRST, then template → rule → YAML → events
+if (!_roomBuilder.TryGetAuthorableRoom(roomId, out _)) { /* error; nothing created */ return; }
+var result = _itemBuilder.CreateItem(name);                       // registers the template only
+await _itemContentWriter.WriteAsync(result.Template, ct);         // data/content/items/
+var rule = _roomBuilder.AddSpawnRule(roomId, result.BlueprintId, 1,
+    SpawnRuleLimits.DefaultRespawnDelaySeconds);                  // template + live component + SyncRoom (spawns it)
+await _roomContentWriter.WriteAsync(roomTemplate, ct);            // data/content/rooms/
 // no SaveEntityAsync — world content is never persistent
-await _eventBus.PublishAsync(new ItemCreatedByAdminEvent(...));
+await _eventBus.PublishAsync(new ItemCreatedByAdminEvent(..., rule.Sync.SpawnedEntityIds[0], ...));
+await _eventBus.PublishAsync(new SpawnRuleAuthoredByAdminEvent(...));
 ```
 
 ## Non-ICommand dispatcher-internal services (Phase 3 pattern)

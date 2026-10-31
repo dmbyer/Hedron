@@ -22,6 +22,7 @@ namespace Hedron.Core.Modules.Authoring
             // Same singleton under the manifest-authoring interface, so manifest saves share the
             // catalog's write gate with the rename cascade (INV-31).
             services.AddSingleton<IWorldManifestAuthoring>(sp => sp.GetRequiredService<ContentDefinitionCatalog>());
+            services.AddSingleton<ISpawnRuleAuthoring>(sp => sp.GetRequiredService<ContentDefinitionCatalog>());
             services.AddSingleton<IContentGenerationSystem, ContentGenerationSystem>();
             services.AddSingleton<IAreaLayoutSystem, AreaLayoutSystem>();
 

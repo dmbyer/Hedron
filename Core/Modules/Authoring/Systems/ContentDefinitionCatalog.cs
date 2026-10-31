@@ -2,8 +2,10 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Items.Systems;
 using Hedron.Core.Modules.Items.Templates;
 using Hedron.Core.Modules.Mobs.Systems;
@@ -118,7 +120,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
     /// shared instance would leak in-progress edits into the index.
     /// </para>
     /// </remarks>
-    public sealed class ContentDefinitionCatalog : IContentDefinitionCatalog, IWorldManifestAuthoring
+    public sealed class ContentDefinitionCatalog : IContentDefinitionCatalog, IWorldManifestAuthoring, ISpawnRuleAuthoring
     {
         private readonly IContentSerializer _serializer;
         private readonly IContentValidator _validator;
@@ -213,16 +215,17 @@ namespace Hedron.Core.Modules.Authoring.Systems
             if (index.Summaries.TryGetValue(kind, out var cached))
                 return cached;
 
-            // Rooms carry their own AreaId, so the room sweep needs no map — and the map is then
-            // derived from that sweep's result. That ordering is what bounds each kind's directory
-            // to at most one sweep per invalidation (Postcondition 3): without it, listing items
-            // would sweep the room directory a second time to build the map.
-            var roomAreaMap = kind is ContentKind.Item or ContentKind.Mob
-                ? EnsureRoomAreaMap(index)
-                : EmptyRoomAreaMap;
+            // Rooms carry their own AreaId, so the room sweep needs no derived map — and the
+            // rule-site map is then derived from that sweep's result. That ordering is what bounds
+            // each kind's directory to at most one sweep per invalidation (Postcondition 3): without
+            // it, listing items would sweep the room directory a second time to build the map.
+            var derived = kind is ContentKind.Item or ContentKind.Mob
+                ? EnsureRoomDerived(index)
+                : RoomDerived.Empty;
 
-            var built = SweepSummaries(kind, roomAreaMap);
-            PublishSummaries(index, kind, built);
+            var sites = kind == ContentKind.Room ? new List<SpawnSite>() : null;
+            var built = SweepSummaries(kind, derived, sites);
+            PublishSummaries(index, kind, built, sites);
             return built;
         }
 
@@ -290,6 +293,12 @@ namespace Hedron.Core.Modules.Authoring.Systems
 
         public Task<ContentWriteResult> SaveAsync(WorldManifest manifest, CancellationToken ct = default) =>
             UnderWriteGateAsync(() => SaveManifestCoreAsync(manifest, ct), ct);
+
+        public Task<ContentWriteResult> UpsertSpawnRuleAsync(string roomBlueprintId, SpawnRule rule, CancellationToken ct = default) =>
+            UnderWriteGateAsync(() => UpsertSpawnRuleCoreAsync(roomBlueprintId, rule, ct), ct);
+
+        public Task<ContentWriteResult> RemoveSpawnRuleAsync(string roomBlueprintId, string ruleId, CancellationToken ct = default) =>
+            UnderWriteGateAsync(() => RemoveSpawnRuleCoreAsync(roomBlueprintId, ruleId, ct), ct);
 
         public Task<ContentWriteResult> RemoveRoomExitAsync(
             string roomBlueprintId, Direction direction, bool bidirectional, CancellationToken ct = default) =>
@@ -398,6 +407,51 @@ namespace Hedron.Core.Modules.Authoring.Systems
             return warnings.Count > 0
                 ? ContentWriteResult.OkWithWarnings(room.BlueprintId, warnings)
                 : ContentWriteResult.Ok(room.BlueprintId);
+        }
+
+        // ── Spawn-rule authoring (ISpawnRuleAuthoring) ───────────────────────────────
+
+        public IReadOnlyList<SpawnSite> SpawnSitesFor(ContentKind kind, string blueprintId)
+        {
+            if (kind is not (ContentKind.Mob or ContentKind.Item))
+                return Array.Empty<SpawnSite>();
+
+            var derived = EnsureRoomDerived(CurrentIndex());
+            return derived.SitesByBlueprint.TryGetValue(blueprintId, out var sites)
+                ? sites
+                : Array.Empty<SpawnSite>();
+        }
+
+        private async Task<ContentWriteResult> UpsertSpawnRuleCoreAsync(
+            string roomBlueprintId, SpawnRule rule, CancellationToken ct)
+        {
+            if (Load(ContentKind.Room, roomBlueprintId)?.Template is not RoomTemplate room)
+                return ContentWriteResult.Failed(roomBlueprintId, new[] { $"Room '{roomBlueprintId}' not found." });
+
+            if (string.IsNullOrWhiteSpace(rule.Id))
+                rule = rule with { Id = SpawnRuleIds.Mint(room.SpawnRules.ConvertAll(r => r.Id), rule.BlueprintId) };
+
+            var index = room.SpawnRules.FindIndex(r => string.Equals(r.Id, rule.Id, StringComparison.OrdinalIgnoreCase));
+            if (index >= 0)
+                room.SpawnRules[index] = rule;
+            else
+                room.SpawnRules.Add(rule);
+
+            // Validated by SaveRoomCoreAsync (ContentValidator → SpawnRuleValidation); a refusal writes nothing.
+            return await SaveRoomCoreAsync(room, bidirectional: false, ct).ConfigureAwait(false);
+        }
+
+        private async Task<ContentWriteResult> RemoveSpawnRuleCoreAsync(
+            string roomBlueprintId, string ruleId, CancellationToken ct)
+        {
+            if (Load(ContentKind.Room, roomBlueprintId)?.Template is not RoomTemplate room)
+                return ContentWriteResult.Failed(roomBlueprintId, new[] { $"Room '{roomBlueprintId}' not found." });
+
+            var removed = room.SpawnRules.RemoveAll(r => string.Equals(r.Id, ruleId, StringComparison.OrdinalIgnoreCase));
+            if (removed == 0)
+                return ContentWriteResult.Failed(roomBlueprintId, new[] { $"Room '{roomBlueprintId}' has no spawn rule '{ruleId}'." });
+
+            return await SaveRoomCoreAsync(room, bidirectional: false, ct).ConfigureAwait(false);
         }
 
         private async Task<ContentDeleteResult> DeleteCoreAsync(
@@ -664,7 +718,6 @@ namespace Hedron.Core.Modules.Authoring.Systems
                     to.Tier = from.Tier;
                     to.Band = from.Band;
                     to.XpScale = from.XpScale;
-                    to.SpawnRoomBlueprintId = from.SpawnRoomBlueprintId;
                     break;
                 }
 
@@ -747,7 +800,20 @@ namespace Hedron.Core.Modules.Authoring.Systems
 
         // ── Index ────────────────────────────────────────────────────────────────────
 
-        private static readonly Dictionary<string, string> EmptyRoomAreaMap = new(StringComparer.Ordinal);
+        /// <summary>
+        /// Derived from the room sweep: every spawn site keyed by the rule's blueprint id, each list
+        /// ordered by room blueprint id (ordinal). Backs item/mob area attribution (the ordinal-least
+        /// site's area) and <see cref="SpawnSitesFor"/>.
+        /// </summary>
+        private sealed class RoomDerived
+        {
+            public static RoomDerived Empty { get; } = new(new Dictionary<string, IReadOnlyList<SpawnSite>>(StringComparer.Ordinal));
+
+            public RoomDerived(Dictionary<string, IReadOnlyList<SpawnSite>> sitesByBlueprint) =>
+                SitesByBlueprint = sitesByBlueprint;
+
+            public Dictionary<string, IReadOnlyList<SpawnSite>> SitesByBlueprint { get; }
+        }
 
         /// <summary>
         /// One generation of the in-memory index. The reference is swapped under
@@ -766,8 +832,11 @@ namespace Hedron.Core.Modules.Authoring.Systems
             /// <summary>Per-id raw file body; a <c>null</c> value is a cached "no such file".</summary>
             public ConcurrentDictionary<(ContentKind Kind, string BlueprintId), string?> Bodies { get; } = new();
 
-            /// <summary>Derived room → area map. Assigned and read under <see cref="_indexLock"/>.</summary>
-            public Dictionary<string, string>? RoomAreaMap;
+            /// <summary>Spawn sites collected by the room sweep. Assigned and read under <see cref="_indexLock"/>.</summary>
+            public IReadOnlyList<SpawnSite>? RoomSites;
+
+            /// <summary>Derived rule-site map. Assigned and read under <see cref="_indexLock"/>.</summary>
+            public RoomDerived? Derived;
         }
 
         private CatalogIndex CurrentIndex()
@@ -787,12 +856,18 @@ namespace Hedron.Core.Modules.Authoring.Systems
         private bool StillCurrent(CatalogIndex captured) =>
             _index is not null && _index.Generation == captured.Generation;
 
-        private void PublishSummaries(CatalogIndex captured, ContentKind kind, IReadOnlyList<ContentSummary> built)
+        private void PublishSummaries(
+            CatalogIndex captured, ContentKind kind, IReadOnlyList<ContentSummary> built, IReadOnlyList<SpawnSite>? roomSites)
         {
             lock (_indexLock)
             {
-                if (StillCurrent(captured))
-                    captured.Summaries[kind] = built;
+                if (!StillCurrent(captured))
+                    return;
+                // Room sites are published with the room summaries, so a reader that sees the room
+                // summaries cached also sees the sites from the same sweep.
+                if (roomSites is not null)
+                    captured.RoomSites = roomSites;
+                captured.Summaries[kind] = built;
             }
         }
 
@@ -806,33 +881,48 @@ namespace Hedron.Core.Modules.Authoring.Systems
         }
 
         /// <summary>
-        /// The room blueprintId → AreaId map backing item/mob two-hop area resolution, derived from
-        /// the (cached) room summaries rather than a second sweep of the room directory.
+        /// The rule-site map backing item/mob area attribution and <see cref="SpawnSitesFor"/>,
+        /// derived from the (cached) room sweep's spawn sites rather than a second sweep of the room
+        /// directory.
         /// </summary>
-        private Dictionary<string, string> EnsureRoomAreaMap(CatalogIndex index)
+        private RoomDerived EnsureRoomDerived(CatalogIndex index)
         {
             lock (_indexLock)
             {
-                // No StillCurrent check here, deliberately: the caller (List) already holds this
-                // same snapshot, so a map read from it is exactly as current as the sweep it feeds,
-                // and that sweep's own publish is generation-guarded. Nothing stale can be cached.
-                if (index.RoomAreaMap is { } existing)
+                // No StillCurrent check here, deliberately: the caller already holds this same
+                // snapshot, so a map read from it is exactly as current as the sweep it feeds, and
+                // that sweep's own publish is generation-guarded. Nothing stale can be cached.
+                if (index.Derived is { } existing)
                     return existing;
             }
 
-            var map = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var room in List(ContentKind.Room))
+            List(ContentKind.Room);
+            IReadOnlyList<SpawnSite>? sites;
+            lock (_indexLock)
+                sites = index.RoomSites;
+            if (sites is null)
             {
-                if (!string.IsNullOrEmpty(room.AreaBlueprintId))
-                    map[room.BlueprintId] = room.AreaBlueprintId!;
+                // The room sweep's publish lost a generation race; sweep again for this snapshot.
+                var fresh = new List<SpawnSite>();
+                SweepSummaries(ContentKind.Room, RoomDerived.Empty, fresh);
+                sites = fresh;
             }
+
+            var byBlueprint = new Dictionary<string, IReadOnlyList<SpawnSite>>(StringComparer.Ordinal);
+            foreach (var group in sites
+                .OrderBy(site => site.RoomBlueprintId, StringComparer.Ordinal)
+                .GroupBy(site => site.Rule.BlueprintId, StringComparer.Ordinal))
+            {
+                byBlueprint[group.Key] = group.ToList();
+            }
+            var derived = new RoomDerived(byBlueprint);
 
             lock (_indexLock)
             {
                 if (StillCurrent(index))
-                    index.RoomAreaMap = map;
+                    index.Derived = derived;
             }
-            return map;
+            return derived;
         }
 
         /// <summary>
@@ -841,7 +931,8 @@ namespace Hedron.Core.Modules.Authoring.Systems
         /// </summary>
         private IReadOnlyList<ContentSummary> SweepSummaries(
             ContentKind kind,
-            Dictionary<string, string> roomAreaMap)
+            RoomDerived derived,
+            List<SpawnSite>? roomSites)
         {
             var directory = Path.Combine(_contentDirectory, kind.Subdirectory());
             if (!_fileReader.DirectoryExists(directory))
@@ -855,8 +946,13 @@ namespace Hedron.Core.Modules.Authoring.Systems
                     var body = _fileReader.ReadAllText(file);
                     var template = _serializer.Deserialize(kind.KindString(), body);
                     var (name, description) = ExtractNameAndDescription(template);
-                    var areaBlueprintId = ResolveAreaBlueprintId(template, roomAreaMap);
+                    var areaBlueprintId = ResolveAreaBlueprintId(template, derived);
                     summaries.Add(new ContentSummary(template.BlueprintId, name, description, areaBlueprintId));
+                    if (roomSites is not null && template is RoomTemplate room)
+                    {
+                        foreach (var rule in room.SpawnRules)
+                            roomSites.Add(new SpawnSite(room.BlueprintId, areaBlueprintId, rule));
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -974,22 +1070,6 @@ namespace Hedron.Core.Modules.Authoring.Systems
                         return true;
                     }
 
-                    case ContentKind.Item:
-                    {
-                        var item = (ItemTemplate)def.Template;
-                        item.SpawnRoomBlueprintId = newId ?? string.Empty;
-                        await WriteTemplateAsync(item, ct).ConfigureAwait(false);
-                        return true;
-                    }
-
-                    case ContentKind.Mob:
-                    {
-                        var mob = (MobTemplate)def.Template;
-                        mob.SpawnRoomBlueprintId = newId ?? string.Empty;
-                        await WriteTemplateAsync(mob, ct).ConfigureAwait(false);
-                        return true;
-                    }
-
                     case ContentKind.Area:
                     {
                         var area = (AreaTemplate)def.Template;
@@ -1082,7 +1162,6 @@ namespace Hedron.Core.Modules.Authoring.Systems
                         Keywords = new(i.Keywords),
                         ItemType = i.ItemType,
                         WornSlots = new(i.WornSlots),
-                        SpawnRoomBlueprintId = i.SpawnRoomBlueprintId,
                         StatBonuses = new(i.StatBonuses),
                         Value = i.Value,
                         Tier = i.Tier,
@@ -1099,7 +1178,6 @@ namespace Hedron.Core.Modules.Authoring.Systems
                         Description = m.Description,
                         Keywords = new(m.Keywords),
                         MobType = m.MobType,
-                        SpawnRoomBlueprintId = m.SpawnRoomBlueprintId,
                         Level = m.Level,
                         MaxHp = m.MaxHp,
                         Mind = m.Mind,
@@ -1161,34 +1239,22 @@ namespace Hedron.Core.Modules.Authoring.Systems
         }
 
         /// <summary>
-        /// Resolves the area blueprint id for a template using the pre-built room→area map.
+        /// Resolves the area blueprint id for a template.
         /// <list type="bullet">
-        ///   <item><see cref="RoomTemplate"/> — one hop: its own <c>AreaId</c> (null if blank).</item>
-        ///   <item><see cref="ItemTemplate"/> / <see cref="MobTemplate"/> — two hops:
-        ///     <c>SpawnRoomBlueprintId</c> → map lookup → <c>AreaId</c>.</item>
+        ///   <item><see cref="RoomTemplate"/> — its own <c>AreaId</c> (null if blank).</item>
+        ///   <item><see cref="ItemTemplate"/> / <see cref="MobTemplate"/> — the area of the
+        ///     <b>ordinal-least</b> room whose spawn rule names it (null when no rule does).</item>
         ///   <item>All other templates (e.g. <see cref="AreaTemplate"/>) — returns <c>null</c>.</item>
         /// </list>
         /// Blank, missing, or dangling references yield <c>null</c> and never throw.
         /// </summary>
-        private static string? ResolveAreaBlueprintId(
-            IEntityTemplate template,
-            Dictionary<string, string> roomAreaMap) => template switch
+        private static string? ResolveAreaBlueprintId(IEntityTemplate template, RoomDerived derived) => template switch
         {
-            RoomTemplate r =>
-                string.IsNullOrEmpty(r.AreaId) ? null : r.AreaId,
-
-            ItemTemplate i =>
-                !string.IsNullOrEmpty(i.SpawnRoomBlueprintId)
-                    && roomAreaMap.TryGetValue(i.SpawnRoomBlueprintId, out var iArea)
-                ? iArea
-                : null,
-
-            MobTemplate m =>
-                !string.IsNullOrEmpty(m.SpawnRoomBlueprintId)
-                    && roomAreaMap.TryGetValue(m.SpawnRoomBlueprintId, out var mArea)
-                ? mArea
-                : null,
-
+            RoomTemplate r => string.IsNullOrEmpty(r.AreaId) ? null : r.AreaId,
+            ItemTemplate or MobTemplate =>
+                derived.SitesByBlueprint.TryGetValue(template.BlueprintId, out var sites) && sites.Count > 0
+                    ? sites[0].AreaBlueprintId
+                    : null,
             _ => null,
         };
 

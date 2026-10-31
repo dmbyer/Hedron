@@ -11,8 +11,9 @@ namespace Hedron.Core.Modules.Authoring
     /// <param name="Description">Full description text (truncation is the caller's concern).</param>
     /// <param name="AreaBlueprintId">
     /// The area this definition belongs to, or <c>null</c> when unknown or not applicable.
-    /// Rooms carry their own <c>AreaId</c> directly; items and mobs resolve through
-    /// <c>SpawnRoomBlueprintId</c> → that room's <c>AreaId</c> (two-hop). Areas always yield
+    /// Rooms carry their own <c>AreaId</c> directly; items and mobs resolve through the
+    /// <b>ordinal-least</b> room whose spawn rule references them → that room's <c>AreaId</c>
+    /// (<c>null</c> when no rule references them). Areas always yield
     /// <c>null</c> (they have no parent area). Missing, blank, or dangling references also yield
     /// <c>null</c>.
     /// </param>

@@ -14,12 +14,11 @@ namespace Hedron.Core.Modules.Authoring.Systems
     /// <list type="bullet">
     ///   <item><c>(Room, AreaId) → Area</c></item>
     ///   <item><c>(Room, Exits[dir]) → Room</c></item>
-    ///   <item><c>(Item, SpawnRoomBlueprintId) → Room</c></item>
-    ///   <item><c>(Mob, SpawnRoomBlueprintId) → Room</c></item>
     ///   <item><c>(Area, Rooms[]) → Room</c></item>
     ///   <item><c>(Room, SpawnRules[].BlueprintId) → Mob or Item</c> — two-kind target; resolves
     ///   against either kind (an id present as a mob file <em>or</em> an item file counts as
-    ///   resolved; broken only when it matches neither).</item>
+    ///   resolved; broken only when it matches neither). Field label <c>SpawnRules[&lt;rule id&gt;]</c>.
+    ///   Room spawn rules are the only mob/item placement, so there is no mob/item → room edge.</item>
     /// </list>
     /// Adding a new edge requires only a new <see cref="ReferenceEdge"/> declaration — no
     /// additional code paths needed (INV-19).

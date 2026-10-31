@@ -6,8 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
-using Hedron.Core.Modules.Items.Templates;
-using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging;
@@ -16,11 +14,19 @@ using Microsoft.Extensions.Options;
 namespace Hedron.Core.Modules.World.Systems
 {
     /// <summary>
-    /// Default <see cref="IWorldContentLoader"/>. Reads area and room YAML files from the
-    /// configured content directory, registers templates, and seeds entities into the world.
-    /// All world content (rooms, areas, mobs, items) is always fresh-spawned from YAML on
-    /// startup — no SQLite rows exist for world content.
+    /// Default <see cref="IWorldContentLoader"/>. Reads area, room, item and mob YAML files from
+    /// the configured content directory, registers templates, and spawns the <b>areas and rooms</b>.
+    /// Mobs and found items are never placed here: room spawn rules are the single spawn truth, and
+    /// <c>SpawnSystem</c> fills every slot on <c>WorldContentReadyEvent</c>. No SQLite rows exist
+    /// for world content.
     /// </summary>
+    /// <remarks>
+    /// <b>Staged, fail-fast read.</b> Every content file is deserialized into a staging list before
+    /// anything is registered or torn down. A <see cref="ContentShapeException"/> from any file is
+    /// collected; if any were collected, <see cref="ContentLoadException"/> is thrown listing every
+    /// offending file, so boot aborts and <c>reload</c> refuses as a whole with the live world
+    /// untouched. Other per-file failures (e.g. malformed YAML) keep the log-and-skip posture.
+    /// </remarks>
     public sealed class WorldContentLoader : IWorldContentLoader
     {
         private const string AreasSubdirectory = "areas";
@@ -62,7 +68,8 @@ namespace Hedron.Core.Modules.World.Systems
 
         public async Task LoadAndSpawnAsync(CancellationToken ct = default)
         {
-            await LoadTemplatesAsync(ct).ConfigureAwait(false);
+            var staged = await ReadCorpusAsync(ct).ConfigureAwait(false);
+            RegisterStaged(staged);
 
             if (_templateRegistry.AllBlueprintIds().Count == 0)
             {
@@ -95,24 +102,32 @@ namespace Hedron.Core.Modules.World.Systems
         /// fresh <c>RoomEntityId</c> (resetting to the starting room if their room was removed from
         /// YAML). This makes <c>reload</c> reset runtime instance state — picked-up world items
         /// respawn, depleted shop stock refills — exactly like a restart, without dropping players.
+        /// <para>
+        /// Whole-or-nothing: the corpus is read and deserialized into a staging set <b>before</b>
+        /// teardown. On a shape error <see cref="ContentLoadException"/> is thrown and the live
+        /// world, the registry and the spawn tracker are left unchanged.
+        /// </para>
         /// </summary>
         public async Task<ContentReloadResult> ReloadAsync(CancellationToken ct = default)
         {
+            // 1. Stage and validate the whole corpus; throws before anything is touched.
+            var staged = await ReadCorpusAsync(ct).ConfigureAwait(false);
+
             var previousIds = new HashSet<string>(_templateRegistry.AllBlueprintIds(), StringComparer.OrdinalIgnoreCase);
 
-            // 1. Tear down the current world instance (persistent entities survive).
+            // 2. Tear down the current world instance (persistent entities survive).
             DestroyWorldContent();
 
-            // 2. Re-read templates from YAML.
+            // 3. Swap in the staged templates.
             _templateRegistry.Clear();
-            await LoadTemplatesAsync(ct).ConfigureAwait(false);
+            RegisterStaged(staged);
 
             var currentIds = new HashSet<string>(_templateRegistry.AllBlueprintIds(), StringComparer.OrdinalIgnoreCase);
             var loaded = currentIds.Except(previousIds, StringComparer.OrdinalIgnoreCase).Count();
             var unchanged = currentIds.Intersect(previousIds, StringComparer.OrdinalIgnoreCase).Count();
             var removed = previousIds.Except(currentIds, StringComparer.OrdinalIgnoreCase).Count();
 
-            // 3. Re-spawn the world fresh from templates.
+            // 4. Re-spawn the world fresh from templates.
             if (_templateRegistry.AllBlueprintIds().Count == 0)
             {
                 SeedVoidRoom();
@@ -132,22 +147,36 @@ namespace Hedron.Core.Modules.World.Systems
 
         // ── Private helpers ───────────────────────────────────────────────────
 
-        private async Task LoadTemplatesAsync(CancellationToken ct)
+        /// <summary>
+        /// Deserializes every content file into a staging list without registering anything.
+        /// Shape errors are collected (each prefixed <c>&lt;kind&gt;/&lt;file&gt;: </c>) and thrown
+        /// together as <see cref="ContentLoadException"/>; other failures are logged and skipped.
+        /// </summary>
+        private async Task<List<IEntityTemplate>> ReadCorpusAsync(CancellationToken ct)
         {
+            var staged = new List<IEntityTemplate>();
+            var shapeErrors = new List<string>();
+
             if (!Directory.Exists(_contentDirectory))
             {
                 _logger.LogWarning(
                     "WorldContentLoader: content directory '{Dir}' does not exist.", _contentDirectory);
-                return;
+                return staged;
             }
 
-            await LoadKindAsync("area", AreasSubdirectory, ct).ConfigureAwait(false);
-            await LoadKindAsync("room", RoomsSubdirectory, ct).ConfigureAwait(false);
-            await LoadKindAsync("item", ItemsSubdirectory, ct).ConfigureAwait(false);
-            await LoadKindAsync("mob", MobsSubdirectory, ct).ConfigureAwait(false);
+            await ReadKindAsync("area", AreasSubdirectory, staged, shapeErrors, ct).ConfigureAwait(false);
+            await ReadKindAsync("room", RoomsSubdirectory, staged, shapeErrors, ct).ConfigureAwait(false);
+            await ReadKindAsync("item", ItemsSubdirectory, staged, shapeErrors, ct).ConfigureAwait(false);
+            await ReadKindAsync("mob", MobsSubdirectory, staged, shapeErrors, ct).ConfigureAwait(false);
+
+            if (shapeErrors.Count > 0)
+                throw new ContentLoadException(shapeErrors);
+
+            return staged;
         }
 
-        private async Task LoadKindAsync(string kind, string subdirectory, CancellationToken ct)
+        private async Task ReadKindAsync(
+            string kind, string subdirectory, List<IEntityTemplate> staged, List<string> shapeErrors, CancellationToken ct)
         {
             var directory = Path.Combine(_contentDirectory, subdirectory);
             if (!Directory.Exists(directory))
@@ -160,16 +189,25 @@ namespace Hedron.Core.Modules.World.Systems
                 try
                 {
                     var body = await File.ReadAllTextAsync(file, ct).ConfigureAwait(false);
-                    var template = _serializer.Deserialize(kind, body);
-                    _templateRegistry.Register(template.BlueprintId, template);
+                    staged.Add(_serializer.Deserialize(kind, body));
                 }
-                catch (Exception ex)
+                catch (ContentShapeException ex)
+                {
+                    shapeErrors.Add($"{subdirectory}/{Path.GetFileName(file)}: {ex.Message}");
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     _logger.LogError(ex,
                         "WorldContentLoader: failed to load {Kind} file '{File}'; skipping.",
                         kind, file);
                 }
             }
+        }
+
+        private void RegisterStaged(List<IEntityTemplate> staged)
+        {
+            foreach (var template in staged)
+                _templateRegistry.Register(template.BlueprintId, template);
         }
 
         private void SeedVoidRoom()
@@ -184,22 +222,22 @@ namespace Hedron.Core.Modules.World.Systems
         }
 
         /// <summary>
-        /// Spawns a live entity for every registered blueprint that has no current live entity.
-        /// Returns the set of newly-spawned entity IDs so placement helpers can avoid
-        /// overwriting existing location data on <c>ReloadAsync</c>.
+        /// Spawns a live entity for every registered <b>room and area</b> blueprint that has no
+        /// current live entity. Mob and item templates are never spawned here — room spawn rules
+        /// place them via <c>SpawnSystem</c>.
         /// </summary>
-        private HashSet<uint> SpawnMissingEntities(Dictionary<string, uint> liveBlueprints)
+        private void SpawnMissingEntities(Dictionary<string, uint> liveBlueprints)
         {
-            var newlySpawned = new HashSet<uint>();
             foreach (var blueprintId in _templateRegistry.AllBlueprintIds())
             {
                 if (liveBlueprints.ContainsKey(blueprintId))
                     continue;
+                if (!_templateRegistry.TryGet(blueprintId, out var template) ||
+                    template is not (RoomTemplate or AreaTemplate))
+                    continue;
                 var spawned = _templateRegistry.Spawn(blueprintId);
                 liveBlueprints[blueprintId] = spawned.Id;
-                newlySpawned.Add(spawned.Id);
             }
-            return newlySpawned;
         }
 
         private void LinkRoomExits(Dictionary<string, uint> liveBlueprints)
@@ -227,89 +265,6 @@ namespace Hedron.Core.Modules.World.Systems
                     }
                     room.Exits[direction] = targetEntityId;
                 }
-            }
-        }
-
-        /// <summary>
-        /// Attaches initial <see cref="LocationComponent"/> (both entity ID and blueprint ID) to
-        /// item entities that were just spawned in this pass. Restored-from-persistence entities
-        /// and entities already carrying a <c>LocationComponent</c> are skipped.
-        /// </summary>
-        private void PlaceItemsInRooms(Dictionary<string, uint> liveBlueprints, HashSet<uint> newlySpawned)
-        {
-            foreach (var blueprintId in _templateRegistry.AllBlueprintIds())
-            {
-                if (!_templateRegistry.TryGet(blueprintId, out var template) ||
-                    template is not ItemTemplate itemTemplate)
-                    continue;
-
-                if (!liveBlueprints.TryGetValue(blueprintId, out var entityId))
-                    continue;
-
-                if (!newlySpawned.Contains(entityId))
-                    continue;
-
-                if (string.IsNullOrEmpty(itemTemplate.SpawnRoomBlueprintId))
-                    continue;
-
-                if (!liveBlueprints.TryGetValue(itemTemplate.SpawnRoomBlueprintId, out var roomEntityId))
-                {
-                    _logger.LogWarning(
-                        "WorldContentLoader: item '{Blueprint}' references unknown spawnRoomId '{RoomBlueprint}' — item created without location.",
-                        blueprintId, itemTemplate.SpawnRoomBlueprintId);
-                    continue;
-                }
-
-                _entityService.AddComponent(entityId, new LocationComponent
-                {
-                    RoomEntityId = roomEntityId,
-                    RoomBlueprintId = itemTemplate.SpawnRoomBlueprintId,
-                });
-            }
-        }
-
-        private void PlaceMobsInRooms(Dictionary<string, uint> liveBlueprints, HashSet<uint> newlySpawned)
-        {
-            foreach (var blueprintId in _templateRegistry.AllBlueprintIds())
-            {
-                if (!_templateRegistry.TryGet(blueprintId, out var template) ||
-                    template is not MobTemplate mobTemplate)
-                    continue;
-
-                if (!liveBlueprints.TryGetValue(blueprintId, out var entityId))
-                    continue;
-
-                if (!newlySpawned.Contains(entityId))
-                {
-                    if (!string.IsNullOrEmpty(mobTemplate.SpawnRoomBlueprintId) &&
-                        liveBlueprints.TryGetValue(mobTemplate.SpawnRoomBlueprintId, out var expectedRoom) &&
-                        _entityService.TryGet<LocationComponent>(entityId, out var existingLoc) &&
-                        existingLoc.RoomEntityId != expectedRoom)
-                    {
-                        _logger.LogWarning(
-                            "WorldContentLoader: mob '{Blueprint}' spawnRoomBlueprintId changed in YAML " +
-                            "but the live entity is already placed — restart required to apply the new spawn room.",
-                            blueprintId);
-                    }
-                    continue;
-                }
-
-                if (string.IsNullOrEmpty(mobTemplate.SpawnRoomBlueprintId))
-                    continue;
-
-                if (!liveBlueprints.TryGetValue(mobTemplate.SpawnRoomBlueprintId, out var roomEntityId))
-                {
-                    _logger.LogWarning(
-                        "WorldContentLoader: mob '{Blueprint}' references unknown spawnRoomBlueprintId '{RoomBlueprint}' — mob created without location.",
-                        blueprintId, mobTemplate.SpawnRoomBlueprintId);
-                    continue;
-                }
-
-                _entityService.AddComponent(entityId, new LocationComponent
-                {
-                    RoomEntityId = roomEntityId,
-                    RoomBlueprintId = mobTemplate.SpawnRoomBlueprintId,
-                });
             }
         }
 
@@ -361,18 +316,16 @@ namespace Hedron.Core.Modules.World.Systems
         }
 
         /// <summary>
-        /// Spawns a live entity for every registered template that has no live world counterpart,
-        /// then links exits, places items/mobs in their rooms, and links rooms to areas. Shared by
-        /// the startup load (<see cref="LoadAndSpawnAsync"/>) and the <see cref="ReloadAsync"/>
-        /// rebuild so both follow an identical spawn/place/link path.
+        /// Spawns every area and room template that has no live world counterpart, then links
+        /// exits and links rooms to areas. Shared by the startup load (<see cref="LoadAndSpawnAsync"/>)
+        /// and the <see cref="ReloadAsync"/> rebuild so both follow an identical spawn/link path.
+        /// Mobs and found items are placed afterwards by <c>SpawnSystem</c>'s boot fill.
         /// </summary>
         private void SpawnAndPlaceWorld()
         {
             var liveBlueprints = BuildLiveBlueprintMap();
-            var newlySpawned = SpawnMissingEntities(liveBlueprints);
+            SpawnMissingEntities(liveBlueprints);
             LinkRoomExits(liveBlueprints);
-            PlaceItemsInRooms(liveBlueprints, newlySpawned);
-            PlaceMobsInRooms(liveBlueprints, newlySpawned);
             LinkRoomAreas(liveBlueprints);
         }
 
@@ -421,9 +374,7 @@ namespace Hedron.Core.Modules.World.Systems
         /// <see cref="PersistentEntity"/> are excluded: a persisted entity sharing a blueprint id is a
         /// player-owned <i>instance</i> (it kept its <see cref="BlueprintComponent"/> as an origin
         /// record on pickup, INV-21) — not the authored world entity. Excluding them keeps world-content
-        /// spawning/placement (the only consumers of this map) independent of player state, so authored
-        /// content always re-spawns from YAML and is placed even when a player owns a copy of the same
-        /// blueprint (e.g. a picked-up authored item, or gear stored in a player container). World
+        /// spawning/linking (the only consumers of this map) independent of player state. World
         /// content never opts into persistence (INV-23), so a world entity is never excluded here.
         /// </summary>
         private Dictionary<string, uint> BuildLiveBlueprintMap()

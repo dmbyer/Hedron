@@ -166,7 +166,6 @@ namespace Hedron.Tests.Authoring
                 new(ScoreId.AttackPower, 7),
                 new(ScoreId.Defense, 2),
             };
-            item.SpawnRoomBlueprintId = "room.adhoc.abc";
 
             var result = await catalog.SaveAsync(def);
             Assert.True(result.Success);
@@ -181,7 +180,6 @@ namespace Hedron.Tests.Authoring
             Assert.Equal(
                 new[] { new EquipmentStatBonus(ScoreId.AttackPower, 7), new EquipmentStatBonus(ScoreId.Defense, 2) },
                 roundTripped.StatBonuses);
-            Assert.Equal("room.adhoc.abc", roundTripped.SpawnRoomBlueprintId);
         }
 
         [Fact]
@@ -194,7 +192,6 @@ namespace Hedron.Tests.Authoring
             mob.Description = "A snarling goblin.";
             mob.Keywords = new List<string> { "goblin", "snarl" };
             mob.MobType = MobType.Creature;
-            mob.SpawnRoomBlueprintId = "room.adhoc.def";
             mob.Level = 5;
             mob.MaxHp = 120;
             mob.Mind = 11;
@@ -214,7 +211,6 @@ namespace Hedron.Tests.Authoring
             Assert.Equal("A snarling goblin.", roundTripped.Description);
             Assert.Equal(new[] { "goblin", "snarl" }, roundTripped.Keywords);
             Assert.Equal(MobType.Creature, roundTripped.MobType);
-            Assert.Equal("room.adhoc.def", roundTripped.SpawnRoomBlueprintId);
             Assert.Equal(5, roundTripped.Level);
             Assert.Equal(120, roundTripped.MaxHp);
             Assert.Equal(11, roundTripped.Mind);
@@ -309,19 +305,18 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public async Task List_Item_PopulatesAreaBlueprintId_TwoHop()
+        public async Task List_Item_PopulatesAreaBlueprintId_FromRoomSpawnRule()
         {
             var (catalog, _) = NewCatalog();
 
-            // Room with an area.
+            var itemDef = catalog.CreateNew(ContentKind.Item, "Longsword");
+            await catalog.SaveAsync(itemDef);
+
+            // Room with an area, whose spawn rule places the item.
             var roomDef = catalog.CreateNew(ContentKind.Room, "Armory");
             ((RoomTemplate)roomDef.Template).AreaId = "area.adhoc.castle";
+            ((RoomTemplate)roomDef.Template).SpawnRules.Add(new SpawnRule(itemDef.BlueprintId, itemDef.BlueprintId, 1, 300));
             await catalog.SaveAsync(roomDef);
-
-            // Item whose spawn room is that room.
-            var itemDef = catalog.CreateNew(ContentKind.Item, "Longsword");
-            ((ItemTemplate)itemDef.Template).SpawnRoomBlueprintId = roomDef.BlueprintId;
-            await catalog.SaveAsync(itemDef);
 
             var list = catalog.List(ContentKind.Item);
 
@@ -330,19 +325,17 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public async Task List_Mob_PopulatesAreaBlueprintId_TwoHop()
+        public async Task List_Mob_PopulatesAreaBlueprintId_FromRoomSpawnRule()
         {
             var (catalog, _) = NewCatalog();
 
-            // Room with an area.
+            var mobDef = catalog.CreateNew(ContentKind.Mob, "Guard");
+            await catalog.SaveAsync(mobDef);
+
             var roomDef = catalog.CreateNew(ContentKind.Room, "Guard Post");
             ((RoomTemplate)roomDef.Template).AreaId = "area.adhoc.fortress";
+            ((RoomTemplate)roomDef.Template).SpawnRules.Add(new SpawnRule(mobDef.BlueprintId, mobDef.BlueprintId, 2, 60));
             await catalog.SaveAsync(roomDef);
-
-            // Mob whose spawn room is that room.
-            var mobDef = catalog.CreateNew(ContentKind.Mob, "Guard");
-            ((MobTemplate)mobDef.Template).SpawnRoomBlueprintId = roomDef.BlueprintId;
-            await catalog.SaveAsync(mobDef);
 
             var list = catalog.List(ContentKind.Mob);
 
@@ -351,13 +344,12 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public async Task List_Item_BlankSpawnRoomBlueprintId_YieldsNull_DoesNotThrow()
+        public async Task List_Item_NoSpawnRule_YieldsNull_DoesNotThrow()
         {
             var (catalog, _) = NewCatalog();
 
-            // Item with no spawn room set.
+            // No room rule names this item.
             var itemDef = catalog.CreateNew(ContentKind.Item, "Floating Orb");
-            // SpawnRoomBlueprintId defaults to string.Empty
             await catalog.SaveAsync(itemDef);
 
             var list = catalog.List(ContentKind.Item);
@@ -367,7 +359,7 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public async Task List_Mob_BlankSpawnRoomBlueprintId_YieldsNull_DoesNotThrow()
+        public async Task List_Mob_NoSpawnRule_YieldsNull_DoesNotThrow()
         {
             var (catalog, _) = NewCatalog();
 
@@ -381,50 +373,37 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public async Task List_Item_DanglingSpawnRoomBlueprintId_YieldsNull_DoesNotThrow()
+        public async Task List_Mob_RulesInTwoAreas_AttributesTheOrdinalLeastRoomsArea()
         {
             var (catalog, _) = NewCatalog();
 
-            // Item referencing a room that does not exist on disk.
-            var itemDef = catalog.CreateNew(ContentKind.Item, "Lost Artifact");
-            ((ItemTemplate)itemDef.Template).SpawnRoomBlueprintId = "room.adhoc.nonexistent";
-            await catalog.SaveAsync(itemDef);
-
-            // No rooms written — the spawn room is dangling.
-            var list = catalog.List(ContentKind.Item);
-
-            Assert.Single(list);
-            Assert.Null(list[0].AreaBlueprintId);
-        }
-
-        [Fact]
-        public async Task List_Mob_DanglingSpawnRoomBlueprintId_YieldsNull_DoesNotThrow()
-        {
-            var (catalog, _) = NewCatalog();
-
-            var mobDef = catalog.CreateNew(ContentKind.Mob, "Shadow Wraith");
-            ((MobTemplate)mobDef.Template).SpawnRoomBlueprintId = "room.adhoc.ghost";
+            var mobDef = catalog.CreateNew(ContentKind.Mob, "Wolf");
             await catalog.SaveAsync(mobDef);
+
+            foreach (var (roomId, areaId) in new[] { ("room.zzz", "area.north"), ("room.aaa", "area.south") })
+            {
+                var room = new RoomTemplate(roomId) { Name = roomId, AreaId = areaId };
+                room.SpawnRules.Add(new SpawnRule(mobDef.BlueprintId, mobDef.BlueprintId, 1, 60));
+                await catalog.SaveAsync(new ContentDefinition(ContentKind.Room, room));
+            }
 
             var list = catalog.List(ContentKind.Mob);
 
-            Assert.Single(list);
-            Assert.Null(list[0].AreaBlueprintId);
+            Assert.Equal("area.south", Assert.Single(list).AreaBlueprintId);
         }
 
         [Fact]
-        public async Task List_Item_SpawnRoomExistsButBlankAreaId_YieldsNull()
+        public async Task List_Item_SpawnRuleInRoomWithBlankAreaId_YieldsNull()
         {
             var (catalog, _) = NewCatalog();
 
+            var itemDef = catalog.CreateNew(ContentKind.Item, "Orphan Item");
+            await catalog.SaveAsync(itemDef);
+
             // Room exists but has no AreaId.
             var roomDef = catalog.CreateNew(ContentKind.Room, "Unassigned Room");
-            // AreaId left blank (default)
+            ((RoomTemplate)roomDef.Template).SpawnRules.Add(new SpawnRule(itemDef.BlueprintId, itemDef.BlueprintId, 1, 300));
             await catalog.SaveAsync(roomDef);
-
-            var itemDef = catalog.CreateNew(ContentKind.Item, "Orphan Item");
-            ((ItemTemplate)itemDef.Template).SpawnRoomBlueprintId = roomDef.BlueprintId;
-            await catalog.SaveAsync(itemDef);
 
             var list = catalog.List(ContentKind.Item);
 
@@ -570,64 +549,6 @@ namespace Hedron.Tests.Authoring
             // Result enumerates the cascade edit.
             Assert.Single(result.CascadeEdits);
             Assert.Equal("Exits[East]", result.CascadeEdits[0].FieldLabel);
-        }
-
-        [Fact]
-        public async Task Delete_ClearsSpawnRoomBlueprintId_OnReferringItem()
-        {
-            // Deleting room X clears SpawnRoomBlueprintId on a referring item.
-            var (catalog, _) = NewCatalog();
-
-            var room = catalog.CreateNew(ContentKind.Room, "Armory");
-            await catalog.SaveAsync(room);
-
-            var item = catalog.CreateNew(ContentKind.Item, "Sword");
-            ((ItemTemplate)item.Template).SpawnRoomBlueprintId = room.BlueprintId;
-            await catalog.SaveAsync(item);
-
-            var result = await catalog.DeleteAsync(ContentKind.Room, room.BlueprintId);
-
-            // Target file deleted.
-            Assert.Null(catalog.Load(ContentKind.Room, room.BlueprintId));
-
-            // Item's spawn room cleared.
-            var reloadedItem = (ItemTemplate)catalog.Load(ContentKind.Item, item.BlueprintId)!.Template;
-            Assert.Empty(reloadedItem.SpawnRoomBlueprintId);
-
-            // Result enumerates the cascade edit.
-            Assert.Contains(result.CascadeEdits, e =>
-                e.ReferrerKind == ContentKind.Item
-                && e.ReferrerBlueprintId == item.BlueprintId
-                && e.FieldLabel == "SpawnRoomBlueprintId");
-        }
-
-        [Fact]
-        public async Task Delete_ClearsSpawnRoomBlueprintId_OnReferringMob()
-        {
-            // Deleting room X clears SpawnRoomBlueprintId on a referring mob.
-            var (catalog, _) = NewCatalog();
-
-            var room = catalog.CreateNew(ContentKind.Room, "Guard Post");
-            await catalog.SaveAsync(room);
-
-            var mob = catalog.CreateNew(ContentKind.Mob, "Guard");
-            ((MobTemplate)mob.Template).SpawnRoomBlueprintId = room.BlueprintId;
-            await catalog.SaveAsync(mob);
-
-            var result = await catalog.DeleteAsync(ContentKind.Room, room.BlueprintId);
-
-            // Target file deleted.
-            Assert.Null(catalog.Load(ContentKind.Room, room.BlueprintId));
-
-            // Mob's spawn room cleared.
-            var reloadedMob = (MobTemplate)catalog.Load(ContentKind.Mob, mob.BlueprintId)!.Template;
-            Assert.Empty(reloadedMob.SpawnRoomBlueprintId);
-
-            // Result enumerates the cascade edit.
-            Assert.Contains(result.CascadeEdits, e =>
-                e.ReferrerKind == ContentKind.Mob
-                && e.ReferrerBlueprintId == mob.BlueprintId
-                && e.FieldLabel == "SpawnRoomBlueprintId");
         }
 
         [Fact]
@@ -1008,48 +929,6 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public async Task Rename_RewritesReferrer_ItemSpawnRoom()
-        {
-            var (catalog, _) = NewCatalog();
-
-            var room = catalog.CreateNew(ContentKind.Room, "Armory");
-            await catalog.SaveAsync(room);
-
-            var item = catalog.CreateNew(ContentKind.Item, "Sword");
-            ((ItemTemplate)item.Template).SpawnRoomBlueprintId = room.BlueprintId;
-            await catalog.SaveAsync(item);
-
-            var result = await catalog.RenameAsync(ContentKind.Room, room.BlueprintId, "room.armory-2");
-
-            Assert.True(result.Success);
-            var reloadedItem = (ItemTemplate)catalog.Load(ContentKind.Item, item.BlueprintId)!.Template;
-            Assert.Equal("room.armory-2", reloadedItem.SpawnRoomBlueprintId);
-            Assert.Contains(result.CascadeEdits, e =>
-                e.ReferrerKind == ContentKind.Item && e.FieldLabel == "SpawnRoomBlueprintId");
-        }
-
-        [Fact]
-        public async Task Rename_RewritesReferrer_MobSpawnRoom()
-        {
-            var (catalog, _) = NewCatalog();
-
-            var room = catalog.CreateNew(ContentKind.Room, "Guard Post");
-            await catalog.SaveAsync(room);
-
-            var mob = catalog.CreateNew(ContentKind.Mob, "Guard");
-            ((MobTemplate)mob.Template).SpawnRoomBlueprintId = room.BlueprintId;
-            await catalog.SaveAsync(mob);
-
-            var result = await catalog.RenameAsync(ContentKind.Room, room.BlueprintId, "room.guardpost-2");
-
-            Assert.True(result.Success);
-            var reloadedMob = (MobTemplate)catalog.Load(ContentKind.Mob, mob.BlueprintId)!.Template;
-            Assert.Equal("room.guardpost-2", reloadedMob.SpawnRoomBlueprintId);
-            Assert.Contains(result.CascadeEdits, e =>
-                e.ReferrerKind == ContentKind.Mob && e.FieldLabel == "SpawnRoomBlueprintId");
-        }
-
-        [Fact]
         public async Task Rename_RewritesReferrer_AreaRoomsList()
         {
             var (catalog, _) = NewCatalog();
@@ -1072,7 +951,7 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public async Task Rename_RewritesReferrer_RoomSpawnRule()
+        public async Task Rename_RewritesReferrer_RoomSpawnRule_KeepingTheRuleId()
         {
             var (catalog, _) = NewCatalog();
 
@@ -1080,17 +959,17 @@ namespace Hedron.Tests.Authoring
             await catalog.SaveAsync(mob);
 
             var room = catalog.CreateNew(ContentKind.Room, "Spawn Room");
-            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule(mob.BlueprintId, 1, 3, 60));
+            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule("goblins", mob.BlueprintId, 3, 60));
             await catalog.SaveAsync(room);
 
             var result = await catalog.RenameAsync(ContentKind.Mob, mob.BlueprintId, "mob.goblin-2");
 
             Assert.True(result.Success);
             var reloadedRoom = (RoomTemplate)catalog.Load(ContentKind.Room, room.BlueprintId)!.Template;
-            Assert.Contains(reloadedRoom.SpawnRules, r => r.BlueprintId == "mob.goblin-2");
-            Assert.DoesNotContain(reloadedRoom.SpawnRules, r => r.BlueprintId == mob.BlueprintId);
+            var rule = Assert.Single(reloadedRoom.SpawnRules);
+            Assert.Equal(new SpawnRule("goblins", "mob.goblin-2", 3, 60), rule);
             Assert.Contains(result.CascadeEdits, e =>
-                e.ReferrerKind == ContentKind.Room && e.FieldLabel == $"SpawnRules[{mob.BlueprintId}]");
+                e.ReferrerKind == ContentKind.Room && e.FieldLabel == "SpawnRules[goblins]");
         }
 
         [Fact]
@@ -1258,7 +1137,7 @@ namespace Hedron.Tests.Authoring
             await catalog.SaveAsync(mob);
 
             var room = catalog.CreateNew(ContentKind.Room, "Spawn Room");
-            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule(mob.BlueprintId, 1, 3, 60));
+            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule(mob.BlueprintId, mob.BlueprintId, 3, 60));
             await catalog.SaveAsync(room);
 
             var result = await catalog.DeleteAsync(ContentKind.Mob, mob.BlueprintId);
@@ -1279,7 +1158,7 @@ namespace Hedron.Tests.Authoring
             await catalog.SaveAsync(item);
 
             var room = catalog.CreateNew(ContentKind.Room, "Spawn Room");
-            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule(item.BlueprintId, 1, 2, 15));
+            ((RoomTemplate)room.Template).SpawnRules.Add(new SpawnRule(item.BlueprintId, item.BlueprintId, 2, 15));
             await catalog.SaveAsync(room);
 
             var result = await catalog.DeleteAsync(ContentKind.Item, item.BlueprintId);
@@ -1476,6 +1355,107 @@ namespace Hedron.Tests.Authoring
             Assert.Equal("room.crossroads", undeclared.Preview.BlueprintId);
             Assert.Equal(StartingRoomSource.Configuration, undeclared.Preview.Source);
             Assert.Equal("room.crossroads", undeclared.ConfigFallbackId);
+        }
+            // ── ISpawnRuleAuthoring (spawn-authoring T16) ────────────────────────────────
+
+        private static async Task<string> SaveRoom(ContentDefinitionCatalog catalog, string id, string? areaId = null)
+        {
+            var room = new RoomTemplate(id) { Name = id, AreaId = areaId ?? string.Empty };
+            Assert.True((await catalog.SaveAsync(new ContentDefinition(ContentKind.Room, room))).Success);
+            return id;
+        }
+
+        private static RoomTemplate LoadRoom(ContentDefinitionCatalog catalog, string id) =>
+            (RoomTemplate)catalog.Load(ContentKind.Room, id)!.Template;
+
+        [Fact]
+        public async Task UpsertSpawnRule_MintsABlankId_AndReplacesBySameId()
+        {
+            var (catalog, _) = NewCatalog();
+            await SaveRoom(catalog, "room.cellar");
+
+            var first = await catalog.UpsertSpawnRuleAsync("room.cellar", new SpawnRule("", "mob.rat", 2, 60));
+            var second = await catalog.UpsertSpawnRuleAsync("room.cellar", new SpawnRule("", "mob.rat", 1, 30));
+            Assert.True(first.Success);
+            Assert.True(second.Success);
+            Assert.Equal(new[] { "mob.rat", "mob.rat-2" }, LoadRoom(catalog, "room.cellar").SpawnRules.Select(r => r.Id));
+
+            var replaced = await catalog.UpsertSpawnRuleAsync("room.cellar", new SpawnRule("MOB.RAT", "mob.rat", 5, 60));
+            Assert.True(replaced.Success);
+            var rules = LoadRoom(catalog, "room.cellar").SpawnRules;
+            Assert.Equal(2, rules.Count);
+            Assert.Equal(5, rules[0].Count);
+        }
+
+        [Fact]
+        public async Task UpsertSpawnRule_RefusesAnInvalidRule_LeavingTheFileByteIdentical()
+        {
+            var (catalog, _) = NewCatalog(out var dir);
+            await SaveRoom(catalog, "room.cellar");
+            var path = Path.Combine(dir, "rooms", "room.cellar.yaml");
+            var before = await File.ReadAllTextAsync(path);
+
+            var result = await catalog.UpsertSpawnRuleAsync("room.cellar", new SpawnRule("rats", "mob.rat", 0, 60));
+
+            Assert.False(result.Success);
+            Assert.NotEmpty(result.Errors);
+            Assert.Equal(before, await File.ReadAllTextAsync(path));
+        }
+
+        [Fact]
+        public async Task UpsertAndRemoveSpawnRule_RefuseAnUnknownRoom()
+        {
+            var (catalog, _) = NewCatalog();
+
+            Assert.False((await catalog.UpsertSpawnRuleAsync("room.none", new SpawnRule("", "mob.rat", 1, 60))).Success);
+            Assert.False((await catalog.RemoveSpawnRuleAsync("room.none", "mob.rat")).Success);
+        }
+
+        [Fact]
+        public async Task RemoveSpawnRule_RemovesById_AndRefusesAnUnknownId()
+        {
+            var (catalog, _) = NewCatalog();
+            await SaveRoom(catalog, "room.cellar");
+            await catalog.UpsertSpawnRuleAsync("room.cellar", new SpawnRule("rats", "mob.rat", 1, 60));
+            await catalog.UpsertSpawnRuleAsync("room.cellar", new SpawnRule("bats", "mob.bat", 1, 60));
+
+            Assert.True((await catalog.RemoveSpawnRuleAsync("room.cellar", "rats")).Success);
+            Assert.False((await catalog.RemoveSpawnRuleAsync("room.cellar", "rats")).Success);
+            Assert.Equal(new[] { "bats" }, LoadRoom(catalog, "room.cellar").SpawnRules.Select(r => r.Id));
+        }
+
+        [Fact]
+        public async Task SpawnSitesFor_ListsEveryRoomRuleNamingTheMob_OrderedByRoom()
+        {
+            var (catalog, _) = NewCatalog();
+            await SaveRoom(catalog, "room.zzz", "area.north");
+            await SaveRoom(catalog, "room.aaa", "area.south");
+            await catalog.UpsertSpawnRuleAsync("room.zzz", new SpawnRule("rats", "mob.rat", 2, 60));
+            await catalog.UpsertSpawnRuleAsync("room.aaa", new SpawnRule("", "mob.rat", 1, 30));
+            await catalog.UpsertSpawnRuleAsync("room.aaa", new SpawnRule("", "mob.bat", 1, 30));
+
+            var sites = catalog.SpawnSitesFor(ContentKind.Mob, "mob.rat");
+
+            Assert.Equal(new (string, string?, string)[] { ("room.aaa", "area.south", "mob.rat"), ("room.zzz", "area.north", "rats") },
+                sites.Select(s => (s.RoomBlueprintId, s.AreaBlueprintId, s.Rule.Id)));
+            Assert.Empty(catalog.SpawnSitesFor(ContentKind.Room, "mob.rat"));
+        }
+
+        // ── Legacy-shape reads (spawn-authoring T17) ─────────────────────────────────
+
+        [Fact]
+        public void Load_OfALegacyKeyFile_SurfacesTheShapeError_AndListSkipsIt()
+        {
+            var (catalog, _) = NewCatalog(out var dir);
+            Directory.CreateDirectory(Path.Combine(dir, "mobs"));
+            File.WriteAllText(Path.Combine(dir, "mobs", "mob.legacy.yaml"),
+                "blueprintId: mob.legacy\nname: legacy\nspawnRoomBlueprintId: room.cellar\n");
+            File.WriteAllText(Path.Combine(dir, "mobs", "mob.fine.yaml"), "blueprintId: mob.fine\nname: fine\n");
+
+            var ex = Assert.Throws<ContentShapeException>(() => catalog.Load(ContentKind.Mob, "mob.legacy"));
+            Assert.Contains("spawnRoomBlueprintId", ex.Message);
+
+            Assert.Equal(new[] { "mob.fine" }, catalog.List(ContentKind.Mob).Select(s => s.BlueprintId));
         }
     }
 }

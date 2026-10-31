@@ -4,17 +4,17 @@
 
 ## What it is
 
-Admins author world content — rooms, areas, items, mobs — through two surfaces: **in-game builder verbs** (`dig`, `mkitem`, `mkmob`, `mkarea`, `set*`, `list`, `reload`) that create and edit content while connected via telnet, and an **offline Blazor Server editor** (`Hedron.Web`) that reads, edits, validates, and writes the YAML content definitions from a localhost browser. That web host also exposes a **narrow JSON API** over the same catalog operations — a third caller, not a third implementation. Every surface calls the same backing systems; none re-implements authoring logic.
+Admins author world content — rooms, areas, items, mobs — through two surfaces: **in-game builder verbs** (`dig`, `mkitem`, `mkmob`, `mkarea`, `spawnrule`, `set*`, `list`, `reload`) that create and edit content while connected via telnet, and an **offline Blazor Server editor** (`Hedron.Web`) that reads, edits, validates, and writes the YAML content definitions from a localhost browser. That web host also exposes a **narrow JSON API** over the same catalog operations — a third caller, not a third implementation. Every surface calls the same backing systems; none re-implements authoring logic.
 
 Privilege is **structural**: each admin command calls `IAdminAuthorizer.IsPrivileged` as its first line. There is no `@` prefix or special sigil. The settings-allowlist (`Admin:PrivilegedNames`) is the floor; the persisted `AdminPrivilegeComponent` layer is deferred — see `implementation-plans/admin-privilege-elevation.md`.
 
-Content edits write YAML only. The live world is refreshed by the `reload` verb, which rebuilds the world from YAML — tearing down and re-spawning all world content (preserving players) so edits to existing content take effect and runtime instance state resets. The Blazor editor applies the same reload via its "Apply to live" action.
+Editor edits write YAML only; in-game builder verbs change the live world **and** write YAML (admin mutations update both template and entity, INV-21). The Server's live world applies editor edits on the Server's `reload` verb (or a restart), which rebuilds the world from YAML — tearing down and re-spawning all world content (preserving players) — or refuses as a whole, changing nothing, when any file has a shape error. The Blazor editor's "Apply" reloads only the **web host's own preview world** (a separate process); it never refreshes the Server's live world.
 
 ## How it works
 
 The feature composes three cooperating subsystems:
 
-- **Builder verbs + privilege gate** — `dig`/`mkitem`/`mkmob`/`mkarea`/`set*`/`list`/`reload` in `Core/Modules/Admin/` and the per-feature builder systems. Each command is a thin Initiator: it calls a builder system (pure result), writes YAML via an `I*ContentWriter`, publishes a past-tense audit event (caught by `AdminAuditHandler`), and in some cases calls `IPersistenceSystem.SaveEntityAsync` for an admin boundary-save. See the [admin-commands design doc](admin-commands.md).
+- **Builder verbs + privilege gate** — `dig`/`mkitem`/`mkmob`/`mkarea`/`spawnrule`/`set*`/`list`/`reload` in `Core/Modules/Admin/` and the per-feature builder systems. Each command is a thin Initiator: it calls a builder system (pure result), writes YAML via an `I*ContentWriter`, publishes a past-tense audit event (caught by `AdminAuditHandler`), and in some cases calls `IPersistenceSystem.SaveEntityAsync` for an admin boundary-save. See the [admin-commands design doc](admin-commands.md).
 - **Blazor editor** — `Hedron.Web` boots the engine via the shared `CompositionRoot.Register` with bootstraps-only hosted services (content load + registry validation; no telnet, no heartbeat). Blazor components are thin callers of `IContentDefinitionCatalog` — all read/list/load/validate/write logic lives in the catalog, not in page code. See the [content-authoring design doc](content-authoring.md).
 - **Content-tooling layer** — `IContentDefinitionCatalog` (the shared facade for all four content kinds), `IContentValidator` (on-demand referential-integrity checks factored out of the boot validator), and `IContentGenerationSystem` (headless bulk YAML generator for scaling tests). See the [content-tooling design doc](content-tooling.md).
 
@@ -28,16 +28,16 @@ The feature composes three cooperating subsystems:
 
 ## Surfaces
 
-- **Admin commands** — `dig`, `mkitem`, `mkmob`, `mkarea`, `set`, `setitem`, `setmob`, `setarea`, `list`, `reload`, `spawn`, `teleport`. See [`../../reference/commands.md`](../../reference/commands.md).
+- **Admin commands** — `dig`, `mkitem`, `mkmob`, `mkarea`, `spawnrule`, `set`, `setitem`, `setmob`, `setarea`, `list`, `reload`, `spawn`, `teleport`. See [`../../reference/commands.md`](../../reference/commands.md).
 - **Builder systems** — `IRoomBuilderSystem`, `IItemBuilderSystem`, `IMobBuilderSystem`, `IAreaBuilderSystem`. See [`../../reference/systems.md`](../../reference/systems.md).
 - **Content layer** — `IContentDefinitionCatalog`, `IContentGenerationSystem`, `IContentValidator`, `IAreaLayoutSystem`, `IMobPowerReadoutSystem`. See [`../../reference/systems.md`](../../reference/systems.md).
 - **Authoring JSON API** — loopback-only endpoints on the web host over the same catalog: `GET /api/{areas,rooms,mobs}` listings (optional `?area=` filter), mob load/create/save/delete, and `POST /api/power/mob` for the live power readout. Deliberately narrow — scoped to what the client-tier gate's bakeoff page calls, **not** all authoring operations; area and room are read-only, and there is no apply/reload endpoint (that would be an Initiator). Contract published as a checked-in OpenAPI document with a CI drift gate. **Unauthenticated** — auth is deferred with a recorded mitigation and a standing no-CORS rule. Types in `Hedron.Web/Api/` and `Core/Modules/Authoring/Contracts/`; see [`../../architecture/08-blazor.md`](../../architecture/08-blazor.md#the-authoring-http-surface-api).
-- **Events** — `RoomCreatedByAdminEvent`, `ItemCreatedByAdminEvent`, `MobCreatedByAdminEvent`, `AreaCreatedByAdminEvent`, `RoomPropertySetByAdminEvent`, `ContentReloadedEvent`. See [`../../reference/handlers.md`](../../reference/handlers.md).
+- **Events** — `RoomCreatedByAdminEvent`, `ItemCreatedByAdminEvent`, `MobCreatedByAdminEvent`, `AreaCreatedByAdminEvent`, `RoomPropertySetByAdminEvent`, `SpawnRuleAuthoredByAdminEvent`, `MobPropertySetByAdminEvent` / `ItemPropertySetByAdminEvent` (blueprint + instance count), `ContentReloadedEvent`. See [`../../reference/handlers.md`](../../reference/handlers.md).
 - **Config keys** — `Admin:PrivilegedNames` (privilege allowlist). See [`../../architecture/05-configuration.md`](../../architecture/05-configuration.md).
 
 ## Flows
 
-- [Admin authoring journey (dig · mkitem · mkmob · mkarea · list)](../../architecture/flows/flow-08-admin-room-creation.md) — the builder-verb loop: privilege gate → builder system → YAML write → audit event → confirmation.
+- [Admin authoring journey (dig · mkitem · mkmob · mkarea · spawnrule · list)](../../architecture/flows/flow-08-admin-room-creation.md) — the builder-verb loop: privilege gate → builder system → YAML write → audit event → confirmation.
 - [Content-tooling journey (bulk generate · offline edit)](../../architecture/flows/flow-29-bulk-content-generation.md) — headless `generate` run-mode and offline Blazor editor save/apply path.
 
 ## Related

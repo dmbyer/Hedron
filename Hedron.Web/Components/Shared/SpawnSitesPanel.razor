@@ -1,0 +1,151 @@
+@using Hedron.Core.ECS.Components
+@inject IContentDefinitionCatalog Catalog
+@inject ISpawnRuleAuthoring SpawnRules
+
+@* "Spawns in" panel for the mob/item editors. A mob or item has no spawn location of its own: room
+   spawn rules are the single spawn truth. This panel lists every room rule naming this blueprint and
+   writes room rules directly through ISpawnRuleAuthoring (validated, under the catalog write gate) —
+   independent of the page's own Save. Binds only (INV-8). *@
+<fieldset class="spawn-sites">
+    <legend>Spawns in</legend>
+    @if (string.IsNullOrEmpty(BlueprintId))
+    {
+        <p class="hint">Save this definition first, then add it to a room's spawn rules here.</p>
+    }
+    else
+    {
+        <p class="hint">
+            Room spawn rules that place this @Kind.ToString().ToLowerInvariant(). Changes are written to the room
+            immediately and apply on Server <span class="mono">reload</span> or restart.
+        </p>
+
+        @if (_sites.Count == 0)
+        {
+            <p class="hint">Not placed in any room.</p>
+        }
+        else
+        {
+            <ul class="spawn-site-list">
+                @foreach (var site in _sites)
+                {
+                    <li @key="(site.RoomBlueprintId, site.Rule.Id)">
+                        <span class="mono">@site.RoomBlueprintId</span>
+                        @if (site.AreaBlueprintId is not null)
+                        {
+                            <span class="hint-inline">(@site.AreaBlueprintId)</span>
+                        }
+                        &mdash; rule <span class="mono">@site.Rule.Id</span>: x@(site.Rule.Count), respawn @(site.Rule.RespawnDelaySeconds)s
+                        <button class="danger" disabled="@_busy" @onclick="() => RemoveAsync(site)">Remove</button>
+                    </li>
+                }
+            </ul>
+        }
+
+        <div class="field-row">
+            <div class="field">
+                <label>Area</label>
+                <select value="@_areaFilter" @onchange="e => _areaFilter = e.Value?.ToString() ?? string.Empty">
+                    <option value="">All areas</option>
+                    @foreach (var area in _areas)
+                    {
+                        <option @key="area.BlueprintId" value="@area.BlueprintId">@area.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Room</label>
+                <select @bind="_roomId">
+                    <option value="">-- pick a room --</option>
+                    @foreach (var room in FilteredRooms)
+                    {
+                        <option @key="room.BlueprintId" value="@room.BlueprintId">@room.Name (@room.BlueprintId)</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Count</label>
+                <input type="number" min="1" max="@SpawnRuleLimits.MaxCountPerRule" @bind="_count" />
+            </div>
+            <div class="field">
+                <label>Respawn (s)</label>
+                <input type="number" min="0" @bind="_delay" />
+            </div>
+            <div class="field">
+                <label>&nbsp;</label>
+                <button disabled="@(_busy || string.IsNullOrEmpty(_roomId))" @onclick="AddAsync">Add to room</button>
+            </div>
+        </div>
+
+        @if (_errors.Count > 0)
+        {
+            <div class="error-box">
+                <ul>@foreach (var e in _errors) { <li>@e</li> }</ul>
+            </div>
+        }
+        @if (_warnings.Count > 0)
+        {
+            <div class="warning-box">
+                <ul>@foreach (var w in _warnings) { <li>@w</li> }</ul>
+            </div>
+        }
+    }
+</fieldset>
+
+@code {
+    /// <summary><see cref="ContentKind.Mob"/> or <see cref="ContentKind.Item"/>.</summary>
+    [Parameter, EditorRequired] public ContentKind Kind { get; set; }
+
+    /// <summary>The saved definition's blueprint id; null/empty for an unsaved (new) definition.</summary>
+    [Parameter] public string? BlueprintId { get; set; }
+
+    private IReadOnlyList<SpawnSite> _sites = Array.Empty<SpawnSite>();
+    private IReadOnlyList<ContentSummary> _areas = Array.Empty<ContentSummary>();
+    private IReadOnlyList<ContentSummary> _rooms = Array.Empty<ContentSummary>();
+    private IReadOnlyList<string> _errors = Array.Empty<string>();
+    private IReadOnlyList<string> _warnings = Array.Empty<string>();
+    private string _areaFilter = string.Empty;
+    private string _roomId = string.Empty;
+    private int _count = 1;
+    private int _delay = SpawnRuleLimits.DefaultRespawnDelaySeconds;
+    private bool _busy;
+
+    private IEnumerable<ContentSummary> FilteredRooms =>
+        string.IsNullOrEmpty(_areaFilter) ? _rooms : _rooms.Where(r => r.AreaBlueprintId == _areaFilter);
+
+    protected override void OnParametersSet()
+    {
+        _errors = Array.Empty<string>();
+        _warnings = Array.Empty<string>();
+        _areas = Catalog.List(ContentKind.Area);
+        _rooms = Catalog.List(ContentKind.Room);
+        Refresh();
+    }
+
+    private void Refresh() =>
+        _sites = string.IsNullOrEmpty(BlueprintId)
+            ? Array.Empty<SpawnSite>()
+            : SpawnRules.SpawnSitesFor(Kind, BlueprintId);
+
+    private async Task AddAsync()
+    {
+        if (string.IsNullOrEmpty(BlueprintId) || string.IsNullOrEmpty(_roomId)) return;
+        // A blank id is minted by the catalog (SpawnRuleIds.Mint against the room's rules).
+        await RunAsync(() => SpawnRules.UpsertSpawnRuleAsync(
+            _roomId, new SpawnRule(string.Empty, BlueprintId, _count, _delay)));
+    }
+
+    private Task RemoveAsync(SpawnSite site) =>
+        RunAsync(() => SpawnRules.RemoveSpawnRuleAsync(site.RoomBlueprintId, site.Rule.Id));
+
+    private async Task RunAsync(Func<Task<ContentWriteResult>> write)
+    {
+        _busy = true;
+        _errors = Array.Empty<string>();
+        _warnings = Array.Empty<string>();
+        var result = await write();
+        _busy = false;
+        _errors = result.Errors;
+        _warnings = result.Warnings;
+        Refresh();
+    }
+}

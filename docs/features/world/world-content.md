@@ -1,12 +1,12 @@
 # World Content System
 
-> The YAML-driven pipeline that scans content files, registers templates, seeds the live world on startup, and supports additive hot-reload. **Authoring checkpoint:** slice 2 (foundation); persistence-reform Stage B (migration). Living document.
+> The YAML-driven pipeline that scans content files, registers templates, seeds the live world on startup, and supports whole-or-nothing reload. **Authoring checkpoints:** slice 2 (foundation); persistence-reform Stage B (migration); spawn-authoring (Phase 5 slice 2 — staged fail-fast read, rooms/areas-only spawn). Living document.
 
 ## What it is / does
 
-`WorldContentLoader` is the **domain system** that owns the content pipeline: it reads authored YAML files under `World:ContentDirectory`, deserializes each into a typed `IEntityTemplate` via `IContentSerializer` (a kind-dispatcher), registers templates in the cross-cutting `ITemplateRegistry`, and fresh-spawns entities for any template without a live counterpart. At startup it runs inside `WorldContentBootstrap` (an `IHostedService`) to enforce ordering after `PersistenceBootstrap`. On `reload` it runs the same phases as a **full rebuild** — tearing down and re-spawning all world content while preserving persistent (player-owned) entities.
+`WorldContentLoader` is the **domain system** that owns the content pipeline: it reads authored YAML files under `World:ContentDirectory`, deserializes each into a typed `IEntityTemplate` via `IContentSerializer` (a kind-dispatcher), registers templates in the cross-cutting `ITemplateRegistry`, and fresh-spawns the **areas and rooms** that have no live counterpart. Mobs and found items are placed only by room spawn rules, which [`SpawnSystem`](spawn-system.md) fills on `WorldContentReadyEvent`. At startup it runs inside `WorldContentBootstrap` (an `IHostedService`) to enforce ordering after `PersistenceBootstrap`. On `reload` it runs the same phases as a **full rebuild** — tearing down and re-spawning all world content while preserving persistent (player-owned) entities.
 
-The world model is blueprint-seeds-world: persisted entities (those carrying `PersistentEntity`) are hydrated by `PersistenceBootstrap` first; the spawn pass sees them and skips their blueprint slots.
+The world model is blueprint-seeds-world: persisted entities (those carrying `PersistentEntity`) are hydrated by `PersistenceBootstrap` first and never count as world content (the live-blueprint map excludes them).
 
 ## How it works
 
@@ -14,15 +14,16 @@ The world model is blueprint-seeds-world: persisted entities (those carrying `Pe
 
 `LoadAndSpawnAsync` runs these phases in order:
 
-1. **`LoadTemplates`** — scans `*.yaml` files, dispatches each by `kind:` key to the registered `ITemplateDeserializer`, registers the result in `ITemplateRegistry`.
-2. **`SpawnMissingEntities`** — for each registered template with no live entity carrying that `BlueprintComponent.BlueprintId`, calls `ITemplateRegistry.Spawn(blueprintId)`. Persisted entities already hydrated are skipped. No per-entity events are published — matches the persistence hydration contract.
-3. **`LinkRoomExits`** — a second pass resolves each room's `Direction → blueprintId` exit map into live entity IDs, populating `RoomComponent.Exits`. Done after spawn because exits reference blueprints that may not exist yet at spawn time.
-4. **`PlaceItemsInRooms`** — sets `LocationComponent` on each world-content item, placing it in its authored spawn room. Sets both `RoomEntityId` (runtime) and `RoomBlueprintId` (durable string ref).
-5. **`PlaceMobsInRooms`** — same for mob entities.
-6. **`LinkRoomAreas`** — sweeps all room entities, resolves each room's `RoomTemplate.AreaId` to a live area entity ID via the live blueprint map, and sets `RoomComponent.AreaEntityId`. Unresolvable area refs log a warning and leave `AreaEntityId = 0`.
-7. **`ResolveStartingRoom`** — reads the optional [`world.yaml` manifest](#world-manifest--worldyaml) and resolves the starting room over the live **room** set (manifest → `World:StartingRoomBlueprintId` → `room.void` → ordinal-least room id), publishing one immutable `ResolvedStartingRoom` snapshot to `WorldConfiguration.StartingRoom`. Never fails startup: each fallback logs a warning; no rooms at all logs an error and publishes `Source = Unresolved` (entity id 0).
+1. **`ReadCorpusAsync` (staged, fail-fast)** — scans every kind subdirectory and deserializes each `*.yaml` file by kind into a **staging list** — nothing is registered yet. A `ContentShapeException` (a legacy or malformed spawn shape — see [Converting a pre-slice-2 world](#converting-a-pre-slice-2-world)) is collected, prefixed `<kind>/<file>: `. If any were collected, `ContentLoadException` is thrown listing **every** offending file, so one boot attempt is the operator's whole conversion worklist. Other per-file failures (e.g. malformed YAML) keep the log-and-skip posture.
+2. **Register** — the staged templates are registered in `ITemplateRegistry`.
+3. **`SpawnMissingEntities`** — for each registered **area and room** template with no live entity carrying that blueprint, calls `ITemplateRegistry.Spawn(blueprintId)`. Mob and item templates are never spawned here (no "limbo" entities). No per-entity events are published.
+4. **`LinkRoomExits`** — a second pass resolves each room's `Direction → blueprintId` exit map into live entity IDs, populating `RoomComponent.Exits`. Done after spawn because exits reference blueprints that may not exist yet at spawn time.
+5. **`LinkRoomAreas`** — sweeps all room entities, resolves each room's `RoomTemplate.AreaId` to a live area entity ID via the live blueprint map, and sets `RoomComponent.AreaEntityId`. Unresolvable area refs log a warning and leave `AreaEntityId = 0`.
+6. **`ResolveStartingRoom`** — reads the optional [`world.yaml` manifest](#world-manifest--worldyaml) and resolves the starting room over the live **room** set (manifest → `World:StartingRoomBlueprintId` → `room.void` → ordinal-least room id), publishing one immutable `ResolvedStartingRoom` snapshot to `WorldConfiguration.StartingRoom`. Never fails startup: each fallback logs a warning; no rooms at all logs an error and publishes `Source = Unresolved` (entity id 0).
 
-`ReloadAsync` is a **full rebuild**, not additive: it first tears down every world-content entity (`DestroyWorldContent` — anything with a `BlueprintComponent` and no `PersistentEntity`), then refreshes the template registry and runs the same spawn/place/link phases to re-spawn the world from scratch, then re-reads `world.yaml` and re-resolves the starting room. Persistent entities (players, player-owned items/containers) are preserved; the `reload` command re-publishes `WorldContentReadyEvent` afterward so shops re-seed, spawn slots rebuild, and players' rooms are re-resolved. This resets runtime instance state (picked-up items respawn, shops refill) and applies edits to existing content. See [Flow 5](../../architecture/flows/flow-05-content-reload.md).
+**Fail-fast boot.** `WorldContentBootstrap` logs the `ContentLoadException` report critical and lets it propagate, so the host does not start — on **both** hosts (Server and the Blazor web host), one posture. `WorldContentReadyEvent` is published only after a clean load; `SpawnSystem` (State) then fills every rule slot ahead of shop seeding (Domain).
+
+`ReloadAsync` is a **full rebuild**, not additive, and **whole-or-nothing**: it first stages and validates the whole corpus (phase 1) — on a shape error it throws before touching anything, so the live world, the registry and the spawn tracker stay unchanged, and `reload` writes the per-file error list and publishes neither `WorldContentReadyEvent` nor `ContentReloadedEvent` (the web host's Apply shows the same message). On a clean read it tears down every world-content entity (`DestroyWorldContent` — anything with a `BlueprintComponent` and no `PersistentEntity`), then swaps in the staged templates and runs the same spawn/link phases to re-spawn the world from scratch, then re-reads `world.yaml` and re-resolves the starting room. Persistent entities (players, player-owned items/containers) are preserved; the `reload` command re-publishes `WorldContentReadyEvent` afterward so shops re-seed, spawn slots rebuild, and players' rooms are re-resolved. This resets runtime instance state (picked-up items respawn, shops refill) and applies edits to existing content. See [Flow 5](../../architecture/flows/flow-05-content-reload.md).
 
 ### Content ownership — the engine ships no game world
 
@@ -47,13 +48,40 @@ All files are `*.yaml` under the content directory (`<Paths:DataDirectory>/conte
 
 | Kind | Path | Key fields |
 |---|---|---|
-| `room` | `rooms/<id>.yaml` | `id`, `name`, `description`, `exits` (`east: room.east_end`), `areaId`, `spawnRules`, `x`/`y`/`z` (optional `int`, authoring-side grid coordinates — see below) |
+| `room` | `rooms/<id>.yaml` | `id`, `name`, `description`, `exits` (`east: room.east_end`), `areaId`, `spawnRules` (see [Spawn rules](#spawn-rules)), `x`/`y`/`z` (optional `int`, authoring-side grid coordinates — see below) |
 | `area` | `areas/<id>.yaml` | `id`, `name`, `description`, `respawnRate`, `pvp`, room-id list, `aspectAffinities` |
-| `item` | `items/<id>.yaml` | `id`, `name`, `description`, `keywords`, `type`, `spawnRoomId` |
-| `mob` | `mobs/<id>.yaml` | `id`, `name`, `description`, `keywords`, `type`, `spawnRoomBlueprintId`, attributes, pools |
+| `item` | `items/<id>.yaml` | `id`, `name`, `description`, `keywords`, `type`, … — **no spawn location** (placed by room rules) |
+| `mob` | `mobs/<id>.yaml` | `id`, `name`, `description`, `keywords`, `type`, attributes, pools, … — **no spawn location** (placed by room rules) |
 | world manifest | `world.yaml` (content root, optional) | `schemaVersion`, `startingRoomId` — see [World manifest](#world-manifest--worldyaml) |
 
 A reserved `schemaVersion: 1` key is logged on mismatch but not enforced.
+
+### Spawn rules
+
+A room's `spawnRules` is the **only** place a world mob or found item is placed:
+
+```yaml
+spawnRules:
+  - id: mob.b1.rat              # rule identity; optional (default: blueprintId, truncated to 60 chars); required when two rules share a blueprint; always written
+    blueprintId: mob.b1.rat     # a mob or item template
+    count: 3                    # population; default 1; 1..20
+    respawnDelaySeconds: 120    # per-slot cooldown; default 300; >= 0
+```
+
+A blank blueprint, malformed or duplicate id (including two id-less rules on one blueprint), out-of-range count or negative delay is a load error (`SpawnRuleValidation`); a rule naming an unknown or non-mob/item template is a warning and its slot stays empty. Runtime behavior: [`spawn-system.md`](spawn-system.md).
+
+### Converting a pre-slice-2 world
+
+Spawn-authoring was a **hard break**: there is no translation layer. These shapes are fail-fast load errors — boot aborts on both hosts, `reload`/Apply refuse as a whole, and the catalog editors can't load the file. Every message names the file, the blueprint and what to write instead; one boot attempt lists every file to convert.
+
+| Old shape | Hand conversion |
+|---|---|
+| spawn rule with `minCount` / `maxCount` | delete both keys; add `count:` (usually the old `maxCount`), and an explicit `id:` if two rules in the room share a blueprint |
+| mob `spawnRoomBlueprintId: room.X` (non-blank) | delete the key; add `- { blueprintId: <mob>, count: 1, respawnDelaySeconds: 300 }` to `rooms/room.X.yaml`'s `spawnRules` |
+| item `spawnRoomId: room.X` (non-blank) | same, in the item's room |
+| blank `spawnRoomBlueprintId: ''` / `spawnRoomId: ''` | nothing — ignored, and dropped on the next write |
+
+Before slice 2, a mob/item **without** a spawn room was still spawned once as an unplaced "limbo" entity, and a spawn-room mob without a matching rule never respawned; after conversion every world mob/item is placed by a rule and respawns. No committed content needed conversion.
 
 `x`/`y`/`z` (nullable `int`, omitted when unset) are optional authoring-side grid coordinates — the authored half of the backlogged runtime coordinate system (see [`../../roadmap/backlog.md`](../../roadmap/backlog.md)). East = X+1, North = Y+1, Up = Z+1. They are advisory: `RoomTemplate.Apply` attaches no coordinate-bearing runtime component this slice, and an exit may target a non-adjacent cell or another area without being an error. Authored and visualized by the visual grid area editor (`/area/{id}/grid`) — see [`../admin-authoring/content-tooling.md`](../admin-authoring/content-tooling.md).
 
@@ -94,7 +122,9 @@ Missing/empty `World:ContentDirectory` → warn and seed a single hardcoded `roo
 ## Considerations
 
 - **Two serializers coexist by design.** `System.Text.Json` for component persistence snapshots; `YamlDotNet` for content authoring. Different audiences, different change cadence, no shared code path.
-- **`reload` is a full rebuild.** Tears down all world content and re-spawns from YAML (preserving players), so edits to existing rooms/mobs/items take effect and runtime instance state resets. Documented in `reload`'s help text.
+- **`reload` is a full rebuild.** Tears down all world content and re-spawns from YAML (preserving players), so edits to existing rooms/mobs/items take effect and runtime instance state resets — or is refused as a whole on a shape error, with nothing touched. Documented in `reload`'s help text.
+- **Shape errors fail fast; everything else is log-and-skip.** The fail-fast class is opt-in by exception type (`ContentShapeException`), so a stray malformed file doesn't take a server down while a legacy spawn shape — which would otherwise silently change world population — does. Staging the read before teardown is what makes reload refusal free (no half-built world).
+- **Reload concurrency (INV-31).** The staging set is a local of one `ReloadAsync` call (confined); the registry and world are mutated only after a clean read, on the caller's thread (session for `reload`, circuit for Apply).
 - **Silent startup spawn.** No per-entity events during `LoadAndSpawnAsync` — consistent with the persistence hydration contract.
 - **Config keys are Category 1 (operational).** `World:ContentDirectory` and `World:StartingRoomBlueprintId` are operator-controlled. The starting room is primarily a Category 2 world fact (`world.yaml`); `World:StartingRoomBlueprintId` is the operator **fallback** behind the manifest. See [`../../architecture/05-configuration.md`](../../architecture/05-configuration.md).
 

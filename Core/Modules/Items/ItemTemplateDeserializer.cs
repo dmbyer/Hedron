@@ -48,9 +48,16 @@ namespace Hedron.Core.Modules.Items
             {
                 Name = dto.Name ?? string.Empty,
                 Description = dto.Description ?? string.Empty,
-                SpawnRoomBlueprintId = dto.SpawnRoomId ?? string.Empty,
                 Value = dto.Value,
             };
+
+            // Hard break (spawn-authoring): placement lives only in room spawn rules. A blank legacy
+            // key carries no placement (every pre-slice writer emitted it) and is ignored.
+            if (!string.IsNullOrWhiteSpace(dto.SpawnRoomId))
+                throw new ContentShapeException(
+                    $"Item '{dto.BlueprintId}': legacy 'spawnRoomId: {dto.SpawnRoomId}' — remove it " +
+                    $"and add a spawn rule to the 'spawnRules' of room '{dto.SpawnRoomId}' " +
+                    $"(- {{ blueprintId: {dto.BlueprintId}, count: 1, respawnDelaySeconds: {SpawnRuleLimits.DefaultRespawnDelaySeconds} }}).");
 
             if (dto.Keywords is { Count: > 0 })
                 template.Keywords.AddRange(dto.Keywords);
@@ -135,6 +142,7 @@ namespace Hedron.Core.Modules.Items
             public List<string>? Keywords { get; set; }
             public string? ItemType { get; set; }
             public List<string>? WornSlots { get; set; }
+            // Legacy key — detected only, to fail fast with a conversion message.
             public string? SpawnRoomId { get; set; }
             public List<StatBonusDto>? StatBonuses { get; set; }
             public long Value { get; set; } = 0;

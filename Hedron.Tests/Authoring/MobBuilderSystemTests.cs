@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
@@ -24,15 +25,19 @@ namespace Hedron.Tests.Authoring
     {
         // ── Harness ──────────────────────────────────────────────────────────────
 
-        private static (MobBuilderSystem system, EntityService ecs, TemplateRegistry registry) Build()
+        private EntityService _ecs = null!;
+        private TemplateRegistry _registry = null!;
+        private MobBuilderSystem _sys = null!;
+
+        private (MobBuilderSystem system, EntityService ecs, TemplateRegistry registry) Build()
         {
-            var ecs = new EntityService();
-            var registry = new TemplateRegistry(ecs);
-            var system = new MobBuilderSystem(ecs, registry, NullLogger<MobBuilderSystem>.Instance);
+            var ecs = _ecs = new EntityService();
+            var registry = _registry = new TemplateRegistry(ecs);
+            var system = _sys = new MobBuilderSystem(ecs, registry, NullLogger<MobBuilderSystem>.Instance);
             return (system, ecs, registry);
         }
 
-        /// <summary>Creates a room entity with a BlueprintComponent so CreateMob can derive SpawnRoomBlueprintId.</summary>
+        /// <summary>Creates a room entity with a BlueprintComponent.</summary>
         private static uint MakeRoom(EntityService ecs, string blueprintId = "room.test")
         {
             var room = ecs.CreateEntity();
@@ -40,158 +45,87 @@ namespace Hedron.Tests.Authoring
             return room.Id;
         }
 
-        // ── CreateMob ────────────────────────────────────────────────────────────
-
-        [Fact]
-        public void CreateMob_returns_nonzero_MobEntityId()
+        /// <summary>
+        /// Registers a mob template via <c>CreateMob</c> and spawns one live world instance of it in
+        /// <paramref name="roomId"/> — the shape a count-1 room spawn rule produces.
+        /// </summary>
+        private (uint MobEntityId, string BlueprintId, MobTemplate Template) CreateLive(string name, uint roomId)
         {
-            var (sys, ecs, _) = Build();
-            var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Goblin", roomId);
-            Assert.NotEqual(0u, result.MobEntityId);
+            var result = _sys.CreateMob(name);
+            return (SpawnInstance(result.BlueprintId, roomId), result.BlueprintId, result.Template);
         }
 
-        [Fact]
-        public void CreateMob_returns_nonempty_BlueprintId()
+        private uint SpawnInstance(string blueprintId, uint roomId)
         {
-            var (sys, ecs, _) = Build();
-            var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Goblin", roomId);
+            var entity = _registry.Spawn(blueprintId);
+            _ecs.AddComponent(entity.Id, new LocationComponent { RoomEntityId = roomId });
+            return entity.Id;
+        }
+
+        // ── CreateMob (template only — the instance comes from a room spawn rule) ──
+
+        [Fact]
+        public void CreateMob_registers_template_with_name_and_creates_no_entity()
+        {
+            var (sys, ecs, registry) = Build();
+            var before = ecs.GetAllComponents<BlueprintComponent>().Count();
+
+            var result = sys.CreateMob("Goblin");
+
             Assert.False(string.IsNullOrWhiteSpace(result.BlueprintId));
-        }
-
-        [Fact]
-        public void CreateMob_attaches_MobDataComponent_with_correct_name()
-        {
-            var (sys, ecs, _) = Build();
-            var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Orc Warrior", roomId);
-
-            var mob = ecs.Get<MobDataComponent>(result.MobEntityId);
-            Assert.Equal("Orc Warrior", mob.Name);
-        }
-
-        [Fact]
-        public void CreateMob_attaches_BlueprintComponent_with_matching_id()
-        {
-            var (sys, ecs, _) = Build();
-            var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Troll", roomId);
-
-            var bp = ecs.Get<BlueprintComponent>(result.MobEntityId);
-            Assert.Equal(result.BlueprintId, bp.BlueprintId);
-        }
-
-        [Fact]
-        public void CreateMob_attaches_LocationComponent_pointing_to_room()
-        {
-            var (sys, ecs, _) = Build();
-            var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Spider", roomId);
-
-            var loc = ecs.Get<LocationComponent>(result.MobEntityId);
-            Assert.Equal(roomId, loc.RoomEntityId);
-        }
-
-        [Fact]
-        public void CreateMob_LocationComponent_copies_SpawnRoomBlueprintId_from_room()
-        {
-            var (sys, ecs, _) = Build();
-            var roomId = MakeRoom(ecs, "room.dungeon");
-            var result = sys.CreateMob("Skeleton", roomId);
-
-            var loc = ecs.Get<LocationComponent>(result.MobEntityId);
-            Assert.Equal("room.dungeon", loc.RoomBlueprintId);
-        }
-
-        [Fact]
-        public void CreateMob_attaches_AttributesComponent()
-        {
-            var (sys, ecs, _) = Build();
-            var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Bandit", roomId);
-
-            Assert.True(ecs.HasComponent<AttributesComponent>(result.MobEntityId));
-        }
-
-        [Fact]
-        public void CreateMob_attaches_PoolsComponent()
-        {
-            var (sys, ecs, _) = Build();
-            var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Wolf", roomId);
-
-            Assert.True(ecs.HasComponent<PoolsComponent>(result.MobEntityId));
-        }
-
-        [Fact]
-        public void CreateMob_registers_template_in_registry()
-        {
-            var (sys, ecs, registry) = Build();
-            var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Rat", roomId);
-
-            var found = registry.TryGet(result.BlueprintId, out var template);
-            Assert.True(found);
-            Assert.NotNull(template);
-        }
-
-        [Fact]
-        public void CreateMob_template_has_correct_name()
-        {
-            var (sys, ecs, registry) = Build();
-            var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Dragon", roomId);
-
-            registry.TryGet(result.BlueprintId, out var template);
-            var mobTemplate = Assert.IsType<MobTemplate>(template);
-            Assert.Equal("Dragon", mobTemplate.Name);
-        }
-
-        [Fact]
-        public void CreateMob_template_has_correct_SpawnRoomBlueprintId()
-        {
-            var (sys, ecs, registry) = Build();
-            var roomId = MakeRoom(ecs, "room.keep");
-            var result = sys.CreateMob("Guard", roomId);
-
-            registry.TryGet(result.BlueprintId, out var template);
-            var mobTemplate = Assert.IsType<MobTemplate>(template);
-            Assert.Equal("room.keep", mobTemplate.SpawnRoomBlueprintId);
-        }
-
-        [Fact]
-        public void CreateMob_returns_template_reference_in_result()
-        {
-            var (sys, ecs, _) = Build();
-            var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Imp", roomId);
-
-            Assert.NotNull(result.Template);
-            Assert.IsType<MobTemplate>(result.Template);
+            Assert.True(registry.TryGet(result.BlueprintId, out var template));
+            var mob = Assert.IsType<MobTemplate>(template);
+            Assert.Same(mob, result.Template);
+            Assert.Equal("Goblin", mob.Name);
+            Assert.Equal(before, ecs.GetAllComponents<BlueprintComponent>().Count());
         }
 
         [Fact]
         public void CreateMob_assigns_unique_blueprint_ids_to_successive_mobs()
         {
-            var (sys, ecs, _) = Build();
-            var roomId = MakeRoom(ecs);
-            var r1 = sys.CreateMob("Goblin A", roomId);
-            var r2 = sys.CreateMob("Goblin B", roomId);
-
+            var (sys, _, _) = Build();
+            var r1 = sys.CreateMob("Goblin A");
+            var r2 = sys.CreateMob("Goblin B");
             Assert.NotEqual(r1.BlueprintId, r2.BlueprintId);
         }
 
+        // ── Blueprint-keyed fan-out (INV-21) ─────────────────────────────────────
+
         [Fact]
-        public void CreateMob_SpawnRoomBlueprintId_empty_when_room_has_no_BlueprintComponent()
+        public void Set_updates_template_and_every_world_instance_but_never_a_persistent_copy()
         {
             var (sys, ecs, registry) = Build();
-            var bareRoomId = ecs.CreateEntity().Id; // no BlueprintComponent
-            var result = sys.CreateMob("Ghost", bareRoomId);
+            var roomId = MakeRoom(ecs);
+            var a = CreateLive("Rat", roomId);
+            var b = SpawnInstance(a.BlueprintId, roomId);
+            var c = SpawnInstance(a.BlueprintId, roomId);
+            var owned = SpawnInstance(a.BlueprintId, roomId);
+            ecs.AddComponent(owned, new PersistentEntity());
 
-            registry.TryGet(result.BlueprintId, out var template);
-            var mobTemplate = Assert.IsType<MobTemplate>(template);
-            Assert.Equal(string.Empty, mobTemplate.SpawnRoomBlueprintId);
+            var updated = sys.SetAttribute(a.BlueprintId, "hp", 30);
+
+            Assert.Equal(3, updated);
+            Assert.Equal(30, a.Template.MaxHp);
+            foreach (var id in new[] { a.MobEntityId, b, c })
+                Assert.Equal(30, ecs.Get<PoolsComponent>(id).MaxHp);
+            Assert.NotEqual(30, ecs.Get<PoolsComponent>(owned).MaxHp);
+        }
+
+        [Fact]
+        public void Set_with_zero_live_instances_updates_template_and_returns_zero()
+        {
+            var (sys, _, registry) = Build();
+            var result = sys.CreateMob("Ghost");
+
+            Assert.Equal(0, sys.SetMobName(result.BlueprintId, "Wraith"));
+            Assert.Equal("Wraith", result.Template.Name);
+        }
+
+        [Fact]
+        public void Set_returns_minus_one_for_a_blueprint_that_is_not_a_mob_template()
+        {
+            var (sys, _, _) = Build();
+            Assert.Equal(-1, sys.SetMobName("mob.unknown", "x"));
         }
 
         // ── SetMobName ───────────────────────────────────────────────────────────
@@ -201,9 +135,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Old Name", roomId);
+            var result = CreateLive("Old Name", roomId);
 
-            sys.SetMobName(result.MobEntityId, "New Name");
+            sys.SetMobName(result.BlueprintId, "New Name");
 
             var mob = ecs.Get<MobDataComponent>(result.MobEntityId);
             Assert.Equal("New Name", mob.Name);
@@ -214,9 +148,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, registry) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Old Name", roomId);
+            var result = CreateLive("Old Name", roomId);
 
-            sys.SetMobName(result.MobEntityId, "New Name");
+            sys.SetMobName(result.BlueprintId, "New Name");
 
             registry.TryGet(result.BlueprintId, out var template);
             var mobTemplate = Assert.IsType<MobTemplate>(template);
@@ -224,10 +158,10 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public void SetMobName_is_noop_for_unknown_entity()
+        public void SetMobName_is_noop_for_unknown_blueprint()
         {
             var (sys, _, _) = Build();
-            sys.SetMobName(99999u, "Ghost Mob");
+            sys.SetMobName("mob.unknown", "Ghost Mob");
         }
 
         // ── SetMobDescription ────────────────────────────────────────────────────
@@ -237,9 +171,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Orc", roomId);
+            var result = CreateLive("Orc", roomId);
 
-            sys.SetMobDescription(result.MobEntityId, "A hulking green creature.");
+            sys.SetMobDescription(result.BlueprintId, "A hulking green creature.");
 
             var mob = ecs.Get<MobDataComponent>(result.MobEntityId);
             Assert.Equal("A hulking green creature.", mob.Description);
@@ -250,9 +184,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, registry) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Orc", roomId);
+            var result = CreateLive("Orc", roomId);
 
-            sys.SetMobDescription(result.MobEntityId, "A hulking green creature.");
+            sys.SetMobDescription(result.BlueprintId, "A hulking green creature.");
 
             registry.TryGet(result.BlueprintId, out var template);
             var mobTemplate = Assert.IsType<MobTemplate>(template);
@@ -260,10 +194,10 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public void SetMobDescription_is_noop_for_unknown_entity()
+        public void SetMobDescription_is_noop_for_unknown_blueprint()
         {
             var (sys, _, _) = Build();
-            sys.SetMobDescription(99999u, "Nowhere.");
+            sys.SetMobDescription("mob.unknown", "Nowhere.");
         }
 
         // ── SetMobKeywords ───────────────────────────────────────────────────────
@@ -273,9 +207,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Goblin", roomId);
+            var result = CreateLive("Goblin", roomId);
 
-            sys.SetMobKeywords(result.MobEntityId, new[] { "goblin", "creature", "green" });
+            sys.SetMobKeywords(result.BlueprintId, new[] { "goblin", "creature", "green" });
 
             var mob = ecs.Get<MobDataComponent>(result.MobEntityId);
             Assert.Contains("goblin", mob.Keywords);
@@ -288,10 +222,10 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Goblin", roomId);
+            var result = CreateLive("Goblin", roomId);
 
-            sys.SetMobKeywords(result.MobEntityId, new[] { "first" });
-            sys.SetMobKeywords(result.MobEntityId, new[] { "second", "third" });
+            sys.SetMobKeywords(result.BlueprintId, new[] { "first" });
+            sys.SetMobKeywords(result.BlueprintId, new[] { "second", "third" });
 
             var mob = ecs.Get<MobDataComponent>(result.MobEntityId);
             Assert.DoesNotContain("first", mob.Keywords);
@@ -304,9 +238,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, registry) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Troll", roomId);
+            var result = CreateLive("Troll", roomId);
 
-            sys.SetMobKeywords(result.MobEntityId, new[] { "troll", "giant" });
+            sys.SetMobKeywords(result.BlueprintId, new[] { "troll", "giant" });
 
             registry.TryGet(result.BlueprintId, out var template);
             var mobTemplate = Assert.IsType<MobTemplate>(template);
@@ -315,10 +249,10 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public void SetMobKeywords_is_noop_for_unknown_entity()
+        public void SetMobKeywords_is_noop_for_unknown_blueprint()
         {
             var (sys, _, _) = Build();
-            sys.SetMobKeywords(99999u, new[] { "ghost" });
+            sys.SetMobKeywords("mob.unknown", new[] { "ghost" });
         }
 
         // ── SetMobType ───────────────────────────────────────────────────────────
@@ -328,9 +262,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Merchant", roomId);
+            var result = CreateLive("Merchant", roomId);
 
-            sys.SetMobType(result.MobEntityId, MobType.Vendor);
+            sys.SetMobType(result.BlueprintId, MobType.Vendor);
 
             var mob = ecs.Get<MobDataComponent>(result.MobEntityId);
             Assert.Equal(MobType.Vendor, mob.MobType);
@@ -341,9 +275,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, registry) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("City Guard", roomId);
+            var result = CreateLive("City Guard", roomId);
 
-            sys.SetMobType(result.MobEntityId, MobType.Guard);
+            sys.SetMobType(result.BlueprintId, MobType.Guard);
 
             registry.TryGet(result.BlueprintId, out var template);
             var mobTemplate = Assert.IsType<MobTemplate>(template);
@@ -351,10 +285,10 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public void SetMobType_is_noop_for_unknown_entity()
+        public void SetMobType_is_noop_for_unknown_blueprint()
         {
             var (sys, _, _) = Build();
-            sys.SetMobType(99999u, MobType.Creature);
+            sys.SetMobType("mob.unknown", MobType.Creature);
         }
 
         // ── SetAttribute ─────────────────────────────────────────────────────────
@@ -364,9 +298,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, registry) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Veteran", roomId);
+            var result = CreateLive("Veteran", roomId);
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "level", 10);
+            sys.SetAttribute(result.BlueprintId, "level", 10);
 
             var attr = ecs.Get<AttributesComponent>(result.MobEntityId);
             Assert.Equal(10, attr.Level);
@@ -378,9 +312,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, registry) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Tank", roomId);
+            var result = CreateLive("Tank", roomId);
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "hp", 200);
+            sys.SetAttribute(result.BlueprintId, "hp", 200);
 
             var pools = ecs.Get<PoolsComponent>(result.MobEntityId);
             Assert.Equal(200, pools.MaxHp);
@@ -392,14 +326,14 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Wounded", roomId);
+            var result = CreateLive("Wounded", roomId);
 
             // First raise HP high so CurrentHp is elevated, then reduce max below it.
-            sys.SetAttribute(result.MobEntityId, result.Template, "hp", 100);
+            sys.SetAttribute(result.BlueprintId, "hp", 100);
             var pools = ecs.Get<PoolsComponent>(result.MobEntityId);
             pools.CurrentHp = 100; // simulate full health at 100
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "hp", 50);
+            sys.SetAttribute(result.BlueprintId, "hp", 50);
 
             Assert.Equal(50, pools.MaxHp);
             Assert.Equal(50, pools.CurrentHp); // clamped to new max
@@ -410,9 +344,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Mage", roomId);
+            var result = CreateLive("Mage", roomId);
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "mind", 18);
+            sys.SetAttribute(result.BlueprintId, "mind", 18);
 
             var attr = ecs.Get<AttributesComponent>(result.MobEntityId);
             Assert.Equal(18, attr.Mind);
@@ -424,9 +358,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Brute", roomId);
+            var result = CreateLive("Brute", roomId);
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "body", 20);
+            sys.SetAttribute(result.BlueprintId, "body", 20);
 
             var attr = ecs.Get<AttributesComponent>(result.MobEntityId);
             Assert.Equal(20, attr.Body);
@@ -438,9 +372,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Priest", roomId);
+            var result = CreateLive("Priest", roomId);
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "spirit", 15);
+            sys.SetAttribute(result.BlueprintId, "spirit", 15);
 
             var attr = ecs.Get<AttributesComponent>(result.MobEntityId);
             Assert.Equal(15, attr.Spirit);
@@ -452,9 +386,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Shaman", roomId);
+            var result = CreateLive("Shaman", roomId);
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "attunement", 14);
+            sys.SetAttribute(result.BlueprintId, "attunement", 14);
 
             var attr = ecs.Get<AttributesComponent>(result.MobEntityId);
             Assert.Equal(14, attr.Attunement);
@@ -466,9 +400,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Warlock", roomId);
+            var result = CreateLive("Warlock", roomId);
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "maxmana", 120);
+            sys.SetAttribute(result.BlueprintId, "maxmana", 120);
 
             var pools = ecs.Get<PoolsComponent>(result.MobEntityId);
             Assert.Equal(120, pools.MaxMana);
@@ -480,13 +414,13 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Caster", roomId);
+            var result = CreateLive("Caster", roomId);
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "maxmana", 80);
+            sys.SetAttribute(result.BlueprintId, "maxmana", 80);
             var pools = ecs.Get<PoolsComponent>(result.MobEntityId);
             pools.CurrentMana = 80;
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "maxmana", 30);
+            sys.SetAttribute(result.BlueprintId, "maxmana", 30);
 
             Assert.Equal(30, pools.MaxMana);
             Assert.Equal(30, pools.CurrentMana);
@@ -497,9 +431,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Runner", roomId);
+            var result = CreateLive("Runner", roomId);
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "maxstamina", 90);
+            sys.SetAttribute(result.BlueprintId, "maxstamina", 90);
 
             var pools = ecs.Get<PoolsComponent>(result.MobEntityId);
             Assert.Equal(90, pools.MaxStamina);
@@ -511,13 +445,13 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Tired", roomId);
+            var result = CreateLive("Tired", roomId);
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "maxstamina", 60);
+            sys.SetAttribute(result.BlueprintId, "maxstamina", 60);
             var pools = ecs.Get<PoolsComponent>(result.MobEntityId);
             pools.CurrentStamina = 60;
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "maxstamina", 20);
+            sys.SetAttribute(result.BlueprintId, "maxstamina", 20);
 
             Assert.Equal(20, pools.MaxStamina);
             Assert.Equal(20, pools.CurrentStamina);
@@ -528,9 +462,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Astral", roomId);
+            var result = CreateLive("Astral", roomId);
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "maxastra", 40);
+            sys.SetAttribute(result.BlueprintId, "maxastra", 40);
 
             var pools = ecs.Get<PoolsComponent>(result.MobEntityId);
             Assert.Equal(40, pools.MaxAstra);
@@ -542,13 +476,13 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Drained", roomId);
+            var result = CreateLive("Drained", roomId);
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "maxastra", 20);
+            sys.SetAttribute(result.BlueprintId, "maxastra", 20);
             var pools = ecs.Get<PoolsComponent>(result.MobEntityId);
             pools.CurrentAstra = 20;
 
-            sys.SetAttribute(result.MobEntityId, result.Template, "maxastra", 5);
+            sys.SetAttribute(result.BlueprintId, "maxastra", 5);
 
             Assert.Equal(5, pools.MaxAstra);
             Assert.Equal(5, pools.CurrentAstra);
@@ -559,10 +493,10 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Test", roomId);
+            var result = CreateLive("Test", roomId);
 
             // Unknown property key — should be a no-op (switch default falls through)
-            sys.SetAttribute(result.MobEntityId, result.Template, "nonsense", 42);
+            sys.SetAttribute(result.BlueprintId, "nonsense", 42);
         }
 
         // ── SetMobProtection ─────────────────────────────────────────────────────
@@ -572,9 +506,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Shopkeeper", roomId);
+            var result = CreateLive("Shopkeeper", roomId);
 
-            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.Untargetable);
+            sys.SetMobProtection(result.BlueprintId, ProtectionFlags.Untargetable);
 
             Assert.True(ecs.HasComponent<ProtectionComponent>(result.MobEntityId));
             var comp = ecs.Get<ProtectionComponent>(result.MobEntityId);
@@ -586,9 +520,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Guard", roomId);
+            var result = CreateLive("Guard", roomId);
 
-            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.Untargetable | ProtectionFlags.EffectImmune);
+            sys.SetMobProtection(result.BlueprintId, ProtectionFlags.Untargetable | ProtectionFlags.EffectImmune);
 
             var comp = ecs.Get<ProtectionComponent>(result.MobEntityId);
             Assert.Equal(ProtectionFlags.Untargetable | ProtectionFlags.EffectImmune, comp.Flags);
@@ -599,9 +533,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, registry) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Vendor", roomId);
+            var result = CreateLive("Vendor", roomId);
 
-            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.Untargetable | ProtectionFlags.EffectImmune);
+            sys.SetMobProtection(result.BlueprintId, ProtectionFlags.Untargetable | ProtectionFlags.EffectImmune);
 
             registry.TryGet(result.BlueprintId, out var template);
             var mobTemplate = Assert.IsType<MobTemplate>(template);
@@ -613,14 +547,14 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Mob", roomId);
+            var result = CreateLive("Mob", roomId);
 
             // First set a flag...
-            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.Untargetable);
+            sys.SetMobProtection(result.BlueprintId, ProtectionFlags.Untargetable);
             Assert.True(ecs.HasComponent<ProtectionComponent>(result.MobEntityId));
 
             // ...then clear it to None — component should be removed.
-            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.None);
+            sys.SetMobProtection(result.BlueprintId, ProtectionFlags.None);
             Assert.False(ecs.HasComponent<ProtectionComponent>(result.MobEntityId));
         }
 
@@ -629,10 +563,10 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, registry) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Mob", roomId);
+            var result = CreateLive("Mob", roomId);
 
-            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.EffectImmune);
-            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.None);
+            sys.SetMobProtection(result.BlueprintId, ProtectionFlags.EffectImmune);
+            sys.SetMobProtection(result.BlueprintId, ProtectionFlags.None);
 
             registry.TryGet(result.BlueprintId, out var template);
             var mobTemplate = Assert.IsType<MobTemplate>(template);
@@ -644,21 +578,21 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Mob", roomId);
+            var result = CreateLive("Mob", roomId);
 
-            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.Untargetable);
-            sys.SetMobProtection(result.MobEntityId, ProtectionFlags.EffectImmune);
+            sys.SetMobProtection(result.BlueprintId, ProtectionFlags.Untargetable);
+            sys.SetMobProtection(result.BlueprintId, ProtectionFlags.EffectImmune);
 
             var comp = ecs.Get<ProtectionComponent>(result.MobEntityId);
             Assert.Equal(ProtectionFlags.EffectImmune, comp.Flags);
         }
 
         [Fact]
-        public void SetMobProtection_is_noop_for_unknown_entity()
+        public void SetMobProtection_is_noop_for_unknown_blueprint()
         {
             var (sys, _, _) = Build();
             // Should not throw even if entity doesn't exist.
-            sys.SetMobProtection(99999u, ProtectionFlags.Untargetable);
+            sys.SetMobProtection("mob.unknown", ProtectionFlags.Untargetable);
         }
 
         // ── SetMobTier / SetMobBand ────────────────────────────────────────────────
@@ -668,9 +602,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, registry) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Trash", roomId);
+            var result = CreateLive("Trash", roomId);
 
-            sys.SetMobTier(result.MobEntityId, 2);
+            sys.SetMobTier(result.BlueprintId, 2);
 
             var mob = ecs.Get<MobDataComponent>(result.MobEntityId);
             Assert.Equal(2, mob.Tier);
@@ -681,10 +615,10 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public void SetMobTier_is_noop_for_unknown_entity()
+        public void SetMobTier_is_noop_for_unknown_blueprint()
         {
             var (sys, _, _) = Build();
-            sys.SetMobTier(99999u, 3);
+            sys.SetMobTier("mob.unknown", 3);
         }
 
         [Fact]
@@ -692,9 +626,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, registry) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Trash", roomId);
+            var result = CreateLive("Trash", roomId);
 
-            sys.SetMobBand(result.MobEntityId, 2);
+            sys.SetMobBand(result.BlueprintId, 2);
 
             var mob = ecs.Get<MobDataComponent>(result.MobEntityId);
             Assert.Equal(2, mob.Band);
@@ -705,10 +639,10 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public void SetMobBand_is_noop_for_unknown_entity()
+        public void SetMobBand_is_noop_for_unknown_blueprint()
         {
             var (sys, _, _) = Build();
-            sys.SetMobBand(99999u, 3);
+            sys.SetMobBand("mob.unknown", 3);
         }
 
         // ── SetMobShop ───────────────────────────────────────────────────────────
@@ -718,9 +652,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Merchant", roomId);
+            var result = CreateLive("Merchant", roomId);
 
-            sys.SetMobShop(result.MobEntityId, isShop: true, CurrencyId.Coin, tillSeed: 5000);
+            sys.SetMobShop(result.BlueprintId, isShop: true, CurrencyId.Coin, tillSeed: 5000);
 
             Assert.True(ecs.HasComponent<ShopComponent>(result.MobEntityId));
             Assert.True(ecs.HasComponent<InventoryComponent>(result.MobEntityId));
@@ -734,9 +668,9 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, registry) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Merchant", roomId);
+            var result = CreateLive("Merchant", roomId);
 
-            sys.SetMobShop(result.MobEntityId, isShop: true, CurrencyId.Coin, tillSeed: 5000);
+            sys.SetMobShop(result.BlueprintId, isShop: true, CurrencyId.Coin, tillSeed: 5000);
 
             registry.TryGet(result.BlueprintId, out var template);
             var mobTemplate = Assert.IsType<MobTemplate>(template);
@@ -750,14 +684,14 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, registry) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Merchant", roomId);
+            var result = CreateLive("Merchant", roomId);
 
             var rows = new[]
             {
                 new ShopStockRow { BlueprintId = "item.sword", Quantity = 2 },
                 new ShopStockRow { BlueprintId = "item.potion", Quantity = 5 },
             };
-            sys.SetMobShop(result.MobEntityId, isShop: true, CurrencyId.Coin, tillSeed: 100, baseStock: rows);
+            sys.SetMobShop(result.BlueprintId, isShop: true, CurrencyId.Coin, tillSeed: 100, baseStock: rows);
 
             var shop = ecs.Get<ShopComponent>(result.MobEntityId);
             Assert.Equal(2, shop.BaseStock.Count);
@@ -772,13 +706,13 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, _) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Merchant", roomId);
+            var result = CreateLive("Merchant", roomId);
 
             var rows = new[] { new ShopStockRow { BlueprintId = "item.sword", Quantity = 1 } };
-            sys.SetMobShop(result.MobEntityId, isShop: true, CurrencyId.Coin, tillSeed: 100, baseStock: rows);
+            sys.SetMobShop(result.BlueprintId, isShop: true, CurrencyId.Coin, tillSeed: 100, baseStock: rows);
 
             // Update only the till seed; pass null base stock — existing rows must survive.
-            sys.SetMobShop(result.MobEntityId, isShop: true, CurrencyId.Coin, tillSeed: 999, baseStock: null);
+            sys.SetMobShop(result.BlueprintId, isShop: true, CurrencyId.Coin, tillSeed: 999, baseStock: null);
 
             var shop = ecs.Get<ShopComponent>(result.MobEntityId);
             Assert.Single(shop.BaseStock);
@@ -790,13 +724,13 @@ namespace Hedron.Tests.Authoring
         {
             var (sys, ecs, registry) = Build();
             var roomId = MakeRoom(ecs);
-            var result = sys.CreateMob("Merchant", roomId);
+            var result = CreateLive("Merchant", roomId);
 
             var rows = new[] { new ShopStockRow { BlueprintId = "item.sword", Quantity = 1 } };
-            sys.SetMobShop(result.MobEntityId, isShop: true, CurrencyId.Coin, tillSeed: 100, baseStock: rows);
+            sys.SetMobShop(result.BlueprintId, isShop: true, CurrencyId.Coin, tillSeed: 100, baseStock: rows);
             Assert.True(ecs.HasComponent<ShopComponent>(result.MobEntityId));
 
-            sys.SetMobShop(result.MobEntityId, isShop: false);
+            sys.SetMobShop(result.BlueprintId, isShop: false);
 
             Assert.False(ecs.HasComponent<ShopComponent>(result.MobEntityId));
             registry.TryGet(result.BlueprintId, out var template);
@@ -806,11 +740,11 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public void SetMobShop_false_is_noop_for_unknown_entity()
+        public void SetMobShop_false_is_noop_for_unknown_blueprint()
         {
             var (sys, _, _) = Build();
             // Should not throw even if entity doesn't exist.
-            sys.SetMobShop(99999u, isShop: false);
+            sys.SetMobShop("mob.unknown", isShop: false);
         }
 
         // ── INV-5: MobBuilderSystem does not hold IEventBus ──────────────────────

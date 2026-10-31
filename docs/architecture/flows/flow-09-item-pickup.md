@@ -26,7 +26,7 @@ sequenceDiagram
     Cmd->>IS: MoveToInventory(itemEntityId, playerEntityId)
     Cmd->>Bus: Publish(ItemPickedUpEvent)
     Bus->>ICH: AddComponent PersistentEntity → item enters flush pool
-    Bus->>SS: mark spawn slot vacant; schedule respawn
+    Bus->>SS: vacate the item's rule slot; RespawnAt = now + rule delay
     Bus->>IIH: broadcast pickup messages
 ```
 
@@ -38,7 +38,7 @@ sequenceDiagram
 4. `IItemSystem.MoveToInventory` — removes `LocationComponent`, clears `BlueprintComponent` (INV-21), appends to `InventoryComponent.ItemEntityIds`.
 5. Publishes `ItemPickedUpEvent`.
 6. `ItemContextHandler` (priority 20) adds `PersistentEntity` to the item — it enters the flush pool and survives restarts.
-7. `SpawnSystem` (priority 20) marks the spawn slot vacant and schedules respawn if the item was world-content.
+7. `SpawnSystem` (priority 20) vacates the item's **rule slot** `(room, rule id, ordinal)` if the item was a rule-spawned world item, with `RespawnAt = now + rule delay`; a later heartbeat spawns a fresh found item into the room (R12). A player-owned or detached item is not tracked, so its pickup schedules nothing.
 8. `ItemInteractionHandler` (priority 80) broadcasts pickup messages to the room.
 
 ---
