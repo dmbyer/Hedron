@@ -124,6 +124,20 @@ The content-editor reference-integrity slice ([`completed/content-editor-integri
 
 `Server.csproj` marks `appsettings.json` and `appsettings.DevWorld.json` as `Content` with `CopyToOutputDirectory`, so they flow into every project that references `Server` (`Hedron.Web`, `Hedron.Tests`) and collide with that project's own same-named files in `bin/`. Harmless under `dotnet run` (Web reads its JSON from its content root, the project folder), but `dotnet publish` of `Hedron.Web` can hit NETSDK1152, and a Web host launched with `bin/` as its working directory could load Server's profile. Pre-existing for `appsettings.json`; the DevWorld profile adds a second instance. Fix when publishing `Hedron.Web` is next touched: stop the files flowing transitively (e.g. a `Link`/`CopyToOutputDirectory` scoped to the Server project, or exclude them in the referencing projects).
 
+### 🔵 `reload` skips registry validation, so malformed area affinities pass it (found by the area-designation spec review, 2026-10-31)
+
+`IContentValidator.ValidateRegistry` runs only from `RegistryValidationBootstrap` at host start; `reload` never calls it. `reload` stages content and fails fast on shape errors, which the deserializers throw. But area-affinity normalization (weights must be empty or sum to 100) is a `ValidateRegistry` **error**, not a deserializer shape check. So a hand-edited bad affinity map stops a restart but is accepted by `reload`.
+
+The same boot-only scope applies to `ValidateRegistry`'s **warnings**: room-coordinate collisions, unknown spawn-rule blueprints, and area-designation's out-of-designation findings ([`../implementation-plans/area-designation.md`](../implementation-plans/area-designation.md), Planner refinements). After a `reload` they appear only on the Integrity page and the `area` verb.
+
+Acceptable for now: affinities have no consumer yet ([area-model](../features/world/area-model.md)), and area-designation does not widen the gap. Its malformed designations fail fast in the deserializer on `reload` too.
+
+**Fix**, choose one:
+- move affinity normalization into `AreaTemplateDeserializer` as a shape error (the room spawn-rule precedent); or
+- have `reload` run `ValidateRegistry` on the staged registry before the swap, and refuse on errors. Printing its warnings would change all of its warning categories at once.
+
+Do it when area auras give affinities a consumer, or when `reload`'s validation is next touched.
+
 ### 🔵 Cross-process content-cache coherence (acknowledged debt from authoring-editor-repair)
 
 `ContentDefinitionCatalog` now serves reads from an in-memory index that **every catalog mutator invalidates**. That makes the editor coherent with its own writes, but the catalog is *not* the only writer of content YAML: the `generate` CLI runs in a separate process against the same directory ([Flow 29](../architecture/flows/flow-29-bulk-content-generation.md) leg A), and the game host's `mk*`/`set*`/`dig` verbs write through the `I*ContentWriter` family directly. Neither invalidates a running editor host's index, so a long-lived editor can serve a stale listing after an out-of-process write.

@@ -1,5 +1,7 @@
 using Hedron.Core.ECS.Components;
+using System.Collections.Generic;
 using Hedron.Core.Modules.Spawn.Systems;
+using Hedron.Core.Modules.World.Systems;
 
 namespace Hedron.Core.Modules.Admin.Systems
 {
@@ -50,13 +52,17 @@ namespace Hedron.Core.Modules.Admin.Systems
     /// <summary>
     /// Outcome of a spawn-rule mutation. On success <see cref="Rule"/> is the rule as added,
     /// updated or removed, and <see cref="Sync"/> reports what the tracker spawned or detached.
+    /// <see cref="Findings"/> carries the added/updated rule's out-of-designation finding, if any
+    /// (advisory — the mutation still succeeded); <c>null</c> or empty means none, and a removal
+    /// never carries one.
     /// </summary>
     public sealed record SpawnRuleMutationResult(
         bool Success,
         string? Error,
         SpawnRule? Rule,
         string RoomBlueprintId,
-        SpawnSyncResult Sync)
+        SpawnSyncResult Sync,
+        IReadOnlyList<PlacementFinding>? Findings = null)
     {
         public static SpawnRuleMutationResult Refused(string error, string roomBlueprintId = "") =>
             new(false, error, null, roomBlueprintId, SpawnSyncResult.None);

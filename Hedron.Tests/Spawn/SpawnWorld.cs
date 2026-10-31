@@ -67,6 +67,9 @@ namespace Hedron.Tests.Spawn
         public MobBuilderSystem MobBuilder { get; }
         public ItemBuilderSystem ItemBuilder { get; }
         public RoomContentWriter RoomWriter { get; }
+        public AreaContentWriter AreaWriter { get; }
+        public AreaPlacementSystem Placement { get; }
+        public AreaBuilderSystem AreaBuilder { get; }
         public MobContentWriter MobWriter { get; }
         public ItemContentWriter ItemWriter { get; }
         public RecordingOutput Output { get; } = new();
@@ -85,6 +88,7 @@ namespace Hedron.Tests.Spawn
                 new MobTemplateDeserializer(NullLogger<MobTemplateDeserializer>.Instance),
             });
             RoomWriter = new RoomContentWriter(options);
+            AreaWriter = new AreaContentWriter(options);
             MobWriter = new MobContentWriter(options);
             ItemWriter = new ItemContentWriter(options);
             Loader = new WorldContentLoader(Ecs, Registry, serializer, RoomWriter, new WorldManifestStore(options),
@@ -99,7 +103,9 @@ namespace Hedron.Tests.Spawn
             Bus.Subscribe<Hedron.Core.Modules.Items.Events.ItemPickedUpEvent>(Spawn);
             Bus.Subscribe<Hedron.Core.Modules.Time.Events.HeartbeatTickEvent>(Spawn);
 
-            RoomBuilder = new RoomBuilderSystem(Ecs, Registry, new AreaSystem(Ecs, Registry), Spawn, NullLogger<RoomBuilderSystem>.Instance);
+            Placement = new AreaPlacementSystem(Registry);
+            RoomBuilder = new RoomBuilderSystem(Ecs, Registry, new AreaSystem(Ecs, Registry), Spawn, Placement, NullLogger<RoomBuilderSystem>.Instance);
+            AreaBuilder = new AreaBuilderSystem(Ecs, Registry, NullLogger<AreaBuilderSystem>.Instance);
             MobBuilder = new MobBuilderSystem(Ecs, Registry, NullLogger<MobBuilderSystem>.Instance);
             ItemBuilder = new ItemBuilderSystem(Ecs, Registry, NullLogger<ItemBuilderSystem>.Instance);
         }
@@ -114,8 +120,11 @@ namespace Hedron.Tests.Spawn
             File.WriteAllText(PathOf(subdir, id), body);
         }
 
-        public void Room(string id, string spawnRulesYaml = "") =>
-            Write("rooms", id, $"id: {id}\nname: {id}\n" + (spawnRulesYaml.Length > 0 ? "spawnRules:\n" + spawnRulesYaml : ""));
+        public void Room(string id, string spawnRulesYaml = "", string? areaId = null) =>
+            Write("rooms", id, $"id: {id}\nname: {id}\n" + (areaId is null ? "" : $"areaId: {areaId}\n") +
+                (spawnRulesYaml.Length > 0 ? "spawnRules:\n" + spawnRulesYaml : ""));
+
+        public void Area(string id, string extra = "") => Write("areas", id, $"id: {id}\nname: {id}\n{extra}");
 
         public void Mob(string id, string extra = "") => Write("mobs", id, $"blueprintId: {id}\nname: {id}\nlevel: 1\n{extra}");
         public void Item(string id, string extra = "") => Write("items", id, $"blueprintId: {id}\nname: {id}\n{extra}");
@@ -168,6 +177,9 @@ namespace Hedron.Tests.Spawn
         public SetitemCommand SetitemCommand() => new(ItemBuilder, ItemWriter, Registry, Bus);
 
         public ReloadCommand ReloadCommand() => new(Loader, Bus, Persistence);
+
+        public AreaSetCommand AreaSetCommand() => new(AreaBuilder, AreaWriter, Bus);
+        public AreaCommand AreaCommand() => new(new AreaSystem(Ecs, Registry), Placement, Ecs);
 
         public Task RunAsync(ICommand command, IReadOnlyDictionary<string, object?> args) =>
             command.ExecuteAsync(new CommandContext(new StubSession(AdminId), AdminId, Args(args), Output.WriterFor(AdminId), Services: null!));

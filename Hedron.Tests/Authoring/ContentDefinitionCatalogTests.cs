@@ -909,6 +909,22 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
+        public async Task Rename_Area_PreservesDesignation()
+        {
+            var (catalog, _) = NewCatalog();
+
+            var area = catalog.CreateNew(ContentKind.Area, "Wilds");
+            ((AreaTemplate)area.Template).Designation = AreaDesignation.Of(0, 1, 2);
+            await catalog.SaveAsync(area);
+
+            var result = await catalog.RenameAsync(ContentKind.Area, area.BlueprintId, "area.wilds-renamed");
+
+            Assert.True(result.Success);
+            var renamed = (AreaTemplate)catalog.Load(ContentKind.Area, "area.wilds-renamed")!.Template;
+            Assert.Equal(AreaDesignation.Of(0, 1, 2), renamed.Designation);
+        }
+
+        [Fact]
         public async Task Rename_RewritesReferrer_ExitDirection()
         {
             var (catalog, _) = NewCatalog();

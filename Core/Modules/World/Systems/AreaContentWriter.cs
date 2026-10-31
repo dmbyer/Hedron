@@ -53,6 +53,9 @@ namespace Hedron.Core.Modules.World.Systems
                 Pvp               = template.Pvp,
                 Rooms             = template.Rooms.Count > 0 ? template.Rooms : null,
                 AspectAffinities  = aspectDtos,
+                Designation       = template.Designation is { } d
+                    ? new DesignationDto { Tier = d.Min.Tier, BandMin = d.Min.Band, BandMax = d.Max.Band }
+                    : null,
             };
 
             var body     = _yaml.Serialize(dto);
@@ -72,6 +75,17 @@ namespace Hedron.Core.Modules.World.Systems
             public bool Pvp { get; set; }
             public List<string>? Rooms { get; set; }
             public Dictionary<string, int>? AspectAffinities { get; set; }
+
+            // Omitted when undesignated: an absent key is the undesignated form (P1).
+            [YamlMember(DefaultValuesHandling = DefaultValuesHandling.OmitNull)]
+            public DesignationDto? Designation { get; set; }
+        }
+
+        private sealed class DesignationDto
+        {
+            public int Tier { get; set; }
+            public int BandMin { get; set; }
+            public int BandMax { get; set; }
         }
     }
 }

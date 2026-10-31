@@ -1,7 +1,15 @@
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Aspects;
+using Hedron.Core.Modules.World;
+using Hedron.Core.Modules.World.Components;
+using Hedron.Core.Modules.World.Systems;
 using Hedron.Core.Modules.World.Templates;
+using Hedron.Core.Systems;
+using Microsoft.Extensions.Options;
+using System;
+using System.IO;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -118,6 +126,87 @@ description: A test area.{affinities}
             Assert.NotNull(template.AspectAffinities);
             Assert.Single(template.AspectAffinities);
             Assert.Equal(100, template.AspectAffinities![AspectId.Fire]);
+        }
+
+        // ── Designation (area-designation, P1–P3) ────────────────────────────────
+
+        private static string DesignatedYaml(string designationBlock) =>
+            $"id: test.area\nname: Test Area\ndesignation:\n{designationBlock}\n";
+
+        [Fact]
+        public void Designation_is_parsed_and_absent_means_undesignated()
+        {
+            var deserializer = BuildDeserializer();
+
+            var designated = (AreaTemplate)deserializer.Deserialize(
+                DesignatedYaml("  tier: 0\n  bandMin: 1\n  bandMax: 2"));
+            Assert.Equal(AreaDesignation.Of(0, 1, 2), designated.Designation);
+
+            var plain = (AreaTemplate)deserializer.Deserialize(BuildAreaYaml());
+            Assert.Null(plain.Designation);
+        }
+
+        [Theory]
+        [InlineData("  bandMin: 1\n  bandMax: 2")]              // missing tier
+        [InlineData("  tier: 0\n  bandMax: 2")]                 // missing bandMin
+        [InlineData("  tier: 0\n  bandMin: 1")]                 // missing bandMax
+        [InlineData("  tier: 0\n  bandMin: 3\n  bandMax: 1")]  // inverted
+        [InlineData("  tier: 0\n  bandMin: 0\n  bandMax: 1")]  // band out of range
+        [InlineData("  tier: 99\n  bandMin: 1\n  bandMax: 1")] // tier out of range
+        public void Malformed_designation_is_a_shape_error_naming_the_area(string block)
+        {
+            var ex = Assert.Throws<ContentShapeException>(
+                () => BuildDeserializer().Deserialize(DesignatedYaml(block)));
+            Assert.Contains("test.area", ex.Message);
+        }
+
+        [Fact]
+        public void Apply_attaches_the_designation_component_only_when_designated()
+        {
+            var ecs = new EntityService();
+
+            var designated = new AreaTemplate("area.d") { Designation = AreaDesignation.Of(0, 2, 2) };
+            var d = ecs.CreateEntity();
+            designated.Apply(d, ecs);
+            Assert.True(ecs.TryGet<AreaDesignationComponent>(d.Id, out var component));
+            Assert.Equal(AreaDesignation.Of(0, 2, 2), component.Designation);
+            Assert.False(ecs.HasComponent<PersistentEntity>(d.Id));
+
+            var plain = new AreaTemplate("area.p");
+            var p = ecs.CreateEntity();
+            plain.Apply(p, ecs);
+            Assert.False(ecs.HasComponent<AreaDesignationComponent>(p.Id));
+        }
+
+        [Fact]
+        public void Designation_component_is_world_content_not_persistent()
+        {
+            Assert.False(Attribute.IsDefined(typeof(AreaDesignationComponent), typeof(PersistentAttribute)));
+        }
+
+        [Fact]
+        public async Task Writer_round_trips_a_designation_and_omits_the_key_when_undesignated()
+        {
+            var dir = Path.Combine(Path.GetTempPath(), $"hedron-area-designation-{Guid.NewGuid():N}");
+            try
+            {
+                var writer = new AreaContentWriter(Options.Create(new WorldOptions { ContentDirectory = dir }));
+
+                var designated = new AreaTemplate("area.d") { Name = "D", Designation = AreaDesignation.Of(0, 1, 3) };
+                await writer.WriteAsync(designated);
+                var reread = (AreaTemplate)BuildDeserializer().Deserialize(
+                    File.ReadAllText(Path.Combine(dir, "areas", "area.d.yaml")));
+                Assert.Equal(designated.Designation, reread.Designation);
+
+                await writer.WriteAsync(new AreaTemplate("area.p") { Name = "P" });
+                var plainBody = File.ReadAllText(Path.Combine(dir, "areas", "area.p.yaml"));
+                Assert.DoesNotContain("designation", plainBody);
+                Assert.Null(((AreaTemplate)BuildDeserializer().Deserialize(plainBody)).Designation);
+            }
+            finally
+            {
+                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+            }
         }
     }
 }

@@ -5,6 +5,7 @@ using Hedron.Core.Modules.Authoring;
 using Hedron.Core.Modules.Authoring.Systems;
 using Hedron.Core.Modules.BalanceInspection;
 using Hedron.Core.Modules.BalanceInspection.Systems;
+using Hedron.Core.Modules.World.Systems;
 
 namespace Hedron.Web.Services
 {
@@ -25,12 +26,14 @@ namespace Hedron.Web.Services
         IntegritySweepState State,
         IReadOnlyList<BrokenReference> Broken,
         BalanceAuditReport? AuditReport,
-        string? ErrorMessage);
+        string? ErrorMessage,
+        IReadOnlyList<PlacementFinding>? PlacementFindings = null);
 
     /// <summary>
-    /// Runs the Integrity page's two corpus sweeps — <see cref="IContentReferenceIndex.SweepBroken"/>
-    /// and <see cref="IBalanceAuditSystem.Audit"/> — off the Blazor circuit thread, exposing an
-    /// observable in-progress state instead of freezing the page for their duration.
+    /// Runs the Integrity page's three corpus sweeps — <see cref="IContentReferenceIndex.SweepBroken"/>,
+    /// <see cref="IBalanceAuditSystem.Audit"/> and <see cref="IAreaDesignationAudit.Findings"/> — off
+    /// the Blazor circuit thread, exposing an observable in-progress state instead of freezing the
+    /// page for their duration.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -47,7 +50,8 @@ namespace Hedron.Web.Services
     /// <see cref="Task"/>; the status record is owned by this service behind <c>_lock</c> and read
     /// by circuit threads via <see cref="Snapshot"/>. A concurrent <see cref="StartAsync"/> joins
     /// the in-flight sweep rather than starting a second one. It reads
-    /// <see cref="IContentReferenceIndex"/> / <see cref="IBalanceAuditSystem"/> and mutates no
+    /// <see cref="IContentReferenceIndex"/> / <see cref="IBalanceAuditSystem"/> /
+    /// <see cref="IAreaDesignationAudit"/> and mutates no
     /// live-world component (INV-12/22/23).
     /// </para>
     /// </remarks>
@@ -57,6 +61,7 @@ namespace Hedron.Web.Services
 
         private readonly IContentReferenceIndex _referenceIndex;
         private readonly IBalanceAuditSystem _balanceAudit;
+        private readonly IAreaDesignationAudit _designationAudit;
 
         private readonly object _lock = new();
         private IntegritySweepStatus _status = new(IntegritySweepState.Idle, NoBroken, null, null);
@@ -64,10 +69,12 @@ namespace Hedron.Web.Services
 
         public ContentIntegritySweepService(
             IContentReferenceIndex referenceIndex,
-            IBalanceAuditSystem balanceAudit)
+            IBalanceAuditSystem balanceAudit,
+            IAreaDesignationAudit designationAudit)
         {
             _referenceIndex = referenceIndex;
             _balanceAudit = balanceAudit;
+            _designationAudit = designationAudit;
         }
 
         /// <summary>The current sweep status. Never blocks on the sweep.</summary>
@@ -104,7 +111,8 @@ namespace Hedron.Web.Services
             {
                 var broken = _referenceIndex.SweepBroken();
                 var audit = _balanceAudit.Audit();
-                result = new IntegritySweepStatus(IntegritySweepState.Completed, broken, audit, null);
+                var placements = _designationAudit.Findings();
+                result = new IntegritySweepStatus(IntegritySweepState.Completed, broken, audit, null, placements);
             }
             catch (Exception ex)
             {

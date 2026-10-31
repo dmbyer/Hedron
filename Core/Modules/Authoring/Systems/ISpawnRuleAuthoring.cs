@@ -21,6 +21,13 @@ namespace Hedron.Core.Modules.Authoring.Systems
         IReadOnlyList<SpawnSite> SpawnSitesFor(ContentKind kind, string blueprintId);
 
         /// <summary>
+        /// Every <c>(room, rule)</c> on disk, ordered by room blueprint id then rule id (ordinal).
+        /// Lock-free read over the same cached room sweep as <see cref="SpawnSitesFor"/>; feeds the
+        /// catalog-backed out-of-designation check.
+        /// </summary>
+        IReadOnlyList<SpawnSite> AllSpawnSites();
+
+        /// <summary>
         /// Adds <paramref name="rule"/> to the room, or replaces the room's rule with the same id
         /// (case-insensitive). A blank <see cref="SpawnRule.Id"/> is minted
         /// (<see cref="SpawnRuleIds.Mint"/>). Refuses — writing nothing — an unknown room or a rule

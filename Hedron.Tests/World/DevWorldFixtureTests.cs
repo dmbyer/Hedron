@@ -140,6 +140,16 @@ namespace Hedron.Tests.World
             Assert.All(rooms, r => Assert.True(canReturn.Contains(r.BlueprintId), $"{r.BlueprintId} has no path back to {start}"));
         }
 
+        [Fact]
+        public async Task Hub_stays_undesignated_and_the_world_has_no_out_of_designation_placements()
+        {
+            var (registry, _) = await BootAsync();
+
+            Assert.True(registry.TryGet("area.hub", out var hub));
+            Assert.Null(Assert.IsType<AreaTemplate>(hub).Designation);
+            Assert.Empty(new AreaPlacementSystem(registry).Findings());
+        }
+
         private static HashSet<string> Bfs(string start, IReadOnlyDictionary<string, List<string>> edges)
         {
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { start };

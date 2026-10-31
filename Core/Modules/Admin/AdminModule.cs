@@ -29,6 +29,7 @@ namespace Hedron.Core.Modules.Admin
             services.AddSingleton<ICommand, DefsCommand>();
             services.AddSingleton<ICommand, AreaCommand>();
             services.AddSingleton<ICommand, SetAreaCommand>();
+            services.AddSingleton<ICommand, AreaSetCommand>();
             services.AddSingleton<ICommand, MkareaCommand>();
             services.AddSingleton<ICommand, ListEntitiesCommand>();
             services.AddSingleton<ICommand, StartRoomCommand>();

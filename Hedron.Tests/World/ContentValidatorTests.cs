@@ -1,3 +1,4 @@
+using Hedron.Core.Modules.World;
 using Hedron.Core.ECS.Components;
 using System;
 using System.Collections.Generic;
@@ -404,6 +405,49 @@ namespace Hedron.Tests.World
 
             Assert.True(report.IsValid);
             Assert.Empty(report.Warnings);
+        }
+
+        // ── Area designation (area-designation, P2, P7) ──────────────────────────
+
+        [Fact]
+        public void Validate_area_reports_malformed_designation_alongside_affinity_errors()
+        {
+            var area = new AreaTemplate("area.bad")
+            {
+                AspectAffinities = new Dictionary<AspectId, int> { [AspectId.Fire] = 40 },
+                Designation = AreaDesignation.Of(0, 3, 1),
+            };
+
+            var report = Build().Validate(area);
+
+            Assert.False(report.IsValid);
+            Assert.Contains(report.Errors, e => e.Contains("bandMin"));
+            Assert.Contains(report.Errors, e => e.Contains("Aspect composition"));
+        }
+
+        [Fact]
+        public void Validate_area_accepts_a_well_formed_designation()
+        {
+            Assert.True(Build().Validate(
+                new AreaTemplate("area.ok") { Designation = AreaDesignation.Of(0, 1, 2) }).IsValid);
+        }
+
+        [Fact]
+        public void ValidateRegistry_warns_once_per_out_of_designation_placement_and_stays_valid()
+        {
+            var ecs = new EntityService();
+            var registry = new TemplateRegistry(ecs);
+            registry.Register("area.b1", new AreaTemplate("area.b1") { Designation = AreaDesignation.Of(0, 1, 1) });
+            registry.Register("mob.b3", new MobTemplate("mob.b3") { Tier = 0, Band = 3 });
+            var room = new RoomTemplate("room.r") { AreaId = "area.b1" };
+            room.SpawnRules.Add(new SpawnRule("ogres", "mob.b3", 1, 60));
+            registry.Register("room.r", room);
+
+            var report = Build(ecs: ecs, templateRegistry: registry).ValidateRegistry(Array.Empty<string>());
+
+            Assert.True(report.IsValid);
+            var warning = Assert.Single(report.Warnings, w => w.StartsWith("Out of designation"));
+            Assert.Contains("ogres", warning);
         }
     }
 }

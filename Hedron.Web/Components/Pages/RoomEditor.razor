@@ -170,7 +170,14 @@ else if (_template is not null)
         {
             result = await Catalog.CreateAsync(new ContentDefinition(ContentKind.Room, _template));
             if (result.Success && _bidirectional)
+            {
+                // The follow-up save sees the just-created rules as unchanged, so the create's
+                // out-of-designation warnings would be lost — show both results' notices.
+                var created = result;
                 result = await Catalog.SaveRoomAsync(_template, bidirectional: true);
+                if (result.Success)
+                    result = result with { Warnings = created.Warnings.Concat(result.Warnings).Distinct().ToList() };
+            }
         }
         else
         {

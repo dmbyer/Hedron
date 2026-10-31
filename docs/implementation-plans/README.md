@@ -50,6 +50,7 @@ A small quick-fix or minor enhancement that warrants no slice-sized record updat
 | `planned` | [`playtest-automation-program.md`](playtest-automation-program.md) | Phase 5 agentic playtest harness — scripted bots + LLM persona agents (requirements + architecture brief — awaiting `/new-plan` per slice) |
 | `planned` | [`playtest-world-substrate.md`](playtest-world-substrate.md) | Playtest PT-1 — subscription + session-entry extractions, per-world composition, tick driver, `BotSession` + agent formatter, bot-critical typed messages, R27 policy (R2–R6, R27–R28) |
 | `planned` | [`playtest-run-mode.md`](playtest-run-mode.md) | Playtest PT-2 — `playtest` CLI, scenario YAML on the shared YAML store, recorder, metrics + grader, `playtestExpectations` standards family, report writer, acceptance walker, ≤10 s dev-world hub smoke golden (R1, R7 walker, R10–R14, R25) |
+| `implemented` | [`area-designation.md`](area-designation.md) | Phase 5 slice 3 — optional area (Tier, band-range) designation; out-of-designation check on room spawn rules surfaced in Integrity, area views and at rule authoring; general area setter `areaset` (implemented — code gate passed; awaiting `sync-roadmap`) |
 | `planned` | [`tiered-overworld-program.md`](tiered-overworld-program.md) | Phase 6 world program (requirements seed — awaiting `/advise`) |
 | `deferred` | [`admin-privilege-elevation.md`](admin-privilege-elevation.md) | Future (TBD) — placeholder |
 

@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.World;
+using Hedron.Core.Modules.World.Components;
 using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging;
@@ -41,6 +44,74 @@ namespace Hedron.Core.Modules.Admin.Systems
 
             _logger.LogDebug("AreaBuilderSystem: created area entity={EntityId} blueprint={BlueprintId}", entity.Id, blueprintId);
             return new AreaCreationResult(entity.Id, blueprintId, template);
+        }
+
+        public AreaPropertyResult SetAreaName(string areaBlueprintId, string name)
+            => Mutate(areaBlueprintId, (template, liveId) =>
+            {
+                template.Name = name;
+                if (liveId != 0 && _entityService.TryGet<AreaComponent>(liveId, out var area))
+                    area.Name = name;
+            });
+
+        public AreaPropertyResult SetAreaDescription(string areaBlueprintId, string description)
+            => Mutate(areaBlueprintId, (template, liveId) =>
+            {
+                template.Description = description;
+                if (liveId != 0 && _entityService.TryGet<AreaComponent>(liveId, out var area))
+                    area.Description = description;
+            });
+
+        public AreaPropertyResult SetAreaDesignation(string areaBlueprintId, AreaDesignation? designation)
+        {
+            if (designation is not null)
+            {
+                var errors = AreaDesignationValidation.Errors(areaBlueprintId, designation);
+                if (errors.Count > 0)
+                    return AreaPropertyResult.Refused(areaBlueprintId, string.Join(" ", errors));
+            }
+
+            return Mutate(areaBlueprintId, (template, liveId) =>
+            {
+                template.Designation = designation;
+                if (liveId == 0)
+                    return;
+
+                if (designation is null)
+                    _entityService.RemoveComponent<AreaDesignationComponent>(liveId);
+                else if (_entityService.TryGet<AreaDesignationComponent>(liveId, out var component))
+                    component.Designation = designation;
+                else
+                    _entityService.AddComponent(liveId, new AreaDesignationComponent { Designation = designation });
+            });
+        }
+
+        /// <summary>
+        /// Resolves the registered <see cref="AreaTemplate"/> (refusing an unknown one) and the live
+        /// area entity, if spawned, then applies <paramref name="apply"/> to both (INV-21).
+        /// </summary>
+        private AreaPropertyResult Mutate(string areaBlueprintId, Action<AreaTemplate, uint> apply)
+        {
+            if (!_templateRegistry.TryGet(areaBlueprintId, out var raw) || raw is not AreaTemplate template)
+                return AreaPropertyResult.Refused(areaBlueprintId, $"No area template found with blueprint id '{areaBlueprintId}'.");
+
+            var liveId = FindLiveArea(template.BlueprintId);
+            apply(template, liveId);
+
+            _logger.LogDebug("AreaBuilderSystem: mutated area blueprint={BlueprintId} entity={EntityId}", template.BlueprintId, liveId);
+            return new AreaPropertyResult(true, null, template.BlueprintId, liveId, template);
+        }
+
+        // BlueprintComponent scan — the acknowledged "Blueprint-scan index" backlog debt.
+        private uint FindLiveArea(string blueprintId)
+        {
+            foreach (var (entityId, bp) in _entityService.GetAllComponents<BlueprintComponent>())
+            {
+                if (string.Equals(bp.BlueprintId, blueprintId, StringComparison.Ordinal) &&
+                    _entityService.HasComponent<AreaComponent>(entityId))
+                    return entityId;
+            }
+            return 0;
         }
 
         private string GenerateUniqueBlueprintId()

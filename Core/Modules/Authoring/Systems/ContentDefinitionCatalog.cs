@@ -327,18 +327,23 @@ namespace Hedron.Core.Modules.Authoring.Systems
             if (!report.IsValid)
                 return ContentWriteResult.Failed(definition.BlueprintId, report.Errors);
 
+            var priorRules = definition.Template is RoomTemplate ? PriorRoomRules(definition.BlueprintId) : null;
+
             // Write the file before checking cross-references — warn-but-allow (INV-19).
             await WriteDefinitionAsync(definition, ct).ConfigureAwait(false);
 
             // Surface any dangling cross-references as non-blocking warnings.
+            var warnings = new List<string>();
             var broken = _referenceIndex.BrokenFor(definition.Template);
             if (broken.Count > 0)
-            {
-                var warnings = BuildBrokenRefWarnings(broken);
-                return ContentWriteResult.OkWithWarnings(definition.BlueprintId, warnings);
-            }
+                warnings.AddRange(BuildBrokenRefWarnings(broken));
 
-            return ContentWriteResult.Ok(definition.BlueprintId);
+            if (definition.Template is RoomTemplate room)
+                warnings.AddRange(DesignationWarnings(room, priorRules));
+
+            return warnings.Count > 0
+                ? ContentWriteResult.OkWithWarnings(definition.BlueprintId, warnings)
+                : ContentWriteResult.Ok(definition.BlueprintId);
         }
 
         private async Task<ContentWriteResult> SaveRoomCoreAsync(
@@ -350,6 +355,8 @@ namespace Hedron.Core.Modules.Authoring.Systems
             if (!report.IsValid)
                 return ContentWriteResult.Failed(room.BlueprintId, report.Errors);
 
+            var priorRules = PriorRoomRules(room.BlueprintId);
+
             await WriteTemplateAsync(room, ct).ConfigureAwait(false);
 
             var warnings = new List<string>();
@@ -358,6 +365,8 @@ namespace Hedron.Core.Modules.Authoring.Systems
             var broken = _referenceIndex.BrokenFor(room);
             if (broken.Count > 0)
                 warnings.AddRange(BuildBrokenRefWarnings(broken));
+
+            warnings.AddRange(DesignationWarnings(room, priorRules));
 
             // Bidirectional exit linking.
             if (bidirectional)
@@ -409,6 +418,63 @@ namespace Hedron.Core.Modules.Authoring.Systems
                 : ContentWriteResult.Ok(room.BlueprintId);
         }
 
+        // ── Out-of-designation warnings on rule saves (area-designation R13) ────────
+
+        /// <summary>
+        /// The room's rules as they are on disk before a save, or <c>null</c> for a new room. An
+        /// unreadable prior file counts as no prior (every rule is then judged as new).
+        /// </summary>
+        private IReadOnlyList<SpawnRule>? PriorRoomRules(string roomBlueprintId)
+        {
+            try
+            {
+                return (Load(ContentKind.Room, roomBlueprintId)?.Template as RoomTemplate)?.SpawnRules.ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "ContentDefinitionCatalog: could not read prior room '{RoomBlueprintId}'; judging every rule as new.",
+                    roomBlueprintId);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Judges each rule that is new, or changed, relative to <paramref name="priorRules"/> against
+        /// its area designation and returns one advisory warning per finding. A save whose rules are
+        /// unchanged warns nothing, even if the room moved area (resolved decision 8): the area
+        /// editor list and Integrity cover that case. The judgement is the shared
+        /// <see cref="AreaPlacementCheck"/>, never re-derived here.
+        /// </summary>
+        private IEnumerable<string> DesignationWarnings(RoomTemplate room, IReadOnlyList<SpawnRule>? priorRules)
+        {
+            if (room.SpawnRules.Count == 0)
+                yield break;
+
+            var prior = new Dictionary<string, SpawnRule>(StringComparer.OrdinalIgnoreCase);
+            if (priorRules is not null)
+                foreach (var rule in priorRules)
+                    prior[rule.Id] = rule;
+
+            var areaId = string.IsNullOrEmpty(room.AreaId) ? null : room.AreaId;
+            var source = new CatalogPlacementSource(this, this, _logger);
+            foreach (var rule in room.SpawnRules)
+            {
+                if (prior.TryGetValue(rule.Id, out var before) && SameRule(before, rule))
+                    continue;
+
+                if (AreaPlacementCheck.Judge(new PlacementSite(room.BlueprintId, areaId, rule), source) is { } finding)
+                    yield return finding.Describe();
+            }
+        }
+
+        // Ids and blueprint ids resolve case-insensitively, so a case-only edit is "unchanged".
+        private static bool SameRule(SpawnRule a, SpawnRule b) =>
+            string.Equals(a.Id, b.Id, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(a.BlueprintId, b.BlueprintId, StringComparison.OrdinalIgnoreCase) &&
+            a.Count == b.Count &&
+            a.RespawnDelaySeconds == b.RespawnDelaySeconds;
+
         // ── Spawn-rule authoring (ISpawnRuleAuthoring) ───────────────────────────────
 
         public IReadOnlyList<SpawnSite> SpawnSitesFor(ContentKind kind, string blueprintId)
@@ -420,6 +486,16 @@ namespace Hedron.Core.Modules.Authoring.Systems
             return derived.SitesByBlueprint.TryGetValue(blueprintId, out var sites)
                 ? sites
                 : Array.Empty<SpawnSite>();
+        }
+
+        public IReadOnlyList<SpawnSite> AllSpawnSites()
+        {
+            var derived = EnsureRoomDerived(CurrentIndex());
+            return derived.SitesByBlueprint.Values
+                .SelectMany(sites => sites)
+                .OrderBy(site => site.RoomBlueprintId, StringComparer.Ordinal)
+                .ThenBy(site => site.Rule.Id, StringComparer.Ordinal)
+                .ToList();
         }
 
         private async Task<ContentWriteResult> UpsertSpawnRuleCoreAsync(
@@ -1126,6 +1202,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
                         RespawnRate = a.RespawnRate,
                         Pvp = a.Pvp,
                         AspectAffinities = a.AspectAffinities is null ? null : new(a.AspectAffinities),
+                        Designation = a.Designation,
                     };
                     clone.Rooms.AddRange(a.Rooms);
                     return clone;

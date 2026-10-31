@@ -142,6 +142,7 @@ public static class Program
         bus.Subscribe<PlayerRespawnSetByAdminEvent>(audit);
         bus.Subscribe<AbilityTaughtByAdminEvent>(audit);
         bus.Subscribe<RoomAreaAssignedByAdminEvent>(audit);
+        bus.Subscribe<AreaPropertySetByAdminEvent>(audit);
         bus.Subscribe<AreaCreatedByAdminEvent>(audit);
         bus.Subscribe<WalletSetByAdminEvent>(audit);
         bus.Subscribe<PlayerAscendedByAdminEvent>(audit);

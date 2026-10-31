@@ -7,6 +7,8 @@ using Hedron.Core.Modules.Authoring.Systems;
 using Hedron.Core.Modules.BalanceInspection;
 using Hedron.Core.Modules.BalanceInspection.Systems;
 using Hedron.Core.Systems;
+using Hedron.Core.Modules.World.Systems;
+using Hedron.Core.Modules.World;
 using Hedron.Web.Services;
 using Xunit;
 
@@ -50,6 +52,15 @@ namespace Hedron.Tests.Web
                 new(Array.Empty<BalanceAuditEntry>(), new Dictionary<(int Tier, int Band), int>());
         }
 
+        private sealed class FakeDesignationAudit : IAreaDesignationAudit
+        {
+            public IReadOnlyList<PlacementFinding> Findings(string? areaBlueprintId = null) => new[]
+            {
+                new PlacementFinding("room.glade", "ogres", "mob.b3", PlacedKind.Mob, "area.wilds",
+                    new PowerBand(0, 3), AreaDesignation.Of(0, 1, 1)),
+            };
+        }
+
         private static void WaitFor(ManualResetEventSlim signal)
         {
             Assert.True(signal.Wait(TimeSpan.FromSeconds(5)), "sweep did not start within the timeout.");
@@ -58,7 +69,7 @@ namespace Hedron.Tests.Web
         [Fact]
         public void Snapshot_BeforeAnyStart_IsIdle()
         {
-            var service = new ContentIntegritySweepService(new GatedReferenceIndex(), new FakeBalanceAudit());
+            var service = new ContentIntegritySweepService(new GatedReferenceIndex(), new FakeBalanceAudit(), new FakeDesignationAudit());
 
             var status = service.Snapshot();
 
@@ -71,7 +82,7 @@ namespace Hedron.Tests.Web
         public async Task StartAsync_ReportsInProgressWhileRunning_ThenTheCompletedResult()
         {
             var index = new GatedReferenceIndex();
-            var service = new ContentIntegritySweepService(index, new FakeBalanceAudit());
+            var service = new ContentIntegritySweepService(index, new FakeBalanceAudit(), new FakeDesignationAudit());
 
             var sweep = service.StartAsync();      // returns immediately — the sweep is off-thread
             WaitFor(index.Entered);
@@ -93,7 +104,7 @@ namespace Hedron.Tests.Web
         public async Task StartAsync_WhileASweepIsInFlight_JoinsItRatherThanStartingASecond()
         {
             var index = new GatedReferenceIndex();
-            var service = new ContentIntegritySweepService(index, new FakeBalanceAudit());
+            var service = new ContentIntegritySweepService(index, new FakeBalanceAudit(), new FakeDesignationAudit());
 
             var first = service.StartAsync();
             WaitFor(index.Entered);
@@ -111,7 +122,7 @@ namespace Hedron.Tests.Web
         public async Task SweepFailure_IsReportedAsFailedWithTheMessage_NotThrownAtTheCaller()
         {
             var index = new GatedReferenceIndex { Throw = new InvalidOperationException("corpus unreadable") };
-            var service = new ContentIntegritySweepService(index, new FakeBalanceAudit());
+            var service = new ContentIntegritySweepService(index, new FakeBalanceAudit(), new FakeDesignationAudit());
 
             var sweep = service.StartAsync();
             WaitFor(index.Entered);
@@ -124,10 +135,30 @@ namespace Hedron.Tests.Web
         }
 
         [Fact]
+        public async Task CompletedSweep_CarriesThePlacementFindings_AndAFailureLeavesThemEmpty()
+        {
+            var index = new GatedReferenceIndex();
+            var service = new ContentIntegritySweepService(index, new FakeBalanceAudit(), new FakeDesignationAudit());
+            index.Gate.Set();
+            await service.StartAsync();
+
+            var finding = Assert.Single(service.Snapshot().PlacementFindings!);
+            Assert.Equal(("room.glade", "ogres"), (finding.RoomBlueprintId, finding.RuleId));
+
+            var failing = new GatedReferenceIndex { Throw = new InvalidOperationException("boom") };
+            var failed = new ContentIntegritySweepService(failing, new FakeBalanceAudit(), new FakeDesignationAudit());
+            failing.Gate.Set();
+            await failed.StartAsync();
+
+            Assert.Equal(IntegritySweepState.Failed, failed.Snapshot().State);
+            Assert.Empty(failed.Snapshot().PlacementFindings ?? Array.Empty<PlacementFinding>());
+        }
+
+        [Fact]
         public async Task StartAsync_AfterACompletedSweep_RunsAgain()
         {
             var index = new GatedReferenceIndex();
-            var service = new ContentIntegritySweepService(index, new FakeBalanceAudit());
+            var service = new ContentIntegritySweepService(index, new FakeBalanceAudit(), new FakeDesignationAudit());
 
             index.Gate.Set();
             await service.StartAsync();
