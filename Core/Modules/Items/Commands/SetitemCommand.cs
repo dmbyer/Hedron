@@ -9,6 +9,7 @@ using Hedron.Core.ECS.Components;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Items.Events;
 using Hedron.Core.Modules.Items.Systems;
+using Hedron.Core.Modules.Items.Templates;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Output;
 using Hedron.Core.Systems;
@@ -17,13 +18,15 @@ namespace Hedron.Core.Modules.Items.Commands
 {
     /// <summary>
     /// Admin verb <c>setitem &lt;blueprintId&gt; &lt;property&gt; &lt;value&gt;</c>.
-    /// Mutates name, description, keywords, or type on a live item entity identified by blueprint id.
+    /// Sets a property on an item <b>blueprint</b>: the builder updates the template and every live
+    /// world instance (never a <c>PersistentEntity</c>, e.g. a player-owned copy, INV-21); with no
+    /// live instances only the template changes. The command writes the YAML and publishes
+    /// <see cref="ItemPropertySetByAdminEvent"/> with the instance count.
     /// </summary>
     public sealed class SetitemCommand : ICommand
     {
         private readonly IItemBuilderSystem _itemBuilder;
         private readonly IItemContentWriter _contentWriter;
-        private readonly EntityService _entityService;
         private readonly ITemplateRegistry _templateRegistry;
         private readonly IEventBus _eventBus;
 
@@ -33,7 +36,7 @@ namespace Hedron.Core.Modules.Items.Commands
         public CommandMatchingMode MatchingMode => CommandMatchingMode.Full;
         public string ShortDescription => "Set a property on an item.";
         public string LongDescription =>
-            "Sets name, description, keywords (space-separated), type, slot, value, or worn-stat bonuses on the item with the given blueprint id. " +
+            "Sets name, description, keywords (space-separated), type, slot, value, or worn-stat bonuses on the item blueprint with the given id, updating the template and every live world instance (player-owned copies are untouched). " +
             "Valid types: none, weapon, armor, consumable, container, misc. " +
             "Valid slots (space-separated): mainhand, offhand, head, chest, feet, legs, hands, arms, waist, neck, finger, finger2, wrist, wrist2. " +
             "value <n> sets the item's intrinsic base-unit coin value (non-negative integer; 0 = valueless/non-saleable). " +
@@ -57,13 +60,11 @@ namespace Hedron.Core.Modules.Items.Commands
         public SetitemCommand(
             IItemBuilderSystem itemBuilder,
             IItemContentWriter contentWriter,
-            EntityService entityService,
             ITemplateRegistry templateRegistry,
             IEventBus eventBus)
         {
             _itemBuilder = itemBuilder;
             _contentWriter = contentWriter;
-            _entityService = entityService;
             _templateRegistry = templateRegistry;
             _eventBus = eventBus;
         }
@@ -75,29 +76,10 @@ namespace Hedron.Core.Modules.Items.Commands
             context.Args.TryGet<string>("value", out var valueArg);
             var value = valueArg ?? string.Empty;
 
-            if (!_templateRegistry.TryGet(blueprintId, out _))
+            if (!_templateRegistry.TryGet(blueprintId, out var tplRaw) || tplRaw is not ItemTemplate template)
             {
                 await context.Output.WriteAsync(new PlainMessage(
                     $"No item template found with blueprint id '{blueprintId}'.",
-                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
-                return;
-            }
-
-            uint itemEntityId = 0;
-            foreach (var (entityId, bp) in _entityService.GetAllComponents<BlueprintComponent>())
-            {
-                if (string.Equals(bp.BlueprintId, blueprintId, StringComparison.OrdinalIgnoreCase) &&
-                    _entityService.HasComponent<ItemDataComponent>(entityId))
-                {
-                    itemEntityId = entityId;
-                    break;
-                }
-            }
-
-            if (itemEntityId == 0)
-            {
-                await context.Output.WriteAsync(new PlainMessage(
-                    $"Item '{blueprintId}' has no live entity in the world.",
                     OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                 return;
             }
@@ -111,19 +93,20 @@ namespace Hedron.Core.Modules.Items.Commands
                 return;
             }
 
+            var instances = 0;
             switch (property)
             {
                 case "name":
-                    _itemBuilder.SetItemName(itemEntityId, value);
+                    instances = _itemBuilder.SetItemName(blueprintId, value);
                     break;
 
                 case "description":
-                    _itemBuilder.SetItemDescription(itemEntityId, value);
+                    instances = _itemBuilder.SetItemDescription(blueprintId, value);
                     break;
 
                 case "keywords":
                     var keywords = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    _itemBuilder.SetItemKeywords(itemEntityId, keywords);
+                    instances = _itemBuilder.SetItemKeywords(blueprintId, keywords);
                     break;
 
                 case "value":
@@ -134,7 +117,7 @@ namespace Hedron.Core.Modules.Items.Commands
                             OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
-                    _itemBuilder.SetItemValue(itemEntityId, itemValue);
+                    instances = _itemBuilder.SetItemValue(blueprintId, itemValue);
                     break;
 
                 case "type":
@@ -145,7 +128,7 @@ namespace Hedron.Core.Modules.Items.Commands
                             OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
-                    _itemBuilder.SetItemType(itemEntityId, itemType);
+                    instances = _itemBuilder.SetItemType(blueprintId, itemType);
                     break;
 
                 case "slot":
@@ -163,7 +146,7 @@ namespace Hedron.Core.Modules.Items.Commands
                         }
                         parsedSlots.Add(wornSlot);
                     }
-                    _itemBuilder.SetItemSlots(itemEntityId, parsedSlots);
+                    instances = _itemBuilder.SetItemSlots(blueprintId, parsedSlots);
                     break;
                 }
 
@@ -191,12 +174,12 @@ namespace Hedron.Core.Modules.Items.Commands
                             OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
-                    _itemBuilder.SetItemStatBonus(itemEntityId, score, magnitude);
+                    instances = _itemBuilder.SetItemStatBonus(blueprintId, score, magnitude);
                     break;
                 }
 
                 case "clearbonus":
-                    _itemBuilder.ClearItemStatBonuses(itemEntityId);
+                    instances = _itemBuilder.ClearItemStatBonuses(blueprintId);
                     break;
 
                 case "tier":
@@ -207,7 +190,7 @@ namespace Hedron.Core.Modules.Items.Commands
                             OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
-                    _itemBuilder.SetItemTier(itemEntityId, tier);
+                    instances = _itemBuilder.SetItemTier(blueprintId, tier);
                     break;
 
                 case "band":
@@ -218,7 +201,7 @@ namespace Hedron.Core.Modules.Items.Commands
                             OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
                         return;
                     }
-                    _itemBuilder.SetItemBand(itemEntityId, band);
+                    instances = _itemBuilder.SetItemBand(blueprintId, band);
                     break;
 
                 default:
@@ -230,17 +213,16 @@ namespace Hedron.Core.Modules.Items.Commands
 
             await _eventBus.PublishAsync(new ItemPropertySetByAdminEvent(
                 context.InvokerEntityId,
-                itemEntityId,
+                template.BlueprintId,
                 property,
-                value)).ConfigureAwait(false);
+                value,
+                instances)).ConfigureAwait(false);
 
-            if (_templateRegistry.TryGet(blueprintId, out var tpl) &&
-                tpl is Hedron.Core.Modules.Items.Templates.ItemTemplate itemTpl)
-                await _contentWriter.WriteAsync(itemTpl).ConfigureAwait(false);
+            await _contentWriter.WriteAsync(template).ConfigureAwait(false);
 
             var confirmation = property == "clearbonus"
-                ? "Item bonuses cleared."
-                : $"Item {property} set to '{value}'.";
+                ? $"Item bonuses cleared ({instances} live instance(s) updated)."
+                : $"Item {property} set to '{value}' ({instances} live instance(s) updated).";
             await context.Output.WriteAsync(new PlainMessage(
                 confirmation,
                 OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);

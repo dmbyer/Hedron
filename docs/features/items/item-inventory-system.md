@@ -49,9 +49,11 @@ An item entity carries:
 
 ### Admin item authoring
 
-`IItemBuilderSystem.CreateItem(name, roomEntityId)` mints an ad-hoc item (`item.adhoc.<shortid>` blueprint id), attaches all required components including `PersistentEntity` and `LocationComponent`, and registers an `ItemTemplate`. `MkitemCommand` calls `SaveEntityAsync` after this returns (INV-5: the system never calls persistence).
+`IItemBuilderSystem.CreateItem(name)` mints an ad-hoc item blueprint id (`item.adhoc.<shortid>`) and registers an `ItemTemplate` — no entity is created. `mkitem` checks the invoker's room first (`IRoomBuilderSystem.TryGetAuthorableRoom`), calls `CreateItem`, writes the item YAML, adds a count-1 rule via `IRoomBuilderSystem.AddSpawnRule(room, bp, 1, 300)` (which spawns the instance), writes the room YAML, and publishes `ItemCreatedByAdminEvent` + `SpawnRuleAuthoredByAdminEvent`. No `SaveEntityAsync` — world items are world content (INV-23).
 
-`SetItemSlots` updates both `ItemDataComponent.WornSlots` and the in-memory `ItemTemplate.WornSlots` so the slot assignment survives `@reload`. `SetItemStatBonus` (add-or-replace one `(ScoreId, magnitude)` row; magnitude 0 removes it) and `ClearItemStatBonuses` mirror the same dual-write pattern for `StatBonuses`.
+Every `Set*` is **blueprint-keyed** (INV-21): it updates the in-memory `ItemTemplate` and every live world instance of that blueprint (never a `PersistentEntity`, e.g. a player-owned copy) and returns the instance count (`-1` = no such item template).
+
+`SetItemSlots` updates the instances' `ItemDataComponent.WornSlots` and the in-memory `ItemTemplate.WornSlots` so the slot assignment survives `@reload`. `SetItemStatBonus` (add-or-replace one `(ScoreId, magnitude)` row; magnitude 0 removes it) and `ClearItemStatBonuses` mirror the same dual-write pattern for `StatBonuses`.
 
 `SetitemCommand` with `slot` property writes the updated template to YAML via `IItemContentWriter.WriteAsync` (system returns result; command writes disk — INV-5).
 
@@ -67,13 +69,12 @@ The seam self-documents in code — describe behaviour here, not signatures:
 
 - **`InventoryComponent` migration guard.** `CharacterHydrationHandler` attaches an empty `InventoryComponent` to characters persisted before slice 6. The component is persisted on the character's next save-on-change event, not immediately.
 - **`IArgumentResolver` deduplication.** Two different keyword matches on the same item are not ambiguous — they share `CanonicalValue`. Two different items sharing a keyword *are* ambiguous by design.
-- **YAML `spawnRoomId`.** If the target room does not exist at spawn time, the item is created with no `LocationComponent` (in the void); admin can relocate via `setitem`.
+- **Placement is by room spawn rule.** An item template carries no spawn location; a room's `spawnRules` places it and `SpawnSystem` respawns it after pickup. A non-blank legacy `spawnRoomId` is a fail-fast load error; a blank one is ignored.
 - **`setitem slot` writes YAML (INV-5).** After `IItemBuilderSystem.SetItemSlots` mutates ECS and template state, `SetitemCommand` writes the YAML file via `IItemContentWriter` to keep disk and in-memory state in sync. Without this, a reload drops the slot assignment.
 
 ## Extensibility
 
-- **Items persist where dropped.** Requires: save item entity on drop; remove `PlaceItemsInRooms` re-placement for items with a saved location. Additive change, no model change.
-- **`PlaceItemsInRooms` Phase B (deferred).** A second pass to re-place restored template items with no `LocationComponent` and not in any inventory is noted in backlog.
+- **Items persist where dropped.** Requires: save item entity on drop. Additive change, no model change.
 - **Containers, stacking, weight.** `ItemType.Container` and `ItemType.Consumable` are data; behavior is deferred to later slices.
 
 ## Related

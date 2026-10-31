@@ -498,10 +498,10 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none  
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/Items/Commands/MkitemCommand.cs`  
-**Description:** Creates an ad-hoc item entity in the invoker's current room. Delegates to `IItemBuilderSystem.CreateItem`; the item gets `ItemDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent`. Prints the blueprint id (format `item.adhoc.<shortid>`) so the admin can configure it with `setitem`. Saves the item entity immediately.  
+**Description:** Creates an ad-hoc item blueprint placed in the invoker's room. First validates the room (a live room with a registered `RoomTemplate`; on refusal nothing is created), then `IItemBuilderSystem.CreateItem` registers the template (written to YAML), and `IRoomBuilderSystem.AddSpawnRule(room, bp, 1, 300)` adds a count-1 rule — the room template, live component and YAML are updated and the instance spawns now (world content, no `PersistentEntity`, no save). The confirmed entity is that rule's tracked instance: picked up, it respawns after 300 s. Prints the blueprint id (format `item.adhoc.<shortid>`).  
 **Usage:** `mkitem [name]`  
 **Schema:** `RestOfLine string "name"` (optional, default `"an item"`)  
-**Events:** `ItemCreatedByAdminEvent`
+**Events:** `ItemCreatedByAdminEvent` (the rule's instance), `SpawnRuleAuthoredByAdminEvent` (`Added`)
 
 ---
 
@@ -510,10 +510,24 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none  
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/Mobs/Commands/MkMobCommand.cs`  
-**Description:** Creates an ad-hoc mob entity in the invoker's current room. Delegates to `IMobBuilderSystem.CreateMob`; the mob gets `MobDataComponent` + `BlueprintComponent` + `PersistentEntity` + `LocationComponent`. Prints the blueprint id (format `mob.adhoc.<shortid>`) so the admin can configure it with `setmob`. Saves the mob entity immediately.  
+**Description:** Creates an ad-hoc mob blueprint placed in the invoker's room. Same path as `mkitem`: validate the room first → `IMobBuilderSystem.CreateMob` (template only, YAML written) → `IRoomBuilderSystem.AddSpawnRule(room, bp, 1, 300)` (room template, live component, tracker, room YAML). The confirmed mob is the rule's tracked instance and respawns 300 s after it dies. Prints the blueprint id (format `mob.adhoc.<shortid>`).  
 **Usage:** `mkmob [name]`  
 **Schema:** `RestOfLine string "name"` (optional, default `"a mob"`)  
-**Events:** `MobCreatedByAdminEvent`
+**Events:** `MobCreatedByAdminEvent` (the rule's instance), `SpawnRuleAuthoredByAdminEvent` (`Added`)
+
+---
+
+### `spawnrule`
+
+**Aliases:** none  
+**MatchingMode:** `Full`  
+**Location:** `Core/Modules/Admin/Commands/SpawnRuleCommand.cs`  
+**Description:** Inspects or authors the invoker's room's spawn rules. With no action it is read-only: per rule, id, blueprint, live/count, respawn delay and next respawn (`ISpawnSystem.DescribeRoom`). `add <blueprintId> [count] [delaySeconds] [id]` (count 1–20, default 1; delay default 300; id minted when omitted), `set <ruleId> <count|delay|blueprint> <value>` and `remove <ruleId>` go through `IRoomBuilderSystem`, which updates the registered `RoomTemplate`, the live `SpawnConfigComponent` and the tracker (`SyncRoom` — new/increased slots spawn now; shrinking detaches surplus instances, which live until they die or the world reloads); the command then writes the room YAML and publishes. Refusals (not in a registered room, unknown blueprint, a room/area blueprint, unknown rule id, invalid count/delay/id) change nothing and publish nothing. No `SaveEntityAsync`. Wrong arity or a non-integer where one is required writes that sub-action's usage line.  
+**Usage:** `spawnrule [add <blueprintId> [count] [delaySeconds] [id] | set <ruleId> <count|delay|blueprint> <value> | remove <ruleId>]`  
+**Schema:** `Token SpawnRuleAction "action"` (optional: `Add`, `Set`, `Remove`; prefix-matched), `Token string "arg1"`…`"arg4"` (optional) — per-action arity checked in the command (no parser sub-action support yet).  
+**Dependencies:** `EntityService`, `IRoomBuilderSystem`, `ISpawnSystem`, `SpawnRuleAuthoringOutcome` (shared with `mkmob`/`mkitem`: writes the room YAML + publishes the audit event), `IClock`  
+**Events:** `SpawnRuleAuthoredByAdminEvent` (`Added`/`Updated`/`Removed`; not for the list form or a refusal)  
+**RequiredPrivileges:** `AdminRequirement`
 
 ---
 
@@ -522,10 +536,10 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none  
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/Items/Commands/SetitemCommand.cs`  
-**Description:** Sets a property on an existing item entity identified by blueprint id. Validates the blueprint id exists in `ITemplateRegistry`; resolves the live entity by `BlueprintComponent.BlueprintId`. Delegates mutation to `IItemBuilderSystem`. Saves the item entity immediately. Properties: `name`, `description`, `keywords` (space-separated), `type`, `slot`, `value`, `bonus`, `clearbonus`, `tier` (mechanical Ascension tag, prog-3b), `band` (purely descriptive tag, prog-3b, replacing the one-axis `band` from prog-3).  
+**Description:** Sets a property on an item **blueprint**. Validates the id names a registered `ItemTemplate`; `IItemBuilderSystem` updates the template and every live world instance (never a `PersistentEntity`, e.g. a player-owned copy — INV-21); with no live instance only the template changes and the command still succeeds. Writes the template YAML via `IItemContentWriter`; no save. Properties: `name`, `description`, `keywords` (space-separated), `type`, `slot`, `value`, `bonus`, `clearbonus`, `tier` (mechanical Ascension tag, prog-3b), `band` (purely descriptive tag, prog-3b, replacing the one-axis `band` from prog-3).  
 **Usage:** `setitem <blueprintId> <property> [value]`  
 **Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`, `slot`, `value`, `bonus`, `clearbonus`, `tier`, `band`), `RestOfLine string "value"` (optional — required for every property except `clearbonus`). For `keywords`, value is split on whitespace. For `type`, value must parse as `ItemType` enum. For `slot`, value is a space-separated list of `WornSlot` names (e.g. `mainhand`, `chest`, `legs`, `finger`, `wrist2`); an empty list clears `WornSlots`. For `value`, value must be a non-negative integer (base-unit Coin; 0 = valueless/non-saleable). For `bonus`, value is `<score> <amount>` where `<score>` is a `ScoreId` (e.g. `attackpower`, `defense`) and `<amount>` is an integer (0 removes that score's row; negative allowed for cursed gear) — add-or-replaces one worn-stat bonus row. `clearbonus` removes all bonus rows and takes no value. For `tier`, value must be an integer `0`–`6` (0 = unbanded/base); dual-writes the live `ItemDataComponent.Tier` and `ItemTemplate.Tier`. For `band`, value must be an integer `0`–`3` (0 = unbanded); dual-writes `ItemDataComponent.Band` and `ItemTemplate.Band`.  
-**Events:** `ItemPropertySetByAdminEvent`
+**Events:** `ItemPropertySetByAdminEvent(AdminEntityId, BlueprintId, PropertyName, NewValue, InstancesUpdated)`
 
 ---
 
@@ -534,10 +548,10 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none  
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/Mobs/Commands/SetMobCommand.cs`  
-**Description:** Sets a property on an existing mob entity identified by blueprint id. Validates the blueprint id exists in `ITemplateRegistry`; resolves the live entity by `BlueprintComponent.BlueprintId`. Delegates mutation to `IMobBuilderSystem`. Writes the updated template to YAML via `IMobContentWriter`. Saves the mob entity immediately. Properties: `name`, `description`, `keywords` (space-separated), `type`, `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra` (positive integer values), `protection` (flags), `tier` (mechanical Ascension tag, prog-2/3b), `band` (purely descriptive tag, prog-3b, replacing the one-axis `band` from prog-2), `xpscale` (per-mob kill-experience scale, prog-6), `shop`.  
+**Description:** Sets a property on a mob **blueprint**. Validates the id names a registered `MobTemplate`; `IMobBuilderSystem` updates the template and every live world instance (never a `PersistentEntity` — INV-21); with no live instance only the template changes. Writes the updated template to YAML via `IMobContentWriter`; no save. Properties: `name`, `description`, `keywords` (space-separated), `type`, `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra` (positive integer values), `protection` (flags), `tier` (mechanical Ascension tag, prog-2/3b), `band` (purely descriptive tag, prog-3b, replacing the one-axis `band` from prog-2), `xpscale` (per-mob kill-experience scale, prog-6), `shop`.  
 **Usage:** `setmob <blueprintId> <property> <value>`  
 **Schema:** `Token string "blueprintId"` (required), `Token string "property"` (required: `name`, `description`, `keywords`, `type`, `level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra`, `protection`, `tier`, `band`, `xpscale`, `shop`), `RestOfLine string "value"` (required). For `keywords`, value is split on whitespace. For `type`, value must parse as `MobType` enum. For numeric properties, value must be a positive integer. For `tier`, value must be an integer `0`–`6` (0 = unbanded/base); dual-writes the live `MobDataComponent.Tier` and `MobTemplate.Tier`. For `band`, value must be an integer `0`–`3` (0 = unbanded); dual-writes `MobDataComponent.Band` and `MobTemplate.Band`.  For `xpscale`, value must be a non-negative number (`1.0` = default, `0` = this mob's kills award nothing); dual-writes `MobDataComponent.XpScale` and `MobTemplate.XpScale`.  
-**Events:** `MobPropertySetByAdminEvent`
+**Events:** `MobPropertySetByAdminEvent(AdminEntityId, BlueprintId, PropertyName, NewValue, InstancesUpdated)`
 
 ---
 
@@ -683,10 +697,10 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none  
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/Admin/Commands/ReloadCommand.cs`  
-**Description:** Rebuilds the live world from the content directory the same way a restart does, without dropping connected players. Force-saves all persistent state (`IPersistenceSystem.FlushAllAsync`), tears down every world-content entity (rooms, mobs, world/dropped/shop items — anything with a `BlueprintComponent` but no `PersistentEntity`), re-reads the YAML, and re-spawns the world fresh, then re-publishes `WorldContentReadyEvent` so the startup fan-out re-runs (shops re-seed, spawn slots rebuild, players' rooms are re-resolved). **Runtime instance state is reset**: edits to existing rooms/mobs/items take effect, picked-up world items respawn, depleted shops refill, and the buy-back shelf clears. Players whose room was removed from YAML are moved to the starting room. Persistent entities (players and player-owned items/containers) are preserved.  
+**Description:** Rebuilds the live world from the content directory the same way a restart does, without dropping connected players. Force-saves all persistent state (`IPersistenceSystem.FlushAllAsync`), tears down every world-content entity (rooms, mobs, world/dropped/shop items — anything with a `BlueprintComponent` but no `PersistentEntity`), re-reads the YAML, and re-spawns the world fresh, then re-publishes `WorldContentReadyEvent` so the startup fan-out re-runs (shops re-seed, spawn slots rebuild, players' rooms are re-resolved). **Runtime instance state is reset**: edits to existing rooms/mobs/items take effect, picked-up world items respawn, depleted shops refill, and the buy-back shelf clears. Players whose room was removed from YAML are moved to the starting room. Persistent entities (players and player-owned items/containers) are preserved. **Refusal:** the corpus is staged and validated before teardown; if any file has a content shape error (a legacy spawn key, a `minCount`/`maxCount` rule, a malformed rule) the reload is refused as a whole — one error line per file, nothing torn down, and neither `WorldContentReadyEvent` nor `ContentReloadedEvent` is published.  
 **Usage:** `reload`  
 **Schema:** no arguments  
-**Events:** publishes `WorldContentReadyEvent` (drives shop re-seed, spawn-slot rebuild, player re-hydration), then `ContentReloadedEvent` (audit)
+**Events:** on success publishes `WorldContentReadyEvent` (drives spawn-slot fill, shop re-seed, player re-hydration), then `ContentReloadedEvent` (audit); on refusal, none
 
 ---
 

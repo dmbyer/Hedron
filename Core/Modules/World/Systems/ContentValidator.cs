@@ -8,6 +8,7 @@ using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Aspects;
 using Hedron.Core.Modules.Authoring;
 using Hedron.Core.Modules.Effects;
+using Hedron.Core.Modules.Items.Templates;
 using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
@@ -104,6 +105,25 @@ namespace Hedron.Core.Modules.World.Systems
                     string.Join(", ", collision.RoomBlueprintIds));
             }
 
+            // 5. Spawn-rule reference warnings (warn-not-error): a rule's blueprint must name a
+            // registered mob or item template. SpawnSystem disables such a slot at runtime.
+            foreach (var room in _templateRegistry.AllBlueprintIds()
+                .Select(id => _templateRegistry.TryGet(id, out var template) ? template : null)
+                .OfType<RoomTemplate>())
+            {
+                foreach (var rule in room.SpawnRules)
+                {
+                    if (!_templateRegistry.TryGet(rule.BlueprintId, out var target))
+                        warnings.Add(
+                            $"Room '{room.BlueprintId}': spawn rule '{rule.Id}' names unknown template " +
+                            $"'{rule.BlueprintId}' — the slot will not spawn.");
+                    else if (target is not (MobTemplate or ItemTemplate))
+                        warnings.Add(
+                            $"Room '{room.BlueprintId}': spawn rule '{rule.Id}' names '{rule.BlueprintId}', " +
+                            "which is not a mob or item template.");
+                }
+            }
+
             return new ValidationReport(errors, warnings);
         }
 
@@ -125,6 +145,13 @@ namespace Hedron.Core.Modules.World.Systems
 
                 case MobTemplate mob:
                     return ValidateCurrencyLoot(mob);
+
+                case RoomTemplate room when room.SpawnRules.Count > 0:
+                {
+                    // Same rule set the deserializer throws on (SpawnRuleValidation).
+                    var errors = SpawnRuleValidation.Errors(room.BlueprintId, room.SpawnRules);
+                    return errors.Count == 0 ? ValidationReport.Ok : new ValidationReport(errors.ToList());
+                }
 
                 default:
                     return ValidationReport.Ok;

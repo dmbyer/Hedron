@@ -10,34 +10,29 @@
 
 ## How it works
 
-### Mob entity lifecycle
+### Mob template lifecycle
 
-`CreateMob(name, roomEntityId)` generates a blueprint id (`mob.adhoc.<8-char-base36>`), allocates an entity via `EntityService`, and attaches:
-
-- `MobDataComponent { Name, Description="", Keywords=[], MobType=None }`
-- `BlueprintComponent { BlueprintId }`
-- `PersistentEntity` — mobs survive restarts without a dedicated respawn system today (acknowledged debt; the respawn system will decide whether to reuse or destroy the entity when the death slice lands)
-- `LocationComponent { RoomEntityId }` — placed in the invoker's room
-
-A minimal `MobTemplate` is registered in `ITemplateRegistry`. Returns `MobCreationResult(MobEntityId, BlueprintId, Template)`.
+`CreateMob(name)` generates a blueprint id (`mob.adhoc.<8-char-base36>`) and registers a minimal `MobTemplate` in `ITemplateRegistry` — **no entity is created**. Returns `MobCreationResult(BlueprintId, Template)`. The world instance comes from a room spawn rule: `mkmob` first checks the invoker's room (`IRoomBuilderSystem.TryGetAuthorableRoom`), then calls `CreateMob`, writes the mob YAML, and adds a count-1 rule via `IRoomBuilderSystem.AddSpawnRule(room, bp, 1, 300)`, which spawns the instance through `SpawnSystem.SyncRoom`. World mobs are world content: no `PersistentEntity`, never saved (INV-23).
 
 ### Mutation methods
 
-`Set*` methods (`SetMobName`, `SetMobDescription`, `SetMobKeywords`, `SetMobType`) mutate both the live entity's `MobDataComponent` and the in-memory `MobTemplate` so the assignment survives `reload`. Callers (commands) write YAML after each mutation — the system does not call `IMobContentWriter` (INV-5).
+Every setter is **blueprint-keyed** (INV-21): it updates the in-memory `MobTemplate` **and every live world instance** of that blueprint (a `MobDataComponent` entity with a matching `BlueprintComponent`, never a `PersistentEntity`), and returns the number of instances updated (`0` is valid; `-1` means no such mob template). Callers (commands) write YAML after each mutation — the system does not call `IMobContentWriter` (INV-5).
 
-Slice 8-a added `SetAttribute(mobEntityId, template, property, value)` for mutating `AttributesComponent` and `PoolsComponent` properties (`level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra`). It enforces `CurrentX ≤ MaxX` clamp on pool max changes (INV-8).
-
-Slice 12b added `SetMobProtection(mobEntityId, ProtectionFlags)` — dual-writes the live `ProtectionComponent` (added/updated when flags ≠ `None`, removed when `None`) and `MobTemplate.Protection` so the assignment survives `reload`. Mirrors `SetMobType`; the gates that read it live in the combat and effects domains, not here. See [mobs.md → Protection](mobs.md#protection-invulnerability--immunity).
+- `SetMobName` / `SetMobDescription` / `SetMobKeywords` / `SetMobType` — identity fields on `MobDataComponent`.
+- `SetAttribute(blueprintId, property, value)` (slice 8-a) — `AttributesComponent` / `PoolsComponent` (`level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra`); enforces the `CurrentX ≤ MaxX` clamp on each instance (INV-8).
+- `SetMobProtection(blueprintId, ProtectionFlags)` (slice 12b) — `ProtectionComponent` added/updated when flags ≠ `None`, removed when `None`, plus `MobTemplate.Protection`. The gates that read it live in the combat and effects domains. See [mobs.md → Protection](mobs.md#protection-invulnerability--immunity).
+- `SetMobTier` / `SetMobBand` / `SetMobXpScale` — the Tier×Band tags and kill-XP scale on `MobDataComponent`.
+- `SetMobShop(blueprintId, isShop, …)` — adds/updates or removes `ShopComponent` (ensuring an `InventoryComponent`); till seeding stays with `ShopkeeperSpawnHandler`.
 
 ### YAML template shape
 
-`MobTemplate` fields: `blueprintId`, `name`, `description`, `keywords`, `type` (string enum — `none`, `vendor`, `guard`, `creature`), `spawnRoomBlueprintId`. Slice 8-a extended the DTO with `level`, `maxHp`, attribute fields (`mind`, `body`, `spirit`, `attunement`), and pool fields (`maxMana`, `maxStamina`, `maxAstra`). Slice 12b added `protection` — a flag-name string list (`untargetable`, `effectimmune`); absent/empty ⇒ `None` ⇒ no `ProtectionComponent` on `Apply` (opt-in, mirrors `currencyLoot`).
+`MobTemplate` fields: `blueprintId`, `name`, `description`, `keywords`, `type` (string enum — `none`, `vendor`, `guard`, `creature`). A mob carries **no spawn location** — room spawn rules place it ([spawn-system](../world/spawn-system.md)); a non-blank legacy `spawnRoomBlueprintId` is a fail-fast load error, a blank one is ignored. Slice 8-a extended the DTO with `level`, `maxHp`, attribute fields (`mind`, `body`, `spirit`, `attunement`), and pool fields (`maxMana`, `maxStamina`, `maxAstra`). Slice 12b added `protection` — a flag-name string list (`untargetable`, `effectimmune`); absent/empty ⇒ `None` ⇒ no `ProtectionComponent` on `Apply` (opt-in, mirrors `currencyLoot`).
 
 `MobTemplateDeserializer` warns on unknown `type` values and never throws — resilient deserialization is the design contract (unknown fields are ignored; bad fields log and default). Unknown `protection` flag names are logged and skipped (case-insensitive parse).
 
 ### Spawn from content
 
-`WorldContentLoader` reads files from `<ContentDirectory>/mobs/` on startup and reload. `PlaceMobsInRooms` runs only for entities in the `newlySpawned` set (mirrors `PlaceItemsInRooms`): resolves each template's `SpawnRoomBlueprintId` to a live room entity id and attaches `LocationComponent { RoomEntityId }`. Restored-from-persistence mob entities already carry a saved `LocationComponent` and are skipped. Unknown spawn rooms log a warning; the mob is created without a location.
+`WorldContentLoader` reads files from `<ContentDirectory>/mobs/` on startup and reload and registers the templates; it spawns no mob. Every world mob is placed by a room `SpawnRule`: `SpawnSystem` fills each rule's slots on `WorldContentReadyEvent` (with `LocationComponent { RoomEntityId, RoomBlueprintId }`) and re-spawns a slot after its mob dies. Admin `mkmob` registers a template and adds a count-1 rule to the invoker's room; `setmob` updates the template and every live world instance.
 
 ### `MobType` classification
 

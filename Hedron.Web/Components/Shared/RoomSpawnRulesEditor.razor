@@ -1,0 +1,98 @@
+@using Hedron.Core.ECS.Components
+@using Hedron.Core.Modules.World.Templates
+
+@* Binds a room's spawn rules — the single spawn truth for mobs and found items. Binds only (INV-8):
+   ids are minted by SpawnRuleIds (Core), and the rule set is validated when the page saves
+   (ContentValidator → SpawnRuleValidation). Saved rules reach the live game world on Server reload. *@
+<fieldset class="spawn-rules">
+    <legend>Spawn rules</legend>
+    <p class="hint">
+        Each rule keeps <em>count</em> instances of a mob or item in this room; each instance respawns
+        on its own timer after it dies or is picked up. Applies on Server <span class="mono">reload</span> or restart.
+    </p>
+
+    @if (Room.SpawnRules.Count == 0)
+    {
+        <p class="hint">No spawn rules.</p>
+    }
+    else
+    {
+        <table class="spawn-rule-table">
+            <thead>
+                <tr><th>Id</th><th>Mob / item</th><th>Count</th><th>Respawn (s)</th><th></th></tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < Room.SpawnRules.Count; i++)
+                {
+                    var index = i;
+                    var rule = Room.SpawnRules[index];
+                    <tr @key="index">
+                        <td><input class="mono" value="@rule.Id"
+                                   @onchange="e => Replace(index, rule with { Id = e.Value?.ToString()?.Trim() ?? string.Empty })" /></td>
+                        <td>
+                            <select value="@rule.BlueprintId"
+                                    @onchange="e => Replace(index, rule with { BlueprintId = e.Value?.ToString() ?? string.Empty })">
+                                @if (!Spawnables.Any(s => s.BlueprintId == rule.BlueprintId))
+                                {
+                                    <option value="@rule.BlueprintId">@rule.BlueprintId (not found)</option>
+                                }
+                                @foreach (var s in Spawnables)
+                                {
+                                    <option @key="s.BlueprintId" value="@s.BlueprintId">@s.Name (@s.BlueprintId)</option>
+                                }
+                            </select>
+                        </td>
+                        <td><input type="number" min="1" max="@SpawnRuleLimits.MaxCountPerRule" value="@rule.Count"
+                                   @onchange="e => Replace(index, rule with { Count = ParseInt(e.Value, rule.Count) })" /></td>
+                        <td><input type="number" min="0" value="@rule.RespawnDelaySeconds"
+                                   @onchange="e => Replace(index, rule with { RespawnDelaySeconds = ParseInt(e.Value, rule.RespawnDelaySeconds) })" /></td>
+                        <td><button class="danger" @onclick="() => Room.SpawnRules.RemoveAt(index)">Remove</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <div class="field-row">
+        <div class="field">
+            <label>Add a rule for</label>
+            <select @bind="_newBlueprintId">
+                <option value="">-- pick a mob or item --</option>
+                @foreach (var s in Spawnables)
+                {
+                    <option @key="s.BlueprintId" value="@s.BlueprintId">@s.Name (@s.BlueprintId)</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label>&nbsp;</label>
+            <button disabled="@string.IsNullOrEmpty(_newBlueprintId)" @onclick="AddRule">Add rule</button>
+        </div>
+    </div>
+</fieldset>
+
+@code {
+    [Parameter, EditorRequired] public RoomTemplate Room { get; set; } = null!;
+
+    /// <summary>Mob and item summaries a rule may name.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<ContentSummary> Spawnables { get; set; } = Array.Empty<ContentSummary>();
+
+    private string _newBlueprintId = string.Empty;
+
+    private void AddRule()
+    {
+        if (string.IsNullOrEmpty(_newBlueprintId)) return;
+        var id = SpawnRuleIds.Mint(Room.SpawnRules.Select(r => r.Id), _newBlueprintId);
+        Room.SpawnRules.Add(new SpawnRule(id, _newBlueprintId, 1, SpawnRuleLimits.DefaultRespawnDelaySeconds));
+        _newBlueprintId = string.Empty;
+    }
+
+    private void Replace(int index, SpawnRule rule)
+    {
+        if (index >= 0 && index < Room.SpawnRules.Count)
+            Room.SpawnRules[index] = rule;
+    }
+
+    private static int ParseInt(object? raw, int fallback) =>
+        int.TryParse(raw?.ToString(), out var v) ? v : fallback;
+}

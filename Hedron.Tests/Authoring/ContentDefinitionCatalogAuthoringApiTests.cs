@@ -149,7 +149,6 @@ namespace Hedron.Tests.Authoring
             item.Keywords = new List<string> { "sword", "blade" };
             item.ItemType = ItemType.Weapon;
             item.WornSlots = new List<WornSlot> { WornSlot.MainHand };
-            item.SpawnRoomBlueprintId = "room.one";
             item.StatBonuses = new List<EquipmentStatBonus> { new(ScoreId.AttackPower, 7) };
             item.Value = 250;
             item.Tier = 3;
@@ -164,7 +163,6 @@ namespace Hedron.Tests.Authoring
             Assert.Equal(new[] { "sword", "blade" }, result.Keywords);
             Assert.Equal(ItemType.Weapon, result.ItemType);
             Assert.Equal(new[] { WornSlot.MainHand }, result.WornSlots);
-            Assert.Equal("room.one", result.SpawnRoomBlueprintId);
             Assert.Equal(new[] { new EquipmentStatBonus(ScoreId.AttackPower, 7) }, result.StatBonuses);
             Assert.Equal(250, result.Value);
             Assert.Equal(3, result.Tier);
@@ -178,7 +176,6 @@ namespace Hedron.Tests.Authoring
             var mob = (MobTemplate)catalog.CreateNew(ContentKind.Mob, "Rat").Template;
             mob.Description = "A rat.";
             mob.Keywords = new List<string> { "rat" };
-            mob.SpawnRoomBlueprintId = "room.one";
             mob.Level = 4;
             mob.MaxHp = 55;
             mob.Mind = 3; mob.Body = 6; mob.Spirit = 2;
@@ -195,7 +192,6 @@ namespace Hedron.Tests.Authoring
             Assert.Equal("Rat", result.Name);
             Assert.Equal("A rat.", result.Description);
             Assert.Equal(new[] { "rat" }, result.Keywords);
-            Assert.Equal("room.one", result.SpawnRoomBlueprintId);
             Assert.Equal(4, result.Level);
             Assert.Equal(55, result.MaxHp);
             Assert.Equal((3, 6, 2), (result.Mind, result.Body, result.Spirit));
@@ -313,13 +309,13 @@ namespace Hedron.Tests.Authoring
         }
 
         [Fact]
-        public void CreateNextFrom_Mob_CarriesTierBandAndSpawnRoom_AndResetsTheRest()
+        public void CreateNextFrom_Mob_CarriesTierBandXpScale_AndResetsTheRest()
         {
             var catalog = NewCatalog();
             var mob = (MobTemplate)catalog.CreateNew(ContentKind.Mob, "Rat").Template;
             mob.Tier = 2;
             mob.Band = 1;
-            mob.SpawnRoomBlueprintId = "room.one";
+            mob.XpScale = 1.5;
             mob.Description = "A rat.";
             mob.Level = 4;
             mob.MaxHp = 55;
@@ -336,7 +332,7 @@ namespace Hedron.Tests.Authoring
             Assert.NotEqual(mob.BlueprintId, next.BlueprintId);
             Assert.Equal(2, next.Tier);
             Assert.Equal(1, next.Band);
-            Assert.Equal("room.one", next.SpawnRoomBlueprintId);
+            Assert.Equal(1.5, next.XpScale);
             Assert.Equal("New Mob", next.Name);
             Assert.Equal(string.Empty, next.Description);
             Assert.Equal(fresh.Level, next.Level);

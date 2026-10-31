@@ -122,7 +122,7 @@ namespace Hedron.Tests.Modules.Mobs
             registry.Register(template.BlueprintId, template);
             var builder = new MobBuilderSystem(ecs, registry, NullLogger<MobBuilderSystem>.Instance);
 
-            builder.SetMobXpScale(entity.Id, 3.0);
+            builder.SetMobXpScale(template.BlueprintId, 3.0);
 
             Assert.Equal(3.0, ecs.Get<MobDataComponent>(entity.Id).XpScale);
             Assert.Equal(3.0, template.XpScale);

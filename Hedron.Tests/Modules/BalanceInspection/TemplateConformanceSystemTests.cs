@@ -163,7 +163,6 @@ namespace Hedron.Tests.Modules.BalanceInspection
                 Band = 2,
                 Body = 12,
                 MaxHp = 80,
-                SpawnRoomBlueprintId = "room.goblin.den",
                 CurrencyLoot = { [CurrencyId.Coin] = (1, 5) },
                 Protection = ProtectionFlags.Untargetable,
             };
@@ -190,8 +189,7 @@ namespace Hedron.Tests.Modules.BalanceInspection
             Assert.Equal(saved.Body / 2, new MobPowerProjectionSystem().Project(saved).Scores[ScoreId.AttackPower]);
             Assert.Equal(saved.Body / 4, new MobPowerProjectionSystem().Project(saved).Scores[ScoreId.Defense]);
 
-            // Shop/loot/protection/spawn fields untouched.
-            Assert.Equal("room.goblin.den", saved.SpawnRoomBlueprintId);
+            // Shop/loot/protection fields untouched.
             Assert.Equal((1, 5), saved.CurrencyLoot[CurrencyId.Coin]);
             Assert.Equal(ProtectionFlags.Untargetable, saved.Protection);
             Assert.Equal(3, saved.Tier);

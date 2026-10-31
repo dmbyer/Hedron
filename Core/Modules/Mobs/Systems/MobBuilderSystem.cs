@@ -26,127 +26,79 @@ namespace Hedron.Core.Modules.Mobs.Systems
             _logger = logger;
         }
 
-        public MobCreationResult CreateMob(string name, uint roomEntityId)
+        public MobCreationResult CreateMob(string name)
         {
             var blueprintId = GenerateUniqueBlueprintId();
-
-            var spawnRoomBlueprintId = string.Empty;
-            if (_entityService.TryGet<BlueprintComponent>(roomEntityId, out var roomBp))
-                spawnRoomBlueprintId = roomBp.BlueprintId;
-
-            var entity = _entityService.CreateEntity();
-            _entityService.AddComponent(entity.Id, new MobDataComponent { Name = name });
-            _entityService.AddComponent(entity.Id, new BlueprintComponent { BlueprintId = blueprintId });
-            _entityService.AddComponent(entity.Id, new LocationComponent
-            {
-                RoomEntityId = roomEntityId,
-                RoomBlueprintId = spawnRoomBlueprintId,
-            });
-            _entityService.AddComponent(entity.Id, new AttributesComponent());
-            _entityService.AddComponent(entity.Id, new PoolsComponent());
-
-            var template = new MobTemplate(blueprintId)
-            {
-                Name = name,
-                SpawnRoomBlueprintId = spawnRoomBlueprintId,
-            };
+            var template = new MobTemplate(blueprintId) { Name = name };
             _templateRegistry.Register(blueprintId, template);
 
-            _logger.LogDebug(
-                "MobBuilderSystem: created mob entity={EntityId} blueprint={BlueprintId} spawnRoom={SpawnRoom}",
-                entity.Id, blueprintId, spawnRoomBlueprintId);
-
-            return new MobCreationResult(entity.Id, blueprintId, template);
+            _logger.LogDebug("MobBuilderSystem: registered mob template blueprint={BlueprintId}", blueprintId);
+            return new MobCreationResult(blueprintId, template);
         }
 
-        public void SetMobName(uint mobEntityId, string name)
-        {
-            if (_entityService.TryGet<MobDataComponent>(mobEntityId, out var mob))
-                mob.Name = name;
-            var tpl = TryGetTemplate(mobEntityId);
-            if (tpl is not null) tpl.Name = name;
-        }
-
-        public void SetMobDescription(uint mobEntityId, string description)
-        {
-            if (_entityService.TryGet<MobDataComponent>(mobEntityId, out var mob))
-                mob.Description = description;
-            var tpl = TryGetTemplate(mobEntityId);
-            if (tpl is not null) tpl.Description = description;
-        }
-
-        public void SetMobKeywords(uint mobEntityId, IReadOnlyList<string> keywords)
-        {
-            if (_entityService.TryGet<MobDataComponent>(mobEntityId, out var mob))
+        public int SetMobName(string blueprintId, string name) =>
+            Apply(blueprintId, tpl => tpl.Name = name, id =>
             {
-                mob.Keywords.Clear();
-                mob.Keywords.AddRange(keywords);
-            }
-            var tpl = TryGetTemplate(mobEntityId);
-            if (tpl is not null)
-            {
-                tpl.Keywords.Clear();
-                tpl.Keywords.AddRange(keywords);
-            }
-        }
+                if (_entityService.TryGet<MobDataComponent>(id, out var mob)) mob.Name = name;
+            });
 
-        public void SetMobType(uint mobEntityId, MobType mobType)
-        {
-            if (_entityService.TryGet<MobDataComponent>(mobEntityId, out var mob))
-                mob.MobType = mobType;
-            var tpl = TryGetTemplate(mobEntityId);
-            if (tpl is not null) tpl.MobType = mobType;
-        }
+        public int SetMobDescription(string blueprintId, string description) =>
+            Apply(blueprintId, tpl => tpl.Description = description, id =>
+            {
+                if (_entityService.TryGet<MobDataComponent>(id, out var mob)) mob.Description = description;
+            });
 
-        public void SetMobProtection(uint mobEntityId, ProtectionFlags flags)
-        {
-            // Update the live entity: add/update or remove the ProtectionComponent.
-            if (flags == ProtectionFlags.None)
+        public int SetMobKeywords(string blueprintId, IReadOnlyList<string> keywords) =>
+            Apply(blueprintId,
+                tpl =>
+                {
+                    tpl.Keywords.Clear();
+                    tpl.Keywords.AddRange(keywords);
+                },
+                id =>
+                {
+                    if (!_entityService.TryGet<MobDataComponent>(id, out var mob)) return;
+                    mob.Keywords.Clear();
+                    mob.Keywords.AddRange(keywords);
+                });
+
+        public int SetMobType(string blueprintId, MobType mobType) =>
+            Apply(blueprintId, tpl => tpl.MobType = mobType, id =>
             {
-                _entityService.RemoveComponent<ProtectionComponent>(mobEntityId);
-            }
-            else
+                if (_entityService.TryGet<MobDataComponent>(id, out var mob)) mob.MobType = mobType;
+            });
+
+        public int SetMobProtection(string blueprintId, ProtectionFlags flags) =>
+            Apply(blueprintId, tpl => tpl.Protection = flags, id =>
             {
-                if (_entityService.TryGet<ProtectionComponent>(mobEntityId, out var existing))
+                if (flags == ProtectionFlags.None)
+                    _entityService.RemoveComponent<ProtectionComponent>(id);
+                else if (_entityService.TryGet<ProtectionComponent>(id, out var existing))
                     existing.Flags = flags;
                 else
-                    _entityService.AddComponent(mobEntityId, new ProtectionComponent { Flags = flags });
-            }
+                    _entityService.AddComponent(id, new ProtectionComponent { Flags = flags });
+            });
 
-            // Update the in-memory template.
-            var tpl = TryGetTemplate(mobEntityId);
-            if (tpl is not null) tpl.Protection = flags;
-        }
+        public int SetMobTier(string blueprintId, int tier) =>
+            Apply(blueprintId, tpl => tpl.Tier = tier, id =>
+            {
+                if (_entityService.TryGet<MobDataComponent>(id, out var mob)) mob.Tier = tier;
+            });
 
-        public void SetMobTier(uint mobEntityId, int tier)
-        {
-            if (_entityService.TryGet<MobDataComponent>(mobEntityId, out var mob))
-                mob.Tier = tier;
+        public int SetMobBand(string blueprintId, int band) =>
+            Apply(blueprintId, tpl => tpl.Band = band, id =>
+            {
+                if (_entityService.TryGet<MobDataComponent>(id, out var mob)) mob.Band = band;
+            });
 
-            var tpl = TryGetTemplate(mobEntityId);
-            if (tpl is not null) tpl.Tier = tier;
-        }
+        public int SetMobXpScale(string blueprintId, double xpScale) =>
+            Apply(blueprintId, tpl => tpl.XpScale = xpScale, id =>
+            {
+                if (_entityService.TryGet<MobDataComponent>(id, out var mob)) mob.XpScale = xpScale;
+            });
 
-        public void SetMobBand(uint mobEntityId, int band)
-        {
-            if (_entityService.TryGet<MobDataComponent>(mobEntityId, out var mob))
-                mob.Band = band;
-
-            var tpl = TryGetTemplate(mobEntityId);
-            if (tpl is not null) tpl.Band = band;
-        }
-
-        public void SetMobXpScale(uint mobEntityId, double xpScale)
-        {
-            if (_entityService.TryGet<MobDataComponent>(mobEntityId, out var mob))
-                mob.XpScale = xpScale;
-
-            var tpl = TryGetTemplate(mobEntityId);
-            if (tpl is not null) tpl.XpScale = xpScale;
-        }
-
-        public void SetMobShop(
-            uint mobEntityId,
+        public int SetMobShop(
+            string blueprintId,
             bool isShop,
             CurrencyId acceptedCurrency = CurrencyId.Coin,
             long tillSeed = 0,
@@ -155,150 +107,155 @@ namespace Hedron.Core.Modules.Mobs.Systems
         {
             if (!isShop)
             {
-                // Remove shop from live entity.
-                _entityService.RemoveComponent<ShopComponent>(mobEntityId);
-
-                // Clear the template's shop fields.
-                var removeTpl = TryGetTemplate(mobEntityId);
-                if (removeTpl is not null)
-                {
-                    removeTpl.IsShop = false;
-                    removeTpl.ShopAcceptedCurrency = CurrencyId.Coin;
-                    removeTpl.ShopTillSeed = 0;
-                    removeTpl.ShopRatioOverride = null;
-                    removeTpl.ShopBaseStock.Clear();
-                }
-                return;
+                return Apply(blueprintId,
+                    tpl =>
+                    {
+                        tpl.IsShop = false;
+                        tpl.ShopAcceptedCurrency = CurrencyId.Coin;
+                        tpl.ShopTillSeed = 0;
+                        tpl.ShopRatioOverride = null;
+                        tpl.ShopBaseStock.Clear();
+                    },
+                    id => _entityService.RemoveComponent<ShopComponent>(id));
             }
 
-            // Add or update ShopComponent on the live entity.
-            if (_entityService.TryGet<ShopComponent>(mobEntityId, out var shop))
-            {
-                shop.AcceptedCurrency = acceptedCurrency;
-                shop.TillSeed = tillSeed;
-                shop.RatioOverride = ratioOverride;
-                if (baseStock is not null)
+            return Apply(blueprintId,
+                tpl =>
                 {
-                    shop.BaseStock.Clear();
-                    shop.BaseStock.AddRange(baseStock);
-                }
-            }
-            else
-            {
-                var newShop = new ShopComponent
+                    tpl.IsShop = true;
+                    tpl.ShopAcceptedCurrency = acceptedCurrency;
+                    tpl.ShopTillSeed = tillSeed;
+                    tpl.ShopRatioOverride = ratioOverride;
+                    if (baseStock is not null)
+                    {
+                        tpl.ShopBaseStock.Clear();
+                        tpl.ShopBaseStock.AddRange(baseStock);
+                    }
+                },
+                id =>
                 {
-                    AcceptedCurrency = acceptedCurrency,
-                    TillSeed = tillSeed,
-                    RatioOverride = ratioOverride,
-                };
-                if (baseStock is not null)
-                    newShop.BaseStock.AddRange(baseStock);
-                _entityService.AddComponent(mobEntityId, newShop);
-            }
+                    if (_entityService.TryGet<ShopComponent>(id, out var shop))
+                    {
+                        shop.AcceptedCurrency = acceptedCurrency;
+                        shop.TillSeed = tillSeed;
+                        shop.RatioOverride = ratioOverride;
+                        if (baseStock is not null)
+                        {
+                            shop.BaseStock.Clear();
+                            shop.BaseStock.AddRange(baseStock);
+                        }
+                    }
+                    else
+                    {
+                        var newShop = new ShopComponent
+                        {
+                            AcceptedCurrency = acceptedCurrency,
+                            TillSeed = tillSeed,
+                            RatioOverride = ratioOverride,
+                        };
+                        if (baseStock is not null)
+                            newShop.BaseStock.AddRange(baseStock);
+                        _entityService.AddComponent(id, newShop);
+                    }
 
-            // Ensure the shopkeeper has an inventory.
-            if (!_entityService.HasComponent<InventoryComponent>(mobEntityId))
-                _entityService.AddComponent(mobEntityId, new InventoryComponent());
-
-            // Update the in-memory template.
-            var tpl = TryGetTemplate(mobEntityId);
-            if (tpl is not null)
-            {
-                tpl.IsShop = true;
-                tpl.ShopAcceptedCurrency = acceptedCurrency;
-                tpl.ShopTillSeed = tillSeed;
-                tpl.ShopRatioOverride = ratioOverride;
-                if (baseStock is not null)
-                {
-                    tpl.ShopBaseStock.Clear();
-                    tpl.ShopBaseStock.AddRange(baseStock);
-                }
-            }
+                    // Ensure the shopkeeper has an inventory.
+                    if (!_entityService.HasComponent<InventoryComponent>(id))
+                        _entityService.AddComponent(id, new InventoryComponent());
+                });
         }
 
-        public void SetAttribute(uint mobEntityId, MobTemplate template, string property, int value)
+        public int SetAttribute(string blueprintId, string property, int value)
         {
+            Action<MobTemplate> onTemplate;
+            Action<uint> onInstance;
             switch (property)
             {
                 case "level":
-                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrL))
-                        attrL.Level = value;
-                    template.Level = value;
+                    onTemplate = t => t.Level = value;
+                    onInstance = id => { if (_entityService.TryGet<AttributesComponent>(id, out var a)) a.Level = value; };
                     break;
-
-                case "hp":
-                    if (_entityService.TryGet<PoolsComponent>(mobEntityId, out var pools))
-                    {
-                        pools.MaxHp = value;
-                        if (pools.CurrentHp > pools.MaxHp)
-                            pools.CurrentHp = pools.MaxHp;
-                    }
-                    template.MaxHp = value;
-                    break;
-
                 case "mind":
-                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrM))
-                        attrM.Mind = value;
-                    template.Mind = value;
+                    onTemplate = t => t.Mind = value;
+                    onInstance = id => { if (_entityService.TryGet<AttributesComponent>(id, out var a)) a.Mind = value; };
                     break;
-
                 case "body":
-                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrB))
-                        attrB.Body = value;
-                    template.Body = value;
+                    onTemplate = t => t.Body = value;
+                    onInstance = id => { if (_entityService.TryGet<AttributesComponent>(id, out var a)) a.Body = value; };
                     break;
-
                 case "spirit":
-                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrSp))
-                        attrSp.Spirit = value;
-                    template.Spirit = value;
+                    onTemplate = t => t.Spirit = value;
+                    onInstance = id => { if (_entityService.TryGet<AttributesComponent>(id, out var a)) a.Spirit = value; };
                     break;
-
                 case "attunement":
-                    if (_entityService.TryGet<AttributesComponent>(mobEntityId, out var attrAt))
-                        attrAt.Attunement = value;
-                    template.Attunement = value;
+                    onTemplate = t => t.Attunement = value;
+                    onInstance = id => { if (_entityService.TryGet<AttributesComponent>(id, out var a)) a.Attunement = value; };
                     break;
-
+                case "hp":
+                    onTemplate = t => t.MaxHp = value;
+                    onInstance = id =>
+                    {
+                        if (!_entityService.TryGet<PoolsComponent>(id, out var p)) return;
+                        p.MaxHp = value;
+                        if (p.CurrentHp > p.MaxHp) p.CurrentHp = p.MaxHp;
+                    };
+                    break;
                 case "maxmana":
-                    if (_entityService.TryGet<PoolsComponent>(mobEntityId, out var poolsMana))
+                    onTemplate = t => t.MaxMana = value;
+                    onInstance = id =>
                     {
-                        poolsMana.MaxMana = value;
-                        if (poolsMana.CurrentMana > poolsMana.MaxMana)
-                            poolsMana.CurrentMana = poolsMana.MaxMana;
-                    }
-                    template.MaxMana = value;
+                        if (!_entityService.TryGet<PoolsComponent>(id, out var p)) return;
+                        p.MaxMana = value;
+                        if (p.CurrentMana > p.MaxMana) p.CurrentMana = p.MaxMana;
+                    };
                     break;
-
                 case "maxstamina":
-                    if (_entityService.TryGet<PoolsComponent>(mobEntityId, out var poolsStam))
+                    onTemplate = t => t.MaxStamina = value;
+                    onInstance = id =>
                     {
-                        poolsStam.MaxStamina = value;
-                        if (poolsStam.CurrentStamina > poolsStam.MaxStamina)
-                            poolsStam.CurrentStamina = poolsStam.MaxStamina;
-                    }
-                    template.MaxStamina = value;
+                        if (!_entityService.TryGet<PoolsComponent>(id, out var p)) return;
+                        p.MaxStamina = value;
+                        if (p.CurrentStamina > p.MaxStamina) p.CurrentStamina = p.MaxStamina;
+                    };
                     break;
-
                 case "maxastra":
-                    if (_entityService.TryGet<PoolsComponent>(mobEntityId, out var poolsAstra))
+                    onTemplate = t => t.MaxAstra = value;
+                    onInstance = id =>
                     {
-                        poolsAstra.MaxAstra = value;
-                        if (poolsAstra.CurrentAstra > poolsAstra.MaxAstra)
-                            poolsAstra.CurrentAstra = poolsAstra.MaxAstra;
-                    }
-                    template.MaxAstra = value;
+                        if (!_entityService.TryGet<PoolsComponent>(id, out var p)) return;
+                        p.MaxAstra = value;
+                        if (p.CurrentAstra > p.MaxAstra) p.CurrentAstra = p.MaxAstra;
+                    };
                     break;
+                default:
+                    return 0;
             }
+            return Apply(blueprintId, onTemplate, onInstance);
         }
 
-        private MobTemplate? TryGetTemplate(uint mobEntityId)
+        /// <summary>
+        /// Applies a mutation to the mob template and every live world instance of the blueprint
+        /// (a <see cref="MobDataComponent"/> entity whose <see cref="BlueprintComponent"/> matches,
+        /// excluding <see cref="PersistentEntity"/> — the same exclusion as the loader's
+        /// live-blueprint map). Returns the instance count, or <c>-1</c> for no mob template.
+        /// </summary>
+        private int Apply(string blueprintId, Action<MobTemplate> onTemplate, Action<uint> onInstance)
         {
-            if (_entityService.TryGet<BlueprintComponent>(mobEntityId, out var bp) &&
-                _templateRegistry.TryGet(bp.BlueprintId, out var template) &&
-                template is MobTemplate mobTemplate)
-                return mobTemplate;
-            return null;
+            if (!_templateRegistry.TryGet(blueprintId, out var raw) || raw is not MobTemplate template)
+                return -1;
+
+            onTemplate(template);
+
+            var instances = new List<uint>();
+            foreach (var (entityId, bp) in _entityService.GetAllComponents<BlueprintComponent>())
+            {
+                if (!string.Equals(bp.BlueprintId, blueprintId, StringComparison.OrdinalIgnoreCase)) continue;
+                if (_entityService.HasComponent<PersistentEntity>(entityId)) continue;
+                if (!_entityService.HasComponent<MobDataComponent>(entityId)) continue;
+                instances.Add(entityId);
+            }
+            foreach (var entityId in instances)
+                onInstance(entityId);
+            return instances.Count;
         }
 
         private string GenerateUniqueBlueprintId()

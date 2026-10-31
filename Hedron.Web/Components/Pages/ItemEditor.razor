@@ -78,33 +78,7 @@ else if (_template is not null)
         <button type="button" @onclick="AddBonus">Add bonus</button>
     </fieldset>
 
-    <fieldset class="spawn-location">
-        <legend>Spawn location</legend>
-        <p class="hint">Select an area to narrow the room list, then pick the spawn room.</p>
-        <div class="field-row">
-            <div class="field">
-                <label>Area</label>
-                <select value="@_spawnAreaFilter" @onchange="e => SetSpawnAreaFilter(e.Value?.ToString())">
-                    <option value="">All areas</option>
-                    @foreach (var area in _areas)
-                    {
-                        <option @key="area.BlueprintId" value="@area.BlueprintId">@area.Name</option>
-                    }
-                </select>
-            </div>
-            <div class="field">
-                <label>Room <span class="hint-inline">(blank = no spawn location)</span></label>
-                <select value="@_template.SpawnRoomBlueprintId"
-                        @onchange="e => _template.SpawnRoomBlueprintId = e.Value?.ToString() ?? string.Empty">
-                    <option value="">-- no spawn room --</option>
-                    @foreach (var room in SpawnRooms)
-                    {
-                        <option @key="room.BlueprintId" value="@room.BlueprintId">@room.Name (@room.BlueprintId)</option>
-                    }
-                </select>
-            </div>
-        </div>
-    </fieldset>
+    <SpawnSitesPanel Kind="ContentKind.Item" BlueprintId="@(IsNew ? null : _template.BlueprintId)" />
 
     <fieldset class="keywords">
         <legend>Keywords</legend>
@@ -236,17 +210,6 @@ else if (_template is not null)
 
     private IReadOnlyList<string> _errors = Array.Empty<string>();
     private IReadOnlyList<string> _warnings = Array.Empty<string>();
-    private IReadOnlyList<ContentSummary> _areas = Array.Empty<ContentSummary>();
-    private IReadOnlyList<ContentSummary> _allRooms = Array.Empty<ContentSummary>();
-    private string _spawnAreaFilter = string.Empty;
-
-    private IEnumerable<ContentSummary> SpawnRooms =>
-        string.IsNullOrEmpty(_spawnAreaFilter)
-            ? _allRooms
-            : _allRooms.Where(r => r.AreaBlueprintId == _spawnAreaFilter);
-
-    private void SetSpawnAreaFilter(string? value) =>
-        _spawnAreaFilter = value ?? string.Empty;
 
     private bool IsNew => _forceNew || string.IsNullOrEmpty(BlueprintId);
 
@@ -274,9 +237,6 @@ else if (_template is not null)
         _confirmDelete = false;
         _forceNew = false;
         _focusPending = true;
-        _areas = Catalog.List(ContentKind.Area);
-        _allRooms = Catalog.List(ContentKind.Room);
-        _spawnAreaFilter = string.Empty;
 
         if (IsNew)
         {
@@ -288,12 +248,6 @@ else if (_template is not null)
             var definition = Catalog.Load(ContentKind.Item, BlueprintId!);
             _template = definition?.Template as ItemTemplate;
             _notFound = _template is null;
-            // Pre-select the area filter to match the current spawn room, if resolvable.
-            if (_template is not null && !string.IsNullOrEmpty(_template.SpawnRoomBlueprintId))
-            {
-                var matchingRoom = _allRooms.FirstOrDefault(r => r.BlueprintId == _template.SpawnRoomBlueprintId);
-                _spawnAreaFilter = matchingRoom?.AreaBlueprintId ?? string.Empty;
-            }
         }
     }
 

@@ -80,19 +80,25 @@ namespace Hedron.Core.Modules.World.Templates
             {
                 foreach (var ruleDto in dto.SpawnRules)
                 {
-                    if (string.IsNullOrWhiteSpace(ruleDto.BlueprintId))
+                    var blueprintId = ruleDto.BlueprintId ?? string.Empty;
+                    if (ruleDto.MinCount is not null || ruleDto.MaxCount is not null)
                     {
-                        _logger.LogWarning(
-                            "Room '{BlueprintId}': spawn rule missing blueprintId — skipping.",
-                            dto.Id);
-                        continue;
+                        var key = ruleDto.MinCount is not null ? "minCount" : "maxCount";
+                        throw new ContentShapeException(
+                            $"Room '{dto.Id}': spawn rule for '{blueprintId}' uses legacy '{key}' — " +
+                            "replace 'minCount'/'maxCount' with 'count: N'.");
                     }
+
                     template.SpawnRules.Add(new SpawnRule(
-                        ruleDto.BlueprintId,
-                        ruleDto.MinCount ?? 1,
-                        ruleDto.MaxCount ?? 1,
-                        ruleDto.RespawnDelaySeconds ?? 300));
+                        string.IsNullOrWhiteSpace(ruleDto.Id) ? SpawnRuleIds.DefaultFor(blueprintId) : ruleDto.Id,
+                        blueprintId,
+                        ruleDto.Count ?? 1,
+                        ruleDto.RespawnDelaySeconds ?? SpawnRuleLimits.DefaultRespawnDelaySeconds));
                 }
+
+                var errors = SpawnRuleValidation.Errors(dto.Id, template.SpawnRules);
+                if (errors.Count > 0)
+                    throw new ContentShapeException(string.Join(" ", errors));
             }
 
             return template;
@@ -114,7 +120,10 @@ namespace Hedron.Core.Modules.World.Templates
 
         private sealed class SpawnRuleDto
         {
+            public string? Id { get; set; }
             public string? BlueprintId { get; set; }
+            public int? Count { get; set; }
+            // Legacy keys — detected only, to fail fast with a conversion message.
             public int? MinCount { get; set; }
             public int? MaxCount { get; set; }
             public int? RespawnDelaySeconds { get; set; }

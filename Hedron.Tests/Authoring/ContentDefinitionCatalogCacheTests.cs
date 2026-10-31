@@ -1,3 +1,4 @@
+using Hedron.Core.ECS.Components;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -212,9 +213,15 @@ namespace Hedron.Tests.Authoring
         {
             var (catalog, reader, contentDir) = NewCatalog();
             var areaId = await SeedAsync(catalog, ContentKind.Area, "Alpha");
-            var roomId = await SeedAsync(catalog, ContentKind.Room, "Hall", d => ((RoomTemplate)d.Template).AreaId = areaId);
-            await SeedAsync(catalog, ContentKind.Item, "Sword", d => ((ItemTemplate)d.Template).SpawnRoomBlueprintId = roomId);
-            await SeedAsync(catalog, ContentKind.Mob, "Rat", d => ((MobTemplate)d.Template).SpawnRoomBlueprintId = roomId);
+            var swordId = await SeedAsync(catalog, ContentKind.Item, "Sword");
+            var ratId = await SeedAsync(catalog, ContentKind.Mob, "Rat");
+            await SeedAsync(catalog, ContentKind.Room, "Hall", d =>
+            {
+                var room = (RoomTemplate)d.Template;
+                room.AreaId = areaId;
+                room.SpawnRules.Add(new SpawnRule(swordId, swordId, 1, 300));
+                room.SpawnRules.Add(new SpawnRule(ratId, ratId, 1, 300));
+            });
 
             reader.DirectorySweeps.Clear();
 
@@ -229,8 +236,8 @@ namespace Hedron.Tests.Authoring
                 Assert.Equal(1, reader.SweepsOf(DirectoryFor(contentDir, kind)));
             }
 
-            // The room→area map backing item/mob two-hop resolution is derived from the room
-            // summaries, not a second sweep of the room directory.
+            // The rule-site map backing item/mob area attribution is derived from the room sweep,
+            // not a second sweep of the room directory.
             Assert.Equal(4, reader.TotalSweeps);
         }
 

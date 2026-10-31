@@ -45,8 +45,15 @@ namespace Hedron.Core.Modules.Mobs
             {
                 Name = dto.Name ?? string.Empty,
                 Description = dto.Description ?? string.Empty,
-                SpawnRoomBlueprintId = dto.SpawnRoomBlueprintId ?? string.Empty,
             };
+
+            // Hard break (spawn-authoring): placement lives only in room spawn rules. A blank legacy
+            // key carries no placement (every pre-slice writer emitted it) and is ignored.
+            if (!string.IsNullOrWhiteSpace(dto.SpawnRoomBlueprintId))
+                throw new ContentShapeException(
+                    $"Mob '{dto.BlueprintId}': legacy 'spawnRoomBlueprintId: {dto.SpawnRoomBlueprintId}' — remove it " +
+                    $"and add a spawn rule to the 'spawnRules' of room '{dto.SpawnRoomBlueprintId}' " +
+                    $"(- {{ blueprintId: {dto.BlueprintId}, count: 1, respawnDelaySeconds: {SpawnRuleLimits.DefaultRespawnDelaySeconds} }}).");
 
             if (dto.Keywords is { Count: > 0 })
                 template.Keywords.AddRange(dto.Keywords);
@@ -212,6 +219,7 @@ namespace Hedron.Core.Modules.Mobs
             public string? Description { get; set; }
             public List<string>? Keywords { get; set; }
             public string? Type { get; set; }
+            // Legacy key — detected only, to fail fast with a conversion message.
             public string? SpawnRoomBlueprintId { get; set; }
             public int Level { get; set; }
             public int MaxHp { get; set; }

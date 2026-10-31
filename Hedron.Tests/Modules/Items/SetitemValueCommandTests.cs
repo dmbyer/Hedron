@@ -71,19 +71,22 @@ namespace Hedron.Tests.Modules.Items
                 Builder = new ItemBuilderSystem(Ecs, Registry, NullLogger<ItemBuilderSystem>.Instance);
                 ContentWriter = new RecordingContentWriter();
                 Bus = new RecordingEventBus(dispatch: false);
-                Command = new SetitemCommand(Builder, ContentWriter, Ecs, Registry, Bus);
+                Command = new SetitemCommand(Builder, ContentWriter, Registry, Bus);
             }
 
             /// <summary>
-            /// Creates a room, spawns an item blueprint via <see cref="ItemBuilderSystem.CreateItem"/>,
-            /// and returns the blueprint id + live entity id.
+            /// Creates a room, registers an item blueprint via <see cref="ItemBuilderSystem.CreateItem"/>,
+            /// spawns one live world instance of it (a count-1 rule's shape), and returns the
+            /// blueprint id + live entity id.
             /// </summary>
             public (string blueprintId, uint itemEntityId) CreateItem(string name = "Test Item")
             {
                 var room = Ecs.CreateEntity();
                 Ecs.AddComponent(room.Id, new BlueprintComponent { BlueprintId = $"room.test.{Guid.NewGuid():N}" });
-                var result = Builder.CreateItem(name, room.Id);
-                return (result.BlueprintId, result.ItemEntityId);
+                var result = Builder.CreateItem(name);
+                var entity = Registry.Spawn(result.BlueprintId);
+                Ecs.AddComponent(entity.Id, new LocationComponent { RoomEntityId = room.Id });
+                return (result.BlueprintId, entity.Id);
             }
         }
 
@@ -187,7 +190,8 @@ namespace Hedron.Tests.Modules.Items
             var events = world.Bus.Published.OfType<ItemPropertySetByAdminEvent>().ToList();
             Assert.Single(events);
             Assert.Equal(adminId, events[0].AdminEntityId);
-            Assert.Equal(itemEntityId, events[0].ItemEntityId);
+            Assert.Equal(blueprintId, events[0].BlueprintId);
+            Assert.Equal(1, events[0].InstancesUpdated);
             Assert.Equal("value", events[0].PropertyName);
             Assert.Equal("250", events[0].NewValue);
         }
@@ -198,7 +202,7 @@ namespace Hedron.Tests.Modules.Items
             // Value == 0 is the "valueless/non-saleable" sentinel; it is still a valid authored value.
             var world = new TestWorld();
             var (blueprintId, itemEntityId) = world.CreateItem("Pebble");
-            world.Builder.SetItemValue(itemEntityId, 999L); // pre-set non-zero
+            world.Builder.SetItemValue(blueprintId, 999L); // pre-set non-zero
 
             var output = new RecordingOutput();
             var ctx = MakeContext(1u, MakeArgs(blueprintId, "value", "0"), output);
@@ -238,7 +242,7 @@ namespace Hedron.Tests.Modules.Items
         {
             var world = new TestWorld();
             var (blueprintId, itemEntityId) = world.CreateItem("Sword");
-            world.Builder.SetItemValue(itemEntityId, 100L); // pre-set to confirm no overwrite
+            world.Builder.SetItemValue(blueprintId, 100L); // pre-set to confirm no overwrite
 
             var output = new RecordingOutput();
             var ctx = MakeContext(1u, MakeArgs(blueprintId, "value", "-1"), output);
@@ -304,7 +308,7 @@ namespace Hedron.Tests.Modules.Items
         {
             var world = new TestWorld();
             var (blueprintId, itemEntityId) = world.CreateItem("Dagger");
-            world.Builder.SetItemValue(itemEntityId, 200L); // pre-set
+            world.Builder.SetItemValue(blueprintId, 200L); // pre-set
 
             var output = new RecordingOutput();
             var ctx = MakeContext(1u, MakeArgs(blueprintId, "value", "abc"), output);

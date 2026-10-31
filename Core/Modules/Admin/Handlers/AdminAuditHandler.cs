@@ -47,7 +47,8 @@ namespace Hedron.Core.Modules.Admin.Handlers
         IEventHandler<AreaCreatedByAdminEvent>,
         IEventHandler<WalletSetByAdminEvent>,
         IEventHandler<PlayerAscendedByAdminEvent>,
-        IEventHandler<StartingRoomSetByAdminEvent>
+        IEventHandler<StartingRoomSetByAdminEvent>,
+        IEventHandler<SpawnRuleAuthoredByAdminEvent>
     {
         private readonly EntityService _entityService;
         private readonly ILogger<AdminAuditHandler> _logger;
@@ -119,8 +120,8 @@ namespace Hedron.Core.Modules.Admin.Handlers
         public Task HandleAsync(ItemPropertySetByAdminEvent e)
         {
             _logger.LogInformation(
-                "AdminCommandExecuted: admin={Admin} command=setitem item={ItemEntityId} property={PropertyName} value={NewValue}",
-                ResolveName(e.AdminEntityId), e.ItemEntityId, e.PropertyName, e.NewValue);
+                "AdminCommandExecuted: admin={Admin} command=setitem blueprint={BlueprintId} property={PropertyName} value={NewValue} instances={InstancesUpdated}",
+                ResolveName(e.AdminEntityId), e.BlueprintId, e.PropertyName, e.NewValue, e.InstancesUpdated);
             return Task.CompletedTask;
         }
 
@@ -135,8 +136,8 @@ namespace Hedron.Core.Modules.Admin.Handlers
         public Task HandleAsync(MobPropertySetByAdminEvent e)
         {
             _logger.LogInformation(
-                "AdminCommandExecuted: admin={Admin} command=setmob mob={MobEntityId} property={PropertyName} value={NewValue}",
-                ResolveName(e.AdminEntityId), e.MobEntityId, e.PropertyName, e.NewValue);
+                "AdminCommandExecuted: admin={Admin} command=setmob blueprint={BlueprintId} property={PropertyName} value={NewValue} instances={InstancesUpdated}",
+                ResolveName(e.AdminEntityId), e.BlueprintId, e.PropertyName, e.NewValue, e.InstancesUpdated);
             return Task.CompletedTask;
         }
 
@@ -217,6 +218,14 @@ namespace Hedron.Core.Modules.Admin.Handlers
             _logger.LogInformation(
                 "AdminCommandExecuted: admin={Admin} command=startroom room={RoomEntityId} blueprint={RoomBlueprintId} previous={PreviousStartingRoomId}",
                 ResolveName(e.AdminEntityId), e.RoomEntityId, e.RoomBlueprintId, e.PreviousStartingRoomId);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(SpawnRuleAuthoredByAdminEvent e)
+        {
+            _logger.LogInformation(
+                "AdminCommandExecuted: admin={Admin} command=spawnrule change={Change} room={RoomBlueprintId} rule={RuleId} blueprint={BlueprintId} count={Count} delay={RespawnDelaySeconds}",
+                ResolveName(e.AdminEntityId), e.Change, e.RoomBlueprintId, e.RuleId, e.BlueprintId, e.Count, e.RespawnDelaySeconds);
             return Task.CompletedTask;
         }
 

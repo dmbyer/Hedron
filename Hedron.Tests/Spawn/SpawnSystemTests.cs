@@ -1,542 +1,239 @@
-using System;
+using System.Linq;
 using System.Threading.Tasks;
-using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Events;
 using Hedron.Core.Modules.Items.Events;
 using Hedron.Core.Modules.Mobs.Events;
-using Hedron.Core.Modules.Spawn.Systems;
-using Hedron.Core.Modules.Time.Events;
 using Hedron.Core.Modules.World.Events;
-using Hedron.Core.Systems;
 using Hedron.Tests.Harness;
-using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Hedron.Tests.Spawn
 {
     /// <summary>
-    /// Tier 1 — unit tests for <see cref="SpawnSystem"/>.
-    ///
-    /// Coverage: respawn scheduling (RespawnAt = now + delay on vacancy), respawn trigger
-    /// (tick fires when RespawnAt &lt;= now), no-early-fire (tick before RespawnAt is a no-op),
-    /// FakeClock boundary precision, slot vacancy via MobDiedEvent, slot vacancy via
-    /// ItemPickedUpEvent, startup initialization from live entity graph, unknown-entity
-    /// vacancy is a no-op, and unknown blueprint disables the slot rather than throwing.
+    /// Tier 1 — unit tests for the rule-keyed <see cref="Hedron.Core.Modules.Spawn.Systems.SpawnSystem"/>
+    /// (spawn-authoring T1). Coverage: immediate boot fill with location (INV-23), no claiming,
+    /// duplicate-blueprint rules, per-slot vacancy and independent timers, item pickup vacancy,
+    /// unknown-template and duplicate-id robustness, rebuild on a second ready event, the State
+    /// priority, and the reload-teardown guard.
     /// </summary>
     public sealed class SpawnSystemTests
     {
-        // ── Harness ─────────────────────────────────────────────────────────────
+        private static Task Ready(SpawnFixture f) => f.System.HandleAsync(new WorldContentReadyEvent());
+        private static Task Tick(SpawnFixture f) => f.System.HandleAsync(Ticks.At(1));
 
-        /// <summary>
-        /// Minimal <see cref="IEntityTemplate"/> stub. Applies no additional components —
-        /// <see cref="TemplateRegistry.Spawn"/> already attaches <see cref="BlueprintComponent"/>.
-        /// </summary>
-        private sealed class MinimalTemplate : IEntityTemplate
-        {
-            public string BlueprintId { get; }
-
-            public MinimalTemplate(string blueprintId) => BlueprintId = blueprintId;
-
-            public void Apply(Entity entity, EntityService entityService) { }
-        }
-
-        /// <summary>
-        /// Wires a <see cref="SpawnSystem"/> with a real <see cref="EntityService"/>,
-        /// a real <see cref="TemplateRegistry"/>, and a <see cref="FakeClock"/> seeded
-        /// to a fixed UTC time.
-        /// </summary>
-        private static (SpawnSystem system, EntityService ecs, TemplateRegistry registry, FakeClock clock) Build()
-        {
-            var ecs = new EntityService();
-            var registry = new TemplateRegistry(ecs);
-            var clock = new FakeClock(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc));
-            var system = new SpawnSystem(ecs, registry, clock, NullLogger<SpawnSystem>.Instance);
-            return (system, ecs, registry, clock);
-        }
-
-        /// <summary>
-        /// Creates a room entity with a single spawn rule pointing at <paramref name="blueprintId"/>
-        /// with the given <paramref name="respawnDelaySec"/>.
-        /// </summary>
-        private static uint MakeRoom(EntityService ecs, string blueprintId, int respawnDelaySec = 60)
-        {
-            var roomId = ecs.CreateEntity().Id;
-            var config = new SpawnConfigComponent();
-            config.Rules.Add(new SpawnRule(blueprintId, MinCount: 1, MaxCount: 1, respawnDelaySec));
-            ecs.AddComponent(roomId, config);
-            return roomId;
-        }
-
-        /// <summary>
-        /// Creates a mob entity placed in <paramref name="roomEntityId"/> with a
-        /// <see cref="BlueprintComponent"/> matching <paramref name="blueprintId"/>.
-        /// </summary>
-        private static uint MakeMobInRoom(EntityService ecs, uint roomEntityId, string blueprintId)
-        {
-            var mobId = ecs.CreateEntity().Id;
-            ecs.AddComponent(mobId, new BlueprintComponent { BlueprintId = blueprintId });
-            ecs.AddComponent(mobId, new LocationComponent { RoomEntityId = roomEntityId });
-            return mobId;
-        }
-
-        private static HeartbeatTickEvent Tick(long tickId = 1)
-            => Ticks.At(tickId);
-
-        // ── WorldContentReady: occupied slot ────────────────────────────────────
+        // ── Boot fill ───────────────────────────────────────────────────────────
 
         [Fact]
-        public async Task WorldContentReady_occupied_slot_has_no_respawn_scheduled()
+        public async Task Boot_fills_every_slot_immediately_with_room_entity_and_blueprint_location()
         {
-            var (system, ecs, registry, clock) = Build();
-            const string bp = "mob.goblin";
-            registry.Register(bp, new MinimalTemplate(bp));
-
-            var roomId = MakeRoom(ecs, bp, respawnDelaySec: 60);
-            var mobId = MakeMobInRoom(ecs, roomId, bp);
-
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            // Slot is occupied → no respawn should fire on the next tick
-            await system.HandleAsync(Tick());
-
-            // Entity placed in the room by MakeMobInRoom still exists; nothing new was spawned.
-            // Verify the original mob entity is still tracked by confirming it has BlueprintComponent.
-            Assert.True(ecs.HasComponent<BlueprintComponent>(mobId));
-        }
-
-        // ── WorldContentReady: vacant slot at startup ───────────────────────────
-
-        [Fact]
-        public async Task WorldContentReady_vacant_slot_schedules_respawn_using_clock_now()
-        {
-            var (system, ecs, registry, clock) = Build();
-            const string bp = "mob.orc";
-            registry.Register(bp, new MinimalTemplate(bp));
-
-            var roomId = MakeRoom(ecs, bp, respawnDelaySec: 30);
-            // No mob in the room → slot starts vacant
-
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            // Advance exactly respawnDelay — should trigger respawn
-            clock.Advance(TimeSpan.FromSeconds(30));
-            await system.HandleAsync(Tick());
-
-            // A new entity should have been spawned in the room
-            var spawned = FindEntityInRoom(ecs, roomId, bp);
-            Assert.True(spawned.HasValue, "Expected a newly spawned mob in the room after delay elapsed.");
-        }
-
-        // ── Respawn scheduling: RespawnAt = clock.UtcNow + delay ────────────────
-
-        [Fact]
-        public async Task MobDied_schedules_RespawnAt_equal_to_now_plus_delay()
-        {
-            var (system, ecs, registry, clock) = Build();
-            const string bp = "mob.wolf";
-            const int delay = 120;
-            registry.Register(bp, new MinimalTemplate(bp));
-
-            var roomId = MakeRoom(ecs, bp, respawnDelaySec: delay);
-            var mobId = MakeMobInRoom(ecs, roomId, bp);
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            // Mob dies
-            await system.HandleAsync(new MobDiedEvent(mobId, bp));
-
-            // Advance exactly the delay (boundary: RespawnAt == now)
-            clock.Advance(TimeSpan.FromSeconds(delay));
-            await system.HandleAsync(Tick());
-
-            // Exclude the dead mob (still in ECS until handler destroys it);
-            // a new entity should exist
-            var spawned = FindEntityInRoom(ecs, roomId, bp, exclude: mobId);
-            Assert.True(spawned.HasValue,
-                $"Respawn should fire at exactly t0 + {delay}s (RespawnAt <= now).");
-        }
-
-        // ── Respawn does NOT fire before RespawnAt ────────────────────────────────
-
-        [Fact]
-        public async Task Tick_before_RespawnAt_does_not_spawn_new_entity()
-        {
-            var (system, ecs, registry, clock) = Build();
-            const string bp = "mob.rat";
-            const int delay = 60;
-            registry.Register(bp, new MinimalTemplate(bp));
-
-            var roomId = MakeRoom(ecs, bp, respawnDelaySec: delay);
-            var mobId = MakeMobInRoom(ecs, roomId, bp);
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            await system.HandleAsync(new MobDiedEvent(mobId, bp));
-
-            // Count entities in room right after the death (dead mob entity is still there —
-            // SpawnSystem does not destroy entities; that's the handler's job).
-            int countAfterDeath = CountEntitiesInRoom(ecs, roomId, bp);
-
-            // Advance only 59s — one second short of the 60s delay
-            clock.Advance(TimeSpan.FromSeconds(delay - 1));
-            await system.HandleAsync(Tick());
-
-            // No new entity should have been added (count must not increase)
-            int countAfterTick = CountEntitiesInRoom(ecs, roomId, bp);
-            Assert.Equal(countAfterDeath, countAfterTick);
-        }
-
-        // ── Respawn fires exactly at RespawnAt boundary ───────────────────────────
-
-        [Fact]
-        public async Task Tick_exactly_at_RespawnAt_fires_respawn()
-        {
-            var (system, ecs, registry, clock) = Build();
-            const string bp = "mob.bandit";
-            const int delay = 45;
-            registry.Register(bp, new MinimalTemplate(bp));
-
-            var roomId = MakeRoom(ecs, bp, respawnDelaySec: delay);
-            var mobId = MakeMobInRoom(ecs, roomId, bp);
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            await system.HandleAsync(new MobDiedEvent(mobId, bp));
-
-            // Advance exactly the delay
-            clock.Advance(TimeSpan.FromSeconds(delay));
-            await system.HandleAsync(Tick());
-
-            var spawned = FindEntityInRoom(ecs, roomId, bp, exclude: mobId);
-            Assert.True(spawned.HasValue,
-                "Respawn should fire when clock is exactly at RespawnAt.");
-        }
-
-        // ── Respawn fires after RespawnAt (late tick) ──────────────────────────
-
-        [Fact]
-        public async Task Tick_after_RespawnAt_fires_respawn()
-        {
-            var (system, ecs, registry, clock) = Build();
-            const string bp = "mob.skeleton";
-            const int delay = 30;
-            registry.Register(bp, new MinimalTemplate(bp));
-
-            var roomId = MakeRoom(ecs, bp, respawnDelaySec: delay);
-            var mobId = MakeMobInRoom(ecs, roomId, bp);
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            await system.HandleAsync(new MobDiedEvent(mobId, bp));
-
-            // Advance well past the delay
-            clock.Advance(TimeSpan.FromSeconds(delay + 10));
-            await system.HandleAsync(Tick());
-
-            var spawned = FindEntityInRoom(ecs, roomId, bp, exclude: mobId);
-            Assert.True(spawned.HasValue,
-                "Respawn should fire when clock is past RespawnAt.");
-        }
-
-        // ── Spawned entity is placed in the correct room ───────────────────────
-
-        [Fact]
-        public async Task Respawned_entity_has_LocationComponent_pointing_to_correct_room()
-        {
-            var (system, ecs, registry, clock) = Build();
-            const string bp = "mob.zombie";
-            const int delay = 10;
-            registry.Register(bp, new MinimalTemplate(bp));
-
-            var roomId = MakeRoom(ecs, bp, respawnDelaySec: delay);
-            var mobId = MakeMobInRoom(ecs, roomId, bp);
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            await system.HandleAsync(new MobDiedEvent(mobId, bp));
-            clock.Advance(TimeSpan.FromSeconds(delay));
-            await system.HandleAsync(Tick());
-
-            var spawnedId = FindEntityInRoom(ecs, roomId, bp, exclude: mobId);
-            Assert.True(spawnedId.HasValue);
-            var loc = ecs.Get<LocationComponent>(spawnedId!.Value);
-            Assert.Equal(roomId, loc.RoomEntityId);
-        }
-
-        // ── Spawned entity carries BlueprintComponent ──────────────────────────
-
-        [Fact]
-        public async Task Respawned_entity_has_BlueprintComponent_with_correct_id()
-        {
-            var (system, ecs, registry, clock) = Build();
-            const string bp = "mob.troll";
-            const int delay = 5;
-            registry.Register(bp, new MinimalTemplate(bp));
-
-            var roomId = MakeRoom(ecs, bp, respawnDelaySec: delay);
-            var mobId = MakeMobInRoom(ecs, roomId, bp);
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            await system.HandleAsync(new MobDiedEvent(mobId, bp));
-            clock.Advance(TimeSpan.FromSeconds(delay));
-            await system.HandleAsync(Tick());
-
-            var spawnedId = FindEntityInRoom(ecs, roomId, bp, exclude: mobId);
-            Assert.True(spawnedId.HasValue);
-            var bpComp = ecs.Get<BlueprintComponent>(spawnedId!.Value);
-            Assert.Equal(bp, bpComp.BlueprintId);
-        }
-
-        // ── Slot vacancy via ItemPickedUpEvent ──────────────────────────────────
-
-        [Fact]
-        public async Task ItemPickedUp_marks_slot_vacant_and_schedules_respawn()
-        {
-            var (system, ecs, registry, clock) = Build();
-            const string bp = "item.iron_sword";
-            const int delay = 20;
-            registry.Register(bp, new MinimalTemplate(bp));
-
-            var roomId = MakeRoom(ecs, bp, respawnDelaySec: delay);
-            // Create an item entity in the room (same pattern as a mob)
-            var itemId = MakeMobInRoom(ecs, roomId, bp);
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            // Simulate item being picked up — item entity moves out of room
-            // (SpawnSystem doesn't destroy/move the entity itself; ItemContextHandler does.
-            // For the test we remove the LocationComponent to simulate the item leaving the room.)
-            ecs.RemoveComponent<LocationComponent>(itemId);
-
-            await system.HandleAsync(new ItemPickedUpEvent(
-                PlayerEntityId: 99u,
-                ItemEntityId: itemId,
-                RoomEntityId: roomId));
-
-            // Before delay: slot is vacant but RespawnAt not yet reached — no new entity in room
-            clock.Advance(TimeSpan.FromSeconds(delay - 1));
-            await system.HandleAsync(Tick());
-            Assert.False(FindEntityInRoom(ecs, roomId, bp).HasValue,
-                "Item slot should not respawn before delay elapses.");
-
-            // After delay: respawn fires and a new item appears in the room
-            clock.Advance(TimeSpan.FromSeconds(1));
-            await system.HandleAsync(Tick());
-            Assert.True(FindEntityInRoom(ecs, roomId, bp).HasValue,
-                "Item slot should respawn after delay elapses.");
-        }
-
-        // ── Respawn does not re-fire after slot is occupied again ──────────────
-
-        [Fact]
-        public async Task Slot_does_not_respawn_twice_after_single_vacancy()
-        {
-            var (system, ecs, registry, clock) = Build();
-            const string bp = "mob.imp";
-            const int delay = 10;
-            registry.Register(bp, new MinimalTemplate(bp));
-
-            var roomId = MakeRoom(ecs, bp, respawnDelaySec: delay);
-            var mobId = MakeMobInRoom(ecs, roomId, bp);
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            // Remove dead mob from ECS to simulate the handler having destroyed it,
-            // so entity counts reflect only living spawn-slot entities.
-            await system.HandleAsync(new MobDiedEvent(mobId, bp));
-            ecs.DestroyEntity(mobId);
-
-            clock.Advance(TimeSpan.FromSeconds(delay));
-            await system.HandleAsync(Tick());
-
-            // One entity should now be in the room (the freshly respawned one)
-            int countAfterFirstRespawn = CountEntitiesInRoom(ecs, roomId, bp);
-            Assert.Equal(1, countAfterFirstRespawn);
-
-            // Fire additional ticks — should not spawn a second entity into the occupied slot
-            await system.HandleAsync(Tick(2));
-            await system.HandleAsync(Tick(3));
-
-            int countAfterMoreTicks = CountEntitiesInRoom(ecs, roomId, bp);
-            Assert.Equal(1, countAfterMoreTicks);
-        }
-
-        // ── Unknown entity vacancy is a no-op ──────────────────────────────────
-
-        [Fact]
-        public async Task MobDied_for_untracked_entity_does_not_throw()
-        {
-            var (system, ecs, registry, clock) = Build();
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            // Entity 9999 was never registered in any slot
-            var ex = await Record.ExceptionAsync(() =>
-                system.HandleAsync(new MobDiedEvent(MobEntityId: 9999u, BlueprintId: "mob.ghost")));
-
-            Assert.Null(ex);
-        }
-
-        [Fact]
-        public async Task ItemPickedUp_for_untracked_entity_does_not_throw()
-        {
-            var (system, ecs, registry, clock) = Build();
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            var ex = await Record.ExceptionAsync(() =>
-                system.HandleAsync(new ItemPickedUpEvent(
-                    PlayerEntityId: 1u, ItemEntityId: 8888u, RoomEntityId: 2u)));
-
-            Assert.Null(ex);
-        }
-
-        // ── Unknown blueprint disables slot, does not throw ────────────────────
-
-        [Fact]
-        public async Task Slot_with_unregistered_blueprint_is_disabled_on_first_tick()
-        {
-            var (system, ecs, registry, clock) = Build();
-            const string bp = "mob.unknown_creature";
-            // Intentionally NOT registered in registry
-
-            var roomId = MakeRoom(ecs, bp, respawnDelaySec: 0);
-            // No mob in room → slot is vacant from startup with delay=0
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            // Tick immediately — template is missing, slot should be disabled gracefully
-            var ex = await Record.ExceptionAsync(() => system.HandleAsync(Tick()));
-            Assert.Null(ex);
-
-            // No entity should appear in the room
-            Assert.False(FindEntityInRoom(ecs, roomId, bp).HasValue,
-                "Unknown blueprint should not produce a spawned entity.");
-        }
-
-        // ── Multiple slots in the same room ─────────────────────────────────────
-
-        [Fact]
-        public async Task Two_slots_in_same_room_respawn_independently()
-        {
-            var (system, ecs, registry, clock) = Build();
-            const string bp1 = "mob.guard";
-            const string bp2 = "mob.merchant";
-            const int delay1 = 10;
-            const int delay2 = 30;
-
-            registry.Register(bp1, new MinimalTemplate(bp1));
-            registry.Register(bp2, new MinimalTemplate(bp2));
-
-            // Room with two rules
-            var roomId = ecs.CreateEntity().Id;
-            var config = new SpawnConfigComponent();
-            config.Rules.Add(new SpawnRule(bp1, 1, 1, delay1));
-            config.Rules.Add(new SpawnRule(bp2, 1, 1, delay2));
-            ecs.AddComponent(roomId, config);
-
-            // Both slots start vacant (no mobs in room)
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            // At 10s: bp1 should fire, bp2 should not yet
-            clock.Advance(TimeSpan.FromSeconds(delay1));
-            await system.HandleAsync(Tick(1));
-
-            Assert.True(FindEntityInRoom(ecs, roomId, bp1).HasValue,
-                "bp1 (delay 10s) should have respawned at t=10s.");
-            Assert.False(FindEntityInRoom(ecs, roomId, bp2).HasValue,
-                "bp2 (delay 30s) should NOT have respawned at t=10s.");
-
-            // At 30s: bp2 should now also fire
-            clock.Advance(TimeSpan.FromSeconds(delay2 - delay1));
-            await system.HandleAsync(Tick(2));
-
-            Assert.True(FindEntityInRoom(ecs, roomId, bp2).HasValue,
-                "bp2 (delay 30s) should have respawned at t=30s.");
-        }
-
-        // ── Multiple rooms are tracked independently ─────────────────────────────
-
-        [Fact]
-        public async Task Slots_in_different_rooms_are_independent()
-        {
-            var (system, ecs, registry, clock) = Build();
-            const string bp = "mob.spider";
-            const int delay = 15;
-            registry.Register(bp, new MinimalTemplate(bp));
-
-            var room1 = MakeRoom(ecs, bp, respawnDelaySec: delay);
-            var room2 = MakeRoom(ecs, bp, respawnDelaySec: delay);
-
-            // Place a mob only in room1; room2 starts vacant
-            var mob1 = MakeMobInRoom(ecs, room1, bp);
-            await system.HandleAsync(new WorldContentReadyEvent());
-
-            // Kill mob in room1; destroy entity so it doesn't pollute FindEntityInRoom
-            await system.HandleAsync(new MobDiedEvent(mob1, bp));
-            ecs.DestroyEntity(mob1);
-
-            clock.Advance(TimeSpan.FromSeconds(delay));
-            await system.HandleAsync(Tick());
-
-            // Both slots should now have a mob (room1 respawned, room2 also got one)
-            Assert.True(FindEntityInRoom(ecs, room1, bp).HasValue,
-                "room1 slot should have respawned after mob died.");
-            Assert.True(FindEntityInRoom(ecs, room2, bp).HasValue,
-                "room2 slot (vacant from startup) should also have respawned.");
-        }
-
-        // ── INV-5: SpawnSystem does not hold IEventBus ─────────────────────────
-
-        [Fact]
-        public void SpawnSystem_does_not_hold_IEventBus_field()
-        {
-            var fields = typeof(SpawnSystem).GetFields(
-                System.Reflection.BindingFlags.Instance |
-                System.Reflection.BindingFlags.NonPublic |
-                System.Reflection.BindingFlags.Public);
-
-            foreach (var field in fields)
+            var f = new SpawnFixture();
+            f.Template("mob.rat");
+            var room = f.Room("room.cellar", new SpawnRule("mob.rat", "mob.rat", 3, 60));
+
+            await Ready(f);
+
+            var rats = f.InRoom(room, "mob.rat");
+            Assert.Equal(3, rats.Count);
+            foreach (var id in rats)
             {
-                Assert.False(
-                    typeof(Hedron.Core.Events.IEventBus).IsAssignableFrom(field.FieldType),
-                    $"INV-5: SpawnSystem field '{field.Name}' is IEventBus — " +
-                    "domain systems must never hold or publish to the event bus.");
+                var loc = f.Ecs.Get<LocationComponent>(id);
+                Assert.Equal(room, loc.RoomEntityId);
+                Assert.Equal("room.cellar", loc.RoomBlueprintId);
             }
         }
 
-        // ── Helpers ─────────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Finds the first entity in <paramref name="roomEntityId"/> whose
-        /// <see cref="BlueprintComponent"/> matches <paramref name="blueprintId"/>,
-        /// optionally excluding a known entity id (e.g. the original entity before it was
-        /// vacated). Returns <c>null</c> if no such entity is found.
-        /// </summary>
-        private static uint? FindEntityInRoom(
-            EntityService ecs, uint roomEntityId, string blueprintId,
-            uint? exclude = null)
+        [Fact]
+        public async Task Boot_never_claims_a_pre_existing_same_blueprint_entity()
         {
-            foreach (var (entityId, bp) in ecs.GetAllComponents<BlueprintComponent>())
-            {
-                if (exclude.HasValue && entityId == exclude.Value)
-                    continue;
-                if (!string.Equals(bp.BlueprintId, blueprintId, StringComparison.OrdinalIgnoreCase))
-                    continue;
-                if (!ecs.TryGet<LocationComponent>(entityId, out var loc))
-                    continue;
-                if (loc.RoomEntityId == roomEntityId)
-                    return entityId;
-            }
-            return null;
+            var f = new SpawnFixture();
+            f.Template("item.torch");
+            var room = f.Room("room.hall", new SpawnRule("item.torch", "item.torch", 1, 60));
+
+            // A player-owned copy dropped in the room before the fill.
+            var owned = f.Registry.Spawn("item.torch").Id;
+            f.Ecs.AddComponent(owned, new LocationComponent { RoomEntityId = room });
+            f.Ecs.AddComponent(owned, new PersistentEntity());
+
+            await Ready(f);
+
+            Assert.Equal(2, f.InRoom(room, "item.torch").Count);
+
+            // Picking up the owned copy is not a tracked vacancy: nothing respawns.
+            await f.System.HandleAsync(new ItemPickedUpEvent(99u, owned, room));
+            f.Advance(1000);
+            await Tick(f);
+            Assert.Equal(2, f.CountOf("item.torch"));
         }
 
-        /// <summary>
-        /// Counts entities in <paramref name="roomEntityId"/> matching <paramref name="blueprintId"/>.
-        /// </summary>
-        private static int CountEntitiesInRoom(EntityService ecs, uint roomEntityId, string blueprintId)
+        [Fact]
+        public async Task Two_rules_with_the_same_blueprint_and_distinct_ids_are_both_honored()
         {
-            int count = 0;
-            foreach (var (entityId, bp) in ecs.GetAllComponents<BlueprintComponent>())
-            {
-                if (!string.Equals(bp.BlueprintId, blueprintId, StringComparison.OrdinalIgnoreCase))
-                    continue;
-                if (!ecs.TryGet<LocationComponent>(entityId, out var loc))
-                    continue;
-                if (loc.RoomEntityId == roomEntityId)
-                    count++;
-            }
-            return count;
+            var f = new SpawnFixture();
+            f.Template("mob.rat");
+            var room = f.Room("room.cellar",
+                new SpawnRule("rats-north", "mob.rat", 2, 60),
+                new SpawnRule("rats-south", "mob.rat", 1, 60));
+
+            await Ready(f);
+
+            Assert.Equal(3, f.InRoom(room, "mob.rat").Count);
+            Assert.Equal(new[] { "rats-north", "rats-south" }, f.System.DescribeRoom(room).Select(s => s.RuleId));
+        }
+
+        // ── Vacancy and respawn ─────────────────────────────────────────────────
+
+        [Fact]
+        public async Task Killing_one_of_three_vacates_only_that_slot_and_respawns_exactly_one_at_the_delay()
+        {
+            var f = new SpawnFixture();
+            f.Template("mob.rat");
+            var room = f.Room("room.cellar", new SpawnRule("mob.rat", "mob.rat", 3, 60));
+            await Ready(f);
+
+            var victim = f.InRoom(room, "mob.rat")[0];
+            await f.System.HandleAsync(new MobDiedEvent(victim, "mob.rat"));
+            f.Ecs.DestroyEntity(victim);
+
+            var status = Assert.Single(f.System.DescribeRoom(room));
+            Assert.Equal(2, status.Live);
+            Assert.Equal(f.Clock.UtcNow.AddSeconds(60), status.NextRespawnAt);
+
+            f.Advance(59);
+            await Tick(f);
+            Assert.Equal(2, f.InRoom(room, "mob.rat").Count);
+
+            f.Advance(1);
+            await Tick(f);
+            Assert.Equal(3, f.InRoom(room, "mob.rat").Count);
+
+            await Tick(f);
+            Assert.Equal(3, f.InRoom(room, "mob.rat").Count);
+        }
+
+        [Fact]
+        public async Task Each_slot_keeps_its_own_timer()
+        {
+            var f = new SpawnFixture();
+            f.Template("mob.rat");
+            var room = f.Room("room.cellar", new SpawnRule("mob.rat", "mob.rat", 2, 60));
+            await Ready(f);
+            var (a, b) = (f.InRoom(room, "mob.rat")[0], f.InRoom(room, "mob.rat")[1]);
+
+            await f.System.HandleAsync(new MobDiedEvent(a, "mob.rat"));
+            f.Ecs.DestroyEntity(a);
+            f.Advance(30);
+            await f.System.HandleAsync(new MobDiedEvent(b, "mob.rat"));
+            f.Ecs.DestroyEntity(b);
+
+            f.Advance(30); // a due, b not
+            await Tick(f);
+            Assert.Single(f.InRoom(room, "mob.rat"));
+
+            f.Advance(30); // b due
+            await Tick(f);
+            Assert.Equal(2, f.InRoom(room, "mob.rat").Count);
+        }
+
+        [Fact]
+        public async Task Item_pickup_vacates_the_items_slot_and_it_respawns_after_the_delay()
+        {
+            var f = new SpawnFixture();
+            f.Template("item.herb");
+            var room = f.Room("room.garden", new SpawnRule("item.herb", "item.herb", 1, 120));
+            await Ready(f);
+            var herb = Assert.Single(f.InRoom(room, "item.herb"));
+
+            // Pickup: the entity survives (moved to the player) but leaves the room.
+            await f.System.HandleAsync(new ItemPickedUpEvent(7u, herb, room));
+            f.Ecs.RemoveComponent<LocationComponent>(herb);
+
+            f.Advance(119);
+            await Tick(f);
+            Assert.Empty(f.InRoom(room, "item.herb"));
+
+            f.Advance(1);
+            await Tick(f);
+            Assert.Single(f.InRoom(room, "item.herb"));
+        }
+
+        // ── Robustness ──────────────────────────────────────────────────────────
+
+        [Fact]
+        public async Task An_unknown_template_disables_the_slot_without_throwing()
+        {
+            var f = new SpawnFixture();
+            var room = f.Room("room.void", new SpawnRule("mob.missing", "mob.missing", 2, 10));
+
+            await Ready(f);
+            f.Advance(1000);
+            await Tick(f);
+
+            var status = Assert.Single(f.System.DescribeRoom(room));
+            Assert.Equal(0, status.Live);
+            Assert.Null(status.NextRespawnAt);
+            Assert.Equal(0, f.CountOf("mob.missing"));
+        }
+
+        [Fact]
+        public async Task A_duplicate_rule_id_in_the_component_skips_the_second_rule()
+        {
+            var f = new SpawnFixture();
+            f.Template("mob.rat", "mob.bat");
+            var room = f.Room("room.cave",
+                new SpawnRule("pests", "mob.rat", 1, 60),
+                new SpawnRule("PESTS", "mob.bat", 1, 60));
+
+            await Ready(f);
+
+            Assert.Single(f.InRoom(room, "mob.rat"));
+            Assert.Empty(f.InRoom(room, "mob.bat"));
+        }
+
+        [Fact]
+        public async Task A_second_ready_event_clears_and_refills_the_tracker()
+        {
+            var f = new SpawnFixture();
+            f.Template("mob.rat");
+            var room = f.Room("room.cellar", new SpawnRule("mob.rat", "mob.rat", 2, 60));
+            await Ready(f);
+
+            // Reload tears down every world entity before re-publishing the ready event.
+            foreach (var id in f.InRoom(room, "mob.rat"))
+                f.Ecs.DestroyEntity(id);
+            await Ready(f);
+
+            var status = Assert.Single(f.System.DescribeRoom(room));
+            Assert.Equal(2, status.Live);
+            Assert.Equal(2, f.InRoom(room, "mob.rat").Count);
+        }
+
+        [Fact]
+        public void WorldContentReady_is_handled_at_State_priority_ahead_of_shop_seeding()
+        {
+            var f = new SpawnFixture();
+            Assert.Equal(HandlerPriority.State, ((IEventHandler<WorldContentReadyEvent>)f.System).Priority);
+        }
+
+        // ── Reload-teardown guard (INV-31) ──────────────────────────────────────
+
+        [Fact]
+        public async Task A_due_slot_whose_room_lost_its_RoomComponent_spawns_nothing()
+        {
+            var f = new SpawnFixture();
+            f.Template("mob.rat");
+            var room = f.Room("room.cellar", new SpawnRule("mob.rat", "mob.rat", 1, 10));
+            await Ready(f);
+            var rat = Assert.Single(f.InRoom(room, "mob.rat"));
+            await f.System.HandleAsync(new MobDiedEvent(rat, "mob.rat"));
+            f.Ecs.DestroyEntity(rat);
+
+            // Mid-reload teardown removes the room before the tracker is rebuilt.
+            f.Ecs.RemoveComponent<RoomComponent>(room);
+            f.Advance(10);
+            await Tick(f);
+
+            Assert.Equal(0, f.CountOf("mob.rat"));
         }
     }
 }

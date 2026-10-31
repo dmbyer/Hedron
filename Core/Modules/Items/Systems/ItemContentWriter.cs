@@ -54,7 +54,6 @@ namespace Hedron.Core.Modules.Items.Systems
                 Keywords = new List<string>(template.Keywords),
                 ItemType = template.ItemType.ToString(),
                 WornSlots = wornSlots,
-                SpawnRoomId = template.SpawnRoomBlueprintId,
                 StatBonuses = statBonuses,
                 Value = template.Value,
                 Tier = template.Tier != 0 ? template.Tier : null,
@@ -75,7 +74,6 @@ namespace Hedron.Core.Modules.Items.Systems
             public List<string> Keywords { get; set; } = new();
             public string ItemType { get; set; } = string.Empty;
             public List<string>? WornSlots { get; set; }
-            public string SpawnRoomId { get; set; } = string.Empty;
             public List<StatBonusDto>? StatBonuses { get; set; }
             public long Value { get; set; } = 0;
             public int? Tier { get; set; }

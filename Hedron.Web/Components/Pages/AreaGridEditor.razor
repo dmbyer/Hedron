@@ -164,6 +164,7 @@ else
 
             <RoomBasicsFields Room="selected" Areas="_areasForPicker" />
             <RoomExitsEditor Room="selected" Rooms="_roomsForPicker" />
+            <RoomSpawnRulesEditor Room="selected" Spawnables="_spawnables" />
 
             <div class="bidir-toggle">
                 <input type="checkbox" id="grid-bidir" @bind="_bidirectional" />
@@ -216,6 +217,7 @@ else
     private IReadOnlyList<string> _warnings = Array.Empty<string>();
     private IReadOnlyList<ContentSummary> _roomsForPicker = Array.Empty<ContentSummary>();
     private IReadOnlyList<ContentSummary> _areasForPicker = Array.Empty<ContentSummary>();
+    private IReadOnlyList<ContentSummary> _spawnables = Array.Empty<ContentSummary>();
     private (int X, int Y, int Z)? _pendingCreateCell;
     private string _newRoomName = string.Empty;
     private bool _creating;
@@ -253,6 +255,7 @@ else
         _proposal = LayoutSystem.Propose(BlueprintId);
         _roomsForPicker = Catalog.List(ContentKind.Room);
         _areasForPicker = Catalog.List(ContentKind.Area);
+        _spawnables = Catalog.List(ContentKind.Mob).Concat(Catalog.List(ContentKind.Item)).ToList();
 
         _cellIndex = new Dictionary<(int X, int Y, int Z), List<(string Id, bool Anchored)>>();
         foreach (var (id, pos) in _proposal.Anchored)

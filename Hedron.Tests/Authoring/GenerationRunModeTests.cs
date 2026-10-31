@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Items;
 using Hedron.Core.Modules.Items.Templates;
 using Hedron.Core.Modules.Mobs;
@@ -101,25 +102,32 @@ namespace Hedron.Tests.Authoring
             var roomDeser = new RoomTemplateDeserializer(NullLogger<RoomTemplateDeserializer>.Instance);
             var roomFiles = Directory.EnumerateFiles(Path.Combine(contentDir, "rooms"), "*.yaml").ToList();
             Assert.NotEmpty(roomFiles);
+            var rules = new List<SpawnRule>();
             foreach (var file in roomFiles)
             {
                 var t = Assert.IsType<RoomTemplate>(roomDeser.Deserialize(File.ReadAllText(file)));
                 Assert.False(string.IsNullOrEmpty(t.BlueprintId));
+                rules.AddRange(t.SpawnRules);
             }
 
             var mobDeser = new MobTemplateDeserializer(NullLogger<MobTemplateDeserializer>.Instance);
             foreach (var file in Directory.EnumerateFiles(Path.Combine(contentDir, "mobs"), "*.yaml"))
             {
-                var t = Assert.IsType<MobTemplate>(mobDeser.Deserialize(File.ReadAllText(file)));
+                var body = File.ReadAllText(file);
+                var t = Assert.IsType<MobTemplate>(mobDeser.Deserialize(body));
                 Assert.True(t.Level >= 1);
-                Assert.False(string.IsNullOrEmpty(t.SpawnRoomBlueprintId));
+                // Placed only by exactly one count-1 room rule; no legacy spawn-room key.
+                Assert.Single(rules, r => r.BlueprintId == t.BlueprintId && r.Count == 1);
+                Assert.DoesNotContain("spawnRoom", body);
             }
 
             var itemDeser = new ItemTemplateDeserializer(NullLogger<ItemTemplateDeserializer>.Instance);
             foreach (var file in Directory.EnumerateFiles(Path.Combine(contentDir, "items"), "*.yaml"))
             {
-                var t = Assert.IsType<ItemTemplate>(itemDeser.Deserialize(File.ReadAllText(file)));
-                Assert.False(string.IsNullOrEmpty(t.SpawnRoomBlueprintId));
+                var body = File.ReadAllText(file);
+                var t = Assert.IsType<ItemTemplate>(itemDeser.Deserialize(body));
+                Assert.Single(rules, r => r.BlueprintId == t.BlueprintId && r.Count == 1);
+                Assert.DoesNotContain("spawnRoom", body);
             }
         }
 

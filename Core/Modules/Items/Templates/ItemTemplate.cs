@@ -25,9 +25,6 @@ namespace Hedron.Core.Modules.Items.Templates
         /// <summary>Slots this item occupies when worn. Empty means the item is not wearable.</summary>
         public List<WornSlot> WornSlots { get; set; } = new();
 
-        /// <summary>Blueprint id of the room this item spawns in. Empty means no spawn location.</summary>
-        public string SpawnRoomBlueprintId { get; set; } = string.Empty;
-
         /// <summary>Stat contributions applied while this item is worn (WhileEquipped StatModifiers, derived on read). Empty = none.</summary>
         public List<EquipmentStatBonus> StatBonuses { get; set; } = new();
 

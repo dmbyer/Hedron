@@ -10,7 +10,7 @@
 
 ### Runtime link setup
 
-`WorldContentLoader.LinkRoomAreas` (the sixth startup phase, after `PlaceMobsInRooms`) sweeps all room entities. For each room with a `BlueprintComponent`, it reads the corresponding `RoomTemplate.AreaId`, resolves that blueprint id to a live area entity ID via the live blueprint map, and sets `RoomComponent.AreaEntityId`. Rooms with no blueprint, empty `AreaId`, or unresolvable area blueprint get `AreaEntityId = 0` (a warning is logged). `ReloadAsync` runs the same phase.
+`WorldContentLoader.LinkRoomAreas` (the startup phase after `LinkRoomExits`) sweeps all room entities. For each room with a `BlueprintComponent`, it reads the corresponding `RoomTemplate.AreaId`, resolves that blueprint id to a live area entity ID via the live blueprint map, and sets `RoomComponent.AreaEntityId`. Rooms with no blueprint, empty `AreaId`, or unresolvable area blueprint get `AreaEntityId = 0` (a warning is logged). `ReloadAsync` runs the same phase.
 
 **`AreaEntityId` is a runtime-only field.** Its durable form is `RoomTemplate.AreaId` in YAML. Room entities are world content (never `PersistentEntity` — [INV-23](../../architecture/checklist.md)); there is no SQLite row to carry it. This parallels how `LocationComponent.RoomBlueprintId` is the durable string ref for player location.
 

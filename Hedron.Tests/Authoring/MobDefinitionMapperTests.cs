@@ -27,7 +27,6 @@ namespace Hedron.Tests.Authoring
                 Description = "Enormous and slow.",
                 Keywords = new List<string> { "troll", "cave" },
                 MobType = MobType.Guard,
-                SpawnRoomBlueprintId = "room.cavern",
                 Level = 7,
                 MaxHp = 450,
                 Mind = 4,
@@ -75,7 +74,6 @@ namespace Hedron.Tests.Authoring
             Assert.Equal(source.Description, result.Description);
             Assert.Equal(source.Keywords, result.Keywords);
             Assert.Equal(source.MobType, result.MobType);
-            Assert.Equal(source.SpawnRoomBlueprintId, result.SpawnRoomBlueprintId);
             Assert.Equal(source.Level, result.Level);
             Assert.Equal(source.MaxHp, result.MaxHp);
             Assert.Equal(source.Mind, result.Mind);

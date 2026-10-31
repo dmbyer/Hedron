@@ -1,3 +1,6 @@
+using Hedron.Core.Modules.Spawn.Systems;
+using Hedron.Core.Modules.World.Events;
+using Hedron.Tests.Harness;
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -39,7 +42,7 @@ namespace Hedron.Tests.World
 
         // ── Harness ──────────────────────────────────────────────────────────────
 
-        private (WorldContentLoader loader, EntityService ecs, TemplateRegistry registry) Build()
+        private (WorldContentLoader loader, EntityService ecs, SpawnSystem spawn) Build()
         {
             var ecs = new EntityService();
             var registry = new TemplateRegistry(ecs);
@@ -63,18 +66,20 @@ namespace Hedron.Tests.World
                 new WorldConfiguration(),
                 options,
                 NullLogger<WorldContentLoader>.Instance);
-            return (loader, ecs, registry);
+            var spawn = new SpawnSystem(ecs, registry, new FakeClock(), NullLogger<SpawnSystem>.Instance);
+            return (loader, ecs, spawn);
         }
 
-        private Task WriteRoom(string id, string name) =>
+        private Task WriteRoom(string id, string name, string? spawnsItemId = null) =>
             File.WriteAllTextAsync(
                 Path.Combine(_tempDir, "rooms", $"{id}.yaml"),
-                $"id: {id}\nname: {name}\ndescription: A test room.\n");
+                $"id: {id}\nname: {name}\ndescription: A test room.\n" +
+                (spawnsItemId is null ? "" : $"spawnRules:\n  - blueprintId: {spawnsItemId}\n    count: 1\n"));
 
-        private Task WriteItem(string id, string name, string spawnRoomId) =>
+        private Task WriteItem(string id, string name) =>
             File.WriteAllTextAsync(
                 Path.Combine(_tempDir, "items", $"{id}.yaml"),
-                $"blueprintId: {id}\nname: {name}\ndescription: A test item.\nspawnRoomId: {spawnRoomId}\n");
+                $"blueprintId: {id}\nname: {name}\ndescription: A test item.\n");
 
         private static uint? FindByBlueprint(EntityService ecs, string blueprintId, uint exclude = 0u)
         {
@@ -113,13 +118,14 @@ namespace Hedron.Tests.World
         [Fact]
         public async Task Reload_RespawnsPickedUpWorldItem_AndPreservesPlayerCopy()
         {
-            await WriteRoom("room.start", "Starting Room");
-            await WriteItem("item.sword", "sword", "room.start");
+            await WriteRoom("room.start", "Starting Room", spawnsItemId: "item.sword");
+            await WriteItem("item.sword", "sword");
 
-            var (loader, ecs, _) = Build();
+            var (loader, ecs, spawn) = Build();
             await loader.LoadAndSpawnAsync();
+            await spawn.HandleAsync(new WorldContentReadyEvent());
 
-            // The authored world item is placed in the room on first load.
+            // The room's spawn rule places the authored world item on first load.
             var worldItem = FindByBlueprint(ecs, "item.sword")!.Value;
             Assert.True(ecs.HasComponent<LocationComponent>(worldItem));
 
@@ -132,8 +138,9 @@ namespace Hedron.Tests.World
             ecs.AddComponent(worldItem, new PersistentEntity());
             ecs.Get<InventoryComponent>(player.Id).ItemEntityIds.Add(worldItem);
 
-            // Reload rebuilds the world from YAML.
+            // Reload rebuilds the world from YAML, then the ready fan-out refills the rule slots.
             await loader.ReloadAsync();
+            await spawn.HandleAsync(new WorldContentReadyEvent());
 
             // The picked-up copy is untouched: still persistent, still no room location.
             Assert.True(ecs.HasComponent<PersistentEntity>(worldItem));
@@ -142,7 +149,7 @@ namespace Hedron.Tests.World
             // A FRESH world copy respawned into the (re-spawned) room — non-persistent, placed.
             var respawned = FindByBlueprint(ecs, "item.sword", exclude: worldItem);
             Assert.True(respawned.HasValue,
-                "The picked-up world item should respawn in its room on reload.");
+                "The picked-up world item's rule slot should refill on reload.");
             Assert.False(ecs.HasComponent<PersistentEntity>(respawned!.Value));
             Assert.True(ecs.HasComponent<LocationComponent>(respawned.Value));
             var roomAfter = FindByBlueprint(ecs, "room.start")!.Value;

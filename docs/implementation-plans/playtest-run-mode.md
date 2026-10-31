@@ -497,7 +497,7 @@ None open. The planning forks and the spec review's content-policy fork were res
 - [`playtest-world-substrate.md`](playtest-world-substrate.md): PT-1; the world API, tick driver, agent formatter, typed refusals, T18/T28 updated here.
 - [`dev-world-foundation.md`](../roadmap/completed/dev-world-foundation.md): Phase 5 slice 1; `world.yaml`, the hub skeleton the smoke walks, `RunModeConfiguration`, `WorldManifestStore` (migrated in branch B).
 - [`phase-5-content-baseline-program.md`](phase-5-content-baseline-program.md): R25–R29 (A1–A8), slice 4 (`help-topics`, the YAML store), slice 5 (`consider`), slice 9 (the acceptance golden).
-- [`spawn-authoring.md`](spawn-authoring.md): spawn slots the walker's hunt phase waits on.
+- [`spawn-system.md`](../features/world/spawn-system.md) (spawn-authoring, shipped): spawn slots the walker's hunt phase waits on.
 - Features: [`simulation/simulation.md`](../features/simulation/simulation.md) (run-mode, store and report precedents) · [`commands/commands.md`](../features/commands/commands.md) · [`output/output.md`](../features/output/output.md)
 - Design: [`balance.md`](../design/balance.md) (rule 4, rule 5, the standards document)
 - Architecture: [`07-testing.md`](../architecture/07-testing.md) (Tier 7) · [`checklist.md`](../architecture/checklist.md) (INV-5, 8, 10, 12, 17, 18, 19, 22, 25, 26, 31)

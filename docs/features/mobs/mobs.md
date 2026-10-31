@@ -6,14 +6,14 @@
 
 A **mob** is a non-player entity that inhabits the world. A designer authors one in YAML (`kind: mob`) and on startup (or `reload`) it spawns into its configured room. Players see it listed in `look` output; the `kill` command targets it by name or keyword. Mobs have no autonomous behavior today — wandering, aggro, and loot belong to later slices.
 
-The mob model is intentionally narrow: identity data (`Name`, `Description`, `Keywords`, `MobType`), a spawn location, base attributes for combat, and a blueprint tracking component. Everything a consuming feature (combat, AI, dialogue) needs is reachable through `MobDataComponent` without a domain dependency on the Mobs module itself.
+The mob model is intentionally narrow: identity data (`Name`, `Description`, `Keywords`, `MobType`), base attributes for combat, and a blueprint tracking component. Everything a consuming feature (combat, AI, dialogue) needs is reachable through `MobDataComponent` without a domain dependency on the Mobs module itself.
 
 ## How it works
 
 The feature composes two lightweight pieces:
 
 - **`MobBuilderSystem`** — the domain system that creates ad-hoc mob entities and mutates their properties. Returns results; never publishes events or calls persistence (INV-5). Admin commands are the Initiators.
-- **`WorldContentLoader`** (extended) — loads `kind: mob` YAML files from `data/content/mobs/` at startup and reload, registers `MobTemplate`s, and calls `PlaceMobsInRooms` for newly-spawned entities only (restored-from-persistence mobs already carry a saved `LocationComponent`).
+- **`WorldContentLoader`** (extended) — loads `kind: mob` YAML files from `data/content/mobs/` at startup and reload, and registers `MobTemplate`s. It spawns no mob: room spawn rules are the single spawn truth, and `SpawnSystem` places and respawns every world mob (see [spawn-system](../world/spawn-system.md)).
 
 `BroadcastSystem.SendRoomDescriptionAsync` queries entities with `MobDataComponent` in the room and populates `RoomDescriptionMessage.Mobs`; `TelnetOutputFormatter` renders each mob as `"<Name> is here."` below the items section.
 
@@ -56,4 +56,4 @@ The two axes are independent so a future entity can have one without the other (
 - [`../../architecture/checklist.md`](../../architecture/checklist.md) — INV-21 (blueprint/instance separation; mobs retain `BlueprintComponent` unlike items — the respawn system will handle it); INV-14 (persistence two-level opt-in).
 - [`../../roadmap/completed/slice-8-mobs.md`](../../roadmap/completed/slice-8-mobs.md) — as-built history and design decisions.
 - **Combat** — [`../combat/combat.md`](../combat/combat.md) — `MobDataComponent` provides the identity and targeting hook; `LocationComponent` provides the location hook.
-- **Items** (not yet migrated) — `IItemBuilderSystem` and `PlaceItemsInRooms` are the direct precedents for the builder and spawn patterns.
+- **Items** (not yet migrated) — `IItemBuilderSystem` is the direct precedent for the builder pattern; mobs and items share the room-spawn-rule placement.

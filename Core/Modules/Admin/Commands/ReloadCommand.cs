@@ -27,6 +27,12 @@ namespace Hedron.Core.Modules.Admin.Commands
     /// <see cref="ContentReloadedEvent"/> is published last. Because the rebuild destroys and
     /// re-creates world entities, runtime instance state is reset: picked-up world items respawn,
     /// depleted shop stock refills, and the buy-back shelf clears — exactly like a restart.
+    /// <para>
+    /// <b>Refusal.</b> The loader stages and validates the whole corpus before teardown; on a content
+    /// shape error it throws <see cref="ContentLoadException"/> with the live world untouched. The
+    /// command then writes one error line per file and publishes neither
+    /// <see cref="WorldContentReadyEvent"/> nor <see cref="ContentReloadedEvent"/>.
+    /// </para>
     /// </remarks>
     public sealed class ReloadCommand : ICommand
     {
@@ -45,7 +51,9 @@ namespace Hedron.Core.Modules.Admin.Commands
             "world entity (rooms, mobs, items, shop stock) is torn down and re-spawned fresh from " +
             "YAML — so edits to existing rooms/mobs/items take effect, picked-up items respawn, and " +
             "depleted shops refill. Players whose room was removed from YAML are moved to the " +
-            "starting room.";
+            "starting room. If any content file has a shape error (e.g. a legacy spawn key), the " +
+            "reload is refused as a whole: each offending file is listed and the live world is " +
+            "left untouched.";
         public string Usage => "reload";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
@@ -63,8 +71,26 @@ namespace Hedron.Core.Modules.Admin.Commands
             // 1. Force-save persistent state before tearing down the world instance.
             await _persistence.FlushAllAsync().ConfigureAwait(false);
 
-            // 2. Rebuild the world from YAML (destroys world content, re-spawns fresh).
-            var result = await _loader.ReloadAsync().ConfigureAwait(false);
+            // 2. Rebuild the world from YAML (stages + validates first; on a shape error nothing
+            //    is torn down and nothing is published).
+            ContentReloadResult result;
+            try
+            {
+                result = await _loader.ReloadAsync().ConfigureAwait(false);
+            }
+            catch (ContentLoadException ex)
+            {
+                var lines = new List<string>(ex.Errors.Count + 1)
+                {
+                    $"Reload refused — {ex.Errors.Count} content shape error(s); the live world is unchanged:",
+                };
+                foreach (var error in ex.Errors)
+                    lines.Add($"  {error}");
+                await context.Output.WriteAsync(new PlainMessage(
+                    string.Join(Environment.NewLine, lines),
+                    OutputSeverity.Error, OutputCategory.System)).ConfigureAwait(false);
+                return;
+            }
 
             // 3. Re-run the post-load fan-out (shop re-seed, spawn slots, player re-placement)
             //    exactly as the startup path does.

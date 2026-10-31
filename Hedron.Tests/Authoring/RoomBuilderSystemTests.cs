@@ -2,9 +2,11 @@ using Hedron.Core;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Admin.Systems;
+using Hedron.Core.Modules.Spawn.Systems;
 using Hedron.Core.Modules.World.Systems;
 using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
+using Hedron.Tests.Harness;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -28,7 +30,8 @@ namespace Hedron.Tests.Authoring
             var ecs = new EntityService();
             var registry = new TemplateRegistry(ecs);
             var areaSystem = new AreaSystem(ecs, registry);
-            var system = new RoomBuilderSystem(ecs, registry, areaSystem, NullLogger<RoomBuilderSystem>.Instance);
+            var spawnSystem = new SpawnSystem(ecs, registry, new FakeClock(), NullLogger<SpawnSystem>.Instance);
+            var system = new RoomBuilderSystem(ecs, registry, areaSystem, spawnSystem, NullLogger<RoomBuilderSystem>.Instance);
             return (system, ecs, registry);
         }
 

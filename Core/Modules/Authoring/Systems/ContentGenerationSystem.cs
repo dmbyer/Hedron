@@ -125,11 +125,19 @@ namespace Hedron.Core.Modules.Authoring.Systems
                 {
                     var mobsHere = RollCount(rng, profile.MobDensity);
                     for (var m = 0; m < mobsHere; m++)
-                        mobTemplates.Add(BuildMob(counters, room, level, profile.Scaling, rng));
+                    {
+                        var mob = BuildMob(counters, level, profile.Scaling, rng);
+                        mobTemplates.Add(mob);
+                        AddSpawnRule(room, mob.BlueprintId);
+                    }
 
                     var itemsHere = RollCount(rng, profile.ItemDensity);
                     for (var i = 0; i < itemsHere; i++)
-                        itemTemplates.Add(BuildItem(counters, room, rng));
+                    {
+                        var item = BuildItem(counters, rng);
+                        itemTemplates.Add(item);
+                        AddSpawnRule(room, item.BlueprintId);
+                    }
                 }
 
                 areaTemplates.Add(area);
@@ -162,8 +170,19 @@ namespace Hedron.Core.Modules.Authoring.Systems
             };
         }
 
+        /// <summary>
+        /// Places a generated mob or item with a count-1 rule on its room — room spawn rules are the
+        /// single spawn truth. Draws no randomness, so same-seed output stays byte-identical.
+        /// </summary>
+        private static void AddSpawnRule(RoomTemplate room, string blueprintId) =>
+            room.SpawnRules.Add(new SpawnRule(
+                SpawnRuleIds.Mint(room.SpawnRules.ConvertAll(r => r.Id), blueprintId),
+                blueprintId,
+                1,
+                SpawnRuleLimits.DefaultRespawnDelaySeconds));
+
         private static MobTemplate BuildMob(
-            BlueprintIdCounters counters, RoomTemplate room, int level, ScalingCurve scaling, IRandom rng)
+            BlueprintIdCounters counters, int level, ScalingCurve scaling, IRandom rng)
         {
             var id = counters.NextMob();
             // Small deterministic stat jitter so sibling mobs are not byte-identical.
@@ -174,7 +193,6 @@ namespace Hedron.Core.Modules.Authoring.Systems
                 Description = "A procedurally generated creature.",
                 Keywords = new List<string> { "generated", "creature" },
                 MobType = MobType.Creature,
-                SpawnRoomBlueprintId = room.BlueprintId,
                 Level = level,
                 MaxHp = scaling.HpForLevel(level) + jitter,
                 Mind = scaling.StatForLevel(level),
@@ -184,7 +202,7 @@ namespace Hedron.Core.Modules.Authoring.Systems
             };
         }
 
-        private static ItemTemplate BuildItem(BlueprintIdCounters counters, RoomTemplate room, IRandom rng)
+        private static ItemTemplate BuildItem(BlueprintIdCounters counters, IRandom rng)
         {
             var id = counters.NextItem();
             return new ItemTemplate(id)
@@ -193,7 +211,6 @@ namespace Hedron.Core.Modules.Authoring.Systems
                 Description = "A procedurally generated item.",
                 Keywords = new List<string> { "generated", "item" },
                 ItemType = ItemType.Misc,
-                SpawnRoomBlueprintId = room.BlueprintId,
                 StatBonuses = new List<EquipmentStatBonus> { new(ScoreId.AttackPower, rng.Next(0, 5)) },
             };
         }

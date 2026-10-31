@@ -30,10 +30,17 @@ namespace Hedron.Core.Modules.Shopping.Handlers
     /// </para>
     ///
     /// <para>
-    /// This handler is analogous to <c>SpawnSystem.HandleAsync(WorldContentReadyEvent)</c> and
-    /// <c>WorldContentLoader.PlaceItemsInRooms</c>: it performs the second pass of shop setup
-    /// that requires services unavailable in <c>MobTemplate.Apply</c> (<c>ITemplateRegistry</c>,
-    /// <c>IShopSystem</c> — which owns the till-seeding rule + <c>ShopOptions</c>).
+    /// It performs the second pass of shop setup that requires services unavailable in
+    /// <c>MobTemplate.Apply</c> (<c>ITemplateRegistry</c>, <c>IShopSystem</c> — which owns the
+    /// till-seeding rule + <c>ShopOptions</c>).
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Ordering dependency (INV-7).</b> Shopkeepers are placed by room spawn rules, so this
+    /// handler relies on <c>SpawnSystem</c> filling every slot first on the same event:
+    /// <c>SpawnSystem</c> runs at <see cref="HandlerPriority.State"/> (10), this handler at
+    /// <see cref="HandlerPriority.Domain"/> (20). A shopkeeper spawned outside this event (heartbeat
+    /// respawn, <c>SyncRoom</c>) gets no till seed — acknowledged backlog debt.
     /// </para>
     /// </summary>
     public sealed class ShopkeeperSpawnHandler : IEventHandler<WorldContentReadyEvent>

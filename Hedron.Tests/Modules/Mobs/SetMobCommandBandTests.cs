@@ -51,7 +51,16 @@ namespace Hedron.Tests.Modules.Mobs
                 Builder = new MobBuilderSystem(Ecs, Registry, NullLogger<MobBuilderSystem>.Instance);
                 Writer = new NoOpContentWriter();
                 Bus = new RecordingEventBus(dispatch: false);
-                Command = new SetMobCommand(Builder, Writer, Ecs, Registry, Bus);
+                Command = new SetMobCommand(Builder, Writer, Registry, Bus);
+            }
+
+            /// <summary>Registers a template and spawns one live world instance (a count-1 rule's shape).</summary>
+            public (uint MobEntityId, string BlueprintId) CreateLive(string name, uint roomId)
+            {
+                var result = Builder.CreateMob(name);
+                var entity = Registry.Spawn(result.BlueprintId);
+                Ecs.AddComponent(entity.Id, new LocationComponent { RoomEntityId = roomId });
+                return (entity.Id, result.BlueprintId);
             }
         }
 
@@ -90,7 +99,7 @@ namespace Hedron.Tests.Modules.Mobs
         {
             var world = new TestWorld();
             var roomId = MakeRoom(world.Ecs);
-            var result = world.Builder.CreateMob("Grunt", roomId);
+            var result = world.CreateLive("Grunt", roomId);
 
             var output = new RecordingOutput();
             var ctx = MakeContext(MakeArgs(result.BlueprintId, "tier", "2"), output);
@@ -104,7 +113,9 @@ namespace Hedron.Tests.Modules.Mobs
             var mobTemplate = Assert.IsType<MobTemplate>(template);
             Assert.Equal(2, mobTemplate.Tier);
 
-            Assert.Single(world.Bus.Published.OfType<MobPropertySetByAdminEvent>());
+            var published = Assert.Single(world.Bus.Published.OfType<MobPropertySetByAdminEvent>());
+            Assert.Equal(result.BlueprintId, published.BlueprintId);
+            Assert.Equal(1, published.InstancesUpdated);
         }
 
         [Fact]
@@ -112,7 +123,7 @@ namespace Hedron.Tests.Modules.Mobs
         {
             var world = new TestWorld();
             var roomId = MakeRoom(world.Ecs);
-            var result = world.Builder.CreateMob("Grunt", roomId);
+            var result = world.CreateLive("Grunt", roomId);
 
             var output = new RecordingOutput();
             var ctx = MakeContext(MakeArgs(result.BlueprintId, "tier", "7"), output);
@@ -130,7 +141,7 @@ namespace Hedron.Tests.Modules.Mobs
         {
             var world = new TestWorld();
             var roomId = MakeRoom(world.Ecs);
-            var result = world.Builder.CreateMob("Grunt", roomId);
+            var result = world.CreateLive("Grunt", roomId);
 
             var output = new RecordingOutput();
             var ctx = MakeContext(MakeArgs(result.BlueprintId, "tier", "-1"), output);
@@ -147,7 +158,7 @@ namespace Hedron.Tests.Modules.Mobs
         {
             var world = new TestWorld();
             var roomId = MakeRoom(world.Ecs);
-            var result = world.Builder.CreateMob("Grunt", roomId);
+            var result = world.CreateLive("Grunt", roomId);
 
             var output = new RecordingOutput();
             var ctx = MakeContext(MakeArgs(result.BlueprintId, "band", "2"), output);
@@ -169,7 +180,7 @@ namespace Hedron.Tests.Modules.Mobs
         {
             var world = new TestWorld();
             var roomId = MakeRoom(world.Ecs);
-            var result = world.Builder.CreateMob("Grunt", roomId);
+            var result = world.CreateLive("Grunt", roomId);
 
             var output = new RecordingOutput();
             var ctx = MakeContext(MakeArgs(result.BlueprintId, "band", "4"), output);
@@ -187,7 +198,7 @@ namespace Hedron.Tests.Modules.Mobs
         {
             var world = new TestWorld();
             var roomId = MakeRoom(world.Ecs);
-            var result = world.Builder.CreateMob("Grunt", roomId);
+            var result = world.CreateLive("Grunt", roomId);
 
             var output = new RecordingOutput();
             var ctx = MakeContext(MakeArgs(result.BlueprintId, "band", "-1"), output);

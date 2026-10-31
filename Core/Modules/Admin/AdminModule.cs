@@ -32,6 +32,8 @@ namespace Hedron.Core.Modules.Admin
             services.AddSingleton<ICommand, MkareaCommand>();
             services.AddSingleton<ICommand, ListEntitiesCommand>();
             services.AddSingleton<ICommand, StartRoomCommand>();
+            services.AddSingleton<SpawnRuleAuthoringOutcome>();
+            services.AddSingleton<ICommand, SpawnRuleCommand>();
 
             services.AddSingleton<AdminAuditHandler>();
             return services;

@@ -618,10 +618,6 @@
           "mobType": {
             "$ref": "#/components/schemas/MobType"
           },
-          "spawnRoomBlueprintId": {
-            "type": "string",
-            "nullable": true
-          },
           "level": {
             "type": "integer",
             "format": "int32"

@@ -1,8 +1,10 @@
+using System.Linq;
 using System.Threading.Tasks;
 using Hedron.Core;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Items.Templates;
+using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.World;
 using Hedron.Core.Modules.World.Systems;
 using Hedron.Core.Modules.World.Templates;
@@ -23,8 +25,8 @@ namespace Hedron.Tests.World
     ///
     /// Strategy: the content directory is set to a guaranteed-nonexistent path so
     /// <c>LoadTemplatesAsync</c> returns early without reading files. Pre-registered templates
-    /// (count &gt; 0) cause <c>LoadAndSpawnAsync</c> to take the <c>else</c> branch: spawn,
-    /// link exits, place items/mobs, and then call <c>LinkRoomAreas</c>.
+    /// (count &gt; 0) cause <c>LoadAndSpawnAsync</c> to take the <c>else</c> branch: spawn areas
+    /// and rooms, link exits, and then call <c>LinkRoomAreas</c>.
     /// </summary>
     public sealed class WorldContentLoaderTests
     {
@@ -170,68 +172,42 @@ namespace Hedron.Tests.World
             Assert.Equal(0u, room.AreaEntityId);
         }
 
-        // ── Persisted player-owned instance must not shadow authored world spawn ──
+        // ── LoadAndSpawnAsync: areas and rooms only (spawn-authoring) ───────────
 
         /// <summary>
-        /// Regression: an authored item that a player has picked up is restored from the DB before
-        /// the world loader runs. The restored entity keeps its <see cref="BlueprintComponent"/> as an
-        /// origin record (INV-21) and carries <see cref="PersistentEntity"/>. The loader must still
-        /// re-spawn the authored world copy from YAML and place it in its room — the persisted,
-        /// player-owned instance must not suppress world content (the blueprint/instance separation).
+        /// Room spawn rules are the single spawn truth: the loader spawns area and room templates
+        /// only. A registered mob or item template yields no entity (no "limbo" instance, no loader
+        /// placement) — <c>SpawnSystem</c> fills rule slots on <c>WorldContentReadyEvent</c>. A
+        /// persisted, player-owned copy of an item is left untouched.
         /// </summary>
         [Fact]
-        public async Task WorldContentLoader_PersistedInstance_DoesNotShadow_AuthoredWorldSpawn()
+        public async Task WorldContentLoader_SpawnsOnlyAreasAndRooms_NeverMobsOrItems()
         {
             var (loader, ecs, registry) = Build();
 
             const string roomBpId = "core.room.start";
             const string itemBpId = "core.item.sword";
+            const string mobBpId = "core.mob.rat";
 
-            // Simulate a restored-from-persistence, player-owned copy of the item: same blueprint id,
-            // PersistentEntity, no LocationComponent (it lives in a player's inventory/container).
             var persisted = ecs.CreateEntity();
             ecs.AddComponent(persisted.Id, new BlueprintComponent { BlueprintId = itemBpId });
             ecs.AddComponent(persisted.Id, new ItemDataComponent { Name = "sword" });
             ecs.AddComponent(persisted.Id, new PersistentEntity());
 
-            // Authored world content: the room and the item that spawns into it.
             registry.Register(roomBpId, new RoomTemplate(roomBpId) { Name = "Starting Room" });
-            registry.Register(itemBpId, new ItemTemplate(itemBpId)
-            {
-                Name = "sword",
-                SpawnRoomBlueprintId = roomBpId,
-            });
+            registry.Register(itemBpId, new ItemTemplate(itemBpId) { Name = "sword" });
+            registry.Register(mobBpId, new MobTemplate(mobBpId) { Name = "rat" });
 
             await loader.LoadAndSpawnAsync();
 
-            var roomEntityId = FindEntityByBlueprint(ecs, roomBpId);
-            Assert.True(roomEntityId.HasValue, "Room entity should have been spawned.");
+            Assert.True(FindEntityByBlueprint(ecs, roomBpId).HasValue, "Room entity should have been spawned.");
+            Assert.Null(FindEntityByBlueprint(ecs, mobBpId));
+            Assert.DoesNotContain(ecs.GetAllComponents<ItemDataComponent>(), e => e.EntityId != persisted.Id);
+            Assert.Empty(ecs.GetAllComponents<MobDataComponent>());
 
-            // A fresh world copy (distinct from the persisted instance) must exist, placed in the room,
-            // and must NOT be persistent.
-            uint? worldCopy = null;
-            foreach (var (entityId, bp) in ecs.GetAllComponents<BlueprintComponent>())
-            {
-                if (entityId == persisted.Id) continue;
-                if (string.Equals(bp.BlueprintId, itemBpId, System.StringComparison.OrdinalIgnoreCase))
-                {
-                    worldCopy = entityId;
-                    break;
-                }
-            }
-
-            Assert.True(worldCopy.HasValue,
-                "Authored world copy should re-spawn from YAML despite the persisted player-owned instance.");
-            Assert.True(ecs.HasComponent<LocationComponent>(worldCopy!.Value),
-                "World copy should be placed in a room.");
-            Assert.Equal(roomEntityId!.Value, ecs.Get<LocationComponent>(worldCopy.Value).RoomEntityId);
-            Assert.False(ecs.HasComponent<PersistentEntity>(worldCopy.Value),
-                "World copy is world content — it must not be persistent.");
-
-            // The persisted, player-owned instance is untouched: still persistent, still no location.
             Assert.True(ecs.HasComponent<PersistentEntity>(persisted.Id));
             Assert.False(ecs.HasComponent<LocationComponent>(persisted.Id),
-                "The player-owned instance must not be re-placed into the world.");
+                "The player-owned instance must not be placed into the world.");
         }
 
         // ── ReloadAsync: rebuild tears down world content, preserves persistent entities ─
