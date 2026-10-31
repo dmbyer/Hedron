@@ -361,6 +361,7 @@ The primary agent runs `architecture-reviewer` (code mode) across the combined d
   - `Core/Modules/Abilities/{Events/AbilityActivatedEvent.cs, Commands/AbilityInvocationPipeline.cs, Commands/UseAbilityCommand.cs}`;
   - `Core/Modules/Simulation/Systems/{SandboxWorld.cs, SandboxWorldFactory.cs, ProgressionScenarioExecutor.cs}`;
   - every test that constructs `ProgressionSystem` or `AdvancementHandler`: `ProgressionSystemTests`, `AdvancementHandlerTests`, `ProgressionAwardFlowTests`, `ProgressionEffectContributorTests`, `AscensionEffectContributorTests`, `ProgressionGuardTests`;
+  - `Hedron.Tests/Architecture/ProgressionGuardTests.cs`, which also gains the tier-mirror guard test (the registry's default `TierBaselineStep`/`TrackedScores` equal `AscensionConstants`);
   - `Hedron.Tests/Simulation/ProgressionScenarioExecutorTests.cs` (the new grown-power case) and `SimulationInvariantTests`;
   - `AdvancementHandler`'s XML doc: reword "this handler's entire job is the field mapping" to "field mapping plus one relative-power read per opponent-bearing trigger; opponent selection maps event facts, never a game-rule branch" (INV-8);
   - `docs/reference/systems.md`:
@@ -397,7 +398,8 @@ The primary agent runs `architecture-reviewer` (code mode) across the combined d
   - `docs/architecture/flows/{flow-31,flow-33,flow-24,flow-20,flow-17}-*.md`, `docs/architecture/flows/README.md`, `docs/architecture/03-events.md`;
   - `docs/features/progression/{progression.md, progression-system.md, power-budget-system.md, relative-power-system.md (new)}`. In `power-budget-system.md`, the exact line is **:29** (the consumer that "passes raw attributes"), plus the consumer-list row (~130) and the deferred-`consider` paragraph (~140);
   - `docs/design/balance.md`, `docs/reference/commands.md`, `docs/roadmap/backlog.md`;
-  - `docs/reference/systems.md` / `handlers.md`: a final pass that every entry WP-1/WP-2 touched reads true, plus the `ConsiderCommand` dependency note if the catalog lists command dependencies;
+  - `docs/reference/systems.md` / `handlers.md`: a final pass that every entry WP-1/WP-2 touched reads true;
+  - `docs/reference/commands.md` **Dependencies** lines: the new `consider` entry lists `IRelativePowerSystem`, `ICombatSystem`, `IItemSystem`, `EntityService`, `IEventBus`; the `power` entry swaps `IStatSystem` for `IRelativePowerSystem`;
   - `.claude/skills/edit-progression-system/SKILL.md`:
     - line 39: fix the "slows twice over" wording (the cumulative total grows, each step costs a flat increment, and the chance decays);
     - line 62: "field mapping plus one relative-power read per opponent-bearing trigger; opponent selection maps event facts, never a game-rule branch";
@@ -449,7 +451,7 @@ The primary agent runs `architecture-reviewer` (code mode) across the combined d
   - The mermaid diagram gains an `RP as IRelativePowerSystem` participant.
   - The index row summary is updated ("combat XP award" → "XP award · challenge gating").
 - **[flow-33 — Simulation run](../architecture/flows/flow-33-simulation-run.md)** (modified): the progression-rate leg gathers the ratio from `SandboxWorld.RelativePower` once per kill, before `AwardCombatExperience`.
-- **[flow-24 — Abilities journey](../architecture/flows/flow-24-ability-activation.md)** (modified): flow-24 is where `AbilityActivatedEvent`'s payload is documented, since 03-events.md doesn't list it. The event now carries `(ActorEntityId, AbilityId, TargetEntityId?, IsOffensive)`, and and the subscriber note says `AdvancementHandler` gathers the target's ratio for an offensive use **before** the strike resolves.
+- **[flow-24 — Abilities journey](../architecture/flows/flow-24-ability-activation.md)** (modified): flow-24 is where `AbilityActivatedEvent`'s payload is documented, since 03-events.md doesn't list it. The event now carries `(ActorEntityId, AbilityId, TargetEntityId?, IsOffensive)`, and the subscriber note says `AdvancementHandler` gathers the target's ratio for an offensive use **before** the strike resolves.
 - **[flow-20 — Death & respawn](../architecture/flows/flow-20-mob-death-respawn.md)** (modified, one line): `AdvancementHandler` reads the victim's **effective** power pre-destroy.
 - **[flow-17 — Combat journey](../architecture/flows/flow-17-kill-mob-combat-initiation.md)** (modified, WP-3) gains a pre-initiation "judge the fight" leg, in body and mermaid:
   - `consider <mob>` → shared target lookup → `CanBeAttacked` → `IRelativePowerSystem.Relate` → one label line → `MobConsideredEvent`, published on a successful label only;
