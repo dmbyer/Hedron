@@ -49,6 +49,9 @@ namespace Hedron.Core.Output
                 MovementMessage m         => FormatMovement(m, color),
                 HelpIndexMessage m        => FormatHelpIndex(m, color),
                 HelpEntryMessage m        => FormatHelpEntry(m, color),
+                HelpTopicMessage m        => FormatHelpTopic(m, color),
+                HelpTopicIndexMessage m   => FormatHelpTopicIndex(m, color),
+                HelpTopicOriginMessage m  => Colorize(System, m.Label, color),
                 InventoryListMessage m    => FormatInventoryList(m, color),
                 EquipmentDisplayMessage m => FormatEquipmentDisplay(m, color),
                 ScoreDisplayMessage m     => FormatScore(m, color),
@@ -152,6 +155,32 @@ namespace Hedron.Core.Output
                 sb.Append($"Usage: {m.Usage}");
             }
             return sb.ToString();
+        }
+
+        // Authored topic text is rendered literally: it never passes through ApplyColor, so a
+        // title or body containing <error>…</error> shows those characters instead of colouring.
+        private string FormatHelpTopic(HelpTopicMessage m, bool color)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(Colorize(RoomName, $"[{m.Title}]", color));
+            sb.Append(m.Body);
+            if (m.SeeAlso.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine();
+                sb.Append($"See also: {string.Join(", ", m.SeeAlso.Select(id => $"help {id}"))}");
+            }
+            return sb.ToString();
+        }
+
+        private string FormatHelpTopicIndex(HelpTopicIndexMessage m, bool color)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine();
+            sb.AppendLine(ApplyColor("<system>=== Topics ===</system>", color));
+            foreach (var topic in m.Topics)
+                sb.AppendLine($"  {Colorize(RoomName, topic.Id.PadRight(22), color)} {topic.Title}");
+            return sb.ToString().TrimEnd();
         }
 
         private string FormatInventoryList(InventoryListMessage m, bool color)
@@ -284,6 +313,10 @@ namespace Hedron.Core.Output
 
         private string ApplyColor(string text, bool color) =>
             color ? RenderMarkers(text) : StripMarkers(text);
+
+        // Colours literal (authored) text without marker parsing, so its content is never interpreted.
+        private static string Colorize(string ansi, string literal, bool color) =>
+            color ? $"{ansi}{literal}{Reset}" : literal;
 
         private static string RenderMarkers(string text) =>
             MarkerPattern.Replace(text, match =>

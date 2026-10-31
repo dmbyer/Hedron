@@ -2,50 +2,42 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Hedron.Core.Modules.Progression;
 using Hedron.Core.Modules.Stats;
+using Hedron.Core.Systems.Definitions;
 using Microsoft.Extensions.Options;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
-using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Simulation.Systems
 {
     /// <summary>
-    /// YAML-backed <see cref="ISimScenarioStore"/>. The known-policy-id set comes from the
+    /// YAML-backed <see cref="ISimScenarioStore"/> over the shared
+    /// <see cref="YamlDefinitionDirectory{TDto}"/>. The known-policy-id set comes from the
     /// DI-collected <see cref="ISimCombatantPolicy"/> registrants (never a hardcoded list), so a
     /// new built-in policy is automatically a valid <c>policyId</c> reference with no store change.
     /// </summary>
     public sealed class SimScenarioStore : ISimScenarioStore
     {
         private readonly IReadOnlyCollection<string> _knownPolicyIds;
-        private readonly string _scenarioDirectory;
-        private readonly IDeserializer _yamlDeserializer;
-        private readonly ISerializer _yamlSerializer;
+        private readonly YamlDefinitionDirectory<ScenarioFileDto> _directory;
 
         public SimScenarioStore(IEnumerable<ISimCombatantPolicy> policies, IOptions<SimulationOptions> options)
         {
             _knownPolicyIds = policies.Select(p => p.PolicyId).ToList();
-            _scenarioDirectory = options.Value.ScenarioDirectory;
-            _yamlDeserializer = new DeserializerBuilder()
-                .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                .IgnoreUnmatchedProperties()
-                .Build();
-            _yamlSerializer = new SerializerBuilder()
-                .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                .Build();
+            _directory = new YamlDefinitionDirectory<ScenarioFileDto>(options.Value.ScenarioDirectory);
         }
 
         public ScenarioDefinition Load(string path, int? seedOverride = null)
         {
-            if (!File.Exists(path))
+            var read = _directory.Read(path);
+            if (!read.Exists)
                 throw new FileNotFoundException($"scenario file not found at '{path}'.");
+            if (read.Fault is not null)
+                ExceptionDispatchInfo.Capture(read.Fault).Throw();
 
-            var body = File.ReadAllText(path);
-            var dto = _yamlDeserializer.Deserialize<ScenarioFileDto>(body)
-                ?? throw new InvalidOperationException("scenario YAML is empty.");
+            var dto = read.Dto ?? throw new InvalidOperationException("scenario YAML is empty.");
 
             var errors = new List<string>();
 
@@ -93,8 +85,7 @@ namespace Hedron.Core.Modules.Simulation.Systems
                 progression);
 
             if (errors.Count > 0)
-                throw new InvalidOperationException(
-                    $"scenario '{path}' failed validation:\n" + string.Join("\n", errors.Select(e => "  • " + e)));
+                throw DefinitionValidation.Failed($"scenario '{path}'", errors);
 
             Validate(scenario);
             return scenario;
@@ -133,8 +124,7 @@ namespace Hedron.Core.Modules.Simulation.Systems
             ValidateProgressionSection(scenario, errors);
 
             if (errors.Count > 0)
-                throw new InvalidOperationException(
-                    $"scenario '{scenario.Name}' failed validation:\n" + string.Join("\n", errors.Select(e => "  • " + e)));
+                throw DefinitionValidation.Failed($"scenario '{scenario.Name}'", errors);
         }
 
         private static void ValidateProgressionSection(ScenarioDefinition scenario, List<string> errors)
@@ -169,55 +159,17 @@ namespace Hedron.Core.Modules.Simulation.Systems
         {
             Validate(scenario);
 
-            Directory.CreateDirectory(_scenarioDirectory);
-
-            var fileName = Sanitize(scenario.Name) + ".yaml";
-            var path = Path.Combine(_scenarioDirectory, fileName);
-
-            var body = _yamlSerializer.Serialize(ToDto(scenario));
-
-            await AtomicFileWrite.ReplaceAsync(path, body, ct).ConfigureAwait(false);
-
-            return path;
+            return await _directory.WriteAsync(scenario.Name, ToDto(scenario), ct, fallbackName: "scenario").ConfigureAwait(false);
         }
 
-        public IReadOnlyList<ScenarioFileSummary> List()
-        {
-            if (!Directory.Exists(_scenarioDirectory))
-                return Array.Empty<ScenarioFileSummary>();
-
-            var summaries = new List<ScenarioFileSummary>();
-            foreach (var path in Directory.EnumerateFiles(_scenarioDirectory, "*.yaml").OrderBy(p => p, StringComparer.Ordinal))
-            {
-                var name = Path.GetFileNameWithoutExtension(path);
-                try
-                {
-                    var dto = _yamlDeserializer.Deserialize<ScenarioFileDto>(File.ReadAllText(path));
-                    if (!string.IsNullOrWhiteSpace(dto?.Name))
-                        name = dto!.Name!;
-                }
-                catch
-                {
-                    // Unparseable file: fall back to the filename-derived name (list, never throw).
-                }
-
-                summaries.Add(new ScenarioFileSummary(path, Path.GetFileName(path), name));
-            }
-
-            return summaries;
-        }
+        // Unparseable files are listed under their file-name-derived name (list, never throw).
+        public IReadOnlyList<ScenarioFileSummary> List() =>
+            _directory.List(dto => dto.Name)
+                .Select(entry => new ScenarioFileSummary(entry.Path, entry.FileName, entry.Name))
+                .ToList();
 
         private static string CamelCase(string pascalCase) =>
             pascalCase.Length == 0 ? pascalCase : char.ToLowerInvariant(pascalCase[0]) + pascalCase[1..];
-
-        private static string Sanitize(string name)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-                return "scenario";
-
-            var invalid = Path.GetInvalidFileNameChars();
-            return new string(name.Select(c => invalid.Contains(c) || c == ' ' ? '-' : c).ToArray());
-        }
 
         private static ScenarioFileDto ToDto(ScenarioDefinition scenario) => new()
         {

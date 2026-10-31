@@ -3,25 +3,26 @@ using System.Collections.Generic;
 using Hedron.Core.Commands;
 using Hedron.Core.Modules.Abilities;
 using Hedron.Core.Modules.Help.Commands;
+using Hedron.Core.Modules.Help.Systems;
+using Hedron.Core.Systems.Definitions;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hedron.Core.Modules.Help
 {
     /// <summary>
     /// DI composition entry point for the Help module: the <c>help</c> and <c>commands</c>
-    /// commands. Depends on <c>IEnumerable&lt;ICommand&gt;</c>, <c>IAuthorizationChecker</c>,
-    /// <c>IVerbRegistry</c>, and <c>IAbilityRegistry</c> being registered before this is resolved.
+    /// commands, the help lookup system, and the help-topic family (registry, layer reader,
+    /// reload participant, authoring). Depends on <c>IEnumerable&lt;ICommand&gt;</c>,
+    /// <c>IAuthorizationChecker</c>, <c>IVerbRegistry</c>, and <c>IAbilityRegistry</c> being
+    /// registered before this is resolved.
     /// <para>
     /// Both <c>Lazy&lt;IEnumerable&lt;ICommand&gt;&gt;</c> and <c>Lazy&lt;IVerbRegistry&gt;</c>
-    /// break the circular dependency that would otherwise exist because <c>HelpCommand</c> is
-    /// itself an <c>ICommand</c> and <c>IVerbRegistry</c> is implemented by
-    /// <c>CommandDispatcher</c>, which depends on all <c>ICommand</c> registrations.
-    /// </para>
-    /// <para>
-    /// <c>IAbilityRegistry</c> is injected into <c>HelpCommand</c> so that
-    /// <c>help kick</c> falls through to ability details when no command matches.
-    /// <c>AddAbilitiesModule</c> must be called before <c>AddHelpModule</c> (both are in
-    /// <c>Program.cs</c> — order there controls resolution order).
+    /// break the circular dependency that would otherwise exist because <c>help</c> is itself an
+    /// <c>ICommand</c> and <c>IVerbRegistry</c> is implemented by <c>CommandDispatcher</c>, which
+    /// depends on all <c>ICommand</c> registrations. Every Help consumer of the verb set
+    /// (<c>HelpLookupSystem</c>, <c>HelpTopicReloadParticipant</c>, <c>HelpTopicAuthoring</c>) takes
+    /// the <c>Lazy&lt;IVerbRegistry&gt;</c> — the participant because <c>ReloadCommand</c> → loader →
+    /// participants would otherwise close the cycle too.
     /// </para>
     /// </summary>
     public static class HelpModule
@@ -35,6 +36,15 @@ namespace Hedron.Core.Modules.Help
             // Lazy breaks the HelpCommand → IVerbRegistry → CommandDispatcher → HelpCommand cycle.
             services.AddSingleton(sp =>
                 new Lazy<IVerbRegistry>(() => sp.GetRequiredService<IVerbRegistry>()));
+
+            // Help topics: the snapshot registry (concrete for the participant's Publish, interface
+            // for readers), the layer reader, and the reload participant the world loader invokes.
+            services.AddSingleton<HelpTopicRegistry>();
+            services.AddSingleton<IHelpTopicRegistry>(sp => sp.GetRequiredService<HelpTopicRegistry>());
+            services.AddSingleton<IHelpTopicLayerReader, HelpTopicLayerReader>();
+            services.AddSingleton<IContentReloadParticipant, HelpTopicReloadParticipant>();
+            services.AddSingleton<IHelpLookupSystem, HelpLookupSystem>();
+            services.AddSingleton<IHelpTopicAuthoring, HelpTopicAuthoring>();
 
             services.AddSingleton<ICommand, HelpCommand>();
             services.AddSingleton<ICommand, CommandsCommand>();

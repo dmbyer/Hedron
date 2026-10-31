@@ -1,0 +1,21 @@
+id: shops
+title: Shops & money
+aliases:
+  - money
+  - coin
+  - shopping
+seeAlso:
+  - getting-started
+  - combat
+body: |
+  Coin comes from defeating creatures and from selling what you find.
+
+  In a room with a shopkeeper, 'list' shows what is for sale and what it costs. 'buy <item>'
+  purchases something; 'sell <item>' sells something you carry. Items you sold may stay on
+  the shelf for a while, so you can buy them back.
+
+  A shopkeeper only has so much coin to pay with, and worthless items cannot be sold. 'score'
+  shows how much coin you carry.
+
+  Better gear makes harder fights winnable: once you can afford an upgrade, buy it and
+  'wear' it.

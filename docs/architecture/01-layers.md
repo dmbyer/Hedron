@@ -265,6 +265,7 @@ Initiators  →  (publish events)  →  Handlers  →  Domain Systems  →  Core
 - Domain Systems → Domain Systems (same or lower level in the graph)
 - Domain Systems → Core Systems
 - Core Systems → Core Systems
+- Domain Systems → `IVerbRegistry` (read-only command **metadata** — names, aliases, descriptions, usage, required privileges; never execute a command, never hand an `ICommand` back in a result; always through `Lazy<IVerbRegistry>`, since its implementation, `CommandDispatcher`, depends on every `ICommand`). `IVerbRegistry` is classified as a read-only metadata registry, like `ITemplateRegistry`, even though the dispatcher behind it is initiator-tier. Precedent: the Help lookup system, help-topic participant and help-topic authoring (verb collisions, help lookup).
 - Any tier → Components/World (read/write components)
 
 **Forbidden:**

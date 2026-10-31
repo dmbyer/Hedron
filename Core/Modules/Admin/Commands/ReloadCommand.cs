@@ -101,6 +101,13 @@ namespace Hedron.Core.Modules.Admin.Commands
                 $"{result.TemplatesRemoved} removed. Runtime instance state was reset.",
                 OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
 
+            // Content participants (e.g. help topics) report but never refuse: one line each.
+            foreach (var diagnostic in result.Diagnostics)
+            {
+                await context.Output.WriteAsync(new PlainMessage(
+                    $"  {diagnostic}", OutputSeverity.System, OutputCategory.System)).ConfigureAwait(false);
+            }
+
             // 4. Audit.
             await _eventBus.PublishAsync(new ContentReloadedEvent(
                 result.TemplatesLoaded,

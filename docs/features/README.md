@@ -25,7 +25,8 @@ Holistic, **player-facing** documentation — one folder per capability. A featu
 | [`preferences/`](preferences/) | Preferences | preference-system |
 | [`accounts/`](accounts/) | Account, Session, `Core/Sessions/` | account-system, login-flow |
 | [`admin-authoring/`](admin-authoring/) | Admin, Authoring | admin-commands, content-authoring, content-tooling |
-| [`communication/`](communication/) | Chat, Help | chat-system, help-system |
+| [`communication/`](communication/) | Chat | chat-system |
+| [`help/`](help/) | Help | help-system, help-topics |
 | [`output/`](output/) | Prompt, `Core/Output/` | output-framework, prompt |
 | [`commands/`](commands/) | `Core/Commands/` | command-framework |
 | [`simulation/`](simulation/) | Simulation | simulation-engine |

@@ -25,4 +25,12 @@
     </Content>
   </ItemGroup>
 
+  <!-- The committed engine help layer ships with the binaries, at the same relative path
+       (content/help/) the Hedron root resolves from source, so an install finds it too. -->
+  <ItemGroup>
+    <None Include="..\content\help\**\*.yaml" Link="content\help\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Hedron.Core.Modules.BalanceInspection;
+using Hedron.Core.Modules.Help;
 using Hedron.Core.Modules.Persistence;
 using Hedron.Core.Modules.Simulation;
 using Hedron.Core.Modules.World;
@@ -46,6 +47,7 @@ namespace Hedron.Tests.Composition
             services.Configure<PersistenceOptions>(config.GetSection("Persistence"));
             services.Configure<BalanceOptions>(config.GetSection("Balance"));
             services.Configure<SimulationOptions>(config.GetSection("Simulation"));
+            services.Configure<HelpOptions>(config.GetSection("Help"));
             services.AddDataPaths(config, appBase ?? _appBase);
             return services.BuildServiceProvider();
         }
@@ -125,6 +127,44 @@ namespace Hedron.Tests.Composition
             Assert.Equal(":memory:", Get<PersistenceOptions>(sp).DatabasePath);
             Assert.Equal(absolute, Get<WorldOptions>(sp).ContentDirectory);
             Assert.Equal("file:x?mode=memory", DataPaths.Resolve(_checkout, "file:x?mode=memory"));
+        }
+
+        // ── help-topics T10: the engine help layer is install-relative ────────────
+
+        [Fact]
+        public void Engine_help_directory_defaults_to_content_help_under_the_root()
+        {
+            var help = Get<HelpOptions>(Compose(new()));
+
+            Assert.Equal(Path.GetFullPath(Path.Combine(_checkout, "content", "help")), help.EngineTopicDirectory);
+        }
+
+        [Fact]
+        public void Engine_help_directory_relative_resolves_against_the_root_and_absolute_is_kept()
+        {
+            var relative = Get<HelpOptions>(Compose(new() { ["Help:EngineTopicDirectory"] = "engine/help" }));
+            var absoluteDir = Path.Combine(Path.GetTempPath(), "hedron-abs-help");
+            var absolute = Get<HelpOptions>(Compose(new() { ["Help:EngineTopicDirectory"] = absoluteDir }));
+
+            Assert.Equal(Path.GetFullPath(Path.Combine(_checkout, "engine", "help")), relative.EngineTopicDirectory);
+            Assert.Equal(absoluteDir, absolute.EngineTopicDirectory);
+        }
+
+        [Fact]
+        public void Data_directory_moves_the_world_help_layer_but_not_the_engine_layer()
+        {
+            var help = Get<HelpOptions>(Compose(new() { ["Paths:DataDirectory"] = "elsewhere" }));
+
+            Assert.Equal(Path.GetFullPath(Path.Combine(_checkout, "content", "help")), help.EngineTopicDirectory);
+            Assert.Equal(Path.Combine(Path.GetFullPath(Path.Combine(_checkout, "elsewhere")), "content", "help"), help.WorldTopicDirectory);
+        }
+
+        [Fact]
+        public void World_help_layer_follows_World_ContentDirectory()
+        {
+            var help = Get<HelpOptions>(Compose(new() { ["World:ContentDirectory"] = "content/dev-world" }));
+
+            Assert.Equal(Path.Combine(Path.GetFullPath(Path.Combine(_checkout, "content", "dev-world")), "help"), help.WorldTopicDirectory);
         }
     }
 }

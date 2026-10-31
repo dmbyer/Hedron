@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using Hedron.Core.Modules.BalanceInspection;
+using Hedron.Core.Modules.Help;
+using Hedron.Core.Modules.Help.Systems;
 using Hedron.Core.Modules.Persistence;
 using Hedron.Core.Modules.Simulation;
 using Hedron.Core.Modules.World;
@@ -21,6 +23,9 @@ namespace Hedron.Server;
 /// <item>A relative path resolves against the <b>Hedron root</b>: the source checkout (the folder holding
 /// <c>Hedron.sln</c>) when run from source, otherwise the install folder. Absolute paths and SQLite
 /// URIs (<c>:memory:</c>, <c>file:…</c>) are used as given.</item>
+/// <item>One exception is <b>install-relative</b>, not data: <c>Help:EngineTopicDirectory</c> (default
+/// <c>content/help</c>), the committed engine help layer. It resolves against the Hedron root and does not
+/// move with <c>Paths:DataDirectory</c>. The world help layer is always <c>&lt;World:ContentDirectory&gt;/help</c>.</item>
 /// </list>
 /// </summary>
 public static class DataPaths
@@ -73,6 +78,15 @@ public static class DataPaths
         }
 
         services.PostConfigure<WorldOptions>(o => o.ContentDirectory = Location("World:ContentDirectory", "content"));
+        // The one install-relative location: the engine help layer is committed, engine-owned
+        // content shipped with the binaries, so it resolves against the Hedron root and never moves
+        // with Paths:DataDirectory. The world help layer always sits under the world's content.
+        services.PostConfigure<HelpOptions>(o =>
+        {
+            var engine = configuration["Help:EngineTopicDirectory"];
+            o.EngineTopicDirectory = Resolve(root, string.IsNullOrWhiteSpace(engine) ? HelpOptions.DefaultEngineTopicDirectory : engine);
+            o.WorldTopicDirectory = Path.Combine(Location("World:ContentDirectory", "content"), HelpTopicLayerReader.WorldSubdirectory);
+        });
         services.PostConfigure<PersistenceOptions>(o => o.DatabasePath = Location("Persistence:DatabasePath", "hedron.db"));
         services.PostConfigure<BalanceOptions>(o => o.StandardsPath = Location("Balance:StandardsPath", Path.Combine("balance", "standards.yaml")));
         services.PostConfigure<SimulationOptions>(o =>

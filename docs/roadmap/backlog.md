@@ -138,6 +138,8 @@ Acceptable for now: affinities have no consumer yet ([area-model](../features/wo
 
 Do it when area auras give affinities a consumer, or when `reload`'s validation is next touched.
 
+**Update (help-topics, 2026-10-31).** Help topics now validate on every boot **and** every reload, through their content reload participant ([world-content](../features/world/world-content.md#content-reload-participants)). That does not fire this entry's "validation next touched" trigger: participants run *after* the swap and only report — they cannot refuse a reload — so running `ValidateRegistry` against the *staged* registry (which can refuse) is still a separate change. Area affinities and `ValidateRegistry`'s warnings remain boot-only.
+
 ### 🔵 Cross-process content-cache coherence (acknowledged debt from authoring-editor-repair)
 
 `ContentDefinitionCatalog` now serves reads from an in-memory index that **every catalog mutator invalidates**. That makes the editor coherent with its own writes, but the catalog is *not* the only writer of content YAML: the `generate` CLI runs in a separate process against the same directory ([Flow 29](../architecture/flows/flow-29-bulk-content-generation.md) leg A), and the game host's `mk*`/`set*`/`dig` verbs write through the `I*ContentWriter` family directly. Neither invalidates a running editor host's index, so a long-lived editor can serve a stale listing after an out-of-process write.
@@ -374,6 +376,8 @@ The aspect-foundation generic is built to keep this additive: rows are **instanc
 - **Instance #4 is help topics.** The extraction lands in Phase 5 slice 4 (`help-topics`, [program brief](../implementation-plans/phase-5-content-baseline-program.md)), which migrates standards, scenarios and the manifest onto the shared store.
 - **Shape obligation:** the extracted store must cover the **single-document** shape (standards, the world manifest) as well as the per-file family shape (scenarios, help topics).
 - **Still open here:** Ability/Effect compiled-plus-YAML coexistence.
+
+**Update (help-topics, 2026-10-31) — extraction landed.** Phase 5 slice 4 extracted the shared store into `Core/Systems/Definitions/` (`YamlDocumentFile`, `YamlDefinitionDirectory`, `YamlReadResult`, `YamlFileEntry`, `YamlCodecOptions`, `DefinitionValidation`) and migrated `BalanceStandardsStore`, `SimScenarioStore` and `WorldManifestStore` onto it with no visible change (characterization-tested), **closing slice 1's manifest debt**. Help topics are its fourth family; PT-2's playtest scenarios consume it. The same slice added the re-derivation precedent this entry asked about: the `IContentReloadParticipant` port (help topics rebuild on every load, warn-only). What remains open here is only **Ability/Effect compiled-plus-YAML coexistence** — which wins when a definition exists in code and in YAML; YAML-only layering (engine + world, later wins by id) is answered for help topics and kept help-local until a second family needs it ([help-topics](../features/help/help-topics.md)).
 
 ### 🔵 Web background-job service generalization (promotion trigger recorded, sim-3)
 

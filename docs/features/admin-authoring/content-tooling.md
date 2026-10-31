@@ -75,6 +75,16 @@ Reads are served from an in-memory index (added authoring-editor-repair, because
 
 The page (`Hedron.Web/Components/Pages/World.razor`) only binds (INV-8). A deleted declared room is not guarded: the loader warns, and the preview and `startroom` show it. See [`../world/world-content.md`](../world/world-content.md#world-manifest--worldyaml).
 
+## IHelpTopicAuthoring — the Help topics page
+
+Help topics are authored **outside** the catalog: `IHelpTopicAuthoring` (`Core/Modules/Help/Systems/`, Help-owned, its own `SemaphoreSlim(1,1)` write gate — there is no cascade into other content, so it does not need the catalog's gate) backs the `/help-topics` list page and the `/help-topics/edit/{id}` editor:
+
+- `List()` / `Load(id)` read both help layers from disk on every call and run the same `HelpTopicSetBuilder` the reload participant uses, so the page shows each topic's origin (engine / world / world overriding engine), file, and every diagnostic exactly as the next load will.
+- `Preview(draft)` renders the player's view through the engine's telnet formatter (colour off).
+- `SaveAsync(draft, previousId?)` writes `<content>/help/<id>.yaml` (world layer only; renames consolidate the file), `OverrideAsync(engineId)` copies an engine topic into the world layer, `DeleteAsync(id)` removes a world topic (an override's engine version returns). Results reuse `ContentWriteResult`, with the topic's R10 warnings.
+
+The engine layer (`content/help/`) is never written. File-only — saves take effect on `reload` or the Apply page. See [`../help/help-topics.md`](../help/help-topics.md).
+
 ## IContentReferenceIndex
 
 Declared-edge reference model over the on-disk YAML definition set. Answers three read questions without applying policy: *does this target exist?*, *who points at this id?*, and *what is broken across all definitions?* Pure read — returns structured results, publishes nothing.

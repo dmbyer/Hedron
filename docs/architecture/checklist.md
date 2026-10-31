@@ -73,7 +73,7 @@ World content commands (`dig`, `mkitem`, `mkmob`, `set`, etc.) do **not** call `
 
 **INV-16 — Reference catalogs stay current.** A new/changed component, system, or handler updates the matching `docs/reference/*.md` in the same PR. Explanation: [../reference/](../reference/).
 
-**INV-17 — Canonical flows stay current.** Any change to a runtime flow specified in [flows/README.md](flows/README.md) updates that file (body *and* mermaid) in the same PR. A new recurring flow is added there. Drift blocks the review. Explanation: [flows/README.md](flows/README.md), CLAUDE.md ground rule 9.
+**INV-17 — Canonical flows stay current.** Any change to a runtime flow updates that flow's own file under [flows/](flows/README.md) (`flows/flow-NN-*.md`: body *and* mermaid) in the same PR, plus its row in the [flows/README.md](flows/README.md) index when the summary changes. A new recurring flow gets its own file and an index row. Drift blocks the review. Explanation: [flows/README.md](flows/README.md), CLAUDE.md ground rule 9.
 
 ## F. Slice discipline (ground rules 8 & 9)
 
@@ -93,7 +93,7 @@ World content commands (`dig`, `mkitem`, `mkmob`, `set`, etc.) do **not** call `
 
 The docs-as-code rules. Full explanation: [`09-documentation.md`](09-documentation.md). Checked like any other INV — drift blocks the review.
 
-**INV-27 — One fact, one home.** An architectural rule is stated authoritatively only in this checklist; a runtime flow's diagram lives only in [flows/README.md](flows/README.md); the navigation doc-map lives only in [00-overview.md](00-overview.md). Elsewhere, a one-line summary + link is allowed — a restated or duplicated copy is not. Explanation: [`09-documentation.md`](09-documentation.md).
+**INV-27 — One fact, one home.** An architectural rule is stated authoritatively only in this checklist; a runtime flow's diagram lives only in its own flow file under [flows/](flows/README.md) (the README is the index); the navigation doc-map lives only in [00-overview.md](00-overview.md). Elsewhere, a one-line summary + link is allowed — a restated or duplicated copy is not. Explanation: [`09-documentation.md`](09-documentation.md).
 - *Code:* a diff that restates an invariant in its own words outside this file, reproduces a flow mermaid outside `flows/`, or forks the doc-map.
 
 **INV-28 — Implementation-plan disintegrate-on-ship.** A slice's implementation plan ([`../implementation-plans/`](../implementation-plans/)) is a transient build artifact. At close-out, `sync-roadmap` distributes its durable content into the living docs — behavior/orchestration → [`../features/`](../features/) feature + `<system>` docs; runtime path → [`flows/`](flows/README.md); catalog diffs → [`../reference/`](../reference/); decisions/rationale/as-built → [`../roadmap/completed/<slice>.md`](../roadmap/completed/) — and then **deletes the plan**. The `roadmap/completed/<slice>.md` record is the single historical artifact and must be verified to capture the slice's design decisions *before* the plan is deleted. No trimmed spec is retained in `implementation-plans/`. Explanation: [`../implementation-plans/README.md`](../implementation-plans/README.md) lifecycle; enforced by the `sync-roadmap` skill.

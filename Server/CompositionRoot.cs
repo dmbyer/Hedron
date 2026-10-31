@@ -93,6 +93,8 @@ public static class CompositionRoot
             configuration.GetSection("Balance"));
         services.Configure<SimulationOptions>(
             configuration.GetSection("Simulation"));
+        services.Configure<HelpOptions>(
+            configuration.GetSection("Help"));
         // One rule for every data location (Paths:DataDirectory + per-location overrides,
         // relative to the Hedron root) — see DataPaths.
         services.AddDataPaths(configuration, AppContext.BaseDirectory);

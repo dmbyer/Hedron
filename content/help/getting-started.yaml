@@ -1,0 +1,23 @@
+id: getting-started
+title: Getting started
+aliases:
+  - start
+  - newbie
+seeAlso:
+  - combat
+  - death
+  - shops
+  - progression
+body: |
+  Welcome. Everything here is done by typing commands.
+
+  Look around with 'look' (or 'l'). Room descriptions name the exits; move by typing the
+  direction, such as 'north' or 'n'. Pick things up with 'get', check what you carry with
+  'inventory', and put gear on with 'wear'. 'equipment' shows what you have on.
+
+  'score' shows your character, 'progress' shows how you are improving, and 'commands'
+  lists every command you can use. 'help <command>' explains any one of them.
+
+  When you feel ready, find something to fight - but read its description first. Some
+  creatures are far stronger than others, and the farther you travel from where you
+  started, the more dangerous the world becomes.

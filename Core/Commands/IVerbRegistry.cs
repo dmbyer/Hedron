@@ -4,9 +4,15 @@ namespace Hedron.Core.Commands
 {
     /// <summary>
     /// Read-only view of the registered command namespace. Implemented by
-    /// <see cref="CommandDispatcher"/> and consumed by prefix resolution,
-    /// <c>HelpCommand</c>, and future tab-completion without coupling to the
-    /// full dispatcher contract.
+    /// <see cref="CommandDispatcher"/> and consumed by prefix resolution, the Help module, and
+    /// future tab-completion without coupling to the full dispatcher contract.
+    /// <para>
+    /// A <b>read-only metadata registry</b> (like <c>ITemplateRegistry</c>): domain systems may read
+    /// it — names, aliases, descriptions, usage, required privileges — but must never execute a
+    /// command or return an <see cref="ICommand"/> in a result, and must take it as
+    /// <c>Lazy&lt;IVerbRegistry&gt;</c> (the dispatcher depends on every <see cref="ICommand"/>).
+    /// See <c>docs/architecture/01-layers.md</c> §Cross-Layer Dependency Rules.
+    /// </para>
     /// </summary>
     public interface IVerbRegistry
     {

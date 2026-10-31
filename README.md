@@ -20,7 +20,7 @@ Persistence (SQLite) and content loading currently live inside `Core/` modules; 
 
 ## Your world, your content
 
-Hedron is an engine, so **this repository ships no game world**. If you run a server, you author your own world (rooms, areas, mobs, items) under `Paths:DataDirectory` (default `data/`, gitignored) and keep it in your own repository. The only committed content is generic development material in [`content/`](content/): the [`dev-world/`](content/dev-world/) baseline (generic and lore-free; boot it with `DOTNET_ENVIRONMENT=DevWorld`) and example generation profiles. A fresh clone pointed at an empty content directory boots into a single placeholder "void" room, ready for authoring. See [content ownership](docs/features/world/world-content.md#content-ownership--the-engine-ships-no-game-world).
+Hedron is an engine, so **this repository ships no game world**. If you run a server, you author your own world (rooms, areas, mobs, items) under `Paths:DataDirectory` (default `data/`, gitignored) and keep it in your own repository. The only committed content is generic development material in [`content/`](content/): the [`dev-world/`](content/dev-world/) baseline (generic and lore-free; boot it with `DOTNET_ENVIRONMENT=DevWorld`), the engine's generic [`help/`](content/help/) topics (shipped with the binaries; a world overrides or extends them in its own `help/` folder), and example generation profiles. A fresh clone pointed at an empty content directory boots into a single placeholder "void" room, ready for authoring. See [content ownership](docs/features/world/world-content.md#content-ownership--the-engine-ships-no-game-world).
 
 ## Build & test
 
@@ -88,6 +88,7 @@ Each host reads its own `appsettings.json` — [`Server/appsettings.json`](Serve
 | `Paths` | `DataDirectory` — where all data lives (see below) |
 | `World` | Starting room blueprint (the fallback behind a world's `world.yaml`); optional content-directory override |
 | `Persistence` | Flush interval; optional database-path override |
+| `Help` | Optional `EngineTopicDirectory` override for the engine help topics (default `content/help`, relative to the Hedron root — not under the data directory) |
 | `Heartbeat` | Game-loop tick interval |
 | `Admin` | Privileged account names |
 | `CharacterDefaults` · `Death` · `Output` · `Logging` · `Shop` | Starting stats/abilities, death tuning, output color, log levels, shop buy/sell ratios |

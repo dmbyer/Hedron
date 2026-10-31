@@ -4,7 +4,7 @@
 
 **Source:** [`../../features/admin-authoring/admin-authoring.md`](../../features/admin-authoring/admin-authoring.md)
 
-**Summary.** Five offline authoring paths share the loopback `Hedron.Web` host (three share the same content-definition layer). (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline editor** browses/loads/edits/saves/renames definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`; blueprint-id-editing added a **rename leg** (`RenameAsync`, cascading `oldId → newId` through the content graph, structural sibling of the existing delete cascade) and a **choose-at-creation** path (`CreateAsync`, a deliberate id on the New form) to this leg, and authoring-api-surface added a **second caller** to it — a loopback JSON endpoint tier reaching the same catalog operations through a DTO mapping seam, with no apply/reload counterpart. (B1) The **World page** edits the `world.yaml` manifest through `IWorldManifestAuthoring` on the same catalog (shared write gate), applying on `reload`/restart. (B2) The **Standards page** (sim-1) edits the balance-standards document via `IBalanceStandardsStore` — a single criteria file deliberately outside the catalog (seed OQ1), with no `reload` leg (restart-to-apply instead). (B3) The **Integrity page's conformance fitter** (sim-5) closes the observation→correction loop: it scales a flagged template's stat vector into its target (Tier, Band) range and writes it through the same `SaveAsync` path as B. (B4) The **visual grid area editor** (world-editor-grid) is a click-driven extension of leg B: it renders one area's rooms on a 2-D grid, seeded by `IAreaLayoutSystem.Propose`, and every action (create/disconnect/edit/delete/rename) composes the same catalog verbs B already uses, plus one earned bidirectional-disconnect verb; **connect** goes through `IAreaLayoutSystem.ConnectAsync`, which owns the connect policy (authoring-api-surface WP1). No path mutates the live world directly (INV-12/23).
+**Summary.** Six offline authoring paths share the loopback `Hedron.Web` host (three share the same content-definition layer). (A) The **`generate` run-mode** is a headless CLI sweep: compose DI without gameplay hosted services, run `IContentGenerationSystem.GenerateAsync(profile)`, validate each emitted definition via `IContentValidator`, print counts, and exit. (B) The **offline editor** browses/loads/edits/saves/renames definitions via `IContentDefinitionCatalog` and applies them to the live world via `IWorldContentLoader.ReloadAsync`; blueprint-id-editing added a **rename leg** (`RenameAsync`, cascading `oldId → newId` through the content graph, structural sibling of the existing delete cascade) and a **choose-at-creation** path (`CreateAsync`, a deliberate id on the New form) to this leg, and authoring-api-surface added a **second caller** to it — a loopback JSON endpoint tier reaching the same catalog operations through a DTO mapping seam, with no apply/reload counterpart. (B1) The **World page** edits the `world.yaml` manifest through `IWorldManifestAuthoring` on the same catalog (shared write gate), applying on `reload`/restart. (B2) The **Standards page** (sim-1) edits the balance-standards document via `IBalanceStandardsStore` — a single criteria file deliberately outside the catalog (seed OQ1), with no `reload` leg (restart-to-apply instead). (B3) The **Integrity page's conformance fitter** (sim-5) closes the observation→correction loop: it scales a flagged template's stat vector into its target (Tier, Band) range and writes it through the same `SaveAsync` path as B. (B4) The **visual grid area editor** (world-editor-grid) is a click-driven extension of leg B: it renders one area's rooms on a 2-D grid, seeded by `IAreaLayoutSystem.Propose`, and every action (create/disconnect/edit/delete/rename) composes the same catalog verbs B already uses, plus one earned bidirectional-disconnect verb; **connect** goes through `IAreaLayoutSystem.ConnectAsync`, which owns the connect policy (authoring-api-surface WP1). (B5) The **Help topics page** (help-topics) lists, previews and authors **world** help topics through `IHelpTopicAuthoring` — outside the catalog, with its own write gate — leaving the engine help layer read-only, and applies on `reload`/Apply. No path mutates the live world directly (INV-12/23).
 
 ---
 
@@ -413,6 +413,46 @@ No event is published anywhere in this leg (INV-5) — `IAreaLayoutSystem` and t
 
 ---
 
+## B5 — Help topics page (`/help-topics`, help-topics)
+
+**Trigger:** Designer opens `/help-topics` in `Hedron.Web`.
+
+```mermaid
+sequenceDiagram
+    participant UI as HelpTopics / HelpTopicEditor.razor
+    participant Auth as IHelpTopicAuthoring
+    participant Reader as IHelpTopicLayerReader
+    participant Builder as HelpTopicSetBuilder
+    participant World as world help/ (YamlDefinitionDirectory)
+
+    UI->>Auth: List() / Load(id)
+    Auth->>Reader: ReadLayers()  [engine root, then world root — disk, every call]
+    Auth->>Builder: Build(layers, verb tokens)
+    Auth-->>UI: topics (origin, file) + diagnostics
+    UI->>Auth: Preview(draft)  [no write; rendered via the telnet formatter, colour off]
+    alt engine topic
+        UI->>Auth: OverrideAsync(id)
+        Note over Auth: under the Help write gate
+        Auth->>World: WriteAsync(<id>.yaml) — copy of the engine topic
+    else world topic
+        UI->>Auth: SaveAsync(draft, previousId?) / DeleteAsync(id)
+        Note over Auth: under the Help write gate
+        Auth->>World: WriteAsync(<id>.yaml), then Delete(old/misnamed file) — or Delete
+    end
+    Auth-->>UI: ContentWriteResult (+ R10 warnings for the topic)
+    Note over UI: applies on reload / Apply (Flow 5: content reload participants)
+```
+
+1. The list page calls `IHelpTopicAuthoring.List()`: the reader reads both layers from disk on every call (disk is the editor's truth; the game's registry reflects only the last load), and the same pure `HelpTopicSetBuilder` the reload participant uses merges them and reports diagnostics — so the page shows exactly what the next load will produce.
+2. The editor page loads one topic (`Load(id)`). An **engine** topic is read-only with **Override**, which copies it into the world layer (refused when a world copy exists). A **world** topic is editable; one that overrides an engine topic says so, and **Delete** restores the engine version.
+3. Every field change re-renders `Preview(draft)` through the engine's own telnet formatter (colour off), the same `HelpTopicRendering` mapping `help` uses — no write.
+4. **Save** validates (id, title and body required; id token rules), then writes `<world>/<id>.yaml` under the Help module's `SemaphoreSlim(1,1)` gate; a rename, or a topic that lived in a differently named file, deletes the old file after the new write succeeds. The result carries the topic's R10 warnings (verb collisions, unresolved `seeAlso`, …). The engine layer is never written.
+5. The change applies on `reload` (Apply page) or restart, where the help-topic reload participant rebuilds the game's snapshot ([Flow 5](flow-05-content-reload.md)). The Apply page lists any participant diagnostics.
+
+No event is published (INV-5); no entity is touched (INV-12/23) — help topics are YAML definitions.
+
+---
+
 ## Invariants
 
 - INV-5: `IContentGenerationSystem`, `IContentDefinitionCatalog`, `IAreaLayoutSystem`, and `IContentReferenceIndex` return results; they never touch the event bus.
@@ -428,7 +468,7 @@ No event is published anywhere in this leg (INV-5) — `IAreaLayoutSystem` and t
 
 ## Cross-references
 
-- Systems: [`../../reference/systems.md`](../../reference/systems.md) — `IContentGenerationSystem`, `IContentDefinitionCatalog`, `IContentValidator`, `IAreaLayoutSystem`, the four `I*ContentWriter`s, `IBalanceStandardsStore`/`IBalanceStandardsRegistry`.
+- Systems: [`../../reference/systems.md`](../../reference/systems.md) — `IContentGenerationSystem`, `IContentDefinitionCatalog`, `IContentValidator`, `IAreaLayoutSystem`, the four `I*ContentWriter`s, `IBalanceStandardsStore`/`IBalanceStandardsRegistry`, `IHelpTopicAuthoring` (B5).
 - Roadmap: [`../../roadmap/completed/blueprint-id-editing.md`](../../roadmap/completed/blueprint-id-editing.md) — as-built record for the rename leg, choose-at-creation, and the two-kind spawn-rule edge.
 - Feature: [`../../features/admin-authoring/content-tooling.md`](../../features/admin-authoring/content-tooling.md) · [`../../features/admin-authoring/content-authoring.md`](../../features/admin-authoring/content-authoring.md) · [`../../features/progression/power-budget-system.md`](../../features/progression/power-budget-system.md) (the standards registry the B2 leg edits).
 - Related flow: [Flow 5 — content reload](flow-05-content-reload.md) (the apply leg the Blazor editor reuses) · [Flow 1 — server startup](flow-01-server-startup.md) (where a B2 save takes effect on next boot) · [Flow 33 — simulation run journey](flow-33-simulation-run.md) editor leg (sim-3) — a second content-tooling journey carrying an editor-surface trigger alongside its headless run-mode, mirroring this flow's own CLI/editor duality.

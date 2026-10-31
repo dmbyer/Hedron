@@ -784,6 +784,47 @@ namespace Hedron.Tests.Architecture
                 "or EcsManager. Violations:\n" + string.Join("\n", violations));
         }
 
+        // ── help-topics: YAML definition families build on the shared store ──
+
+        /// <summary>
+        /// help-topics Postcondition 1 (T4, INV-19): the migrated YAML definition stores and the
+        /// Help module build no YamlDotNet (de)serializer of their own — they go through
+        /// <c>Core/Systems/Definitions/</c>, so a fourth hand-rolled path can't quietly reappear.
+        /// </summary>
+        [Fact]
+        public void YAML_definition_families_use_the_shared_store()
+        {
+            var coreDir = FindCoreSourceDirectory();
+            Assert.True(coreDir != null, "help-topics pre-check: could not locate the Core/ source directory.");
+
+            var files = new List<string>
+            {
+                Path.Combine(coreDir!, "Modules", "BalanceInspection", "Standards", "BalanceStandardsStore.cs"),
+                Path.Combine(coreDir!, "Modules", "Simulation", "Systems", "SimScenarioStore.cs"),
+                Path.Combine(coreDir!, "Modules", "World", "Systems", "WorldManifestStore.cs"),
+            };
+            var helpDir = Path.Combine(coreDir!, "Modules", "Help");
+            if (Directory.Exists(helpDir))
+                files.AddRange(Directory.EnumerateFiles(helpDir, "*.cs", SearchOption.AllDirectories));
+
+            var violations = new List<string>();
+            foreach (var file in files)
+            {
+                Assert.True(File.Exists(file), $"help-topics pre-check: {file} not found.");
+                foreach (var line in File.ReadAllLines(file))
+                {
+                    if (line.Contains("new DeserializerBuilder(", StringComparison.Ordinal) ||
+                        line.Contains("new SerializerBuilder(", StringComparison.Ordinal))
+                        violations.Add($"{Path.GetRelativePath(coreDir!, file)}: builds its own YamlDotNet (de)serializer");
+                }
+            }
+
+            Assert.True(
+                violations.Count == 0,
+                "help-topics Postcondition 1 violated — YAML definition families must use " +
+                "Core/Systems/Definitions/. Violations:\n" + string.Join("\n", violations));
+        }
+
         // ── DI smoke test ─────────────────────────────────────────────────────
 
         /// <summary>
@@ -865,6 +906,23 @@ namespace Hedron.Tests.Architecture
                 provider.GetServices<Hedron.Core.Commands.ICommand>().ToList());
             if (commandException != null)
                 violations.Add($"ICommand resolution threw: {commandException.Message}");
+
+            // help-topics T12: the IVerbRegistry ↔ ICommand ↔ loader ↔ participant chain composes
+            // without a cycle (Lazy<IVerbRegistry> in every Help consumer), and participants are collected.
+            foreach (var serviceType in new[]
+            {
+                typeof(Hedron.Core.Commands.IVerbRegistry),
+                typeof(IEnumerable<Hedron.Core.Systems.Definitions.IContentReloadParticipant>),
+                typeof(Hedron.Core.Modules.World.Systems.IWorldContentLoader),
+            })
+            {
+                var ex = Record.Exception(() => provider.GetRequiredService(serviceType));
+                if (ex != null)
+                    violations.Add($"{serviceType.Name} resolution threw: {ex.Message}");
+            }
+            if (!provider.GetServices<Hedron.Core.Systems.Definitions.IContentReloadParticipant>()
+                    .Any(p => p is Hedron.Core.Modules.Help.Systems.HelpTopicReloadParticipant))
+                violations.Add("HelpTopicReloadParticipant is not registered as an IContentReloadParticipant.");
 
             // Resolve all system interfaces that are registered.
             // Detect these by looking at every descriptor whose service type is an interface
