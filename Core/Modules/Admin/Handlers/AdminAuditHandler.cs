@@ -45,6 +45,7 @@ namespace Hedron.Core.Modules.Admin.Handlers
         IEventHandler<AbilityTaughtByAdminEvent>,
         IEventHandler<RoomAreaAssignedByAdminEvent>,
         IEventHandler<AreaCreatedByAdminEvent>,
+        IEventHandler<AreaPropertySetByAdminEvent>,
         IEventHandler<WalletSetByAdminEvent>,
         IEventHandler<PlayerAscendedByAdminEvent>,
         IEventHandler<StartingRoomSetByAdminEvent>,
@@ -194,6 +195,14 @@ namespace Hedron.Core.Modules.Admin.Handlers
             _logger.LogInformation(
                 "AdminCommandExecuted: admin={Admin} command=mkarea area={AreaEntityId} blueprint={BlueprintId}",
                 ResolveName(e.AdminEntityId), e.AreaEntityId, e.BlueprintId);
+            return Task.CompletedTask;
+        }
+
+        public Task HandleAsync(AreaPropertySetByAdminEvent e)
+        {
+            _logger.LogInformation(
+                "AdminCommandExecuted: admin={Admin} command=areaset area={AreaEntityId} blueprint={BlueprintId} property={Property} value={Value}",
+                ResolveName(e.AdminEntityId), e.AreaEntityId, e.AreaBlueprintId, e.PropertyName, e.NewValue);
             return Task.CompletedTask;
         }
 

@@ -1,3 +1,5 @@
+using Hedron.Core.Modules.World.Components;
+using Hedron.Core.Modules.World;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Admin.Systems;
@@ -80,6 +82,76 @@ namespace Hedron.Tests.Authoring
                     $"INV-5: AreaBuilderSystem field '{field.Name}' is IEventBus — " +
                     "domain systems must never hold or publish to the event bus.");
             }
+        }
+
+        // ── Property setters (area-designation, P8) ──────────────────────────────
+
+        private static (AreaBuilderSystem sys, EntityService ecs, AreaTemplate template, uint liveId) Spawned()
+        {
+            var (sys, ecs, registry) = Build();
+            var template = new AreaTemplate("area.wilds") { Name = "Wilds" };
+            registry.Register(template.BlueprintId, template);
+            var live = registry.Spawn(template.BlueprintId);
+            return (sys, ecs, template, live.Id);
+        }
+
+        [Fact]
+        public void SetAreaDesignation_updates_template_and_live_component_and_null_removes_both()
+        {
+            var (sys, ecs, template, liveId) = Spawned();
+
+            var set = sys.SetAreaDesignation("area.wilds", AreaDesignation.Of(0, 2, 2));
+            Assert.True(set.Success);
+            Assert.Equal(liveId, set.AreaEntityId);
+            Assert.Equal(AreaDesignation.Of(0, 2, 2), template.Designation);
+            Assert.Equal(AreaDesignation.Of(0, 2, 2), ecs.Get<AreaDesignationComponent>(liveId).Designation);
+
+            sys.SetAreaDesignation("area.wilds", AreaDesignation.Of(0, 1, 3));
+            Assert.Equal(AreaDesignation.Of(0, 1, 3), ecs.Get<AreaDesignationComponent>(liveId).Designation);
+
+            Assert.True(sys.SetAreaDesignation("area.wilds", null).Success);
+            Assert.Null(template.Designation);
+            Assert.False(ecs.HasComponent<AreaDesignationComponent>(liveId));
+        }
+
+        [Fact]
+        public void SetAreaDesignation_refuses_malformed_or_unknown_and_changes_nothing()
+        {
+            var (sys, ecs, template, liveId) = Spawned();
+
+            var malformed = sys.SetAreaDesignation("area.wilds", AreaDesignation.Of(0, 3, 1));
+            Assert.False(malformed.Success);
+            Assert.Null(template.Designation);
+            Assert.False(ecs.HasComponent<AreaDesignationComponent>(liveId));
+
+            Assert.False(sys.SetAreaDesignation("area.missing", AreaDesignation.Of(0, 1, 1)).Success);
+        }
+
+        [Fact]
+        public void SetAreaName_and_description_update_template_and_AreaComponent()
+        {
+            var (sys, ecs, template, liveId) = Spawned();
+
+            sys.SetAreaName("area.wilds", "The Wilds");
+            sys.SetAreaDescription("area.wilds", "Tall grass.");
+
+            Assert.Equal(("The Wilds", "Tall grass."), (template.Name, template.Description));
+            var live = ecs.Get<AreaComponent>(liveId);
+            Assert.Equal(("The Wilds", "Tall grass."), (live.Name, live.Description));
+        }
+
+        [Fact]
+        public void Setters_on_a_template_with_no_live_entity_update_only_the_template()
+        {
+            var (sys, _, registry) = Build();
+            var template = new AreaTemplate("area.unspawned");
+            registry.Register(template.BlueprintId, template);
+
+            var result = sys.SetAreaDesignation("area.unspawned", AreaDesignation.Of(0, 1, 1));
+
+            Assert.True(result.Success);
+            Assert.Equal(0u, result.AreaEntityId);
+            Assert.NotNull(template.Designation);
         }
     }
 }

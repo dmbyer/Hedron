@@ -101,7 +101,7 @@ Admin commands declare `MatchingMode.Full` so they are never accidentally dispat
 
 Two persistence domains exist; which one the command touches determines what it does for durability:
 
-**World content commands (`dig`, `mkitem`, `mkmob`, `set`, `setitem`, `setmob`).**
+**World content commands (`dig`, `mkitem`, `mkmob`, `set`, `setitem`, `setmob`, `areaset`).**
 World entities carry **no** `PersistentEntity` — they are never in the SQLite flush pool. Their sole durable form is the YAML file. A world-content command calls the domain system (which mutates the template plus every live world instance — never a `PersistentEntity`) and writes the YAML template; it never calls `SaveEntityAsync`.
 
 ```csharp
@@ -156,7 +156,7 @@ Write the YAML file immediately via the appropriate content writer. Without this
 **2. Keep template and live entity in sync on mutation.**
 A `set*` command that changes a property must update **the template plus every live world instance (never `PersistentEntity`)** — via a blueprint-keyed domain-system setter that returns the instance count — and the YAML file on disk. Player-owned instances are independent — they were promoted to persistent when picked up and are NOT retroactively updated.
 
-**Spawn-rule mutations.** A command that adds/changes/removes a room spawn rule (`spawnrule`, and the count-1 rule `mkmob`/`mkitem` author) goes builder → template + live `SpawnConfigComponent` + `ISpawnSystem.SyncRoom` (all inside `IRoomBuilderSystem`); the command only writes the room YAML and publishes `SpawnRuleAuthoredByAdminEvent`. No hand-rolled triple in the command.
+**Spawn-rule mutations.** A command that adds/changes/removes a room spawn rule (`spawnrule`, and the count-1 rule `mkmob`/`mkitem` author) goes builder → template + live `SpawnConfigComponent` + `ISpawnSystem.SyncRoom` (all inside `IRoomBuilderSystem`); the command writes the room YAML and publishes `SpawnRuleAuthoredByAdminEvent` (`SpawnRuleAuthoringOutcome.CompleteAsync`), prints its confirmation, then prints any out-of-designation findings the builder attached to the result (`SpawnRuleAuthoringOutcome.WriteFindingsAsync`). Never judge a placement in the command: the finding comes from `IAreaPlacementSystem` via the builder, and it is advisory output, not part of the audit event. No hand-rolled triple in the command.
 
 **Non-entity world definitions follow the same two-sided rule.** When a command mutates a world-level definition that seeds no entity (precedent: `startroom here` and `world.yaml`), write the definition file, then re-resolve the live derived state through the owning system (e.g. `IWorldContentLoader.ResolveStartingRoom()`); no `SaveEntityAsync`, since no persistent entity changed.
 

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Aspects;
+using Hedron.Core.Modules.World.Components;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.World.Templates
@@ -34,6 +35,13 @@ namespace Hedron.Core.Modules.World.Templates
         /// </summary>
         public Dictionary<AspectId, int>? AspectAffinities { get; set; }
 
+        /// <summary>
+        /// Optional region designation: the (Tier, Band) range this area is meant to hold.
+        /// <c>null</c> = undesignated (the out-of-designation check skips the area). When set,
+        /// <see cref="Apply"/> attaches an <see cref="AreaDesignationComponent"/>.
+        /// </summary>
+        public AreaDesignation? Designation { get; set; }
+
         public AreaTemplate(string blueprintId)
         {
             BlueprintId = blueprintId;
@@ -57,6 +65,9 @@ namespace Hedron.Core.Modules.World.Templates
                     AffinityWeights = new Dictionary<AspectId, int>(AspectAffinities),
                 });
             }
+
+            if (Designation is not null)
+                entityService.AddComponent(entity.Id, new AreaDesignationComponent { Designation = Designation });
         }
     }
 }

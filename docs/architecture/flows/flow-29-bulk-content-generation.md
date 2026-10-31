@@ -169,6 +169,10 @@ not make the multi-file write cascade atomic.
    then writes YAML via `I*ContentWriter`. The live world is untouched. Invalid definitions block
    the write and return structured errors. Cross-reference misses are non-blocking: the file is still
    written, and `ContentWriteResult.Warnings` lists the dangling refs (warn-but-allow; INV-19).
+   For a room, the catalog first captures the prior on-disk rules (inside the write gate). After the
+   write, it judges each **new or changed** spawn rule against its area's designation
+   (`AreaPlacementCheck.Judge` over a `CatalogPlacementSource`) and adds each finding to
+   `Warnings`. Unchanged rules warn nothing, even after an area move.
    With `bidirectional: true`, the catalog also writes the inverse exit on each target room; if a
    target already has a *different* exit in the inverse direction, that paired write is skipped and
    a warning is added (warn-and-skip; no silent overwrite).
@@ -194,9 +198,11 @@ not make the multi-file write cascade atomic.
    malformed `world.yaml` refuses a room rename before any write. Returns
    `ContentRenameResult`; the page navigates to the new id's edit route on success.
 7. Integrity page: delegates to `ContentIntegritySweepService` (`Hedron.Web/Services/`), which runs
-   `IContentReferenceIndex.SweepBroken()` and `IBalanceAuditSystem.Audit()` on a background task and
-   exposes a status snapshot the page polls — the sweeps are corpus scans and do not block the
-   circuit. Neither reads through the catalog, so neither benefits from its index. Returns every
+   `IContentReferenceIndex.SweepBroken()`, `IBalanceAuditSystem.Audit()` and
+   `IAreaDesignationAudit.Findings()` on a background task and exposes a status snapshot the page
+   polls — the sweeps are corpus scans and do not block the circuit. The first two do not read
+   through the catalog; the designation audit reads disk through it. The page adds an
+   "Out-of-designation placements" table with room and area edit links. Returns every
    broken edge across all kinds; UI tabulates them with edit links back to each offending
    definition's editor. The bulk conformance apply on the same page still runs on the circuit
    thread (recorded in [backlog.md](../../roadmap/backlog.md)).
@@ -206,7 +212,9 @@ not make the multi-file write cascade atomic.
    `SaveAsync`/`SaveRoomAsync`. The mob/item editors' **Spawns in** panel (`SpawnSitesPanel`) lists
    `ISpawnRuleAuthoring.SpawnSitesFor(kind, id)` and writes the room directly through
    `UpsertSpawnRuleAsync` (area→room "Add to room", blank id minted) / `RemoveSpawnRuleAsync` —
-   both under the catalog write gate, refused with nothing written when invalid.
+   both under the catalog write gate, refused with nothing written when invalid. An out-of-designation
+   placement saves and shows as a warning (step 4). The **area editor** binds the area's designation
+   and lists that area's findings (`IAreaDesignationAudit.Findings(areaBp)`) on load and after save.
 8. "Apply": page calls `IWorldContentLoader.ReloadAsync()` on the **web host's own preview world** —
    [Flow 5](flow-05-content-reload.md); whole-or-nothing (a shape error is shown, nothing changes).
    The Server's live game world applies these edits on the Server's `reload` or a restart.

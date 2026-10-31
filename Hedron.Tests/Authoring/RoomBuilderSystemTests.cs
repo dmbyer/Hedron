@@ -31,7 +31,7 @@ namespace Hedron.Tests.Authoring
             var registry = new TemplateRegistry(ecs);
             var areaSystem = new AreaSystem(ecs, registry);
             var spawnSystem = new SpawnSystem(ecs, registry, new FakeClock(), NullLogger<SpawnSystem>.Instance);
-            var system = new RoomBuilderSystem(ecs, registry, areaSystem, spawnSystem, NullLogger<RoomBuilderSystem>.Instance);
+            var system = new RoomBuilderSystem(ecs, registry, areaSystem, spawnSystem, new AreaPlacementSystem(registry), NullLogger<RoomBuilderSystem>.Instance);
             return (system, ecs, registry);
         }
 

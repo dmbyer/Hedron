@@ -124,6 +124,12 @@ namespace Hedron.Core.Modules.World.Systems
                 }
             }
 
+            // 6. Out-of-designation warnings (warn-not-error, R11): a room spawn rule placing a
+            // banded mob/item whose authored (Tier, Band) is outside its area's designation. The
+            // same judgement every other surface calls (AreaPlacementCheck), over the registry.
+            foreach (var finding in AreaPlacementCheck.Sweep(new RegistryPlacementSource(_templateRegistry)))
+                warnings.Add($"Out of designation: {finding.Describe()}");
+
             return new ValidationReport(errors, warnings);
         }
 
@@ -134,12 +140,21 @@ namespace Hedron.Core.Modules.World.Systems
             // whatever single-definition rules it has; kinds with none return a valid report.
             switch (template)
             {
-                case AreaTemplate area when area.AspectAffinities is { Count: > 0 }:
+                case AreaTemplate area:
                 {
-                    // Same rule as the boot area scan: normalization only (parity).
                     var errors = new List<string>();
-                    var composition = new AspectComposition(area.AspectAffinities);
-                    ValidateAspectComposition(composition, $"Area '{area.BlueprintId}'", errors, checkKeysRegistered: false);
+
+                    // Same rule as the boot area scan: normalization only (parity).
+                    if (area.AspectAffinities is { Count: > 0 })
+                    {
+                        var composition = new AspectComposition(area.AspectAffinities);
+                        ValidateAspectComposition(composition, $"Area '{area.BlueprintId}'", errors, checkKeysRegistered: false);
+                    }
+
+                    // Same shape check the area deserializer throws on (R2).
+                    if (area.Designation is not null)
+                        errors.AddRange(AreaDesignationValidation.Errors(area.BlueprintId, area.Designation));
+
                     return errors.Count == 0 ? ValidationReport.Ok : new ValidationReport(errors);
                 }
 

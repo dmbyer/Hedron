@@ -6,6 +6,7 @@ using Hedron.Core.Commands;
 using Hedron.Core.Commands.Authorization;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.World.Components;
 using Hedron.Core.Modules.World.Systems;
 using Hedron.Core.Output;
 
@@ -20,6 +21,7 @@ namespace Hedron.Core.Modules.Admin.Commands
     public sealed class AreaCommand : ICommand
     {
         private readonly IAreaSystem _areaSystem;
+        private readonly IAreaPlacementSystem _placementSystem;
         private readonly EntityService _entityService;
 
         public string Name => "area";
@@ -29,7 +31,8 @@ namespace Hedron.Core.Modules.Admin.Commands
         public string ShortDescription => "Inspect an area entity.";
         public string LongDescription =>
             "Without an argument, shows the area for the room you are currently in. " +
-            "With a blueprint id, inspects the named area entity.";
+            "With a blueprint id, inspects the named area entity. Shows the area's designation and any " +
+            "spawn rules placing a mob or item outside it.";
         public string Usage => "area [blueprintId]";
         public IReadOnlyList<IAuthorizationRequirement> RequiredPrivileges { get; } =
             new IAuthorizationRequirement[] { new AdminRequirement() };
@@ -39,9 +42,10 @@ namespace Hedron.Core.Modules.Admin.Commands
                 Required: false, "Area blueprint id to inspect (omit to use current room's area)."),
         });
 
-        public AreaCommand(IAreaSystem areaSystem, EntityService entityService)
+        public AreaCommand(IAreaSystem areaSystem, IAreaPlacementSystem placementSystem, EntityService entityService)
         {
             _areaSystem = areaSystem;
+            _placementSystem = placementSystem;
             _entityService = entityService;
         }
 
@@ -90,6 +94,7 @@ namespace Hedron.Core.Modules.Admin.Commands
                     if (string.Equals(bpComp.BlueprintId, areaBlueprintId, StringComparison.OrdinalIgnoreCase))
                     {
                         areaEntityId = entityId;
+                        areaBlueprintId = bpComp.BlueprintId; // canonical casing for the findings filter
                         found = true;
                         break;
                     }
@@ -123,6 +128,21 @@ namespace Hedron.Core.Modules.Admin.Commands
                 foreach (var (aspect, weight) in affinities.AffinityWeights)
                     affinityParts.Add($"{aspect} {weight}%");
                 sb.AppendLine($"  Aspect Affinities: {string.Join(", ", affinityParts)}");
+            }
+
+            // Designation (live component) and its out-of-designation findings (R6) — the
+            // findings come from the shared judgement over the registry, never computed here.
+            sb.AppendLine(_entityService.TryGet<AreaDesignationComponent>(areaEntityId, out var designation)
+                ? $"  Designation: {designation.Designation}"
+                : "  Designation: undesignated");
+            var findings = _placementSystem.Findings(areaBlueprintId);
+            if (findings.Count == 0)
+                sb.AppendLine("  Out-of-designation placements: none");
+            else
+            {
+                sb.AppendLine($"  Out-of-designation placements ({findings.Count}):");
+                foreach (var finding in findings)
+                    sb.AppendLine($"    {finding.Describe()}");
             }
 
             var rooms = _areaSystem.GetRoomsInArea(areaEntityId);

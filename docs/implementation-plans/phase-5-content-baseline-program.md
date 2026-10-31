@@ -236,7 +236,7 @@ The engine's built mechanics get exercised by authored content, and the function
 | World manifest (`world.yaml`: starting room) | New content-root definition; resolved at load | `Core/Modules/World`: loader resolves manifest → config → void | **Build now** (one field; the shape is for later) |
 | Dev-world launch profile | Host configuration (content dir + own DB) | `Server` launch profile / environment appsettings; documented in the dev-world README | **Build now** (no engine code) |
 | Spawn rule keyed by rule, with count | Change to `SpawnConfigComponent.Rules` / `SpawnSystem` slot model | `Core/Modules/Spawn` (domain); authoring through the room builder system + `RoomContentWriter`; room-editor UI; an admin verb as a thin caller | **Build now**; area pools **shaped for later** (Stage B) |
-| Area designation (tier + band range) | Area template field + audit check | `Core/Modules/World` template/writer; check in `IBalanceAuditSystem` (BalanceInspection); area editor field | **Build now**; theme/biome **shaped for later** |
+| Area designation (tier + band range) | Area template field + content-consistency check | `Core/Modules/World` template/writer, live component and the check. It moved out of `IBalanceAuditSystem` at the slice's `/advise` because it compares authored tags only ([`completed/area-designation.md`](../roadmap/completed/area-designation.md#decisions)). Area editor field; general area setter verb | **Build now**; theme/biome **shaped for later** |
 | Shared YAML definition store | Generic load/validate/save | Extracted from `IBalanceStandardsStore` / `SimScenarioStore`; core infrastructure beside the registry base | **Build now** (≥3 trigger) |
 | Help topic registry (engine + world layers) | `DefinitionRegistry` family over the shared store | `Core/Modules/Help`; `HelpCommand` gains the topic step; re-derived on `reload`; Blazor help-topic editor (world layer editable, engine layer shown read-only with an "override" action) | **Build now** |
 | Relative-power read | New domain-tier read (stats + oracle + tier) | `Core/Modules/Progression`, as a sibling system that `ProgressionSystem` must **not** depend on (guard test) | **Build now** |
@@ -305,7 +305,7 @@ Each gap slice runs the full per-slice loop (`/new-plan` → spec gate → build
 |---|---|---|---|---|
 | 1 | ✅ [`dev-world-foundation`](../roadmap/completed/dev-world-foundation.md) (shipped) | Policy amendment (world-content.md, CLAUDE.md, plan.md, dev-world README); world manifest; dev-world launch profile; hub skeleton with starting room and respawn | R1–R3, R15 | — |
 | 2 | ✅ [`spawn-authoring`](../roadmap/completed/spawn-authoring.md) (shipped) | Rule-keyed slots + count; room-editor and admin authoring; mob-side spawn-room removal | R9, R12, R30 | 1 |
-| 3 | `area-designation` | Area tier/band-range field + editor; audit out-of-designation check | R4, R23 | 1 (parallel with 2) |
+| 3 | ✅ [`area-designation`](../roadmap/completed/area-designation.md) (shipped) | Optional area (Tier, band-range) designation + YAML/editor/`areaset` authoring; out-of-designation check (warn-only) on room spawn rules in boot report, `area`, Integrity, area editor and rule saves | R4, R23 | 1 (parallel with 2) |
 | 4 | `help-topics` | Shared YAML store extraction (+ standards/scenarios/**world-manifest** migration; the manifest store from slice 1 is accepted bounded debt); topic registry with engine + world layers; `help` topic step; topic editor; engine topic set | R18–R19 | — (parallel) |
 | 5 | `relative-power-consider` | Relative-power read; anti-grind on effective power, extended to the ability-use and damage-taken rows when there's an opponent (balance re-pin); `consider`; `power` migration; progression doc-accuracy fixes | R20–R22 | — (parallel) |
 | 6–8 | Content drops B1 → B2 → B3 | Hub onboarding rooms + hub shop rows for the band, hunting area, mobs, found items, help topic text | R5–R8, R10–R14, R16–R17, R24–R25 | 1–3 (4 and 5 by the drop that needs them) |
@@ -314,6 +314,7 @@ Each gap slice runs the full per-slice loop (`/new-plan` → spec gate → build
 - **Playtest track interleaving:** the playtest program's substrate slice can start right after slice 1, since it needs a bootable dev-world with a starting room. Its bots then check each content drop. Its own `/refine` → `/advise` fixes the exact order.
 - **Content drops are not plan-template slices.** They add no gameplay state or system, so INV-18/19/25 have nothing to check. Each drop is one PR closed by a short checklist:
   - the band-drift audit and the new designation check come back clean;
+  - the drop's hunting area carries its (Tier 0, Band n) designation ([area designation](../features/world/area-model.md#area-designation));
   - the baseline sweep has run and its report is reviewed;
   - the band's standards expectations are stated (or explicitly left descriptive);
   - connectivity is verified (R6);

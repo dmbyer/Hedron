@@ -22,8 +22,9 @@ namespace Hedron.Core.Modules.World.Systems
         /// aspect-composition normalization, the supplied starting-ability ids against the
         /// ability registry, and live area-entity aspect-affinity compositions. Also emits a
         /// warn-not-error <see cref="ValidationReport.Warnings"/> entry per room-coordinate
-        /// collision (two rooms in one area sharing X/Y/Z), sourced from the template registry.
-        /// This is the boot bootstrap's sweep.
+        /// collision (two rooms in one area sharing X/Y/Z), sourced from the template registry,
+        /// and one per out-of-designation placement (<see cref="AreaPlacementCheck"/>, never an
+        /// error). This is the boot bootstrap's sweep; <c>reload</c> does not run it.
         /// </summary>
         /// <param name="startingAbilityIds">
         /// Ability ids configured as character defaults; each must resolve in the ability
@@ -38,7 +39,8 @@ namespace Hedron.Core.Modules.World.Systems
         /// empty report for kinds that carry no single-definition rules yet.
         /// <list type="bullet">
         ///   <item><strong>Area</strong> — aspect-affinity composition normalization (parity with
-        ///     the boot sweep).</item>
+        ///     the boot sweep) and the designation shape check (<see cref="AreaDesignationValidation"/>,
+        ///     the same rule the area deserializer throws on).</item>
         ///   <item><strong>Mob</strong> — currency-loot ranges are non-negative and
         ///     <c>Min ≤ Max</c>. Fail-fast: an inverted range is refused, never clamped, so no
         ///     surface can write a mob whose loot roll is undefined at spawn.</item>

@@ -1,8 +1,12 @@
 @page "/area/new"
 @page "/area/{BlueprintId}"
 @using Hedron.Core.Modules.Aspects
+@using Hedron.Core.Modules.Ascension
+@using Hedron.Core.Modules.World
+@using Hedron.Core.Modules.World.Systems
 @using Hedron.Core.Modules.World.Templates
 @inject IContentDefinitionCatalog Catalog
+@inject IAreaDesignationAudit DesignationAudit
 @inject NavigationManager Nav
 
 <PageTitle>@(IsNew ? "New area" : "Edit area")</PageTitle>
@@ -61,6 +65,64 @@ else if (_template is not null)
             </div>
         }
         <p class="hint">Leave all at 0 to attach no affinities component.</p>
+    </fieldset>
+
+    <fieldset class="designation">
+        <legend>Designation</legend>
+        <label><input type="checkbox" checked="@_designated" @onchange="OnDesignatedChanged" /> Designated</label>
+        @if (_designated)
+        {
+            <div class="field-row">
+                <label>Tier</label>
+                <select value="@_tier" @onchange="e => OnDesignationField(e, v => _tier = v)">
+                    @for (var t = 0; t <= AscensionConstants.MaxTier; t++)
+                    {
+                        <option value="@t">@t</option>
+                    }
+                </select>
+                <label>Band min</label>
+                <select value="@_bandMin" @onchange="e => OnDesignationField(e, v => { _bandMin = v; _bandMax = Math.Max(_bandMax, v); })">
+                    @for (var b = AreaDesignation.MinBand; b <= AreaDesignation.MaxBand; b++)
+                    {
+                        <option value="@b">@b</option>
+                    }
+                </select>
+                <label>Band max</label>
+                <select value="@_bandMax" @onchange="e => OnDesignationField(e, v => _bandMax = v)">
+                    @for (var b = AreaDesignation.MinBand; b <= AreaDesignation.MaxBand; b++)
+                    {
+                        <option value="@b">@b</option>
+                    }
+                </select>
+            </div>
+        }
+        <p class="hint">
+            The (Tier, Band) range this area is meant to hold. Spawn rules placing a banded mob or item
+            outside it are flagged below and on the Integrity page (advisory only).
+        </p>
+
+        @if (!IsNew)
+        {
+            @if (_findings.Count == 0)
+            {
+                <p class="success">No out-of-designation placements in this area.</p>
+            }
+            else
+            {
+                <div class="warning-box">
+                    <strong>Out-of-designation placements (@_findings.Count):</strong>
+                    <ul>
+                        @foreach (var finding in _findings)
+                        {
+                            <li>
+                                @finding.Describe()
+                                <a href="@($"room/{Uri.EscapeDataString(finding.RoomBlueprintId)}")">Edit room</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        }
     </fieldset>
 
     @if (_errors.Count > 0)
@@ -141,6 +203,14 @@ else if (_template is not null)
     private IReadOnlyList<string> _errors = Array.Empty<string>();
     private IReadOnlyList<string> _warnings = Array.Empty<string>();
 
+    // Designation form state: presentation only. The bound value is AreaDesignation.Of(...) or
+    // null; shape validation stays in the catalog save (IContentValidator).
+    private bool _designated;
+    private int _tier;
+    private int _bandMin = AreaDesignation.MinBand;
+    private int _bandMax = AreaDesignation.MinBand;
+    private IReadOnlyList<PlacementFinding> _findings = Array.Empty<PlacementFinding>();
+
     private bool IsNew => _forceNew || string.IsNullOrEmpty(BlueprintId);
 
     protected override void OnParametersSet()
@@ -163,6 +233,44 @@ else if (_template is not null)
             _template = definition?.Template as AreaTemplate;
             _notFound = _template is null;
         }
+
+        ReadDesignationForm();
+        RefreshFindings();
+    }
+
+    private void ReadDesignationForm()
+    {
+        var designation = _template?.Designation;
+        _designated = designation is not null;
+        _tier = designation?.Min.Tier ?? 0;
+        _bandMin = designation?.Min.Band ?? AreaDesignation.MinBand;
+        _bandMax = designation?.Max.Band ?? AreaDesignation.MinBand;
+    }
+
+    private void OnDesignatedChanged(ChangeEventArgs e)
+    {
+        _designated = e.Value is true;
+        BindDesignation();
+    }
+
+    private void OnDesignationField(ChangeEventArgs e, Action<int> assign)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var value))
+            assign(value);
+        BindDesignation();
+    }
+
+    private void BindDesignation()
+    {
+        if (_template is null) return;
+        _template.Designation = _designated ? AreaDesignation.Of(_tier, _bandMin, _bandMax) : null;
+    }
+
+    private void RefreshFindings()
+    {
+        _findings = _template is null || IsNew
+            ? Array.Empty<PlacementFinding>()
+            : DesignationAudit.Findings(_template.BlueprintId);
     }
 
     private int AffinityFor(AspectId aspect) =>
@@ -218,6 +326,7 @@ else if (_template is not null)
         {
             _saved = true;
             _warnings = result.Warnings;
+            RefreshFindings();
             // After a successful create, switch the URL to the edit route for the minted id —
             // unless a "Save & create next" is mid-flight, which re-arms this page in place.
             if (IsNew && !_createNextPending)
@@ -248,6 +357,8 @@ else if (_template is not null)
 
         _template = (AreaTemplate)Catalog.CreateNextFrom(previous, "New Area").Template;
         _forceNew = true;
+        ReadDesignationForm();
+        RefreshFindings();
         _saved = false;
         _focusPending = true;
     }

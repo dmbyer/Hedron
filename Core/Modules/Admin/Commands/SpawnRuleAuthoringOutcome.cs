@@ -1,9 +1,11 @@
 using System.Threading.Tasks;
+using Hedron.Core.Commands;
 using Hedron.Core.Events;
 using Hedron.Core.Modules.Admin.Events;
 using Hedron.Core.Modules.Admin.Systems;
 using Hedron.Core.Modules.World.Systems;
 using Hedron.Core.Modules.World.Templates;
+using Hedron.Core.Output;
 using Hedron.Core.Systems;
 
 namespace Hedron.Core.Modules.Admin.Commands
@@ -39,6 +41,25 @@ namespace Hedron.Core.Modules.Admin.Commands
             await _eventBus.PublishAsync(new SpawnRuleAuthoredByAdminEvent(
                 adminEntityId, roomEntityId, result.RoomBlueprintId, rule.Id, change,
                 rule.BlueprintId, rule.Count, rule.RespawnDelaySeconds)).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Prints each out-of-designation finding the builder attached to the result as a warning
+        /// line (R13). Advisory output only: the rule is already saved, and the finding is not an
+        /// audit fact, so it is not added to the event. The judgement came from the builder; this
+        /// only renders <see cref="PlacementFinding.Describe"/>.
+        /// </summary>
+        public async Task WriteFindingsAsync(CommandContext context, SpawnRuleMutationResult result)
+        {
+            if (result.Findings is null)
+                return;
+
+            foreach (var finding in result.Findings)
+            {
+                await context.Output.WriteAsync(new PlainMessage(
+                    "Warning: " + finding.Describe(), OutputSeverity.System, OutputCategory.System))
+                    .ConfigureAwait(false);
+            }
         }
     }
 }

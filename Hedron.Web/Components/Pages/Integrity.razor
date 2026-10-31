@@ -1,6 +1,7 @@
 @page "/integrity"
 @using Hedron.Core.Modules.BalanceInspection
 @using Hedron.Core.Modules.BalanceInspection.Systems
+@using Hedron.Core.Modules.World.Systems
 @using Hedron.Web.Services
 @inject ContentIntegritySweepService Sweeps
 @inject ITemplateConformanceSystem Conformance
@@ -53,6 +54,56 @@
                         <td class="missing-id mono">@ref_.MissingTargetId</td>
                         <td>
                             <a href="@EditHref(ref_.SourceKind, ref_.SourceBlueprintId)">Edit</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@if (_swept)
+{
+    <h2 style="margin-top:2rem">Out-of-designation placements</h2>
+    <p class="hint">
+        Room spawn rules placing a banded mob or item whose authored (Tier, Band) is outside its
+        area's designation. Advisory only &mdash; the rules still spawn.
+    </p>
+
+    @if (_placements.Count == 0)
+    {
+        <p class="success">No out-of-designation placements.</p>
+    }
+    else
+    {
+        <p class="integrity-summary">Found <strong>@_placements.Count</strong> placement@(_placements.Count == 1 ? "" : "s") outside designation.</p>
+
+        <table class="grid">
+            <thead>
+                <tr>
+                    <th>Room</th>
+                    <th>Rule</th>
+                    <th>Places</th>
+                    <th>Authored</th>
+                    <th>Area</th>
+                    <th>Designation</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var finding in _placements)
+                {
+                    <tr @key="(finding.RoomBlueprintId, finding.RuleId)">
+                        <td class="mono">@finding.RoomBlueprintId</td>
+                        <td class="mono">@finding.RuleId</td>
+                        <td><span class="kind-badge">@finding.Kind</span> <span class="mono">@finding.BlueprintId</span></td>
+                        <td>T@(finding.Authored.Tier) B@(finding.Authored.Band)</td>
+                        <td class="mono">@finding.AreaBlueprintId</td>
+                        <td>@finding.Designation</td>
+                        <td>
+                            <a href="@EditHref(ContentKind.Room, finding.RoomBlueprintId)">Edit room</a>
+                            &middot;
+                            <a href="@EditHref(ContentKind.Area, finding.AreaBlueprintId)">Edit area</a>
                         </td>
                     </tr>
                 }
@@ -226,6 +277,7 @@
     private bool _swept;
     private IReadOnlyList<BrokenReference> _broken = Array.Empty<BrokenReference>();
     private BalanceAuditReport? _auditReport;
+    private IReadOnlyList<PlacementFinding> _placements = Array.Empty<PlacementFinding>();
     private string? _error;
 
     private readonly Dictionary<string, ConformancePreview> _previews = new();
@@ -235,7 +287,7 @@
     private bool _bulkConforming;
     private string? _conformanceError;
 
-    // The two corpus sweeps run in ContentIntegritySweepService on a background thread; the page
+    // The three corpus sweeps run in ContentIntegritySweepService on a background thread; the page
     // only starts them and projects the snapshot. Nothing here blocks the circuit.
     protected override Task OnInitializedAsync() => RunSweep();
 
@@ -259,6 +311,7 @@
         _swept = status.State == IntegritySweepState.Completed;
         _broken = status.Broken;
         _auditReport = status.AuditReport;
+        _placements = status.PlacementFindings ?? Array.Empty<PlacementFinding>();
         _error = status.ErrorMessage;
     }
 

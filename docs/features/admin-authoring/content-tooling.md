@@ -39,7 +39,14 @@ The catalog dispatches by `ContentKind` internally; it is a thin facade over per
 [`ISpawnRuleAuthoring.cs`](../../../Core/Modules/Authoring/Systems/ISpawnRuleAuthoring.cs), implemented by the catalog (DI forwards the singleton, as for `IWorldManifestAuthoring`; a separate interface leaves `IContentDefinitionCatalog` fakes untouched):
 
 - `SpawnSitesFor(ContentKind kind, string blueprintId)` → every `SpawnSite(RoomBlueprintId, AreaBlueprintId, Rule)` naming a mob or item, ordered by room id. **Lock-free read** over the cached room sweep (generation-checked publish), same posture as `List`/`Load`.
+- `AllSpawnSites()` → every `SpawnSite` on disk, ordered by room id then rule id; the same lock-free read over the cached room sweep. It feeds the catalog-backed out-of-designation check (below).
 - `UpsertSpawnRuleAsync(roomBlueprintId, rule)` — mints a blank id (`SpawnRuleIds.Mint`) and replaces a rule by id (case-insensitive) or appends it; `RemoveSpawnRuleAsync(roomBlueprintId, ruleId)` removes by id. Both run **under `_writeGate`** and save through `SaveRoomCoreAsync`, so `ContentValidator` (`SpawnRuleValidation`) refuses an invalid rule with nothing written; an unknown room or rule is refused.
+
+**Out-of-designation warnings on rule saves (area-designation).** Every catalog room write (`SaveAsync` of a room, `SaveRoomAsync`, and so `UpsertSpawnRuleAsync`) captures the room's prior on-disk rules *before* writing, inside `_writeGate`.
+- After a successful write it judges each rule that is **new or changed** (new id, or a different blueprint/count/delay, ids compared case-insensitively) with `AreaPlacementCheck.Judge` over a `CatalogPlacementSource`, and appends each finding's `Describe()` to `ContentWriteResult.Warnings`.
+- Editors already render `Warnings`, so the room spawn-rules editor, the grid editor's room panel and the "Spawns in" panel show it with no new UI.
+- A save whose rules are unchanged warns nothing, even when the room moved area; the area editor list and Integrity cover that case.
+- An unreadable prior room counts as no prior, so every rule is judged as new.
 
 File-only: rules reach the Server's live world on its `reload` or restart (the web host's Apply refreshes only its own preview world). Legacy-shape files: `Load` surfaces the `ContentShapeException` message; `List` skips the file with a warning (existing posture).
 
@@ -88,8 +95,8 @@ Operations:
 
 On-demand content validator factored out of `RegistryValidationBootstrap`. Two call modes share the same referential-integrity rules:
 
-- `ValidateRegistry(startingAbilityIds)` — whole-registry sweep (ability→effect/aspect cross-refs, aspect-composition normalization, area affinity normalization, and a warn-not-error room-coordinate-collision check sourced from `ITemplateRegistry`). Used at boot by `RegistryValidationBootstrap`.
-- `Validate(IEntityTemplate)` — single in-memory definition check. Used by `IContentDefinitionCatalog.SaveAsync` per edit and by the `generate` run-mode per emitted definition.
+- `ValidateRegistry(startingAbilityIds)` — whole-registry sweep (ability→effect/aspect cross-refs, aspect-composition normalization, area affinity normalization, and warn-not-error checks sourced from `ITemplateRegistry`: room-coordinate collisions, spawn rules naming an unknown template, and one warning per **out-of-designation placement** via `AreaPlacementCheck.Sweep(new RegistryPlacementSource(...))`). Used at boot by `RegistryValidationBootstrap`; `reload` does not run it (see the backlog entry "`reload` skips registry validation").
+- `Validate(IEntityTemplate)` — single in-memory definition check. For an area it reports aspect-affinity normalization **and** the designation shape (`AreaDesignationValidation`) together. Used by `IContentDefinitionCatalog.SaveAsync` per edit and by the `generate` run-mode per emitted definition.
 - `ValidateBlueprintId(ContentKind, string)` — validates a candidate blueprint id: non-empty, filename-safe (`[A-Za-z0-9._-]+`, no path separator, no `..` segment, not a reserved Windows device name — the id becomes a file name) refuses on failure; a kind-prefix mismatch (e.g. a room id not starting with `room.`) is a non-blocking warning. Shared by `RenameAsync` and the create-with-id guard (`CreateAsync`). Added blueprint-id-editing.
 
 Returns a structured `ValidationReport` (`Errors` + `Warnings`; `IsValid` is errors-only); **never throws** (INV-5). The host decides fail-fast policy — the boot bootstrap logs and throws on errors, logs and continues on warnings; the editor and generator surface structured errors.
@@ -97,6 +104,14 @@ Returns a structured `ValidationReport` (`Errors` + `Warnings`; `IsValid` is err
 **Interface:** [`IContentValidator.cs`](../../../Core/Modules/World/Systems/IContentValidator.cs)
 
 **Registered:** `WorldModule.AddWorldModule`. Located at `Core/Modules/World/Systems/`.
+
+## IAreaDesignationAudit — out-of-designation findings on disk
+
+[`IAreaDesignationAudit.cs`](../../../Core/Modules/Authoring/Systems/IAreaDesignationAudit.cs) — `Findings(areaBlueprintId?)` runs the shared [`AreaPlacementCheck`](../world/area-model.md#area-designation) over a fresh [`CatalogPlacementSource`](../../../Core/Modules/Authoring/Systems/CatalogPlacementSource.cs), so it reflects disk with no reload. It is the web-host counterpart of the registry-backed `IAreaPlacementSystem`, and a parity test pins identical findings for identical content.
+- **Consumers:** the area editor's findings list and the Integrity page's "Out-of-designation placements" category, via `ContentIntegritySweepService`.
+- **Reads:** `CatalogPlacementSource` reads sites from `ISpawnRuleAuthoring.AllSpawnSites()` and the area/target tags through `Load`, memoized per sweep. The memo is local to one sweep, so it is confined (INV-31).
+- **Unreadable files:** a malformed area, mob or item file is **logged and treated as unknown**, which gives no finding. `Load` deserializes without a catch, and one hand-edited bad file must not blank the Integrity page or throw from a save.
+- Stateless; publishes nothing. **Registered:** `AuthoringModule`.
 
 ## IAreaLayoutSystem — visual grid area editor
 

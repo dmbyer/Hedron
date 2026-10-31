@@ -23,6 +23,7 @@ namespace Hedron.Core.Modules.Admin.Systems
         private readonly ITemplateRegistry _templateRegistry;
         private readonly IAreaSystem _areaSystem;
         private readonly ISpawnSystem _spawnSystem;
+        private readonly IAreaPlacementSystem _placementSystem;
         private readonly ILogger<RoomBuilderSystem> _logger;
 
         public RoomBuilderSystem(
@@ -30,12 +31,14 @@ namespace Hedron.Core.Modules.Admin.Systems
             ITemplateRegistry templateRegistry,
             IAreaSystem areaSystem,
             ISpawnSystem spawnSystem,
+            IAreaPlacementSystem placementSystem,
             ILogger<RoomBuilderSystem> logger)
         {
             _entityService = entityService;
             _templateRegistry = templateRegistry;
             _areaSystem = areaSystem;
             _spawnSystem = spawnSystem;
+            _placementSystem = placementSystem;
             _logger = logger;
         }
 
@@ -166,14 +169,17 @@ namespace Hedron.Core.Modules.Admin.Systems
             var removed = template.SpawnRules[index];
             var candidate = new List<SpawnRule>(template.SpawnRules);
             candidate.RemoveAt(index);
-            return Commit(roomId, template, candidate, removed);
+            return Commit(roomId, template, candidate, removed, judgePlacement: false);
         }
 
         /// <summary>
         /// Validates the candidate rule set; on success writes it to the template and the live
-        /// component (the component is removed with the last rule) and syncs the tracker.
+        /// component (the component is removed with the last rule) and syncs the tracker. An added
+        /// or updated rule is then judged against its area designation (R13): an out-of-designation
+        /// placement still commits, and the finding rides back on the result as advisory output.
         /// </summary>
-        private SpawnRuleMutationResult Commit(uint roomId, RoomTemplate template, List<SpawnRule> candidate, SpawnRule rule)
+        private SpawnRuleMutationResult Commit(
+            uint roomId, RoomTemplate template, List<SpawnRule> candidate, SpawnRule rule, bool judgePlacement = true)
         {
             var errors = SpawnRuleValidation.Errors(template.BlueprintId, candidate);
             if (errors.Count > 0)
@@ -199,7 +205,9 @@ namespace Hedron.Core.Modules.Admin.Systems
             _logger.LogDebug(
                 "RoomBuilderSystem: room={RoomBlueprintId} spawn rule '{RuleId}' committed; spawned={Spawned} detached={Detached}",
                 template.BlueprintId, rule.Id, sync.SpawnedEntityIds.Count, sync.SlotsDetached);
-            return new SpawnRuleMutationResult(true, null, rule, template.BlueprintId, sync);
+            var finding = judgePlacement ? _placementSystem.JudgeRule(template.BlueprintId, rule) : null;
+            return new SpawnRuleMutationResult(true, null, rule, template.BlueprintId, sync,
+                finding is null ? Array.Empty<PlacementFinding>() : new[] { finding });
         }
 
         private bool TryResolveRoom(uint roomId, [NotNullWhen(true)] out RoomTemplate? template, out SpawnRuleMutationResult refusal)

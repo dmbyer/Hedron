@@ -113,6 +113,7 @@ namespace Hedron.Core.Modules.Mobs.Commands
             await context.Output.WriteAsync(new PlainMessage(
                 $"Mob '{name}' created. Blueprint id: {result.BlueprintId} (spawn rule '{rule.Rule.Id}' added here).",
                 OutputSeverity.Confirmation, OutputCategory.System)).ConfigureAwait(false);
+            await _ruleOutcome.WriteFindingsAsync(context, rule).ConfigureAwait(false);
         }
     }
 }

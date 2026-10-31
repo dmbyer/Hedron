@@ -34,7 +34,7 @@ The room-to-area relationship uses a **bidirectional via component field + scan*
 - **Commands** — `north`/`south`/`east`/`west`/`up`/`down` (movement), `look`. See [`../../reference/commands.md`](../../reference/commands.md).
 - **Events** — `PlayerMovedEvent` (thin, past-tense). See [`../../reference/handlers.md`](../../reference/handlers.md).
 - **Components** — `RoomComponent`, `AreaComponent`, `LocationComponent`, `SpawnConfigComponent`, `BlueprintComponent`. See [`../../reference/components.md`](../../reference/components.md).
-- **Admin commands** — `spawn <blueprintId>`, `teleport <target>`, `reload`, `dig <direction> [name]`, `set <property> <value>`, `area [blueprintId]`, `setarea <roomBlueprintId> <areaBlueprintId>`. See [`../../reference/commands.md`](../../reference/commands.md).
+- **Admin commands** — `spawn <blueprintId>`, `teleport <target>`, `reload`, `dig <direction> [name]`, `set <property> <value>`, `area [blueprintId]`, `setarea <roomBlueprintId> <areaBlueprintId>`, `areaset <areaBlueprintId> <name|description|designation> <value>`. See [`../../reference/commands.md`](../../reference/commands.md).
 - **Config keys** — `Paths:DataDirectory` (default `data/`; holds `content/`, `hedron.db`, … — see [05-configuration](../../architecture/05-configuration.md#data-locations--one-rule)), `World:StartingRoomBlueprintId` (default `room.crossroads`; the fallback behind a world's `world.yaml` `startingRoomId` — see [world-content.md](world-content.md#world-manifest--worldyaml)), `Admin:PrivilegedNames`, `Heartbeat:IntervalMs` (default 2000). See [`../../architecture/05-configuration.md`](../../architecture/05-configuration.md).
 
 ## Flows
@@ -43,7 +43,7 @@ The room-to-area relationship uses a **bidirectional via component field + scan*
 - [Content reload (flow-05)](../../architecture/flows/flow-05-content-reload.md) — `reload` re-scans content and seeds missing entities. Cross-cutting infra; world links it.
 - [Heartbeat tick (flow-16)](../../architecture/flows/flow-16-heartbeat-tick.md) — the tick loop that drives combat, effects, spawn, and regen. Cross-cutting infra; world links it.
 - [Admin room creation (flow-08)](../../architecture/flows/flow-08-admin-room-creation.md) — `dig` + `set` runtime room authoring.
-- [Admin authoring journey (flow-08)](../../architecture/flows/flow-08-admin-room-creation.md) — `dig`/`mkarea`/`mkitem`/`mkmob`/`set`/`list` builder verbs.
+- [Admin authoring journey (flow-08)](../../architecture/flows/flow-08-admin-room-creation.md) — `dig`/`mkarea`/`areaset`/`mkitem`/`mkmob`/`set`/`list` builder verbs.
 
 ## Related
 

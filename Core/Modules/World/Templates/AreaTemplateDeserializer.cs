@@ -78,7 +78,40 @@ namespace Hedron.Core.Modules.World.Templates
                     template.AspectAffinities = parsed;
             }
 
+            if (dto.Designation is { } d)
+                template.Designation = ParseDesignation(dto.Id, d);
+
             return template;
+        }
+
+        /// <summary>
+        /// A present <c>designation</c> block must carry all three keys and pass
+        /// <see cref="AreaDesignationValidation"/>; anything else is a shape error (never a
+        /// silent default), so boot and <c>reload</c> refuse the corpus (R2).
+        /// </summary>
+        private static AreaDesignation ParseDesignation(string areaId, DesignationDto d)
+        {
+            var missing = new List<string>();
+            if (d.Tier is null) missing.Add("tier");
+            if (d.BandMin is null) missing.Add("bandMin");
+            if (d.BandMax is null) missing.Add("bandMax");
+            if (missing.Count > 0)
+                throw new ContentShapeException(
+                    $"Area '{areaId}': designation is missing required key(s): {string.Join(", ", missing)}.");
+
+            var designation = AreaDesignation.Of(d.Tier!.Value, d.BandMin!.Value, d.BandMax!.Value);
+            var errors = AreaDesignationValidation.Errors(areaId, designation);
+            if (errors.Count > 0)
+                throw new ContentShapeException(string.Join(" ", errors));
+
+            return designation;
+        }
+
+        private sealed class DesignationDto
+        {
+            public int? Tier { get; set; }
+            public int? BandMin { get; set; }
+            public int? BandMax { get; set; }
         }
 
         private sealed class AreaDto
@@ -91,6 +124,7 @@ namespace Hedron.Core.Modules.World.Templates
             public bool Pvp { get; set; }
             public List<string>? Rooms { get; set; }
             public Dictionary<string, int>? AspectAffinities { get; set; }
+            public DesignationDto? Designation { get; set; }
         }
     }
 }

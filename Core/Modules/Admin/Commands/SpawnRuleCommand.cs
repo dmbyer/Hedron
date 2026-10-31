@@ -187,6 +187,7 @@ namespace Hedron.Core.Modules.Admin.Commands
                 $"respawn {rule.RespawnDelaySeconds}s. Spawned {result.Sync.SpawnedEntityIds.Count}, " +
                 $"detached {result.Sync.SlotsDetached}.",
                 OutputSeverity.Confirmation).ConfigureAwait(false);
+            await _outcome.WriteFindingsAsync(context, result).ConfigureAwait(false);
         }
 
         private async Task ListAsync(CommandContext context, uint roomId)
