@@ -83,6 +83,7 @@ public sealed class DrinkCommand : ICommand
 7. **Register** in the feature module: `services.AddSingleton<ICommand, DrinkCommand>();`
 8. **Subscribe** the handler that consumes the event the command publishes (if any) in `Server/Program.cs`.
 9. **Docs:** add a row to `docs/reference/commands.md`.
+10. **Help-topic collisions:** a verb whose name or alias equals a help topic's id or alias shadows that topic (`help <token>` shows the verb). The topic family warns at load time, and the engine-topic test (`EngineHelpTopicsTests`, zero diagnostics against the real verb set) fails if a new verb collides with an engine topic in `content/help/` — rename one of them.
 
 ## Admin commands
 

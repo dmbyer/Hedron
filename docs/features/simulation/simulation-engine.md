@@ -284,10 +284,9 @@ identically whether the CLI or the editor wrote it — `List` never throws on an
   fight outcomes) is severed by this same gap, so paying for the honest fidelity wouldn't currently
   measure anything. See
   [`../../roadmap/backlog.md`](../../roadmap/backlog.md#-ascension-tier-baseline-has-no-real-combat-effect-calibration-gap-found-by-sim-2).
-- **Acknowledged debt (carried from the seed, deepened sim-3):** `SimScenarioStore`'s hand-rolled
-  YAML load/validate/save is a second instance of the backlogged "YAML-authored definition pipeline
-  for registry families" generalization (`BalanceStandardsStore` was the first); sim-3's `SaveAsync`
-  is a second hand-rolled serializer, not a third family — still below the ≥3 trigger. The sandbox
+- **Scenario YAML storage:** `SimScenarioStore` reads, lists and writes through the shared
+  `YamlDefinitionDirectory` (`Core/Systems/Definitions/`, help-topics WP1), keeping its own mapping
+  and validation. **Acknowledged debt (carried from the seed):** the sandbox
   factory deliberately mirrors, rather than shares, the `Hedron.Tests` harness composition —
   unification is shape-for-later on a real ≥3 duplication signal.
 - **Acknowledged debt (sim-4):** `SimulationReport`'s combat scalar fields (`SideAWins`, `TicksToKill`,

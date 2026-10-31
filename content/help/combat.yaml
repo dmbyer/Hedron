@@ -1,0 +1,22 @@
+id: combat
+title: Combat
+aliases:
+  - fighting
+  - fight
+seeAlso:
+  - death
+  - progression
+body: |
+  Fights only start when you start them: 'kill <target>' (or 'k') attacks a creature in
+  the room. Once engaged, combat continues on its own each moment until one side falls or
+  someone leaves.
+
+  Your abilities can turn a fight. 'skills' and 'spells' list what you know, and
+  'help <ability>' explains one. Abilities cost a resource such as stamina or mana, and
+  many need time to recover before you can use them again.
+
+  If a fight is going badly, 'flee' ends it immediately. Get away and recover before you
+  try again - the creature will still be there.
+
+  Defeating a creature rewards experience and often coin. Stronger creatures are worth
+  more, but creatures far weaker than you teach you little.

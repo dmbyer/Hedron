@@ -1,0 +1,76 @@
+@page "/help-topics"
+@using Hedron.Core.Modules.Help
+@using Hedron.Core.Modules.Help.Systems
+@using Hedron.Core.Systems.Definitions
+@inject IHelpTopicAuthoring Authoring
+
+<PageTitle>Help topics</PageTitle>
+
+<h1>Help topics</h1>
+
+<p class="hint">
+    Authored <span class="mono">help &lt;topic&gt;</span> articles. The <strong>engine</strong> layer ships with
+    Hedron and is read-only here; the <strong>world</strong> layer (<span class="mono">&lt;content&gt;/help/</span>)
+    is yours. A world topic with an engine topic's id overrides it.
+</p>
+
+<p class="callout">
+    Reload-to-apply: saved topics take effect in-game on the next <strong>reload</strong> (or Apply to live
+    for this preview host).
+</p>
+
+<div class="actions">
+    <a class="btn primary" href="help-topics/edit">New topic</a>
+</div>
+
+<table class="grid">
+    <thead>
+        <tr><th>Id</th><th>Title</th><th>Origin</th><th>File</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var topic in _view.Topics)
+        {
+            var notes = _view.Diagnostics.Where(d => d.Source == topic.SourceFile).ToList();
+            <tr>
+                <td><a class="mono" href="help-topics/edit/@topic.Id">@topic.Id</a></td>
+                <td>@topic.Title</td>
+                <td>@OriginLabel(topic.Origin)</td>
+                <td class="mono">@topic.SourceFile</td>
+                <td>@(notes.Count == 0 ? "ok" : $"{notes.Count} warning(s)")</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@{
+    var fileIssues = _view.Diagnostics.Where(d => _view.Topics.All(t => t.SourceFile != d.Source)).ToList();
+}
+@if (_view.Diagnostics.Count > 0)
+{
+    <h2>Diagnostics</h2>
+    <ul class="diagnostics">
+        @foreach (var d in _view.Diagnostics)
+        {
+            <li class="@(d.Severity == ContentDiagnosticSeverity.Error ? "error" : "warning")">
+                <span class="mono">@d.Source</span>: @d.Message
+            </li>
+        }
+    </ul>
+    @if (fileIssues.Any(d => d.Severity == ContentDiagnosticSeverity.Error))
+    {
+        <p class="hint">Errors are files that were skipped; fix them by hand or re-save the topic here.</p>
+    }
+}
+
+@code {
+    private HelpTopicCatalogView _view = new(Array.Empty<HelpTopic>(), Array.Empty<ContentDiagnostic>());
+
+    protected override void OnInitialized() => _view = Authoring.List();
+
+    private static string OriginLabel(HelpTopicOrigin origin) => origin switch
+    {
+        HelpTopicOrigin.Engine => "engine",
+        HelpTopicOrigin.World => "world",
+        _ => "world (overrides engine)",
+    };
+}

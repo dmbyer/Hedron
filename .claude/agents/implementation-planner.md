@@ -43,7 +43,7 @@ You do not write the C# code — that's for the user or the implement-plan skill
      - Existing components not yet confirmed: if this slice reads or writes a component whose `[Persistent]` status is wrong given the domain rules above, surface it as a **Gap exposed** finding.
 
    - **Level 3 — save-on-change scope:** caller-initiated `SaveEntityAsync` is permitted in only three cases — (a) at entity construction time, immediately after `AddComponent<PersistentEntity>`, to make the entity ID durable; (b) an **admin boundary save**: an admin-gated command that mutates an already-persistent entity through a domain system, calling `SaveEntityAsync` once after the mutation and pairing it with an audit event (e.g. `setplayer`, `setrespawn`); and (c) a **session-end force-save**: a player logout/disconnect/`quit` saving the player as the session ends (the only legitimate handler save site, `PlayerSessionHandler`). If the spec describes any other handler, or any non-admin command, calling `SaveEntityAsync` for a runtime state change, flag as a violation of INV-22.
-8. **Flows audit (required).** List every canonical flow in `flows/README.md` this slice introduces, replaces, or extends. The implementation slice's PR must update `flows/README.md` to match — the architecture-reviewer agent will block on drift. If the slice introduces a recurring flow that doesn't yet have a canonical entry, add a `flows/README.md` flow specification to the slice scope.
+8. **Flows audit (required).** List every canonical flow (indexed in `flows/README.md`, one file each: `flows/flow-NN-*.md`) this slice introduces, replaces, or extends. The implementation slice's PR must update each flow's own file (body **and** mermaid) to match, plus its index row when the summary changes — the architecture-reviewer agent will block on drift. If the slice introduces a recurring flow that doesn't yet have a canonical entry, add a new `flows/flow-NN-*.md` file and its index row to the slice scope.
 9. **Test plan (ground rule for INV-25 — required).** Derive the doc's **Test plan / Verification** section from the Postconditions and Main flow, applying the rubric in [docs/architecture/07-testing.md](../../docs/architecture/07-testing.md):
    - each new/changed **system** method → a system-unit test of its decision;
    - each **Main-Flow postcondition that asserts player-invisible internal state** (HP clamped, `BlueprintComponent` cleared, pair dedup, state flag set, event published) → name the tier (system-unit / handler / flow / persistence round-trip / architecture-guard / HTTP-integration — the last covers only the authoring JSON API, and requires a per-test temp content directory) and the assertion;
@@ -59,7 +59,7 @@ You do not write the C# code — that's for the user or the implement-plan skill
    - **New commands** (verb, aliases)
    - **New tests** (tier + target — the Test-plan items from step 9)
    - **Archetype changes** (if any)
-   - **Flows changed** in `flows/README.md` (cite each by title + what changes)
+   - **Flows changed** (each flow's own `flows/flow-NN-*.md` file; cite each by title + what changes)
 11. **Identify dependencies** — which items depend on others. This drives the build order.
 12. **Call out open questions** — anything the user should decide before implementation starts (e.g. "is `X` visible to witnesses or private?"). Cross-cutting and testability gaps (steps 7, 9) are open questions by default.
 

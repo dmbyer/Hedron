@@ -82,7 +82,7 @@ Each line ends with the **rank block** — the ability track's rank and `xp <ear
 **Aliases:** none  
 **MatchingMode:** `Partial`  
 **Location:** [`Core/Modules/Help/Commands/CommandsCommand.cs`](../../Core/Modules/Help/Commands/CommandsCommand.cs)  
-**Description:** Prints a category-grouped one-line index of all commands visible to the caller. Same visibility filtering as `help` (admin commands hidden when their `RequiredPrivileges` are unsatisfied). See [`../features/communication/help-system.md`](../features/communication/help-system.md).  
+**Description:** Prints a category-grouped one-line index of all commands visible to the caller. Same visibility filtering as `help` (admin commands hidden when their `RequiredPrivileges` are unsatisfied). See [`../features/help/help-system.md`](../features/help/help-system.md).  
 **Usage:** `commands`  
 **Schema:** no arguments  
 **Events:** none  
@@ -173,9 +173,9 @@ Each line ends with the **rank block** — the ability track's rank and `xp <ear
 **Aliases:** `?`  
 **MatchingMode:** `Partial`  
 **Location:** [`Core/Modules/Help/Commands/HelpCommand.cs`](../../Core/Modules/Help/Commands/HelpCommand.cs)  
-**Description:** With no argument, lists all commands visible to the caller grouped by category. With a verb argument, shows `LongDescription` and `Usage` for that command; falls through to `IAbilityRegistry` when no command matches. Special topics `skills`/`spells`/`abilities` append a global ability catalog. See [`../features/communication/help-system.md`](../features/communication/help-system.md) for the full lookup design.  
-**Usage:** `help [<verb>]`  
-**Schema:** optional `Token string "verb"`  
+**Description:** With no argument, lists all commands visible to the caller grouped by category, then a **Topics** block (`id — title`) when any help topics exist. With an argument (the rest of the line; one pair of surrounding quotes stripped), resolves through `IHelpLookupSystem`: exact verb → exact topic → exact ability, then verb prefix → topic prefix → ability prefix, visibility-gated (admin commands never match for players). A multi-word query tries topics/abilities with the whole query first (`help getting started`), then its first word as a verb (`help kill orc` → `kill`). Ambiguous verb or topic prefixes prompt with candidates; an ambiguous ability prefix is "No help found". A topic writes `HelpTopicMessage`; administrators also get the origin footer (`HelpTopicOriginMessage`). Typing `skills`/`spells`/`abilities` appends a global ability catalog. See [`../features/help/help-system.md`](../features/help/help-system.md).  
+**Usage:** `help [<command | topic | ability>]`  
+**Schema:** optional `RestOfLine string "topic"`  
 **Events:** none  
 **UsableWhileIncapacitated:** `true`
 
@@ -711,7 +711,7 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none  
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/Admin/Commands/ReloadCommand.cs`  
-**Description:** Rebuilds the live world from the content directory the same way a restart does, without dropping connected players. Force-saves all persistent state (`IPersistenceSystem.FlushAllAsync`), tears down every world-content entity (rooms, mobs, world/dropped/shop items — anything with a `BlueprintComponent` but no `PersistentEntity`), re-reads the YAML, and re-spawns the world fresh, then re-publishes `WorldContentReadyEvent` so the startup fan-out re-runs (shops re-seed, spawn slots rebuild, players' rooms are re-resolved). **Runtime instance state is reset**: edits to existing rooms/mobs/items take effect, picked-up world items respawn, depleted shops refill, and the buy-back shelf clears. Players whose room was removed from YAML are moved to the starting room. Persistent entities (players and player-owned items/containers) are preserved. **Refusal:** the corpus is staged and validated before teardown; if any file has a content shape error (a legacy spawn key, a `minCount`/`maxCount` rule, a malformed rule) the reload is refused as a whole — one error line per file, nothing torn down, and neither `WorldContentReadyEvent` nor `ContentReloadedEvent` is published.  
+**Description:** Rebuilds the live world from the content directory the same way a restart does, without dropping connected players. Force-saves all persistent state (`IPersistenceSystem.FlushAllAsync`), tears down every world-content entity (rooms, mobs, world/dropped/shop items — anything with a `BlueprintComponent` but no `PersistentEntity`), re-reads the YAML, and re-spawns the world fresh, then re-publishes `WorldContentReadyEvent` so the startup fan-out re-runs (shops re-seed, spawn slots rebuild, players' rooms are re-resolved). **Runtime instance state is reset**: edits to existing rooms/mobs/items take effect, picked-up world items respawn, depleted shops refill, and the buy-back shelf clears. Players whose room was removed from YAML are moved to the starting room. Persistent entities (players and player-owned items/containers) are preserved. **Refusal:** the corpus is staged and validated before teardown; if any file has a content shape error (a legacy spawn key, a `minCount`/`maxCount` rule, a malformed rule) the reload is refused as a whole — one error line per file, nothing torn down, and neither `WorldContentReadyEvent` nor `ContentReloadedEvent` is published, and no content reload participant runs. **Participant diagnostics:** on success the confirmation is followed by one line per diagnostic the content reload participants returned (e.g. `  [warning] world/kill.yaml: …` from help topics) — reported, never a refusal.  
 **Usage:** `reload`  
 **Schema:** no arguments  
 **Events:** on success publishes `WorldContentReadyEvent` (drives spawn-slot fill, shop re-seed, player re-hydration), then `ContentReloadedEvent` (audit); on refusal, none

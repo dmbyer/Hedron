@@ -1,0 +1,18 @@
+id: death
+title: Death & respawn
+aliases:
+  - respawn
+  - dying
+seeAlso:
+  - combat
+  - getting-started
+body: |
+  When your health runs out you collapse. A collapsed character is helpless and slowly
+  bleeds; if nothing intervenes, you die.
+
+  Death is not the end. You wake at your respawn point with reduced health and resources,
+  and you keep your experience, your items and your coin.
+
+  Recover by resting somewhere safe: 'rest' speeds up recovery, and 'stand' gets you back
+  on your feet. Once you are healthy, you can head back out - perhaps somewhere a little
+  less dangerous.

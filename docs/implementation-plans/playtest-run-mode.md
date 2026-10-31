@@ -159,8 +159,14 @@ PT-2 turns the PT-1 substrate into a designer tool and a CI gate. A designer wri
 
 - **Scope:**
   1. **YAML store: extract or consume.** Check whether Phase 5 `help-topics` has merged.
-     - **Branch A (merged):** build `PlaytestScenarioStore` on the shared store as shipped; nothing else.
-     - **Branch B (not merged, the expected case):** scenarios would be hand-rolled family #4, the first past instance #3, so per the brief **PT-2 performs the extraction** and `help-topics` consumes it.
+     - **Branch A (merged — the live case since Phase 5 `help-topics` shipped):** build `PlaytestScenarioStore` on the shared store as shipped; nothing else. The shipped contract, beyond the shapes below:
+       - `sealed record YamlFileEntry(string Path, string FileName, string Name, string? Error)` — `Name` is the selector result, falling back to the file-name stem; `Error` is non-null for an unparseable file, which is still listed.
+       - `sealed record YamlCodecOptions(bool OmitNulls = false)` — camelCase naming and `IgnoreUnmatchedProperties` always on.
+       - `YamlReadResult<TDto>(TDto? Dto, bool Exists, string? Error, Exception? Fault = null)` — `Fault` is the caught exception, so a throwing store can rethrow it unchanged.
+       - `YamlDefinitionDirectory<TDto>` also exposes `string Directory` and `bool Delete(string path)` (`ArgumentException` outside `Directory`); `WriteAsync(name, dto, ct, fallbackName = "definition")`.
+       - Multi-line strings are written as literal `|` blocks.
+       - The `IContentReloadParticipant` port (`Core/Systems/Definitions/`) exists if scenarios ever need to re-derive on content load.
+     - **Branch B (not merged — historical; help-topics extracted first):** scenarios would be hand-rolled family #4, the first past instance #3, so per the brief **PT-2 performs the extraction** and `help-topics` consumes it.
        - Add `Core/Systems/Definitions/{YamlDocumentFile.cs, YamlDefinitionDirectory.cs, YamlReadResult.cs, DefinitionValidation.cs}`:
          - `YamlDocumentFile<TDto>(string path, YamlCodecOptions? options = null)`: `string Path`; `YamlReadResult<TDto> Read()` → `(TDto? Dto, bool Exists, string? Error)`; `Task WriteAsync(TDto, CancellationToken)`.
          - `YamlDefinitionDirectory<TDto>(string directory, YamlCodecOptions? options = null)`: `IReadOnlyList<YamlFileEntry> List(Func<TDto, string?> nameOf)` (ordinal, name falls back to the filename, unparseable files listed rather than thrown); `YamlReadResult<TDto> Read(string path)`; `Task<string> WriteAsync(string name, TDto dto, CancellationToken)` (sanitized filename, the `SimScenarioStore.Sanitize` rule).

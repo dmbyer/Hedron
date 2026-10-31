@@ -73,8 +73,18 @@ namespace Hedron.Tests.Spawn
         public MobContentWriter MobWriter { get; }
         public ItemContentWriter ItemWriter { get; }
         public RecordingOutput Output { get; } = new();
+        public WorldConfiguration Config { get; } = new();
 
-        public SpawnWorld()
+        private readonly IOptions<WorldOptions> _options;
+        private readonly YamlContentSerializer _serializer;
+
+        /// <summary>A loader over this world's registry/config with a chosen logger and participants.</summary>
+        public WorldContentLoader LoaderWithLogger(
+            Microsoft.Extensions.Logging.ILogger<WorldContentLoader> logger,
+            IEnumerable<Hedron.Core.Systems.Definitions.IContentReloadParticipant>? participants) =>
+            new(Ecs, Registry, _serializer, RoomWriter, new WorldManifestStore(_options), Config, _options, logger, participants);
+
+        public SpawnWorld(IEnumerable<Hedron.Core.Systems.Definitions.IContentReloadParticipant>? participants = null)
         {
             Directory.CreateDirectory(Dir);
             AdminId = Ecs.CreateEntity().Id;
@@ -91,8 +101,9 @@ namespace Hedron.Tests.Spawn
             AreaWriter = new AreaContentWriter(options);
             MobWriter = new MobContentWriter(options);
             ItemWriter = new ItemContentWriter(options);
-            Loader = new WorldContentLoader(Ecs, Registry, serializer, RoomWriter, new WorldManifestStore(options),
-                new WorldConfiguration(), options, NullLogger<WorldContentLoader>.Instance);
+            _options = options;
+            _serializer = serializer;
+            Loader = LoaderWithLogger(NullLogger<WorldContentLoader>.Instance, participants);
 
             Spawn = new SpawnSystem(Ecs, Registry, Clock, NullLogger<SpawnSystem>.Instance);
             var shopSystem = new ShopSystem(Ecs, new WalletSystem(Ecs), new ItemSystem(Ecs), Clock, Options.Create(new ShopOptions()));

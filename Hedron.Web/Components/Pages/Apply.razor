@@ -33,6 +33,20 @@
             <tr><th>Templates removed</th><td>@r.TemplatesRemoved</td></tr>
         </tbody>
     </table>
+
+    @if (r.Diagnostics.Count > 0)
+    {
+        <h2>Content diagnostics</h2>
+        <p class="hint">Reported by re-derived content families (e.g. help topics). These never block a reload.</p>
+        <ul class="diagnostics">
+            @foreach (var d in r.Diagnostics)
+            {
+                <li class="@(d.Severity == Hedron.Core.Systems.Definitions.ContentDiagnosticSeverity.Error ? "error" : "warning")">
+                    <span class="mono">@d.Source</span>: @d.Message
+                </li>
+            }
+        </ul>
+    }
 }
 
 @if (_error is not null)

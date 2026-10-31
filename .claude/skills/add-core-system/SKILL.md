@@ -85,6 +85,10 @@ Precedents: `AspectRegistry` (enum key) · `AbilityRegistry` · `EffectRegistry`
 
 **Content I/O: fail-fast shape errors.** A template deserializer throws `ContentShapeException` (`Core/Systems/`) for a content *shape* error the operator must convert by hand (precedent: legacy spawn keys, malformed spawn rules). The loader's staged read collects every one into a single `ContentLoadException` that aborts boot (both hosts) or refuses `reload` as a whole, before anything is registered or torn down. Ordinary exceptions (e.g. malformed YAML) stay log-and-skip — opt into fail-fast only by throwing `ContentShapeException`. See [`world-content.md`](../../../docs/features/world/world-content.md#startup-phases) and [Flow 5](../../../docs/architecture/flows/flow-05-content-reload.md).
 
+**Content I/O: the second posture — warn-only re-derivation.** A *definition family* that must rebuild whenever world content loads (help topics today) implements the core-owned `IContentReloadParticipant` port (`Core/Systems/Definitions/`). Participants run **after** the world swap and starting-room resolution, only on a successful load, in every host; they **report** `ContentDiagnostic`s and **never refuse** — the opposite of staged fail-fast. Use fail-fast for world content the game cannot run without; use a participant for families whose problems should be visible but must never block a reload. See [`world-content.md`](../../../docs/features/world/world-content.md#content-reload-participants).
+
+**YAML definition families build on the shared store.** A new YAML-authored definition family (not a world-content template) reads and writes through `YamlDocumentFile<TDto>` (single document) or `YamlDefinitionDirectory<TDto>` (one file per definition) in `Core/Systems/Definitions/` — never its own `DeserializerBuilder`/`SerializerBuilder` (guard-tested). The family keeps its mapping, validation and warnings; `DefinitionValidation.Failed` builds the shared "failed validation" exception text.
+
 ## Steps
 
 1. Create `Core/Systems/<X>System.cs` + interface `I<X>System.cs`.

@@ -55,6 +55,24 @@ Then the handler calls the pure resolver, decides what to do with the result, an
 
 The key constraint is the same in both cases: **the system never publishes events or calls persistence** (INV-5, INV-22). Those stay in the command (Initiator). In particular, systems must never inject or call `IPersistenceSystem` — persistence lifecycle is owned by `EntityService` and the periodic flush timer.
 
+## Reading the command namespace (`IVerbRegistry`)
+
+A domain system may read **command metadata** through `IVerbRegistry` — names, aliases, descriptions,
+usage, required privileges — as the Help lookup, the help-topic participant and help-topic authoring
+do. This is the sanctioned read in [`01-layers.md`](../../../docs/architecture/01-layers.md#cross-layer-dependency-rules):
+`IVerbRegistry` is a read-only metadata registry even though its implementation (`CommandDispatcher`)
+is initiator-tier. Two rules: **never execute a command or return an `ICommand` in a result** (map to
+plain metadata, e.g. `VerbHelp`), and **always take `Lazy<IVerbRegistry>`** — the dispatcher depends on
+every `ICommand`, so a direct dependency from anything a command reaches (including the content loader
+and its reload participants) closes a DI cycle. `HelpModule` registers the `Lazy<>` once.
+
+## YAML definition families
+
+A system that loads a YAML-authored *definition family* builds on `Core/Systems/Definitions/`
+(`YamlDocumentFile` / `YamlDefinitionDirectory`), and if the family must re-derive on every world
+content load, implements `IContentReloadParticipant` (warn-only, never refuses). See the
+`add-core-system` skill's "Content I/O" notes.
+
 ## Stateful / cached systems
 
 Most domain systems are stateless — they read `EntityService` and compute. A few legitimately hold

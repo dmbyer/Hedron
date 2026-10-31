@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Hedron.Core.Modules.Abilities;
@@ -9,9 +10,8 @@ using Hedron.Core.Modules.Account;
 using Hedron.Core.Modules.Ascension;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Systems;
+using Hedron.Core.Systems.Definitions;
 using Microsoft.Extensions.Options;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace Hedron.Core.Modules.BalanceInspection.Standards
 {
@@ -25,8 +25,7 @@ namespace Hedron.Core.Modules.BalanceInspection.Standards
         private readonly string _path;
         private readonly IOptions<CharacterDefaultsOptions> _characterDefaults;
         private readonly IAbilityRegistry _abilityRegistry;
-        private readonly IDeserializer _yamlDeserializer;
-        private readonly ISerializer _yamlSerializer;
+        private readonly YamlDocumentFile<StandardsFileDto> _file;
 
         public BalanceStandardsStore(
             IOptions<BalanceOptions> options,
@@ -36,13 +35,7 @@ namespace Hedron.Core.Modules.BalanceInspection.Standards
             _path = options.Value.StandardsPath;
             _characterDefaults = characterDefaults;
             _abilityRegistry = abilityRegistry;
-            _yamlDeserializer = new DeserializerBuilder()
-                .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                .IgnoreUnmatchedProperties()
-                .Build();
-            _yamlSerializer = new SerializerBuilder()
-                .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                .Build();
+            _file = new YamlDocumentFile<StandardsFileDto>(_path);
         }
 
         public (BalanceStandardsDocument Document, IReadOnlyList<string> Warnings) Load()
@@ -50,24 +43,22 @@ namespace Hedron.Core.Modules.BalanceInspection.Standards
             var errors = new List<string>();
 
             BalanceStandardsDocument document;
-            if (!File.Exists(_path))
+            var read = _file.Read();
+            if (!read.Exists)
             {
                 document = BalanceStandardsDefaults.Document;
             }
             else
             {
-                var body = File.ReadAllText(_path);
-                var dto = _yamlDeserializer.Deserialize<StandardsFileDto>(body) ?? new StandardsFileDto();
-                document = ToDomain(dto, errors);
+                // Load's contract throws on unparseable YAML: rethrow the original exception.
+                if (read.Fault is not null)
+                    ExceptionDispatchInfo.Capture(read.Fault).Throw();
+                document = ToDomain(read.Dto ?? new StandardsFileDto(), errors);
             }
 
             ValidateStructural(document, errors);
             if (errors.Count > 0)
-            {
-                throw new InvalidOperationException(
-                    $"Balance standards file '{_path}' failed validation:\n" +
-                    string.Join("\n", errors.Select(e => "  • " + e)));
-            }
+                throw DefinitionValidation.Failed($"Balance standards file '{_path}'", errors);
 
             var warnings = new List<string>();
             CollectDriftWarnings(document, warnings);
@@ -87,14 +78,7 @@ namespace Hedron.Core.Modules.BalanceInspection.Standards
             CollectDriftWarnings(document, warnings);
             CollectAbilityKitWarnings(document, warnings);
 
-            var dto = ToDto(document);
-            var body = _yamlSerializer.Serialize(dto);
-
-            var directory = Path.GetDirectoryName(_path);
-            if (!string.IsNullOrEmpty(directory))
-                Directory.CreateDirectory(directory);
-
-            await AtomicFileWrite.ReplaceAsync(_path, body, ct).ConfigureAwait(false);
+            await _file.WriteAsync(ToDto(document), ct).ConfigureAwait(false);
 
             return new BalanceStandardsSaveResult(true, Array.Empty<string>(), warnings);
         }

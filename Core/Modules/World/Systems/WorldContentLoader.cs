@@ -8,6 +8,7 @@ using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.World.Templates;
 using Hedron.Core.Systems;
+using Hedron.Core.Systems.Definitions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -44,6 +45,7 @@ namespace Hedron.Core.Modules.World.Systems
         private readonly ILogger<WorldContentLoader> _logger;
         private readonly string _contentDirectory;
         private readonly string _startingRoomBlueprintId;
+        private readonly IReadOnlyList<IContentReloadParticipant> _participants;
 
         public WorldContentLoader(
             EntityService entityService,
@@ -53,7 +55,8 @@ namespace Hedron.Core.Modules.World.Systems
             IWorldManifestStore manifestStore,
             Hedron.Core.WorldConfiguration worldConfig,
             IOptions<WorldOptions> options,
-            ILogger<WorldContentLoader> logger)
+            ILogger<WorldContentLoader> logger,
+            IEnumerable<IContentReloadParticipant>? participants = null)
         {
             _entityService = entityService;
             _templateRegistry = templateRegistry;
@@ -64,6 +67,7 @@ namespace Hedron.Core.Modules.World.Systems
             _logger = logger;
             _contentDirectory = options.Value.ContentDirectory;
             _startingRoomBlueprintId = options.Value.StartingRoomBlueprintId;
+            _participants = participants?.ToList() ?? new List<IContentReloadParticipant>();
         }
 
         public async Task LoadAndSpawnAsync(CancellationToken ct = default)
@@ -89,6 +93,7 @@ namespace Hedron.Core.Modules.World.Systems
             }
 
             ResolveStartingRoom();
+            await RunParticipantsAsync(ct).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -141,11 +146,50 @@ namespace Hedron.Core.Modules.World.Systems
             }
 
             ResolveStartingRoom();
+            var diagnostics = await RunParticipantsAsync(ct).ConfigureAwait(false);
 
-            return new ContentReloadResult(loaded, unchanged, removed);
+            return new ContentReloadResult(loaded, unchanged, removed) { Diagnostics = diagnostics };
         }
 
         // ── Private helpers ───────────────────────────────────────────────────
+
+        /// <summary>
+        /// Rebuilds every <see cref="IContentReloadParticipant"/> in registration order, after the
+        /// world has spawned and the starting room has resolved. Warn-only: a participant that throws
+        /// becomes one <see cref="ContentDiagnosticSeverity.Error"/> and the load still succeeds.
+        /// The diagnostics are logged as one block (the boot report) and returned for <c>reload</c>.
+        /// </summary>
+        private async Task<IReadOnlyList<ContentDiagnostic>> RunParticipantsAsync(CancellationToken ct)
+        {
+            var diagnostics = new List<ContentDiagnostic>();
+            foreach (var participant in _participants)
+            {
+                try
+                {
+                    diagnostics.AddRange(await participant.RebuildAsync(ct).ConfigureAwait(false));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    diagnostics.Add(new ContentDiagnostic(
+                        ContentDiagnosticSeverity.Error, participant.Name, $"rebuild failed: {ex.Message}"));
+                }
+            }
+
+            if (diagnostics.Count > 0)
+            {
+                _logger.LogInformation(
+                    "WorldContentLoader: content participants reported {Count} diagnostic(s).", diagnostics.Count);
+                foreach (var diagnostic in diagnostics)
+                {
+                    if (diagnostic.Severity == ContentDiagnosticSeverity.Error)
+                        _logger.LogError("WorldContentLoader: {Diagnostic}", diagnostic);
+                    else
+                        _logger.LogWarning("WorldContentLoader: {Diagnostic}", diagnostic);
+                }
+            }
+
+            return diagnostics;
+        }
 
         /// <summary>
         /// Deserializes every content file into a staging list without registering anything.

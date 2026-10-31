@@ -38,6 +38,43 @@ public abstract class DefinitionRegistry<TKey, TDef> : IRegistry<TKey, TDef> { .
 ```
 `AbilityRegistry`, `EffectRegistry`, and `StatRegistry` are all `DefinitionRegistry<TKey,TDef>` subclasses. `AspectRegistry` is the fourth consumer that anchored the extraction. Implemented (Phase 3 slice 11-d).
 
+### Shared YAML definition store (`Core/Systems/Definitions/`)
+**Purpose:** The one load/validate-shape/save path for YAML **definition families** (not world-content templates — those stay on `YamlContentSerializer`). Load/save only: each family keeps its own DTO ⇄ domain mapping, validation and warnings. Stateless and safe from any thread (YamlDotNet builders are created per call; INV-31); writes are atomic via `AtomicFileWrite`; reads use `FileShare.ReadWrite | Delete` so they never block a concurrent atomic replace. Multi-line strings are written as literal `|` blocks.
+**Location:** `Core/Systems/Definitions/` — `YamlDocumentFile.cs`, `YamlDefinitionDirectory.cs`, `YamlReadResult.cs`, `YamlFileEntry.cs`, `YamlCodecOptions.cs`, `DefinitionValidation.cs` (+ internal `YamlCodec.cs`).
+**Dependencies:** none (YamlDotNet).
+```csharp
+public sealed record YamlReadResult<TDto>(TDto? Dto, bool Exists, string? Error, Exception? Fault = null);
+public sealed record YamlFileEntry(string Path, string FileName, string Name, string? Error);
+public sealed record YamlCodecOptions(bool OmitNulls = false);   // camelCase + ignore-unmatched always on
+
+public sealed class YamlDocumentFile<TDto>        // single-document families (standards, world manifest)
+{   string Path; YamlReadResult<TDto> Read(); Task WriteAsync(TDto, CancellationToken); }
+
+public sealed class YamlDefinitionDirectory<TDto> // one-file-per-definition families (scenarios, help topics)
+{
+    string Directory;
+    IReadOnlyList<YamlFileEntry> List(Func<TDto, string?> nameOf);   // ordinal; unparseable files listed with Error
+    YamlReadResult<TDto> Read(string path);
+    Task<string> WriteAsync(string name, TDto dto, CancellationToken ct = default, string fallbackName = "definition"); // sanitized <name>.yaml, upsert
+    bool Delete(string path);                                        // ArgumentException outside Directory; false when absent
+}
+
+public static class DefinitionValidation { InvalidOperationException Failed(string subject, IReadOnlyList<string> errors); }
+```
+`Read` **never throws**: a missing file is `Exists = false`; an unreadable/unparseable one carries `Error` plus the original exception in `Fault`, so a store whose public contract throws (standards, scenarios) rethrows it unchanged. Consumers: `BalanceStandardsStore`, `SimScenarioStore`, `WorldManifestStore`, the help-topic layer reader and authoring; guard-tested (no family builds its own YamlDotNet (de)serializer). Implemented (Phase 5 help-topics WP1 — the ≥3-instance extraction, INV-19).
+
+### IContentReloadParticipant / ContentDiagnostic (core port)
+**Purpose:** The re-derivation port for definition families that rebuild whenever world content loads. `WorldContentLoader` invokes every DI-registered participant, in registration order, after a **successful** `LoadAndSpawnAsync`/`ReloadAsync` (after `ResolveStartingRoom`), in every host that loads world content. **Warn-only:** participants report `ContentDiagnostic(Severity, Source, Message)` (`Warning` | `Error`) and never refuse a load; a throwing participant becomes one `Error` and the load succeeds; a refused reload runs none. Core-owned so World (the caller) and a participant's module never reference each other (INV-2).
+**Location:** `Core/Systems/Definitions/IContentReloadParticipant.cs` · `ContentDiagnostic.cs`
+```csharp
+public interface IContentReloadParticipant
+{
+    string Name { get; }
+    Task<IReadOnlyList<ContentDiagnostic>> RebuildAsync(CancellationToken ct = default);
+}
+```
+Registrants: `HelpTopicReloadParticipant`. Shaped for later: the world manifest's resolution, standards live-reload, YAML-backed Ability/Effect. Implemented (Phase 5 help-topics WP2).
+
 ### BroadcastSystem
 **Purpose:** Deliver typed `IOutputMessage` output to rooms, every session, or a single player. Each recipient's message is rendered by their transport's `IOutputFormatter` via `IOutputWriterFactory`, so callers never construct raw strings.
 **Location:** [`Core/Systems/BroadcastSystem.cs`](../../Core/Systems/BroadcastSystem.cs) · interface [`Core/Systems/IBroadcastSystem.cs`](../../Core/Systems/IBroadcastSystem.cs)
@@ -194,15 +231,51 @@ See [`../features/accounts/accounts.md`](../features/accounts/accounts.md) for t
 ### WorldContentLoader
 **Purpose:** Scans the configured content directory, registers authored YAML templates with `ITemplateRegistry`, and fresh-spawns **room and area** entities on every startup (mobs and found items are placed only by room spawn rules — `SpawnSystem`). A staged, fail-fast corpus read collects every `ContentShapeException` into one `ContentLoadException` before anything is registered or torn down (boot aborts; `reload` refuses with the world untouched); other per-file failures stay log-and-skip. Wraps `LoadAndSpawnAsync` in a hosted-service shell (`Server/WorldContentBootstrap`) to enforce startup ordering after `PersistenceBootstrap`.
 **Location:** `Core/Modules/World/Systems/WorldContentLoader.cs`
-**Dependencies:** `EntityService`, `ITemplateRegistry`, `IContentSerializer`, `IRoomContentWriter`, `IWorldManifestStore`, `WorldConfiguration`, `IOptions<WorldOptions>`, `ILogger`.
-**Interface:** [`IWorldContentLoader.cs`](../../Core/Modules/World/Systems/IWorldContentLoader.cs) — `LoadAndSpawnAsync` / `ReloadAsync(→ ContentReloadResult)` / `ResolveStartingRoom(→ ResolvedStartingRoom)`. `ResolveStartingRoom` re-reads `world.yaml`, resolves over the live **room** set via `StartingRoomResolver`, and publishes the snapshot to `WorldConfiguration.StartingRoom` (a state write, not an event); load and reload both end with it. Pure: returns results; never touches the event bus (INV-5); callers publish `ContentReloadedEvent`.
+**Dependencies:** `EntityService`, `ITemplateRegistry`, `IContentSerializer`, `IRoomContentWriter`, `IWorldManifestStore`, `WorldConfiguration`, `IOptions<WorldOptions>`, `ILogger`, `IEnumerable<IContentReloadParticipant>` (optional trailing parameter).
+**Interface:** [`IWorldContentLoader.cs`](../../Core/Modules/World/Systems/IWorldContentLoader.cs) — `LoadAndSpawnAsync` / `ReloadAsync(→ ContentReloadResult)` / `ResolveStartingRoom(→ ResolvedStartingRoom)`. `ResolveStartingRoom` re-reads `world.yaml`, resolves over the live **room** set via `StartingRoomResolver`, and publishes the snapshot to `WorldConfiguration.StartingRoom` (a state write, not an event); load and reload both run it, then every `IContentReloadParticipant` (`RunParticipantsAsync`: logs the diagnostics as one block — the boot report — and returns them in `ContentReloadResult.Diagnostics`, which is empty, never null, even for `default`). A refused reload runs no participant. Pure: returns results; never touches the event bus (INV-5); callers publish `ContentReloadedEvent`.
 Empty/missing content directory → seeds a single hardcoded `room.void` and warns (host stays up for first-run authors). No `PersistentEntity` is added to any world-content entity — the YAML file is the sole durable state. The world blueprint map (`SpawnMissingEntities` dedup, exit/area linking) is built from **non-persistent** entities only, so a persisted player-owned copy never suppresses an authored re-spawn. `ReloadAsync` is a **full rebuild**, whole-or-nothing — after a clean staged read it destroys all world content (`DestroyWorldContent`) and re-spawns from YAML, preserving persistent entities; the `reload` command re-publishes `WorldContentReadyEvent` to re-run the post-load fan-out. See [`../features/world/world-content.md`](../features/world/world-content.md) and [Flow 5](../architecture/flows/flow-05-content-reload.md). Implemented (Phase 3 slices 2, persistence-reform-stage-b, 8, shopping-reload-reconciliation; Phase 5 dev-world-foundation WP1).
 
 ### WorldManifestStore
 **Purpose:** File store for the optional `world.yaml` manifest at the content root (see [`../features/world/world-content.md`](../features/world/world-content.md#world-manifest--worldyaml)). Missing file → `WorldManifest.Empty`, `Exists=false`; malformed → `Empty` + `Error`, never throws; unknown keys ignored on read, not preserved on write. Stateless — builds its YamlDotNet (de)serializer per call, so it is safe from any thread (INV-31); writes go through `AtomicFileWrite`.
 **Location:** `Core/Modules/World/Systems/WorldManifestStore.cs`
 **Dependencies:** `IOptions<WorldOptions>` (rooted at `ContentDirectory`).
-**Interface:** [`IWorldManifestStore.cs`](../../Core/Modules/World/Systems/IWorldManifestStore.cs) — `FilePath` / `Read(→ WorldManifestReadResult(Manifest, Exists, Error))` / `WriteAsync(WorldManifest)` / `UpdateAsync(change → WorldManifestUpdateResult)` — the single read-modify-write path every manifest writer uses (`startroom`, the World page, the rename cascade): refuses while the file is malformed and defaults `schemaVersion`. Singleton, registered by `WorldModule`. Hand-rolled single-document YAML — migrates onto the shared YAML definition store (backlog). Implemented (Phase 5 dev-world-foundation WP1).
+**Interface:** [`IWorldManifestStore.cs`](../../Core/Modules/World/Systems/IWorldManifestStore.cs) — `FilePath` / `Read(→ WorldManifestReadResult(Manifest, Exists, Error))` / `WriteAsync(WorldManifest)` / `UpdateAsync(change → WorldManifestUpdateResult)` — the single read-modify-write path every manifest writer uses (`startroom`, the World page, the rename cascade): refuses while the file is malformed and defaults `schemaVersion`. Singleton, registered by `WorldModule`. Single-document YAML over the shared `YamlDocumentFile` (nulls omitted). Implemented (Phase 5 dev-world-foundation WP1; migrated onto the shared store help-topics WP1, closing slice 1's bounded debt).
+
+### IHelpLookupSystem / HelpLookupSystem (Help module)
+**Purpose:** The `help` lookup decision (extracted from `HelpCommand`): exact before prefix, verb → topic → ability within each tier, visibility-gated at every tier; a multi-word query walks the topic/ability tiers with the whole query, then the verb tiers with its first word. `BuildIndex(invoker)` returns the visible verbs plus every topic. Reads `IHelpTopicRegistry.Current` once per call; returns a `HelpResolution` (`Index`/`Verb`/`Topic`/`Ability`/`Ambiguous`/`NotFound`) whose verb case is plain `VerbHelp` metadata — never an `ICommand`. Stateless; publishes nothing.
+**Location:** `Core/Modules/Help/Systems/IHelpLookupSystem.cs` · `HelpLookupSystem.cs` · `HelpQuery.cs` · `HelpResolution.cs`
+**Dependencies:** `Lazy<IVerbRegistry>` (read-only command metadata — the sanctioned domain read, [01-layers](../architecture/01-layers.md#cross-layer-dependency-rules)), `IAuthorizationChecker`, `IAbilityRegistry`, `IHelpTopicRegistry`.
+Registered as a singleton in `HelpModule.AddHelpModule`. See [`../features/help/help-system.md`](../features/help/help-system.md). Implemented (Phase 5 help-topics WP3).
+
+### HelpTopicLayerReader / IHelpTopicLayerReader (Help module)
+**Purpose:** Reads the help-topic layers from disk — engine root (`HelpOptions.EngineTopicDirectory`), then world root (`HelpOptions.WorldTopicDirectory` = `<World:ContentDirectory>/help`) — through the shared `YamlDefinitionDirectory`, in ordinal file order. I/O only (no validation or merge); never throws for a missing directory or unparseable file. Stateless.
+**Location:** `Core/Modules/Help/Systems/IHelpTopicLayerReader.cs` · `HelpTopicLayerReader.cs` · `HelpLayerRead.cs`
+**Dependencies:** `IOptions<HelpOptions>`.
+Registered as a singleton in `HelpModule.AddHelpModule`. Implemented (Phase 5 help-topics WP2).
+
+### HelpTopicSetBuilder (Help module, pure)
+**Purpose:** The pure help-topic decision: per-file validation (missing/invalid fields → skipped with an `Error`), layer merge by id (later layer wins; a skipped world file never displaces the engine topic), alias resolution, verb-collision and `seeAlso` warnings. Deterministic and I/O-free — boot, `reload` and the editor apply one rule set. `Build(layers, verbTokens, adminOnlyVerbTokens) → HelpTopicBuildResult(HelpTopicSet, Diagnostics)`.
+**Location:** `Core/Modules/Help/Systems/HelpTopicSetBuilder.cs` · `HelpVerbTokens.cs`
+**Dependencies:** none (static).
+Implemented (Phase 5 help-topics WP2).
+
+### IHelpTopicRegistry / HelpTopicRegistry / HelpTopicSet (Help module)
+**Purpose:** The game's current help-topic snapshot (Spine F, string-keyed). `HelpTopicSet` is an immutable `DefinitionRegistry<string, HelpTopic>` plus its alias index and id order (`TryResolve(token)`, `PrefixMatches(prefix)`, `Ordered`, `Empty`), built once per rebuild so rows and aliases swap together. `HelpTopicRegistry` holds one reference published with `Volatile.Write` — readers never lock (INV-31); `Publish` is on the concrete type only (the participant is its one writer). `IRegistry` members delegate to `Current`.
+**Location:** `Core/Modules/Help/Systems/IHelpTopicRegistry.cs` · `HelpTopicRegistry.cs` · `HelpTopicSet.cs`; records in `Core/Modules/Help/HelpTopic.cs`
+**Dependencies:** none.
+Registered as a singleton (concrete + interface forward) in `HelpModule.AddHelpModule`. Implemented (Phase 5 help-topics WP2).
+
+### HelpTopicReloadParticipant (Help module)
+**Purpose:** Help topics' `IContentReloadParticipant`: reads both layers, gathers the verb tokens, runs `HelpTopicSetBuilder`, publishes the new set, returns the diagnostics. Runs on the loader caller's thread (confined).
+**Location:** `Core/Modules/Help/Systems/HelpTopicReloadParticipant.cs`
+**Dependencies:** `IHelpTopicLayerReader`, `HelpTopicRegistry`, `Lazy<IVerbRegistry>` (`ReloadCommand` → loader → participants → dispatcher would otherwise be a DI cycle).
+Registered as a singleton `IContentReloadParticipant` in `HelpModule.AddHelpModule`. Implemented (Phase 5 help-topics WP2).
+
+### IHelpTopicAuthoring / HelpTopicAuthoring (Help module)
+**Purpose:** Authoring for world help topics, the editor's thin-caller seam (INV-18): `List()`, `Load(id)`, `Preview(draft)`, `Validate(draft)`, `SaveAsync(draft, previousId?)`, `OverrideAsync(engineId)`, `DeleteAsync(id)` → `ContentWriteResult`. Reads disk on every call through the same reader and builder; writes the **world** layer only (the engine root is never written). Writes serialize on the module's own `SemaphoreSlim(1,1)` gate (INV-31; last save wins); a rename or misnamed file is consolidated to `<id>.yaml`.
+**Location:** `Core/Modules/Help/Systems/IHelpTopicAuthoring.cs` · `HelpTopicAuthoring.cs`
+**Dependencies:** `IHelpTopicLayerReader`, `Lazy<IVerbRegistry>`.
+Registered as a singleton in `HelpModule.AddHelpModule`; consumed by `Hedron.Web`'s Help topics pages. See [`../features/help/help-topics.md`](../features/help/help-topics.md). Implemented (Phase 5 help-topics WP3).
 
 ### StartingRoomResolver
 **Purpose:** Pure static helper (precedent: `RoomCoordinateCollisions`) — `Resolve(manifestId, configId, roomIds) → StartingRoomDecision(BlueprintId, Source, Warnings)`. Chain: manifest → config → `room.void` → ordinal-least room id → `Unresolved`; case-insensitive; returns the canonical id from the room set. Shared by the loader's live resolution and the authoring preview.
@@ -754,7 +827,7 @@ Registered as a singleton in `BalanceInspectionModule.AddBalanceInspectionModule
 Registered as a singleton in `BalanceInspectionModule.AddBalanceInspectionModule`. Consumed by the Blazor Integrity page (per-row and bulk preview/apply). Implemented (conformance-tooling slice sim-5).
 
 ### IBalanceStandardsStore / BalanceStandardsStore (BalanceInspection module — Standards)
-**Purpose:** Domain-tier (may legally import `Ascension`/`Account`/`Abilities`, unlike the core-tier oracle) YAML load/validate/save for the balance-standards document (Spine F registry backing store, sim-1): `Load()` reads `Balance:StandardsPath` (default `data/balance/standards.yaml`), falls back to `BalanceStandardsDefaults.Document` if absent, runs structural fail-fast validation (unknown score id, out-of-range/duplicate cell, `BandSpan` calibration violation, negative tolerance — throws `InvalidOperationException` naming the file and violation), then mirror-drift validation against `AscensionConstants`/`CharacterDefaultsOptions` and unknown-ability-kit-id checks against `IAbilityRegistry` (returns warnings, never silently absorbed). `SaveAsync(document)` re-validates structurally (refuses the write on failure, no partial file) then writes atomically (tmp → rename), returning the same warning set on a structural pass (warn-but-allow). Deliberately outside `IContentDefinitionCatalog` (seed OQ1) — a single-document criteria file doesn't fit the catalog's per-blueprint `IEntityTemplate`/spawn/delete-cascade semantics — but mirrors its validate-then-write posture.
+**Purpose:** Domain-tier (may legally import `Ascension`/`Account`/`Abilities`, unlike the core-tier oracle) YAML load/validate/save for the balance-standards document (Spine F registry backing store, sim-1): `Load()` reads `Balance:StandardsPath` (default `data/balance/standards.yaml`), falls back to `BalanceStandardsDefaults.Document` if absent, runs structural fail-fast validation (unknown score id, out-of-range/duplicate cell, `BandSpan` calibration violation, negative tolerance — throws `InvalidOperationException` naming the file and violation), then mirror-drift validation against `AscensionConstants`/`CharacterDefaultsOptions` and unknown-ability-kit-id checks against `IAbilityRegistry` (returns warnings, never silently absorbed). `SaveAsync(document)` re-validates structurally (refuses the write on failure, no partial file) then writes atomically (tmp → rename), returning the same warning set on a structural pass (warn-but-allow). Deliberately outside `IContentDefinitionCatalog` (seed OQ1) — a single-document criteria file doesn't fit the catalog's per-blueprint `IEntityTemplate`/spawn/delete-cascade semantics — but mirrors its validate-then-write posture. **Storage (help-topics WP1):** reads and writes through the shared `YamlDocumentFile` (`Core/Systems/Definitions/`); unparseable YAML rethrows the original YamlDotNet exception from `YamlReadResult.Fault`, so `Load`'s throw contract is unchanged (characterization-tested).
 **Location:** `Core/Modules/BalanceInspection/Standards/IBalanceStandardsStore.cs` (interface + `BalanceStandardsSaveResult`) · `BalanceStandardsStore.cs` (implementation) · `BalanceStandardsDocument.cs` (`BalanceStandardsDocument`/`BalanceStandard`/`ReferenceBuildDefinition`/`OutcomeTolerances`) · `BalanceStandardsDefaults.cs`
 **Dependencies:** `IOptions<BalanceOptions>`, `IOptions<CharacterDefaultsOptions>`, `IAbilityRegistry`.
 ```csharp
@@ -809,7 +882,7 @@ Registered as a singleton in `AscensionModule.AddAscensionModule`. Implemented (
 Registered as a singleton `IEffectContributor` in `AscensionModule.AddAscensionModule`; folded automatically by `EffectSystem.GetModifiers`/`GetActive` with **no interface change** to `IStatSystem` or `EffectSystem`. Implemented (ascension slice prog-2).
 
 ### ISimScenarioStore / SimScenarioStore (Simulation module)
-**Purpose:** YAML load + fail-fast structural validation of a `ScenarioDefinition` (kind, name, seed, iterations, maxTicksPerRun, sides→combatants, + a kind-gated `progression:` section). Posture mirrors `BalanceStandardsStore`: validate-then-use, every violation named in one thrown `InvalidOperationException`. `Validate` is also callable directly on an in-memory definition (the sim-3 editor and a future generator candidate-check reuse it without a disk round-trip). The known-policy-id set is DI-collected from `IEnumerable<ISimCombatantPolicy>`, never a hardcoded list — **sim-4:** policy-id validation is Combat-only (a `progressionRate` side never chooses actions; `policyId` may be omitted). **sim-3 addition:** `SaveAsync` validates then atomically writes a scenario as camelCase YAML into `Simulation:ScenarioDirectory` (upsert by sanitized name — a re-save with the same `Name` overwrites its file); `List` enumerates saved scenario files for the editor's load dropdown. A page-saved scenario is `simulate --scenario <path>`-runnable with no changes — one store, one YAML dialect. **sim-4 addition:** for `ScenarioKind.ProgressionRate`, `progression:` is required (missing → named violation) and validated — `targetTrack` must be one of `ProgressionConstants.CombatTracks`, `targetImprovements`/`maxKillsPerRun` must be positive, `ticksPerKill` (when present) must be positive; the section is rejected on a `Combat` scenario. Both shipped kinds require exactly 2 sides of exactly 1 combatant each.
+**Purpose:** YAML load + fail-fast structural validation of a `ScenarioDefinition` (kind, name, seed, iterations, maxTicksPerRun, sides→combatants, + a kind-gated `progression:` section). Posture mirrors `BalanceStandardsStore`: validate-then-use, every violation named in one thrown `InvalidOperationException`. `Validate` is also callable directly on an in-memory definition (the sim-3 editor and a future generator candidate-check reuse it without a disk round-trip). The known-policy-id set is DI-collected from `IEnumerable<ISimCombatantPolicy>`, never a hardcoded list — **sim-4:** policy-id validation is Combat-only (a `progressionRate` side never chooses actions; `policyId` may be omitted). **sim-3 addition:** `SaveAsync` validates then atomically writes a scenario as camelCase YAML into `Simulation:ScenarioDirectory` (upsert by sanitized name — a re-save with the same `Name` overwrites its file); `List` enumerates saved scenario files for the editor's load dropdown. A page-saved scenario is `simulate --scenario <path>`-runnable with no changes — one store, one YAML dialect. **sim-4 addition:** for `ScenarioKind.ProgressionRate`, `progression:` is required (missing → named violation) and validated — `targetTrack` must be one of `ProgressionConstants.CombatTracks`, `targetImprovements`/`maxKillsPerRun` must be positive, `ticksPerKill` (when present) must be positive; the section is rejected on a `Combat` scenario. Both shipped kinds require exactly 2 sides of exactly 1 combatant each. **Storage (help-topics WP1):** reads, lists and writes through the shared `YamlDefinitionDirectory` (sanitized-name upsert, `fallbackName: "scenario"`); a missing file still throws `FileNotFoundException`, unparseable YAML rethrows the original exception, an empty file still throws `InvalidOperationException("scenario YAML is empty.")` (characterization-tested).
 **Location:** `Core/Modules/Simulation/Systems/ISimScenarioStore.cs` · `SimScenarioStore.cs` · `Core/Modules/Simulation/ScenarioDefinition.cs` (`ProgressionSettings`, sim-4)
 **Dependencies:** `IEnumerable<ISimCombatantPolicy>` (for policy-id validation only), `IOptions<SimulationOptions>` (`ScenarioDirectory`, sim-3).
 Registered as a singleton in `SimulationModule.AddSimulationModule`. Implemented (simulation-engine-core slice sim-2; save/list extended sim-3; `progression:` section extended sim-4).

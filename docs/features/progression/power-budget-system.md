@@ -257,10 +257,9 @@ directly.
   Standards page states the restart requirement. Live-reload is a backlog entry, not built here.
 - **Acknowledged debt:** the player-facing `consider` danger-gauge is deferred (backlog); a
   headless/admin bulk-audit command is deferred (the Blazor Integrity report is the primary
-  surface; `Audit()` being one shared method makes a later command a thin caller); the standards
-  store's hand-rolled YAML load/validate/save path is acknowledged debt against a future
-  "YAML-authored definition pipeline for registry families" generalization (≥3-instance trigger,
-  backlogged; the sim-2 `SimScenarioStore` is now the second instance).
+  surface; `Audit()` being one shared method makes a later command a thin caller). The standards
+  store's YAML I/O now runs on the shared definition store (`Core/Systems/Definitions/`,
+  help-topics WP1); its mapping, validation and warnings stay in the store.
 - **Shipped consumer (sim-2):** the [simulation engine](../simulation/simulation-engine.md) reads
   `ReferenceSnapshot`/`OutcomesFor` as its default combatants and expected-outcome oracle. It
   surfaced a real calibration gap — the tier baseline this doc's oracle projects has no measurable

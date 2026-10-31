@@ -1,0 +1,232 @@
+@page "/help-topics/edit"
+@page "/help-topics/edit/{Id}"
+@using Hedron.Core.Modules.Help
+@using Hedron.Core.Modules.Help.Systems
+@using Hedron.Core.Output
+@using Hedron.Web.Services
+@inject IHelpTopicAuthoring Authoring
+@inject IOutputFormatterRegistry Formatters
+@inject NavigationManager Nav
+
+<PageTitle>Help topic @(_loadedId ?? "(new)")</PageTitle>
+
+<h1>Help topic: <span class="mono">@(_loadedId ?? "new")</span></h1>
+
+<p><a href="help-topics">&larr; All help topics</a></p>
+
+@if (_notFound)
+{
+    <p class="error">No help topic '<span class="mono">@Id</span>'.</p>
+}
+else
+{
+    @if (!_editable)
+    {
+        <div class="callout">
+            <strong>Engine topic (read-only).</strong> It ships with Hedron. Override it to write a world copy
+            you can edit; deleting that copy later restores this version.
+            <div class="actions">
+                <button class="btn primary" disabled="@_busy" @onclick="OverrideAsync">Override</button>
+            </div>
+        </div>
+    }
+    else if (_overridesEngine)
+    {
+        <p class="hint">This world topic overrides the engine topic with the same id. Delete it to restore the engine version.</p>
+    }
+
+    <fieldset disabled="@(!_editable)">
+        <div class="field">
+            <label>Id</label>
+            <input class="mono" value="@_id" @oninput="e => Changed(() => _id = e.Value?.ToString() ?? string.Empty)" />
+        </div>
+        <div class="field">
+            <label>Title</label>
+            <input value="@_title" @oninput="e => Changed(() => _title = e.Value?.ToString() ?? string.Empty)" />
+        </div>
+        <div class="field">
+            <label>Aliases (comma-separated)</label>
+            <input class="mono" value="@_aliases" @oninput="e => Changed(() => _aliases = e.Value?.ToString() ?? string.Empty)" />
+        </div>
+        <div class="field">
+            <label>See also (comma-separated topic ids)</label>
+            <input class="mono" value="@_seeAlso" @oninput="e => Changed(() => _seeAlso = e.Value?.ToString() ?? string.Empty)" />
+        </div>
+        <div class="field">
+            <label>Body</label>
+            <textarea rows="14" value="@_body" @oninput="e => Changed(() => _body = e.Value?.ToString() ?? string.Empty)"></textarea>
+        </div>
+    </fieldset>
+
+    <h2>Preview</h2>
+    <pre class="preview">@_preview</pre>
+
+    @if (_editable)
+    {
+        <div class="actions">
+            <button class="btn primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            @if (_loadedId is not null)
+            {
+                <button class="btn" disabled="@_busy" @onclick="DeleteAsync">Delete</button>
+            }
+        </div>
+        <p class="hint">Changes apply in-game on the next <strong>reload</strong> (or Apply to live).</p>
+    }
+
+    @if (_errors.Count > 0)
+    {
+        <div class="error-box">
+            <strong>Cannot save:</strong>
+            <ul>@foreach (var err in _errors) { <li>@err</li> }</ul>
+        </div>
+    }
+
+    @if (_warnings.Count > 0)
+    {
+        <div class="warning-box">
+            <strong>Saved with notices:</strong>
+            <ul>@foreach (var w in _warnings) { <li>@w</li> }</ul>
+        </div>
+    }
+
+    @if (_status is not null)
+    {
+        <p class="success">@_status</p>
+    }
+}
+
+@code {
+    [Parameter] public string? Id { get; set; }
+
+    private string? _loadedId;
+    private bool _editable = true;
+    private bool _overridesEngine;
+    private bool _notFound;
+    private bool _busy;
+    private string _id = string.Empty;
+    private string _title = string.Empty;
+    private string _aliases = string.Empty;
+    private string _seeAlso = string.Empty;
+    private string _body = string.Empty;
+    private string _preview = string.Empty;
+    private string? _status;
+    private IReadOnlyList<string> _errors = Array.Empty<string>();
+    private IReadOnlyList<string> _warnings = Array.Empty<string>();
+
+    protected override void OnParametersSet() => LoadFrom(Id);
+
+    private void LoadFrom(string? id)
+    {
+        _notFound = false;
+        _loadedId = null;
+        _editable = true;
+        _overridesEngine = false;
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            _id = _title = _aliases = _seeAlso = _body = string.Empty;
+            RefreshPreview();
+            return;
+        }
+
+        var view = Authoring.Load(id);
+        if (view is null)
+        {
+            _notFound = true;
+            return;
+        }
+
+        _loadedId = view.Topic.Id;
+        _editable = view.Editable;
+        _overridesEngine = view.OverridesEngine;
+        _id = view.Topic.Id;
+        _title = view.Topic.Title;
+        _aliases = string.Join(", ", view.Topic.Aliases);
+        _seeAlso = string.Join(", ", view.Topic.SeeAlso);
+        _body = view.Topic.Body;
+        RefreshPreview();
+    }
+
+    private void Changed(Action apply)
+    {
+        apply();
+        _status = null;
+        RefreshPreview();
+    }
+
+    private HelpTopicDraft Draft() => new(_id, _title, Split(_aliases), Split(_seeAlso), _body);
+
+    private static IReadOnlyList<string> Split(string value) =>
+        value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    private void RefreshPreview() =>
+        _preview = HelpTopicPreview.Render(Formatters, Authoring.Preview(Draft()));
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        try
+        {
+            var result = await Authoring.SaveAsync(Draft(), _loadedId);
+            _errors = result.Errors;
+            _warnings = result.Warnings;
+            if (result.Success)
+            {
+                _status = $"Saved world/{result.BlueprintId}.yaml.";
+                if (result.BlueprintId != _loadedId)
+                    Nav.NavigateTo($"help-topics/edit/{result.BlueprintId}");
+                else
+                    LoadFrom(result.BlueprintId);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task OverrideAsync()
+    {
+        _busy = true;
+        try
+        {
+            var result = await Authoring.OverrideAsync(_loadedId!);
+            _errors = result.Errors;
+            _warnings = result.Warnings;
+            if (result.Success)
+            {
+                _status = $"Created world/{result.BlueprintId}.yaml from the engine topic.";
+                LoadFrom(result.BlueprintId);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        _busy = true;
+        try
+        {
+            var result = await Authoring.DeleteAsync(_loadedId!);
+            _errors = result.Errors;
+            _warnings = Array.Empty<string>();
+            if (result.Success)
+            {
+                var stillThere = Authoring.Load(result.BlueprintId);
+                if (stillThere is null)
+                    Nav.NavigateTo("help-topics");
+                else
+                {
+                    LoadFrom(result.BlueprintId);
+                    _status = "Deleted the world copy; the engine version is shown again.";
+                }
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

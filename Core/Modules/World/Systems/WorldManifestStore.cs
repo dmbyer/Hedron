@@ -2,72 +2,52 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Hedron.Core.Systems;
+using Hedron.Core.Systems.Definitions;
 using Microsoft.Extensions.Options;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace Hedron.Core.Modules.World.Systems
 {
     /// <summary>
-    /// Default <see cref="IWorldManifestStore"/>: hand-rolled single-document YAML load/save of
-    /// <c>&lt;World:ContentDirectory&gt;/world.yaml</c>. Builds its YamlDotNet (de)serializer per call
-    /// (YamlDotNet is not thread-safe) and keeps no cached manifest, so it is safe from any thread
-    /// (INV-31). Bounded debt: migrates onto the shared YAML definition store in the help-topics slice.
+    /// Default <see cref="IWorldManifestStore"/>: single-document YAML load/save of
+    /// <c>&lt;World:ContentDirectory&gt;/world.yaml</c> over the shared
+    /// <see cref="YamlDocumentFile{TDto}"/> (nulls omitted on write). Keeps no cached manifest, so it
+    /// is safe from any thread (INV-31).
     /// </summary>
     public sealed class WorldManifestStore : IWorldManifestStore
     {
         public const string FileName = "world.yaml";
 
+        private readonly YamlDocumentFile<ManifestDto> _file;
+
         public WorldManifestStore(IOptions<WorldOptions> options)
         {
             FilePath = Path.Combine(options.Value.ContentDirectory, FileName);
+            _file = new YamlDocumentFile<ManifestDto>(FilePath, new YamlCodecOptions(OmitNulls: true));
         }
 
         public string FilePath { get; }
 
         public WorldManifestReadResult Read()
         {
-            if (!File.Exists(FilePath))
+            var read = _file.Read();
+            if (!read.Exists)
                 return new WorldManifestReadResult(WorldManifest.Empty, Exists: false, Error: null);
+            if (read.Error is not null)
+                return new WorldManifestReadResult(WorldManifest.Empty, Exists: true, Error: read.Error);
 
-            try
-            {
-                var body = File.ReadAllText(FilePath);
-                var deserializer = new DeserializerBuilder()
-                    .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                    .IgnoreUnmatchedProperties()
-                    .Build();
-                var dto = deserializer.Deserialize<ManifestDto?>(body);
-                var manifest = dto is null
-                    ? WorldManifest.Empty
-                    : new WorldManifest(dto.SchemaVersion, string.IsNullOrWhiteSpace(dto.StartingRoomId) ? null : dto.StartingRoomId.Trim());
-                return new WorldManifestReadResult(manifest, Exists: true, Error: null);
-            }
-            catch (Exception ex)
-            {
-                return new WorldManifestReadResult(WorldManifest.Empty, Exists: true, Error: ex.Message);
-            }
+            var dto = read.Dto;
+            var manifest = dto is null
+                ? WorldManifest.Empty
+                : new WorldManifest(dto.SchemaVersion, string.IsNullOrWhiteSpace(dto.StartingRoomId) ? null : dto.StartingRoomId.Trim());
+            return new WorldManifestReadResult(manifest, Exists: true, Error: null);
         }
 
-        public async Task WriteAsync(WorldManifest manifest, CancellationToken ct = default)
-        {
-            var serializer = new SerializerBuilder()
-                .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
-                .Build();
-            var body = serializer.Serialize(new ManifestDto
+        public Task WriteAsync(WorldManifest manifest, CancellationToken ct = default) =>
+            _file.WriteAsync(new ManifestDto
             {
                 SchemaVersion = manifest.SchemaVersion,
                 StartingRoomId = manifest.StartingRoomId,
-            });
-
-            var directory = Path.GetDirectoryName(FilePath);
-            if (!string.IsNullOrEmpty(directory))
-                Directory.CreateDirectory(directory);
-
-            await AtomicFileWrite.ReplaceAsync(FilePath, body, ct).ConfigureAwait(false);
-        }
+            }, ct);
 
         public async Task<WorldManifestUpdateResult> UpdateAsync(
             Func<WorldManifest, WorldManifest> change, CancellationToken ct = default)

@@ -77,6 +77,9 @@ See [`Core/Output/IPromptSource.cs`](../../../Core/Output/IPromptSource.cs).
 | `PlainMessage(Text, Severity, Category)` | configurable | Commands (error/info), broadcast arrival/departure |
 | `HelpIndexMessage(Entries)` | Help | `help`, `commands` |
 | `HelpEntryMessage(Verb, LongDesc, Usage, Aliases)` | Help | `help <verb>` |
+| `HelpTopicMessage(Id, Title, Body, SeeAlso)` | Help | `help <topic>` |
+| `HelpTopicIndexMessage(Topics)` / `HelpTopicIndexEntry(Id, Title)` | Help | bare `help` (the Topics block, only when topics exist) |
+| `HelpTopicOriginMessage(Origin)` | Help | `help <topic>`, **administrators only** — a separate message so origin never reaches player output or a serializing formatter |
 | `RoomDescriptionMessage(RoomEntityId, Name, Description, Exits, OccupantNames)` | Info | `look`, movement arrival, on-connect |
 | `MovementMessage(Kind, Direction, ActorName)` | Info | `MoveCommand` failure path |
 | `PromptMessage(StateLabel, Pools)` | System | Appended by `SessionOutputBuffer.FlushAsync()` when `IPromptSource` returns non-null |
@@ -122,6 +125,9 @@ Nesting and hex colors are not supported. Escaping a literal `<` is not defined 
 - **`MovementMessage(Blocked)`** — "You cannot go that way." in `<system>`.
 - **`HelpIndexMessage`** — section headers in `<system>`, verb names in `<room-name>` (padded before colorizing to preserve column alignment).
 - **`HelpEntryMessage`** — verb/alias header in `<room-name>`.
+- **`HelpTopicMessage`** — `[Title]` in the room-name colour, the body, then `See also: help a, help b` when non-empty. **Authored text is rendered literally** — it is coloured directly, never passed through the marker parser, so authored `<error>…</error>` shows as typed.
+- **`HelpTopicIndexMessage`** — `=== Topics ===` header in `<system>`, `id — title` rows.
+- **`HelpTopicOriginMessage`** — the footer label in the system colour.
 
 ## Broadcast model
 
