@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -281,6 +282,13 @@ namespace Hedron.Core.Output
                 sb.Append(m.AuthoredTier.Value == m.Computed.Tier && m.AuthoredBand.Value == m.Computed.Band
                     ? $"  (authored: {m.AuthoredTier.Value}/{m.AuthoredBand.Value}, matches)"
                     : $"  (authored: {m.AuthoredTier.Value}/{m.AuthoredBand.Value}, MISMATCH)");
+            }
+            if (m.RelationRatio.HasValue)
+            {
+                sb.AppendLine();
+                sb.Append(m.RelationLabel is null
+                    ? "  vs you : unreadable"
+                    : $"  vs you : ratio {m.RelationRatio.Value.ToString("0.00", CultureInfo.InvariantCulture)} → {m.RelationLabel}");
             }
             return sb.ToString();
         }

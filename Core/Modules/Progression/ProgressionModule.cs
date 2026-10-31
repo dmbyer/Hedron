@@ -22,6 +22,9 @@ namespace Hedron.Core.Modules.Progression
         {
             services.AddSingleton<IAdvancementRuleRegistry, AdvancementRuleRegistry>();
             services.AddSingleton<IProgressionSystem, ProgressionSystem>();
+            // The relative-power read depends on IStatSystem; nothing on the IStatSystem →
+            // IEffectSystem → contributors → IProgressionSystem chain depends on it, so no cycle.
+            services.AddSingleton<IRelativePowerSystem, RelativePowerSystem>();
             services.AddSingleton<IEffectContributor, ProgressionEffectContributor>();
             services.AddSingleton<AdvancementHandler>();
             services.AddSingleton<ProgressionNarrationHandler>();

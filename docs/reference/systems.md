@@ -753,6 +753,26 @@ Every read also has a `ScoreId` overload delegating to the `ProgressionTrack` fo
 **Location:** `Core/Modules/Progression/Systems/IAdvancementRuleRegistry.cs` · `AdvancementRuleRegistry.cs`
 **Dependencies:** none.
 
+### RelativePowerSystem / IRelativePowerSystem (Progression module)
+**Purpose:** The shared relative-power read: how strong a target is relative to a subject, on **effective** power for both sides. `GetEffectivePower` snapshots every `ScoreId` through `IStatSystem.Get` (gear, progression, effects, and a player's tier via the ascension contributor) and estimates it with the core oracle at tier = `MobDataComponent.Tier` (mobs) or 0 (players — tier already folded; a live mob never carries `AscensionComponent`, so tier is never counted twice). `Relate` divides target ÷ subject and maps the ratio to a `RelativePowerLabel` (`Trivial, Easy, Even, Dangerous, Deadly`) — the ratio → label rule lives here, not in any consumer (INV-1/INV-8). The entity overload delegates to a power-keyed overload, built now for later cell-anchor consumers. Consumers: `PowerCommand`'s live readout and mob relation line (relative-power-consider WP-1); `consider` and the anti-grind gather land in later packages of the same slice. Stateless and pure — no `IRandom`/`IClock`, publishes nothing (INV-5, INV-26).
+**Readability contract:** `IStatSystem` never reports "missing" (`AttributeSystem` returns reference defaults), so `Relate` checks explicitly. A reading is **unreadable** when either entity lacks `AttributesComponent`, or subject power is `<= 0`: `IsReadable false`, `Ratio 0.0`, `Label null` (`RelativePowerReading.Unreadable`) — never a divide-by-zero, never a plausible ratio for a destroyed entity; at `0.0` the anti-grind floor makes an award ineligible. `GetEffectivePower` itself stays **ungated** (it is `power`'s readout).
+**Cut-points:** inclusive lower bounds in `ProgressionConstants` — easy `>= AntiGrindFloorRatio` (0.25; the trivial boundary **is** the anti-grind floor, never a copy), even `>= RelativeEvenFloorRatio` (0.85), dangerous `>= RelativeDangerousFloorRatio` (1.12), deadly `>= RelativeDeadlyFloorRatio` (1.30).
+**Location:** `Core/Modules/Progression/Systems/IRelativePowerSystem.cs` (interface + `RelativePowerReading`) · `RelativePowerSystem.cs` · `Core/Modules/Progression/RelativePowerLabel.cs` · `Core/Modules/Progression/ProgressionConstants.cs` (cut-points)
+**Dependencies:** `EntityService`, `IStatSystem`, `IPowerBudgetSystem` — exactly these (ctor-shape guard-tested). Never `IProgressionSystem`, and `ProgressionSystem` must not depend on it: nothing on the `IStatSystem → IEffectSystem → contributors → IProgressionSystem` chain depends on the read, so there is no DI cycle (INV-24).
+```csharp
+public readonly record struct RelativePowerReading(
+    bool IsReadable, int SubjectPower, int TargetPower, double Ratio, RelativePowerLabel? Label);
+
+public interface IRelativePowerSystem
+{
+    int GetEffectivePower(uint entityId);                                  // ungated
+    RelativePowerReading Relate(uint subjectEntityId, uint targetEntityId);
+    RelativePowerReading Relate(uint subjectEntityId, int targetPower);    // negative clamps to 0
+    RelativePowerLabel Classify(double ratio);
+}
+```
+Registered as a singleton in `ProgressionModule.AddProgressionModule`. Implemented (relative-power-consider WP-1).
+
 ### PreferenceSystem / IPreferenceSystem (Preferences module)
 **Purpose:** Reads and writes a character's configurable settings, resolving unset preferences to their `PreferenceRegistry` default. The store (`PlayerConfigurationComponent`) is sparse — only explicitly-set preferences are persisted, so changing a shipped default takes effect for every player who never touched it and adding a preference needs no migration. `IsEnabled` never attaches the component; only `Set` does. INV-5: returns values, publishes nothing — `ConfigCommand` publishes `PreferenceChangedEvent`.
 **Location:** `Core/Modules/Preferences/Systems/IPreferenceSystem.cs` · `PreferenceSystem.cs` · `Core/Modules/Preferences/PreferenceRegistry.cs` · `PreferenceId.cs`
@@ -791,7 +811,7 @@ Registered as a singleton in `BalanceInspectionModule.AddBalanceInspectionModule
 Registered as a singleton in `ItemsModule.AddItemsModule`. Implemented (power-model-revision slice prog-3b).
 
 ### MobPowerProjectionSystem / IMobPowerProjectionSystem (Mobs module)
-**Purpose:** Domain-tier shared projection seam (INV-19): turns an authored `MobTemplate` into the `PowerSnapshot` `IPowerBudgetSystem` estimates from (attrs/pools plus the `IStatSystem`-mirroring derivations `AttackPower = Body/2`, `Defense = Body/4`). Template-sourced only — `PowerCommand`'s live self/mob path keeps its own `IStatSystem` snapshot, a distinct correct projection not folded in here. Consumed by `MobEditor` and `IBalanceAuditSystem`.
+**Purpose:** Domain-tier shared projection seam (INV-19): turns an authored `MobTemplate` into the `PowerSnapshot` `IPowerBudgetSystem` estimates from (attrs/pools plus the `IStatSystem`-mirroring derivations `AttackPower = Body/2`, `Defense = Body/4`). Template-sourced only — `PowerCommand`'s live self/mob path measures through `IRelativePowerSystem.GetEffectivePower` (the effective-score snapshot shared with `consider` and anti-grind), a distinct correct projection not folded in here. Consumed by `MobEditor` and `IBalanceAuditSystem`.
 **Location:** `Core/Modules/Mobs/Systems/IMobPowerProjectionSystem.cs` · `MobPowerProjectionSystem.cs`
 **Dependencies:** none.
 Registered as a singleton in `MobsModule.AddMobsModule`. Implemented (power-model-revision slice prog-3b).

@@ -11,6 +11,8 @@ using Hedron.Core.Modules.BalanceInspection.Commands;
 using Hedron.Core.Modules.Combat;
 using Hedron.Core.Modules.Combat.Systems;
 using Hedron.Core.Modules.Items.Systems;
+using Hedron.Core.Modules.Progression;
+using Hedron.Core.Modules.Progression.Systems;
 using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.Stats.Systems;
 using Hedron.Core.Output;
@@ -26,7 +28,9 @@ namespace Hedron.Tests.Modules.BalanceInspection
     /// Coverage contract: docs/roadmap/completed/power-model-revision.md — self/item/mob target
     /// resolution, the two-axis (Tier, Band) readout via the shared item power-projection seam, the
     /// golden-number surfacing end-to-end under the recalibrated constants, and the admin-gate
-    /// declaration.
+    /// declaration. relative-power-consider WP-1 (Post 14, 15): live targets measured through
+    /// <see cref="IRelativePowerSystem.GetEffectivePower"/> with the goldens unchanged, and the
+    /// mob-only relation line (ratio + label vs. the invoker, or unreadable).
     /// </summary>
     public sealed class PowerCommandTests
     {
@@ -84,6 +88,7 @@ namespace Hedron.Tests.Modules.BalanceInspection
         {
             public EntityService Ecs { get; } = new();
             public StubStatSystem Stats { get; } = new();
+            public RelativePowerSystem RelativePower { get; }
             public PowerCommand Command { get; }
 
             public TestWorld()
@@ -91,7 +96,9 @@ namespace Hedron.Tests.Modules.BalanceInspection
                 var itemSystem = new ItemSystem(Ecs);
                 var itemProjection = new ItemPowerProjectionSystem();
                 var combatSystem = new StubCombatSystem(Ecs);
-                Command = new PowerCommand(new PowerBudgetSystem(PowerBudgetTunables.Default), Stats, itemSystem, itemProjection, combatSystem, Ecs);
+                var powerBudget = new PowerBudgetSystem(PowerBudgetTunables.Default);
+                RelativePower = new RelativePowerSystem(Ecs, Stats, powerBudget);
+                Command = new PowerCommand(powerBudget, RelativePower, itemSystem, itemProjection, combatSystem, Ecs);
             }
         }
 
@@ -153,6 +160,8 @@ namespace Hedron.Tests.Modules.BalanceInspection
             Assert.Equal(1, readout.Computed.Band);
             Assert.Null(readout.AuthoredTier);
             Assert.Null(readout.AuthoredBand);
+            Assert.Null(readout.RelationRatio);
+            Assert.Null(readout.RelationLabel);
         }
 
         [Fact]
@@ -203,6 +212,8 @@ namespace Hedron.Tests.Modules.BalanceInspection
             Assert.Equal(1, readout.Computed.Band);
             Assert.Equal(2, readout.AuthoredTier);
             Assert.Equal(2, readout.AuthoredBand);
+            Assert.Null(readout.RelationRatio);
+            Assert.Null(readout.RelationLabel);
         }
 
         [Fact]
@@ -235,6 +246,62 @@ namespace Hedron.Tests.Modules.BalanceInspection
         }
 
         [Fact]
+        public async Task Mob_target_carries_relation_ratio_and_label_from_the_read()
+        {
+            var world = new TestWorld();
+            var roomId = new EntityBuilder(world.Ecs).Build();
+            // AttributesComponent on both sides makes the relation readable; the stub stats
+            // (not the component values) drive the power numbers.
+            var invokerId = new EntityBuilder(world.Ecs).AsPlayer().WithAttributes().InRoom(roomId).Build();
+            var mobId = new EntityBuilder(world.Ecs).AsMob("Goblin", new[] { "goblin" })
+                .WithAttributes().InRoom(roomId).Build();
+            world.Ecs.Get<MobDataComponent>(mobId).Tier = 3;
+            world.Ecs.Get<MobDataComponent>(mobId).Band = 3;
+
+            SetSelfGoldenStats(world.Stats, invokerId);   // 650
+            world.Stats.Set(mobId, ScoreId.Body, 12);     // 712 at tier 3
+            world.Stats.Set(mobId, ScoreId.HpMax, 80);
+            world.Stats.Set(mobId, ScoreId.AttackPower, 6);
+            world.Stats.Set(mobId, ScoreId.Defense, 3);
+
+            var output = new RecordingOutput();
+            await world.Command.ExecuteAsync(MakeContext(invokerId, MakeArgs("Goblin"), output));
+
+            var readout = Assert.Single(GetMessages<PowerReadoutMessage>(output, invokerId));
+            Assert.Equal(712, readout.Power);
+            Assert.Equal(712.0 / 650.0, readout.RelationRatio!.Value, precision: 9);
+
+            var expected = world.RelativePower.Relate(invokerId, mobId);
+            Assert.True(expected.IsReadable);
+            Assert.Equal(expected.Ratio, readout.RelationRatio!.Value);
+            Assert.Equal(expected.Label!.Value.ToString().ToLowerInvariant(), readout.RelationLabel);
+            Assert.Equal(RelativePowerLabel.Even, expected.Label);   // 1.095 ∈ [0.85, 1.12)
+        }
+
+        [Fact]
+        public async Task Attribute_less_invoker_gets_an_unreadable_relation_and_unchanged_mob_power()
+        {
+            var world = new TestWorld();
+            var roomId = new EntityBuilder(world.Ecs).Build();
+            var invokerId = new EntityBuilder(world.Ecs).AsPlayer().InRoom(roomId).Build();   // no AttributesComponent
+            var mobId = new EntityBuilder(world.Ecs).AsMob("Goblin", new[] { "goblin" })
+                .WithAttributes().InRoom(roomId).Build();
+            world.Ecs.Get<MobDataComponent>(mobId).Tier = 3;
+            world.Stats.Set(mobId, ScoreId.Body, 12);
+            world.Stats.Set(mobId, ScoreId.HpMax, 80);
+            world.Stats.Set(mobId, ScoreId.AttackPower, 6);
+            world.Stats.Set(mobId, ScoreId.Defense, 3);
+
+            var output = new RecordingOutput();
+            await world.Command.ExecuteAsync(MakeContext(invokerId, MakeArgs("Goblin"), output));
+
+            var readout = Assert.Single(GetMessages<PowerReadoutMessage>(output, invokerId));
+            Assert.Equal(712, readout.Power);   // GetEffectivePower is ungated
+            Assert.Equal(0.0, readout.RelationRatio);
+            Assert.Null(readout.RelationLabel);
+        }
+
+        [Fact]
         public async Task Unresolved_target_writes_not_found_message()
         {
             var world = new TestWorld();
@@ -249,6 +316,17 @@ namespace Hedron.Tests.Modules.BalanceInspection
             Assert.Empty(GetMessages<PowerReadoutMessage>(output, invokerId));
             var plain = Assert.Single(GetMessages<PlainMessage>(output, invokerId));
             Assert.Equal(OutputSeverity.System, plain.Severity);
+        }
+
+        private static void SetSelfGoldenStats(StubStatSystem stats, uint entityId)
+        {
+            stats.Set(entityId, ScoreId.Mind, 10);
+            stats.Set(entityId, ScoreId.Body, 20);
+            stats.Set(entityId, ScoreId.Spirit, 10);
+            stats.Set(entityId, ScoreId.Attunement, 10);
+            stats.Set(entityId, ScoreId.HpMax, 150);
+            stats.Set(entityId, ScoreId.AttackPower, 10);
+            stats.Set(entityId, ScoreId.Defense, 5);
         }
 
         private static List<TMessage> GetMessages<TMessage>(RecordingOutput output, uint recipientEntityId)

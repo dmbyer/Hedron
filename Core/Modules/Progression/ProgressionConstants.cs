@@ -42,6 +42,22 @@ namespace Hedron.Core.Modules.Progression
         /// <summary>Anti-grind ratio cap: the scale never exceeds this (no over-strong-victim windfall).</summary>
         public const double AntiGrindCap = 1.5;
 
+        // ── Relative-power label cut-points (inclusive lower bounds) ─────────────
+        // The trivial/easy boundary is AntiGrindFloorRatio itself — one constant, one meaning: a
+        // target that reads Trivial is exactly one whose kill would be anti-grind ineligible. Never
+        // add a second "easy floor" constant set to the same value. Calibrated against the oracle's
+        // Tier-0 band midpoints so a fresh character reads (0,1) as Even and (0,3) as Dangerous
+        // (SR7) — see docs/design/balance.md.
+
+        /// <summary>Ratio (target ÷ subject) at or above which <see cref="Systems.IRelativePowerSystem"/> reads <c>Even</c>.</summary>
+        public const double RelativeEvenFloorRatio = 0.85;
+
+        /// <summary>Ratio (target ÷ subject) at or above which <see cref="Systems.IRelativePowerSystem"/> reads <c>Dangerous</c>.</summary>
+        public const double RelativeDangerousFloorRatio = 1.12;
+
+        /// <summary>Ratio (target ÷ subject) at or above which <see cref="Systems.IRelativePowerSystem"/> reads <c>Deadly</c>.</summary>
+        public const double RelativeDeadlyFloorRatio = 1.30;
+
         /// <summary>
         /// The score tracks a combat kill awards — physical-only (owner-accepted default). Kept as
         /// a named constant because the balance simulator's <c>progressionRate</c> scenario reduces
