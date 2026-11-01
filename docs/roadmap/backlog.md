@@ -294,6 +294,22 @@ for the discovery record.
 
 **Update (Phase 5 slice 5 `/advise`, 2026-10-31).** The same mechanism also mutes **progression**: improvements folded onto `Body`/`HpMax` by `ProgressionEffectContributor` never reach a fight either. That undermines Tier-0 play, and it makes the effective-power `consider`/anti-grind read overstate a progressed character. The *mechanism* fix (combat reads `Get(...)` for attack power, defense and the HP/death check) is therefore pulled forward into a Phase 5 gap slice, `combat-effective-scores` ([program slice 5b](../implementation-plans/phase-5-content-baseline-program.md#slice-decomposition)). This entry narrows to the remaining **tier tuning** decision (options (a)–(c) above, minus the read repointing), which stays with Phase 6.
 
+### 🔵 Ability/effect power on effective stats (deferred from combat-effective-scores, Phase 5 slice 5b)
+
+Phase 5 slice 5b ([`combat-effective-scores`](../implementation-plans/combat-effective-scores.md)) makes melee and the pool caps read **effective** scores, so progression, passives, buffs and tier change fight outcomes. **Ability and effect potency are excluded:**
+- an offensive ability's `OffensivePower` (`kick`);
+- a buff's applied magnitude (`empower`).
+
+`EffectSystem` computes effect power from **base** stats on purpose, to keep `Effect → Stat` a DAG ([stat-system.md](../features/character-stats/stat-system.md), "Acyclic by construction"). So a character's `Body` improvements raise melee damage but not `kick` damage.
+
+**The deferred decision:** should ability and effect potency scale with effective attributes, and if so, how without the cycle? The likely shape is the anti-grind precedent ([progression-system.md](../features/progression/progression-system.md#anti-grind-ratio-is-supplied-by-the-caller)): the **caller gathers** the effective attribute through `IStatSystem` at the orchestration boundary (`AbilityInvocationPipeline`) and passes it into activation as an input, so `EffectSystem` stays stat-free.
+
+Deferred because:
+- it's a balance change to every offensive ability and buff, with its own sweep;
+- the shipped starter set (`kick`, `empower`, `toughness`) works acceptably on base stats for Tier-0 content.
+
+Revisit when the ability authoring pipeline lands or when balance closure (Phase 5 R24–R25) shows ability damage falling behind melee for progressed characters.
+
 ### 🔵 Live balance-standards reload (deferred from balance-standards-registry, sim-1)
 
 The balance-standards registry's oracle-tunables composition happens once, at DI-construction time (`PowerBudgetSystem`'s ctor-injected `PowerBudgetTunables`, sourced from `IBalanceStandardsRegistry`) — the correct shape for a snapshot-only, no-service-dependency oracle (INV-2, [`../design/power-model.md`](../design/power-model.md)). A saved Standards-page edit therefore applies on the **next host start** (restart-to-apply), not immediately; the page states this. A live-reload path — either a `reload`-triggered re-composition of the registry/oracle singletons, or a provider indirection (`IPowerBudgetTunablesProvider` the oracle re-reads per call) — was evaluated at sim-1 planning and rejected for that slice: it works against the resolved ctor-injection shape and the editing cadence (occasional balance tuning, not live iteration) doesn't yet justify it. Revisit if/when balance tuning becomes frequent enough during a single session that a restart between edits is real friction — likely alongside or after the sim-2/sim-3 engine + editor integration, once designers are iterating against real sim output. See [`../features/progression/power-budget-system.md`](../features/progression/power-budget-system.md) and [`completed/balance-standards-registry.md`](completed/balance-standards-registry.md).
