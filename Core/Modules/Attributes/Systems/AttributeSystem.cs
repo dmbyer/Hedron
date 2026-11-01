@@ -88,6 +88,12 @@ namespace Hedron.Core.Modules.Attributes.Systems
         public void RestoreToFraction(uint entityId, ResourceType pool, double fraction)
             => SetCurrent(entityId, pool, (int)Math.Floor(GetEffectiveMax(entityId, pool) * fraction));
 
+        public void RestoreAllToFraction(uint entityId, double fraction)
+        {
+            foreach (var pool in AllPools)
+                RestoreToFraction(entityId, pool, fraction);
+        }
+
         public bool ReconcilePools(uint entityId)
             => _entityService.TryGet<PoolsComponent>(entityId, out var p) && Reconcile(entityId, p) > 0;
 
@@ -125,7 +131,8 @@ namespace Hedron.Core.Modules.Attributes.Systems
             _ => throw new ArgumentOutOfRangeException(nameof(pool), pool, null),
         };
 
-        // Defaults mirror PoolsComponent's initializers for entities with no component.
+        // Defaults mirror PoolsComponent's initializers for entities with no component. Shared across
+        // the live world and parallel sim workers: read-only — never pass it to WriteCurrent/WriteMax.
         private static readonly PoolsComponent Defaults = new();
 
         private int GetBaseMax(uint entityId, ResourceType pool)

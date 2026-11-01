@@ -147,6 +147,11 @@ namespace Hedron.Tests.Death
             }
             public void RestoreToFraction(uint id, ResourceType pool, double fraction)
                 => SetCurrent(id, pool, (int)Math.Floor(GetEffectiveMax(id, pool) * fraction));
+            public void RestoreAllToFraction(uint id, double fraction)
+            {
+                foreach (var pool in new[] { ResourceType.Hp, ResourceType.Mana, ResourceType.Stamina, ResourceType.Astra })
+                    RestoreToFraction(id, pool, fraction);
+            }
             public bool ReconcilePools(uint id) => false;
             public int ReconcileAllPools() => 0;
 

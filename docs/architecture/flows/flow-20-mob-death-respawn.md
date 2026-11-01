@@ -86,7 +86,7 @@ sequenceDiagram
 
 **Respawn**
 
-7. `PlayerDeathHandler` (priority 20) handles `PlayerDiedEvent`. Calls `IDeathSystem.Respawn(entityId)`: exits Incapacitated, resolves `RespawnComponent.RoomBlueprintId` to a live room (fallback: one read of the resolved `WorldConfiguration.StartingRoom` snapshot for both ids), updates `LocationComponent`, calls `IEffectSystem.RemoveImpermanent` (strips non-`UntilRemoved` effects), then restores all four pools to `floor(effective max × Death:RespawnPoolPercent)` via `IAttributeSystem.RestoreToFraction` — the cap counts permanent/contributor modifiers (progression, passives, tier, gear) and excludes the just-stripped timed buffs.
+7. `PlayerDeathHandler` (priority 20) handles `PlayerDiedEvent`. Calls `IDeathSystem.Respawn(entityId)`: exits Incapacitated, resolves `RespawnComponent.RoomBlueprintId` to a live room (fallback: one read of the resolved `WorldConfiguration.StartingRoom` snapshot for both ids), updates `LocationComponent`, calls `IEffectSystem.RemoveImpermanent` (strips non-`UntilRemoved` effects), then restores all four pools to `floor(effective max × Death:RespawnPoolPercent)` via `IAttributeSystem.RestoreAllToFraction` — the cap counts permanent/contributor modifiers (progression, passives, tier, gear) and excludes the just-stripped timed buffs.
 8. `PlayerDeathHandler` publishes `PlayerRespawnedEvent`. `DeathNarrationHandler` broadcasts the death message to the death room, writes the respawn confirmation to the player, broadcasts arrival to the respawn room.
 
 No `SaveEntityAsync` in the respawn path — periodic flush covers pool/location/effect mutations (INV-22 runtime transition).

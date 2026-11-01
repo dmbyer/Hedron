@@ -149,8 +149,7 @@ namespace Hedron.Core.Modules.Account.Systems
 
             // Start full at the *effective* cap, after the starting abilities are learned so a
             // passive max bonus (e.g. toughness) is counted. The initiator then does the construction save.
-            foreach (var pool in new[] { ResourceType.Hp, ResourceType.Mana, ResourceType.Stamina, ResourceType.Astra })
-                _attributeSystem.RestoreToFraction(entity.Id, pool, 1.0);
+            _attributeSystem.RestoreAllToFraction(entity.Id, 1.0);
 
             GetCharacterNameIndex().Add(characterName.ToLowerInvariant());
             return Task.FromResult(entity.Id);

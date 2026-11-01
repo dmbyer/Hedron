@@ -90,7 +90,7 @@ worn gear rides (`EquipmentEffectContributor`). `IStatSystem.Get` is the only pa
 a sandbox combatant; nothing is written straight onto a component the stat pipeline wouldn't also
 see for a live entity. The residual is taken against **raw** `Body` on purpose: the tier baseline's
 `Body` then adds on top (computing it against effective `Body` would cancel the tier). Materialization
-ends by filling every pool to its effective cap (`IAttributeSystem.RestoreToFraction(…, 1.0)`), after
+ends by filling every pool to its effective cap (`IAttributeSystem.RestoreAllToFraction(…, 1.0)`), after
 tier, residuals and the ability kit are attached, so a tier or passive `HpMax` bonus starts full.
 
 ### Policies — pure, stateless, shared across concurrent worlds

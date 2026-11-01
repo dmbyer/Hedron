@@ -34,12 +34,12 @@ Key properties:
 
 ## Picking a priority
 
-Use the named tiers in `Core/Events/HandlerPriority.cs`: `State` (10), `Domain` (20), `Notification` (80), `OutputFlush` (85), `Persistence` (90), `Ai` (95). See [docs/architecture/03-events.md](../../../docs/architecture/03-events.md#handler-priority).
+Use the named tiers in `Core/Events/HandlerPriority.cs`: `State` (10), `Domain` (20), `Notification` (80), `OutputFlush` (85), `Persistence` (90), `Ai` (95). The rule (including when a between-tier value is legitimate) lives in [docs/architecture/03-events.md](../../../docs/architecture/03-events.md#intra-event-tie-breaking--handler-priority).
 
 - **Lower priority = runs earlier.**
 - State-mutating handlers (combat state changes, inventory moves) should run before notification handlers.
 
-**Between-tier values (`HandlerPriority.X + n`)** are legitimate only for a *mechanical follow-up of tier X with no observer of its own*: it must see every tier-X writer's result in the same event, and a phased event would add a type that nothing else subscribes to. Precedent: `PoolReconcileTickHandler` at `Domain + 10` writes pool clamp-downs back after every p=20 heartbeat pool writer. Otherwise — if anything else needs to react to the follow-up, or you are ordering two handlers that both carry game rules — split into a phased past-tense event instead, and never reach for an arbitrary literal (like 37).
+In short: a between-tier `HandlerPriority.X + n` only for a no-observer mechanical follow-up of tier X (precedent `PoolReconcileTickHandler`, `Domain + 10`); otherwise split into a phased event, and never use an arbitrary literal (like 37).
 
 ## Steps
 

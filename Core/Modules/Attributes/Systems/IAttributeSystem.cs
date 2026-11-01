@@ -64,6 +64,9 @@ namespace Hedron.Core.Modules.Attributes.Systems
         /// <summary>Stores <c>floor(GetEffectiveMax × fraction)</c> as current (1.0 = fill; respawn uses its percent).</summary>
         void RestoreToFraction(uint entityId, ResourceType pool, double fraction);
 
+        /// <summary><see cref="RestoreToFraction"/> for all four pools (spawn/creation fill, respawn).</summary>
+        void RestoreAllToFraction(uint entityId, double fraction);
+
         /// <summary>
         /// Writes <c>min(stored, cap)</c> back to storage for all four pools. Never raises a value.
         /// Returns whether any pool changed.
@@ -79,7 +82,10 @@ namespace Hedron.Core.Modules.Attributes.Systems
         void SetSpirit(uint entityId, int value);
         void SetAttunement(uint entityId, int value);
 
-        /// <summary>Sets base MaxHp (<see cref="SetMax"/>).</summary>
+        /// <summary>
+        /// Sets base MaxHp (<see cref="SetMax"/>). Note: a non-positive base floors the cap at 0, which
+        /// can write positive HP to 0 without <c>IDeathSystem.OnHpChanged</c> — admin paths only.
+        /// </summary>
         void SetMaxHp(uint entityId, int value);
         /// <summary>Sets CurrentHp (<see cref="SetCurrent"/>); clamped to [<c>Death:HpFloor</c>, effective cap].</summary>
         void SetCurrentHp(uint entityId, int value);

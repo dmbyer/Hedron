@@ -56,7 +56,7 @@ namespace Hedron.Tests.Architecture
         /// silently never clamp — so CI checks the wiring itself.
         /// </summary>
         [Fact]
-        public void Heartbeat_handlers_are_subscribed()
+        public void PoolReconcileTickHandler_is_subscribed_to_the_heartbeat()
         {
             var serverDir = FindServerSourceDirectory();
             Assert.True(serverDir != null, "Server/ source directory not found.");

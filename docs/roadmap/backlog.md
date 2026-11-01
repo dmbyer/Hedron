@@ -298,7 +298,7 @@ and respawning at the raw `HpMax` — not the death check. Combat now reads effe
 - **Forward note — mob spawn fill.** A live mob's pools are filled at the template max in
   `MobTemplate.Apply`, which equals the effective cap only because no modifier source exists at spawn.
   The first slice that gives a spawning mob one (mob tier folding, mob gear, mob passives) must route
-  that fill through `IAttributeSystem.RestoreToFraction(…, 1.0)`.
+  that fill through `IAttributeSystem.RestoreAllToFraction(…, 1.0)`.
 
 ### 🔵 Collapse pool switches onto the keyed `IAttributeSystem` verbs (on-touch, from combat-effective-scores)
 

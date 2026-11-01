@@ -117,7 +117,7 @@ Ask:
 ### PoolReconcileTickHandler
 **Events:** `HeartbeatTickEvent`
 **Priority:** 30 (`HandlerPriority.Domain + 10`) — a mechanical follow-up of the Domain tier: runs after every p=20 pool writer (effect expiry, combat, regen, bleed-out), before Notification/OutputFlush.
-**Responsibilities:** Calls `IAttributeSystem.ReconcileAllPools()` once per tick, writing any pool current above its effective cap back down to the cap (a `<Pool>Max` buff expired, gear came off, a passive was lost). Reads are already clamped, so this only stops stored overflow outliving a tick — which is what prevents a removed-then-reapplied max bonus from refilling current for free. Publishes nothing and never consults death: it only lowers toward a cap of at least 1, so it can never cross an HP threshold (INV-5). The sandbox executor runs the same reconcile per synthetic tick.
+**Responsibilities:** Calls `IAttributeSystem.ReconcileAllPools()` once per tick, writing any pool current above its effective cap back down to the cap (a `<Pool>Max` buff expired, gear came off, a passive was lost). Reads are already clamped, so this only stops stored overflow outliving a tick — which is what prevents a removed-then-reapplied max bonus from refilling current for free. Publishes nothing and never consults death: for any pool with a base max above 0 the cap is at least 1, so it can never cross an HP threshold (INV-5). (A non-positive base max — only reachable through admin pool edits — floors the cap at 0, the same as the pre-slice `SetMaxHp`.) The sandbox executor runs the same reconcile per synthetic tick.
 **Location:** `Core/Modules/Attributes/Handlers/PoolReconcileTickHandler.cs`
 **Uses:** `IAttributeSystem`
 

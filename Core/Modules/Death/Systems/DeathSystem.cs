@@ -122,10 +122,7 @@ namespace Hedron.Core.Modules.Death.Systems
             // 4. Restore all four pools to floor(effective cap * RespawnPoolPercent). Runs after
             //    RemoveImpermanent, so the cap counts permanent/contributor modifiers (progression,
             //    passives, tier, gear) and excludes the stripped timed buffs.
-            _attributeSystem.RestoreToFraction(entityId, ResourceType.Hp, _options.RespawnPoolPercent);
-            _attributeSystem.RestoreToFraction(entityId, ResourceType.Mana, _options.RespawnPoolPercent);
-            _attributeSystem.RestoreToFraction(entityId, ResourceType.Stamina, _options.RespawnPoolPercent);
-            _attributeSystem.RestoreToFraction(entityId, ResourceType.Astra, _options.RespawnPoolPercent);
+            _attributeSystem.RestoreAllToFraction(entityId, _options.RespawnPoolPercent);
         }
 
         /// <inheritdoc/>

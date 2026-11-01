@@ -176,8 +176,7 @@ namespace Hedron.Core.Modules.Simulation.Systems
 
             // Start full at the *effective* cap, last — after tier, residuals and the ability kit, so
             // a tier baseline or passive on HpMax counts (the live spawn/creation fills do the same).
-            foreach (var pool in new[] { ResourceType.Hp, ResourceType.Mana, ResourceType.Stamina, ResourceType.Astra })
-                world.Attributes.RestoreToFraction(entityId, pool, 1.0);
+            world.Attributes.RestoreAllToFraction(entityId, 1.0);
 
             return entityId;
         }
