@@ -78,7 +78,7 @@ sequenceDiagram
 5. Calls `Activate(actorId, "kick", goblinId, resolveOffensiveExternally: true)` — spends Stamina, sets cooldown, skips raw damage effect, returns `OffensivePower`.
 6. Publishes `AbilityActivatedEvent` with `IsOffensive = true` (the pipeline's already-computed offensive flag). `AbilityInvocationHandler` (p=80) writes room narrative.
 7. Calls `ICombatSystem.ResolveAbilityStrike(actorId, goblinId, OffensivePower)` — defense-mitigated HP deduction.
-8. Publishes `AbilityStrikeResolvedEvent`. `AbilityStrikeHandler` publishes `CombatRoundEvent` (damage narrative) and, if `Outcome` is terminal, `CombatEndedEvent` (reuses slice-10 death path).
+8. Publishes `AbilityStrikeResolvedEvent`. `AbilityStrikeHandler` renders the single fused strike narrative (it does **not** publish `CombatRoundEvent`, so one strike is one `DamageTaken` award, via `AbilityStrikeResolvedEvent`) and, if `Outcome` is terminal, publishes `CombatEndedEvent` (reuses slice-10 death path).
 
 **Why bare skill verbs are not `ICommand`.** Phase 3 is dispatcher-internal routing — the verb is a skill id, not a global command. Abilities are per-actor; making them discoverable via `help`/`commands` would imply they are global verbs. `skills` is the discovery surface.
 
@@ -144,7 +144,7 @@ sequenceDiagram
 4. `Activate(actorId, abilityId, goblinId, resolveOffensiveExternally: true)` — validates, spends costs, skips raw damage effect, returns `OffensivePower`.
 5. Publish `AbilityActivatedEvent` (`IsOffensive = true`).
 6. `ResolveAbilityStrike(actorId, goblinId, OffensivePower)` — defense-mitigated damage applied.
-7. Publish `AbilityStrikeResolvedEvent`. `AbilityStrikeHandler` publishes `CombatRoundEvent` + conditional `CombatEndedEvent` (reuses slice-10 death path). Subsequent heartbeat ticks drive standard melee via `CombatTickHandler`.
+7. Publish `AbilityStrikeResolvedEvent`. `AbilityStrikeHandler` renders the fused strike narrative (no `CombatRoundEvent`) + conditional `CombatEndedEvent` (reuses slice-10 death path). Subsequent heartbeat ticks drive standard melee via `CombatTickHandler`.
 
 **Invariants.** Combat entry happens before `Activate` — if the actor's `TryEnterState` fails, the pipeline aborts without spending costs or setting a cooldown.
 

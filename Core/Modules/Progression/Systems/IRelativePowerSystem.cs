@@ -23,7 +23,7 @@ namespace Hedron.Core.Modules.Progression.Systems
     /// relative to a subject, on <b>effective</b> power for both sides — every score through
     /// <c>IStatSystem.Get</c> (gear, progression, effects, a player's tier) estimated by the core
     /// <c>IPowerBudgetSystem</c> oracle. Consumed by <c>power</c>'s live readout and relation line,
-    /// and (later in this slice) <c>consider</c> and anti-grind gathering, so all three measure an
+    /// <c>consider</c>, and the anti-grind ratio gathering, so all three measure an
     /// entity the same way (INV-19). Owns the ratio → label rule (INV-1/INV-8); what the ratio
     /// does to an award stays in <c>ProgressionSystem</c>, which must never depend on this read.
     ///

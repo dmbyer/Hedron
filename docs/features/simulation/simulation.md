@@ -46,8 +46,9 @@ in parallel, each against its own freshly built `SandboxWorld` (a private `Entit
 full combat/stats/effects/aspects/abilities/entity-state/regeneration/progression/ascension system
 graph). A **Combat** run plays out on synthetic ticks via `CombatScenarioExecutor` — no event bus, no
 heartbeat — until one side dies or the tick cap is hit (a draw). A **ProgressionRate** run (sim-4)
-instead loops kill-events via `ProgressionScenarioExecutor`, each one calling
-`IProgressionSystem.AwardCombatExperience(subject, victim)` directly — no combat rounds — until the
+instead loops kill-events via `ProgressionScenarioExecutor`, each one gathering the subject/victim
+power ratio through `IRelativePowerSystem.Relate` and calling
+`IProgressionSystem.AwardCombatExperience(subject, victim, ratio)` directly — no combat rounds — until the
 target track's improvement count reaches the target or the kill cap is hit. Either way the runner
 reduces every run's outcome deterministically (same seed → byte-identical result, regardless of how
 many worlds ran in parallel) and hands the aggregates to `ISimOutcomeEvaluator`, which checks combat
