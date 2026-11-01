@@ -268,10 +268,11 @@ directly.
   help-topics WP1); its mapping, validation and warnings stay in the store.
 - **Shipped consumer (sim-2):** the [simulation engine](../simulation/simulation-engine.md) reads
   `ReferenceSnapshot`/`OutcomesFor` as its default combatants and expected-outcome oracle. It
-  surfaced a real calibration gap — the tier baseline this doc's oracle projects has no measurable
-  effect on actual combat outcomes today (see the simulation-engine doc's Considerations and
-  [`../../roadmap/backlog.md`](../../roadmap/backlog.md#-ascension-tier-baseline-has-no-real-combat-effect-calibration-gap-found-by-sim-2)) —
-  tracked as backlog, not fixed by sim-2.
+  surfaced a calibration gap — the tier baseline had no effect on combat — whose *mechanism*
+  combat-effective-scores fixed (combat now reads effective `Body` and the effective `HpMax` cap).
+  What remains is tier *tuning* plus one projection asymmetry: the oracle projects the tier baseline
+  onto the tracked scores (`Body`/`HpMax`) but not onto the `AttackPower`/`Defense` that effective
+  `Body` now raises ([`../../roadmap/backlog.md`](../../roadmap/backlog.md#-ascension-tier-tuning-and-the-tier-projection-gap)).
 
 ## Related
 

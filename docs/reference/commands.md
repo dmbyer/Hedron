@@ -317,7 +317,7 @@ Each line ends with the **rank block** — the ability track's rank and `xp <ear
 **Aliases:** none  
 **MatchingMode:** `Partial`  
 **Location:** `Core/Modules/Attributes/Commands/ScoreCommand.cs`  
-**Description:** Displays the invoking player's Level, HP (`CurrentHp/MaxHp`), Mana, Stamina, Astra, the four attributes (Mind, Body, Spirit, Attunement), and the current respawn room blueprint id (from `RespawnComponent.RoomBlueprintId`; shows `(starting room)` when null). Also shows a highlighted `** INCAPACITATED — bleeding out **` status line when the player is currently incapacitated (from `IEntityStateService`). If `AttributesComponent` or `PoolsComponent` are absent (pre-hydration edge case), defaults are shown. No events fired.  
+**Description:** Displays the invoking player's Level, HP (`CurrentHp/MaxHp`, effective), Mana, Stamina, Astra, the four attributes (Mind, Body, Spirit, Attunement), the derived `Attack` and `Defense` (effective `Get(AttackPower)`/`Get(Defense)` — the values combat uses), and the current respawn room blueprint id (from `RespawnComponent.RoomBlueprintId`; shows `(starting room)` when null). Also shows a highlighted `** INCAPACITATED — bleeding out **` status line when the player is currently incapacitated (from `IEntityStateService`). If `AttributesComponent` or `PoolsComponent` are absent (pre-hydration edge case), defaults are shown. No events fired.  
 **Usage:** `score`  
 **Schema:** no arguments  
 **Dependencies:** `EntityService`, `IStatSystem`, `IEntityStateService`  

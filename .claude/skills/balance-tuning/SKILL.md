@@ -112,10 +112,13 @@ strong an entity effectively is:
   numbers-and-validation loop).
 - **Audit and conformance are advisory** — never wire band-drift into a build/CI gate; variance
   within tolerance is expected content texture.
-- **Known calibration gap:** the Ascension tier baseline currently has zero measurable combat
-  effect (combat reads raw attack/defense/pools). Any slice touching `StatSystem`'s combat reads,
-  `AscensionConstants`, or the win-rate tolerances must consult that backlog entry first — the
-  pinned tests encode today's uncalibrated behavior, not the design target.
+- **Tier reaches combat, but its step is untuned:** since combat-effective-scores combat reads
+  effective `Body` and the effective `HpMax` cap, so the Ascension baseline (and every `Body`/`HpMax`
+  modifier) changes fights. Any slice touching `StatSystem`'s derivations, `AscensionConstants`, the
+  oracle's tier projection, or the win-rate tolerances must consult the "Ascension tier tuning"
+  backlog entry first — the pinned one-band-higher test encodes today's *measured* outcome, not a
+  design target. Combat-input changes move the `SimulationInvariantTests` goldens: re-pin with a
+  before/after sweep that includes ability-kit combatants.
 - **Chance/time in systems resolve through `IRandom`/`IClock`** (INV-26) — sim determinism
   depends on it.
 

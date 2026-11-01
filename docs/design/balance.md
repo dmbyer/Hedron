@@ -67,7 +67,7 @@ once at boot — see [live-reload deferral](../roadmap/backlog.md)). Compiled fa
 | `Core/Modules/Progression/ProgressionConstants.cs` — relative-power cut-points | `RelativeEvenFloorRatio` (0.85), `RelativeDangerousFloorRatio` (1.12), `RelativeDeadlyFloorRatio` (1.30); the *trivial*/*easy* boundary **is** `AntiGrindFloorRatio` | Inclusive lower bounds on target ÷ subject effective power for the five danger labels `consider` shows and `power`'s relation line prints ([relative-power-system.md](../features/progression/relative-power-system.md)). Never add a second "easy floor" constant — one constant, one meaning: *trivial* ⇔ anti-grind-ineligible. Calibrated so a fresh character (386 power) reads the (0,1) midpoint *even* and the (0,3) midpoint *dangerous* (B2's midpoint reads *dangerous*); a band-midpoint fixture test validates this against the oracle. Check against real mobs in-game with `power <mob>` |
 | `Core/Modules/Progression/ProgressionConstants.cs` → `Rules` | Per `XpSource` row: `BaseAwardMin`/`Max`, `BaseChance`, `ChanceDecayPerImprovement`, `SourceScale`, `StaticTracks`, `AdvancementEligibility` | The **advancement table** (prog-6) — one row per wired XP source, read through `IAdvancementRuleRegistry`. `BaseChance` and `ChanceDecayPerImprovement` are the per-action rate-slowing curve (the per-step XP cost is flat; the *cumulative* threshold grows). The `AbilityUse`/`DamageTaken` rows also flag `AppliesAntiGrindPowerRatio`, applied when the trigger names an opponent. Compiled rather than YAML precisely *because* these are golden-pinned; promotion needs the pinning contract reworked first |
 | `Core/Modules/Abilities/AbilityRegistry.cs` | Per-ability `XpScale`, `XpAttributeTrack` | Granular progression knobs on the compiled ability rows (prog-6). `XpAttributeTrack` is opt-in: an ability that names none grants **rank only** and adds no attribute power. Inspect via `defs ability <id>`; a YAML/editor pipeline is [backlogged](../roadmap/backlog.md) |
-| `Core/Modules/Ascension/AscensionConstants.cs` | `MaxTier`, `TierBaselineStep`, `TrackedScores`, `UnlocksForTier` | The *real gameplay* tier power (the standards document mirrors it for the oracle; keep in sync — drift warns at load). Known calibration gap: the baseline currently has no measurable combat effect (see Known gaps) |
+| `Core/Modules/Ascension/AscensionConstants.cs` | `MaxTier`, `TierBaselineStep`, `TrackedScores`, `UnlocksForTier` | The *real gameplay* tier power (the standards document mirrors it for the oracle; keep in sync — drift warns at load). Since combat-effective-scores the baseline reaches combat (effective `Body` → attack/defense, effective `HpMax` → starting/respawn HP); its *magnitude* is untuned (see Known gaps) |
 | `Core/Modules/Combat/Systems/CombatSystem.cs` | Hit threshold (`10 + Defense`), damage roll shape, minimum damage | Inline in the round-resolution math; promotion candidate if combat depth lands |
 | `Core/Modules/Regeneration/Systems/RegenerationSystem.cs` | `RegenAmount`, `IdleIntervalTicks`, resting multiplier | Deliberately isolated for cheap later promotion ([backlog](../roadmap/backlog.md)) |
 | Effect `PowerScaling` specs | Per-effect potency / stack-rank `Power` at apply time | A *different* "Power" from the oracle's — see the distinction in [`power-model.md`](power-model.md#distinct-from-effect-power) |
@@ -125,9 +125,13 @@ model or tunes against it. The rules, each enforced at the normal per-slice gate
 
 ## Known gaps (tracked in [`backlog.md`](../roadmap/backlog.md))
 
-- **Ascension tier baseline has no measurable combat effect** — the baseline folds into
-  `Body`/`HpMax` via `IStatSystem.Get`, but combat reads raw attack/defense/pool values; pinned
-  at discovery (sim-2), awaiting a deliberate balance-tuning slice.
+- **Ascension tier step is untuned** *(mechanism fixed by combat-effective-scores)* — the baseline
+  now reaches combat, and one tier up wins ~99–100% of reference-build fights (one-band-higher CI
+  pin 199/1, passing the 65% floor; equal tier-2 fights end in ~15 ticks instead of ~44). The step's
+  magnitude, and the oracle's projection asymmetry (it projects the baseline onto `Body`/`HpMax` but
+  not onto the `AttackPower`/`Defense` that effective `Body` now raises — also why a sandbox tier-1
+  combatant reads stronger than a live tier-1 mob), are Phase 6 tier tuning. Tier-0 content is
+  unaffected.
 - **The `progressionRate` sim is blind to use-based accrual** *(prog-6, stated at ship)* — the
   ability-use and damage-taken rules feed **attribute** tracks, which do grant power through
   `ProgressionEffectContributor`, but `ProgressionScenarioExecutor` exercises
