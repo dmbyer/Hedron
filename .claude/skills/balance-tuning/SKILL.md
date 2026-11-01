@@ -32,7 +32,8 @@ the change mechanics:
 | **Balance-standards document** (`data/balance/standards.yaml` — oracle weights/bands, reference builds, tolerances) | Edit via the Blazor Standards page (`/standards`) or the YAML directly; structural validation refuses bad shapes; **restart-to-apply**. Keep the `AscensionConstants`/`CharacterDefaultsOptions` mirrors in sync or the load-time drift warning fires |
 | **Category-3 constants** (`ProgressionConstants`, `AscensionConstants`, combat/regen inline math) | Edit the constant in the same commit as any dependent change; these are compiled — promotion to data happens only at a real OD-2 need |
 | **`ProgressionConstants.GlobalXpScalar`** (prog-6) | The **macro** progression knob — multiplies every award from every source inside `ProgressionSystem`, so `2.0` exactly doubles progression speed. Reach for this to move overall pacing, not to fix one source |
-| **`ProgressionConstants.Rules`** — the advancement table (prog-6) | One `AdvancementRule` per `XpSource`: `BaseAwardMin`/`Max`, `BaseChance`, `ChanceDecayPerImprovement`, `SourceScale`, `StaticTracks`, `AdvancementEligibility`. Read through `IAdvancementRuleRegistry`. Compiled precisely *because* these are golden-pinned; promotion to YAML needs the pinning contract reworked first. **`BaseChance`/`ChanceDecayPerImprovement` is a second rate-slowing curve** composing with the growing XP threshold — move one at a time |
+| **`ProgressionConstants.Rules`** — the advancement table (prog-6) | One `AdvancementRule` per `XpSource`: `BaseAwardMin`/`Max`, `BaseChance`, `ChanceDecayPerImprovement`, `SourceScale`, `StaticTracks`, `AdvancementEligibility`. Read through `IAdvancementRuleRegistry`. Compiled precisely *because* these are golden-pinned; promotion to YAML needs the pinning contract reworked first. **`BaseChance`/`ChanceDecayPerImprovement` is the use rows' rate-slowing curve** (the per-step XP cost is flat; the *cumulative* threshold grows), composing with anti-grind on opponent-bearing rows — move one at a time |
+| **Relative-power cut-points** (`ProgressionConstants.Relative*FloorRatio`, relative-power-consider) | The `consider` / `power` danger-label boundaries (even 0.85, dangerous 1.12, deadly 1.30). The *trivial* boundary **is** `AntiGrindFloorRatio` — moving the floor moves both the label and anti-grind; never add a second constant. Re-check the band-midpoint fixture (`RelativePowerSystemTests`) and spot-check real mobs with `power <mob>`'s relation line |
 | **Per-ability `XpScale` / `XpAttributeTrack`** (`AbilityRegistry`, prog-6) | Compiled rows; inspect with `defs ability <id>`. `XpAttributeTrack` is opt-in — an ability naming none grants rank only and no attribute power. A YAML/editor pipeline is [backlogged](../../../docs/roadmap/backlog.md) |
 | **Per-mob `XpScale`** (prog-6) | `setmob <blueprintId> xpscale <value>` / YAML `xpScale:` / the Blazor `MobEditor` field. Non-negative; `0` makes that mob's kills award nothing |
 | **Settings** (`CharacterDefaults:`, `Shop:`, `Death:`, `Heartbeat:`) | `appsettings.json`; already recompile-free |
@@ -49,7 +50,9 @@ the change mechanics:
    > `AwardCombatExperience` exclusively — so a change to the **`AbilityUse` or `DamageTaken`**
    > rows, or to a per-ability `XpScale`, **will not move a golden and cannot be swept**. That is a
    > known blind spot, not a clean bill of health: those rows feed *attribute* tracks, which do
-   > grant power. Until the sweep is generalized onto the `XpSource` vocabulary
+   > grant power. Those two rows also carry **anti-grind** now (applied when the trigger names an
+   > opponent — the offensive ability target, or the attacker), and the kill-only sweep does
+   > **not** validate that either. Until the sweep is generalized onto the `XpSource` vocabulary
    > ([backlog](../../../docs/roadmap/backlog.md) · [balance.md Known gaps](../../../docs/design/balance.md)),
    > tune those rows conservatively and say in the plan that the change is unvalidated.
 3. **Re-pin CI goldens in the same commit.** `SimulationInvariantTests` (`Hedron.Tests/Simulation/`)

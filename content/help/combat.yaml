@@ -11,6 +11,9 @@ body: |
   the room. Once engaged, combat continues on its own each moment until one side falls or
   someone leaves.
 
+  Before you start a fight, 'consider <target>' (or 'con') sizes the creature up and tells
+  you how dangerous it would be for you, from no challenge at all to almost certain death.
+
   Your abilities can turn a fight. 'skills' and 'spells' list what you know, and
   'help <ability>' explains one. Abilities cost a resource such as stamina or mana, and
   many need time to recover before you can use them again.

@@ -68,15 +68,17 @@ sequenceDiagram
     participant CF as ISimCombatantFactory
     participant SWF as ISandboxWorldFactory
     participant Exec as ProgressionScenarioExecutor
+    participant RP as SandboxWorld.RelativePower
     participant Prog as IProgressionSystem
     participant Eval as ISimOutcomeEvaluator
 
     Runner->>CF: Resolve(subject spec) / Resolve(victim spec) — once per scenario
     loop per run index i (parallel, bounded)
-        Runner->>SWF: Create(random) → fresh SandboxWorld (contains IProgressionSystem already)
+        Runner->>SWF: Create(random) → fresh SandboxWorld (contains IProgressionSystem + RelativePower already)
         Runner->>CF: Materialize(world, resolved) × 2 → subjectId, victimId
         loop per kill-event, until target reached or maxKillsPerRun
-            Exec->>Prog: AwardCombatExperience(subjectId, victimId)
+            Exec->>RP: Relate(subjectId, victimId) → ratio (regathered per kill — subject power grows)
+            Exec->>Prog: AwardCombatExperience(subjectId, victimId, ratio)
             Prog-->>Exec: CombatAwardResult (one AwardOutcome per CombatTracks row)
             Exec->>Exec: record a milestone kill-count on each threshold crossing of TargetTrack
         end
@@ -88,7 +90,7 @@ sequenceDiagram
     Runner-->>Runner: SimulationReport (ProgressionRate populated; combat scalars empty defaults)
 ```
 
-- **Analytical kill-events, not simulated combat.** Each kill-event calls `IProgressionSystem.AwardCombatExperience` directly — the exact live award path (`MobDiedEvent` → `AdvancementHandler` → `AwardCombatExperience` → `TryImprove`) minus the bus, mirrored the same way `CombatScenarioExecutor` mirrors `AbilityInvocationPipeline`. No combat rounds run per kill; the victim is never destroyed (one award models one kill of a fresh identical spawn — what live template respawn produces). See the sim-4 plan's Design notes for why (cost, and the current tier-baseline calibration gap that severs the combat-outcome feedback loop this would otherwise buy).
+- **Analytical kill-events, not simulated combat.** Each kill-event gathers the anti-grind ratio from `SandboxWorld.RelativePower` (the same `RelativePowerSystem` type the live host composes, built over the sandbox's `StatSystem` and the shared oracle) **once per kill**, then calls `IProgressionSystem.AwardCombatExperience(subject, victim, ratio)` directly — the exact live award path (`MobDiedEvent` → `AdvancementHandler` → `Relate` → `AwardCombatExperience` → `TryImprove`) minus the bus, mirrored the same way `CombatScenarioExecutor` mirrors `AbilityInvocationPipeline` and pinned equal to the live path by a live-vs-sandbox parity test at Tier 0 and Tier 1. Because the ratio is regathered per kill, later kills scale down as the subject outgrows the victim. The executor models kills only, so it cannot see the `AbilityUse`/`DamageTaken` rows' anti-grind (backlog: use-based accrual). No combat rounds run per kill; the victim is never destroyed (one award models one kill of a fresh identical spawn — what live template respawn produces). See the sim-4 plan's Design notes for why (cost, and the current tier-baseline calibration gap that severs the combat-outcome feedback loop this would otherwise buy).
 - **Termination.** A run ends when the target track's improvement count reaches `targetImprovements`, or at `maxKillsPerRun` (target not reached — the run still reports its final kill count and per-track XP/improvements).
 - **`ticksPerKill` is authored, not engine-chained.** When present on the scenario, the reduce step converts each reaching run's kill count to synthetic ticks (`kills × ticksPerKill`) into a `TicksToTarget` distribution; the editor can prefill this field from a chosen combat report's `TicksToKill.Mean`, but the engine itself never reads report files as input.
 - **Verdicts are descriptive-first.** `targetReached` is a real, standards-free pass/fail (every run reached the target before the cap); `progressionRateExpectation` is always skipped, naming the not-yet-authored standards tolerance family (no progression-rate expectation has ever been stated by a designer — inventing one now would ship speculative authored state).

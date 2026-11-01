@@ -63,8 +63,9 @@ once at boot — see [live-reload deferral](../roadmap/backlog.md)). Compiled fa
 
 | Home | Knobs | Notes |
 |---|---|---|
-| `Core/Modules/Progression/ProgressionConstants.cs` | `PowerPerImprovement`, `ThresholdBase`, `ThresholdIncrement`, **`GlobalXpScalar`**, `AntiGrindFloorRatio`, `AntiGrindCap`, `CombatTracks` | The progression curve — see [`progression-system.md`](../features/progression/progression-system.md). `GlobalXpScalar` is the **macro knob**: it multiplies every award from every source, so `2.0` exactly doubles progression speed. Golden numbers CI-pinned in `SimulationInvariantTests`; a tuning change **re-pins in the same commit** |
-| `Core/Modules/Progression/ProgressionConstants.cs` → `Rules` | Per `XpSource` row: `BaseAwardMin`/`Max`, `BaseChance`, `ChanceDecayPerImprovement`, `SourceScale`, `StaticTracks`, `AdvancementEligibility` | The **advancement table** (prog-6) — one row per wired XP source, read through `IAdvancementRuleRegistry`. `BaseChance` and `ChanceDecayPerImprovement` are the second rate-slowing curve, composing with the growing XP threshold. Compiled rather than YAML precisely *because* these are golden-pinned; promotion needs the pinning contract reworked first |
+| `Core/Modules/Progression/ProgressionConstants.cs` | `PowerPerImprovement`, `ThresholdBase`, `ThresholdIncrement`, **`GlobalXpScalar`**, `AntiGrindFloorRatio`, `AntiGrindCap`, `CombatTracks` | The progression curve — see [`progression-system.md`](../features/progression/progression-system.md). `GlobalXpScalar` is the **macro knob**: it multiplies every award from every source, so `2.0` exactly doubles progression speed. `AntiGrindFloorRatio` (0.25) / `AntiGrindCap` (1.5) bound the challenge-gating scale on the opponent ÷ earner **effective**-power ratio, applied to every opponent-bearing row (kill, offensive ability use, damage taken). Golden numbers CI-pinned in `SimulationInvariantTests`; a tuning change **re-pins in the same commit** |
+| `Core/Modules/Progression/ProgressionConstants.cs` — relative-power cut-points | `RelativeEvenFloorRatio` (0.85), `RelativeDangerousFloorRatio` (1.12), `RelativeDeadlyFloorRatio` (1.30); the *trivial*/*easy* boundary **is** `AntiGrindFloorRatio` | Inclusive lower bounds on target ÷ subject effective power for the five danger labels `consider` shows and `power`'s relation line prints ([relative-power-system.md](../features/progression/relative-power-system.md)). Never add a second "easy floor" constant — one constant, one meaning: *trivial* ⇔ anti-grind-ineligible. Calibrated so a fresh character (386 power) reads the (0,1) midpoint *even* and the (0,3) midpoint *dangerous* (B2's midpoint reads *dangerous*); a band-midpoint fixture test validates this against the oracle. Check against real mobs in-game with `power <mob>` |
+| `Core/Modules/Progression/ProgressionConstants.cs` → `Rules` | Per `XpSource` row: `BaseAwardMin`/`Max`, `BaseChance`, `ChanceDecayPerImprovement`, `SourceScale`, `StaticTracks`, `AdvancementEligibility` | The **advancement table** (prog-6) — one row per wired XP source, read through `IAdvancementRuleRegistry`. `BaseChance` and `ChanceDecayPerImprovement` are the per-action rate-slowing curve (the per-step XP cost is flat; the *cumulative* threshold grows). The `AbilityUse`/`DamageTaken` rows also flag `AppliesAntiGrindPowerRatio`, applied when the trigger names an opponent. Compiled rather than YAML precisely *because* these are golden-pinned; promotion needs the pinning contract reworked first |
 | `Core/Modules/Abilities/AbilityRegistry.cs` | Per-ability `XpScale`, `XpAttributeTrack` | Granular progression knobs on the compiled ability rows (prog-6). `XpAttributeTrack` is opt-in: an ability that names none grants **rank only** and adds no attribute power. Inspect via `defs ability <id>`; a YAML/editor pipeline is [backlogged](../roadmap/backlog.md) |
 | `Core/Modules/Ascension/AscensionConstants.cs` | `MaxTier`, `TierBaselineStep`, `TrackedScores`, `UnlocksForTier` | The *real gameplay* tier power (the standards document mirrors it for the oracle; keep in sync — drift warns at load). Known calibration gap: the baseline currently has no measurable combat effect (see Known gaps) |
 | `Core/Modules/Combat/Systems/CombatSystem.cs` | Hit threshold (`10 + Defense`), damage roll shape, minimum damage | Inline in the round-resolution math; promotion candidate if combat depth lands |
@@ -92,7 +93,8 @@ power and cell fit shows in the editor readout as it is edited.
 
 | Surface | What it shows |
 |---|---|
-| `power` / `powerband` (admin commands) | An entity's/definition's estimated power + Tier×Band; the band anchor table |
+| `power` / `powerband` (admin commands) | An entity's/definition's estimated power + Tier×Band; the band anchor table. For a mob, a `vs you : ratio <r> → <label>` relation line — the in-game check of the relative-power cut-points |
+| `consider` (player command) | The relative-power label as a player sees it — descriptive only, no numbers |
 | Blazor `ItemEditor` / `MobEditor` readout | Live projected power + cell fit (band-mismatch flag) while authoring |
 | Blazor **Integrity** page — band-drift audit | Every item/mob past `BandDriftTolerance`, plus content counts per (Tier, Band); per-row and bulk conformance preview/apply |
 | Blazor **Standards** page | The standards document + live derived target-range preview |
@@ -132,8 +134,18 @@ model or tunes against it. The rules, each enforced at the normal per-slice gate
   `AwardCombatExperience` exclusively. No golden moved when prog-6 shipped, and that is because
   the sim cannot see the new sources — **not** because they are power-neutral. Bounded by
   deliberately conservative defaults (low `BaseChance`, meaningful `ChanceDecayPerImprovement`) so
-  the unvalidated rate is a slow drift rather than a step change. The rule table now gives the
-  generalization a vocabulary to point at; see the backlog entry.
+  the unvalidated rate is a slow drift rather than a step change. Since relative-power-consider
+  the same two rows also carry **anti-grind** when they name an opponent — a conservative change
+  (it can only lower their awards) that the kill-only sweep likewise cannot validate. The rule
+  table now gives the generalization a vocabulary to point at; see the backlog entry.
+- ***Trivial* is unreachable in Tier 0 at the 0.25 floor** *(relative-power-consider, resolved
+  decision 11)* — a B1 mob (midpoint 406 power) reads *trivial* only once the player reaches about
+  406 / 0.25 ≈ 1624 power, above even the T6 reference (1106). So in Phase 5 anti-grind scales an
+  outgrown kill down but never zeroes it, and `consider` never shows *trivial* in Tier 0. Retune the
+  floor at balance closure (R24–R25), alongside slice 5b (combat reads effective scores).
+- **Relative-power labels compress at higher tiers** — the oracle's additive tier baseline makes
+  one tier above ×1.31 at T0 but only ×1.16 at T3, so a T3 character facing a T4 mob reads
+  *dangerous*, not *deadly*. A property of the oracle; flagged for balance closure.
 - **Progression-rate expectation tolerances unpromoted** — the sim's progression-rate verdict is
   descriptive-only until a designer states a kills-to-improvement expectation.
 - **Live standards reload** — Standards-page edits are restart-to-apply.

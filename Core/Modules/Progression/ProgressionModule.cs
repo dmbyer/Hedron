@@ -29,6 +29,7 @@ namespace Hedron.Core.Modules.Progression
             services.AddSingleton<AdvancementHandler>();
             services.AddSingleton<ProgressionNarrationHandler>();
             services.AddSingleton<ICommand, ProgressCommand>();
+            services.AddSingleton<ICommand, ConsiderCommand>();
             return services;
         }
     }

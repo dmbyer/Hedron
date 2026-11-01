@@ -207,6 +207,20 @@ Each line ends with the **rank block** — the ability track's rank and `xp <ear
 
 ---
 
+### `consider` / `con`
+
+**Aliases:** `con` (an exact alias, so it wins over prefix resolution; `conf`/`config` still reach `config`)  
+**MatchingMode:** `Partial`  
+**Location:** `Core/Modules/Progression/Commands/ConsiderCommand.cs`  
+**Description:** Sizes up a mob in the current room and prints **one** descriptive line saying how dangerous it is relative to the invoker — never a number, ratio, tier or band. Targets mirror `kill`: `ICombatSystem.TryFindTargetInRoom` (mobs only, prefix match on name then keywords, no ordinals). No argument → "Consider whom?"; `self`/`me`, or a token matching an item in inventory or the room (`IItemSystem`) → "You can only size up creatures."; any other miss, including another player's name → "You don't see that here."; a mob failing `ICombatSystem.CanBeAttacked` (untargetable, e.g. a hub shopkeeper) → "\<Name\> is not something you can fight." with no label. Otherwise `IRelativePowerSystem.Relate(invoker, mob)` labels the effective-power ratio and the command prints that label's fixed phrase (trivial "…would be no challenge at all." · easy "…should be easy prey." · even "…looks like an even fight." · dangerous "…looks dangerous." · deadly "…would almost certainly kill you."); an unreadable reading prints "You can't tell how dangerous \<Name\> is.". `<Name>` is `MobDataComponent.Name` with its first character upper-cased. Read-only and free: no state change, round, resource or cooldown; usable in combat. Output is `PlainMessage`.  
+**Usage:** `consider <target>`  
+**Schema:** `RestOfLine string "target"` (optional, so it can answer "Consider whom?")  
+**Dependencies:** `IRelativePowerSystem`, `ICombatSystem`, `IItemSystem`, `EntityService`, `IEventBus`  
+**Events:** `MobConsideredEvent(PlayerEntityId, MobBlueprintId, DangerLabel)` — published **only on a successful label**; never on a refusal, not-found, untargetable target or unreadable reading  
+**UsableWhileIncapacitated:** `false` (default)
+
+---
+
 ### `look` / `l`
 
 **Aliases:** `l`  
@@ -760,9 +774,10 @@ All admin commands require `AdminRequirement`. The dispatcher enforces this via 
 **Aliases:** none  
 **MatchingMode:** `Full`  
 **Location:** `Core/Modules/BalanceInspection/Commands/PowerCommand.cs`  
-**Description:** Resolves a runtime-in-world target — self (default, or `self`/`me`), an item in the invoker's inventory/room, or a mob in the invoker's room — to a score snapshot, then prints the target's computed power scalar and classified `(Tier, Band)` via `IPowerBudgetSystem`. Self reads `IStatSystem.Get` per `ScoreId` (folds worn gear/abilities/progression/tier); an item projects its `ItemDataComponent` via the shared `IItemPowerProjectionSystem` seam (tier = the item's authored `Tier`); a mob reads its effective scores (tier = the mob's authored `Tier`). For a tagged target, echoes the authored `(Tier, Band)` alongside the computed one. Blueprint-id/template resolution is deferred to the Blazor editor readout.  
+**Description:** Resolves a runtime-in-world target — self (default, or `self`/`me`), an item in the invoker's inventory/room, or a mob in the invoker's room — to a score snapshot, then prints the target's computed power scalar and classified `(Tier, Band)` via `IPowerBudgetSystem`. Live targets (self and mob) are measured through `IRelativePowerSystem.GetEffectivePower` — every `ScoreId` via `IStatSystem.Get`, folding worn gear/abilities/progression/tier, with tier = the mob's authored `Tier` (0 for self, whose tier is contributor-folded) — the same read `consider` and anti-grind use. An item projects its `ItemDataComponent` via the shared `IItemPowerProjectionSystem` seam (tier = the item's authored `Tier`). For a tagged target, echoes the authored `(Tier, Band)` alongside the computed one. **A mob target adds a relation line** from `IRelativePowerSystem.Relate(invoker, mob)`: `  vs you : ratio 1.42 → dangerous` (the ratio to two decimals and the label `consider` would show the invoker), or `  vs you : unreadable` when either side has no `AttributesComponent`. Self and item targets print no relation line. Blueprint-id/template resolution is deferred to the Blazor editor readout.  
 **Usage:** `power [target]`  
 **Schema:** `RestOfLine string "target"` (optional — omit for self)  
+**Dependencies:** `IPowerBudgetSystem`, `IRelativePowerSystem`, `IItemSystem`, `IItemPowerProjectionSystem`, `ICombatSystem`, `EntityService`  
 **Events:** none  
 **RequiredPrivileges:** `AdminRequirement`
 

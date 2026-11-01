@@ -1,13 +1,15 @@
-# Combat journey (initiation · round pulse · flee)
+# Combat journey (judge the fight · initiation · round pulse · flee)
 
-> [Back to flows index](README.md). **Trigger:** Player sends `kill <target>`, then `HeartbeatTickEvent` drives rounds; player sends `flee` to exit.
+> [Back to flows index](README.md). **Trigger:** Player sends `consider <target>` (optional, read-only) or `kill <target>`, then `HeartbeatTickEvent` drives rounds; player sends `flee` to exit.
 
 ## Summary
 
-`KillCommand` validates state, prefix-matches the target mob in the room via `ICombatSystem`, transitions both entities to `InCombat` via `IEntityStateService`, attaches `CombatStateComponent`, and publishes `CombatStartedEvent`. Each heartbeat tick, `CombatTickHandler` (priority 20) snapshots all `CombatStateComponent` entities, deduplicates into unique pairs (lower entity id = attacker), and calls `ICombatSystem.ExecuteRound` per pair. Results route to `CombatRoundEvent` for output; terminal outcomes (mob death, player incapacitation) publish `CombatEndedEvent` and branch to the [death & respawn journey](flow-20-mob-death-respawn.md). `flee` calls `ICombatSystem.EndCombat` + `IEntityStateService.ExitState` on both participants and publishes `CombatEndedEvent(PlayerFled)`.
+Before a fight, `ConsiderCommand` (`consider`, alias `con`) lets the player judge it: the same room lookup and `CanBeAttacked` gate `kill` uses, then one `IRelativePowerSystem.Relate` read, one descriptive label line, and — on a successful label only — a `MobConsideredEvent` observation (no subscriber yet). It changes no state and starts nothing. `KillCommand` validates state, prefix-matches the target mob in the room via `ICombatSystem`, transitions both entities to `InCombat` via `IEntityStateService`, attaches `CombatStateComponent`, and publishes `CombatStartedEvent`. Each heartbeat tick, `CombatTickHandler` (priority 20) snapshots all `CombatStateComponent` entities, deduplicates into unique pairs (lower entity id = attacker), and calls `ICombatSystem.ExecuteRound` per pair. Results route to `CombatRoundEvent` for output; terminal outcomes (mob death, player incapacitation) publish `CombatEndedEvent` and branch to the [death & respawn journey](flow-20-mob-death-respawn.md). `flee` calls `ICombatSystem.EndCombat` + `IEntityStateService.ExitState` on both participants and publishes `CombatEndedEvent(PlayerFled)`.
 
 ```mermaid
 sequenceDiagram
+    participant Con as ConsiderCommand
+    participant RP as IRelativePowerSystem
     participant Cmd as KillCommand / FleeCommand
     participant ESS as IEntityStateService
     participant CS as ICombatSystem
@@ -15,6 +17,20 @@ sequenceDiagram
     participant Bus as IEventBus
     participant CH as CombatHandler (p=20)
     participant MDH as CombatMobDeathHandler (p=80)
+
+    Note over Con: optional pre-initiation leg — read-only, usable in combat
+    Con->>CS: TryFindTargetInRoom → mobEntityId (miss ⇒ item? "creatures only" : "not here")
+    Con->>CS: CanBeAttacked(mobEntityId)
+    alt Untargetable
+        Con-->>Player: "X is not something you can fight." [return, no event]
+    end
+    Con->>RP: Relate(player, mob) → RelativePowerReading
+    alt Readable
+        Con-->>Player: one label phrase (no numbers, tier or band)
+        Con->>Bus: PublishAsync(MobConsideredEvent) [no subscriber]
+    else Unreadable
+        Con-->>Player: "You can't tell how dangerous X is." [no event]
+    end
 
     Cmd->>ESS: IsInState(player, InCombat) [guard]
     Cmd->>CS: TryFindTargetInRoom → mobEntityId
@@ -54,6 +70,8 @@ sequenceDiagram
 
 ## Steps
 
+0. **Judge the fight (optional, read-only).** `ConsiderCommand` resolves the token exactly as `kill` does (`ICombatSystem.TryFindTargetInRoom`, mobs only, prefix match): no argument → "Consider whom?"; `self`/`me` or an item token (inventory or room, via `IItemSystem`) → "You can only size up creatures."; anything else unmatched, including another player's name → "You don't see that here.". An untargetable mob (`CanBeAttacked` false) gets "X is not something you can fight." and no label. Otherwise `IRelativePowerSystem.Relate(player, mob)` classifies the effective-power ratio into one of five labels (trivial · easy · even · dangerous · deadly) and the command prints that label's fixed phrase, then publishes `MobConsideredEvent(PlayerEntityId, MobBlueprintId, DangerLabel)`. An unreadable reading prints "You can't tell how dangerous X is." and publishes nothing. No state transition, round, resource or cooldown is spent; it works mid-fight. See [relative-power-system.md](../../features/progression/relative-power-system.md).
+
 1. **Initiation.** `KillCommand` guards `IsInState(InCombat)`, prefix-matches the target via `ICombatSystem.TryFindTargetInRoom`, then calls `ICombatSystem.CanBeAttacked(targetEntityId)` (**Gate A — protection check**): if the target carries `ProtectionFlags.Untargetable`, the command writes "X is protected and cannot be attacked." and returns — no state transition, no `StartCombat`, no `CombatStartedEvent`. For unprotected targets, calls `TryEnterState(InCombat)` on both entities, calls `ICombatSystem.StartCombat` to attach `CombatStateComponent { OpponentEntityId }` on both, and publishes `CombatStartedEvent`.
 
 2. **Round pulse.** On each `HeartbeatTickEvent`, `CombatTickHandler` snapshots all `CombatStateComponent` entities. For each pair with `entityId < opponentEntityId`: calls `ICombatSystem.ExecuteRound` (hit check + aspect-resolved damage) and publishes `CombatRoundEvent`. `CombatHandler` broadcasts the hit/miss narrative and the per-round HP status to the player.
@@ -66,6 +84,7 @@ sequenceDiagram
 
 ## Where to look
 
+- [`Core/Modules/Progression/Commands/ConsiderCommand.cs`](../../../Core/Modules/Progression/Commands/ConsiderCommand.cs) · [`Core/Modules/Progression/Systems/IRelativePowerSystem.cs`](../../../Core/Modules/Progression/Systems/IRelativePowerSystem.cs) — the pre-initiation leg.
 - [`Core/Modules/Combat/Commands/KillCommand.cs`](../../../Core/Modules/Combat/Commands/KillCommand.cs) · [`Core/Modules/Combat/Commands/FleeCommand.cs`](../../../Core/Modules/Combat/Commands/FleeCommand.cs)
 - [`Core/Modules/Combat/Handlers/CombatTickHandler.cs`](../../../Core/Modules/Combat/Handlers/CombatTickHandler.cs) · [`Core/Modules/Combat/Handlers/CombatHandler.cs`](../../../Core/Modules/Combat/Handlers/CombatHandler.cs)
 - [`Core/Modules/Combat/Systems/CombatSystem.cs`](../../../Core/Modules/Combat/Systems/CombatSystem.cs)
