@@ -30,15 +30,22 @@ namespace Hedron.Core.Modules.Progression.Systems
     /// <param name="Magnitude">
     /// The action's size, when the rule gates on it — damage dealt, for the damage-taken rule.
     /// </param>
-    /// <param name="OpponentEntityId">
-    /// The other party, when the rule needs it for the anti-grind power ratio (the victim, for a kill).
+    /// <param name="OpponentPowerRatio">
+    /// The opponent's effective power ÷ the earner's, <b>gathered by the caller</b> through
+    /// <c>IRelativePowerSystem</c> (the victim for a kill, the target of an offensive ability use,
+    /// the attacker for damage taken). Read only by a rule flagged
+    /// <see cref="AdvancementEligibility.AppliesAntiGrindPowerRatio"/>. Three meanings:
+    /// <see langword="null"/> — the trigger named <b>no</b> opponent, so no ratio applies and draws
+    /// are exactly as without anti-grind; <c>0.0</c> — an opponent was named but its power was
+    /// unreadable, which is <b>ineligible</b> (zero award, zero draws — never a fallback to
+    /// ratio-free XP); any other value — applied (below the floor ⇒ ineligible, above the cap ⇒ capped).
     /// </param>
     public readonly record struct UseAwardContext(
         string? SubjectAbilityId = null,
         ScoreId? SubjectAttributeTrack = null,
         double ContentScale = 1.0,
         int Magnitude = 0,
-        uint OpponentEntityId = 0);
+        double? OpponentPowerRatio = null);
 
     /// <summary>
     /// Per-candidate-track outcome of one advancement-rule evaluation. A row with
@@ -53,11 +60,13 @@ namespace Hedron.Core.Modules.Progression.Systems
     /// <summary>
     /// Use-driven experience accrual and threshold-improvement for the progression substrate
     /// (gameplay-model Spine E). A track is keyed by <see cref="ProgressionTrack"/> — one engine,
-    /// one component, one threshold curve across score and ability tracks. Reads raw
-    /// <c>AttributesComponent</c> fields directly (not <c>IStatSystem</c>) for the anti-grind
-    /// power proxy — going through <c>IStatSystem</c> would create a DI cycle back through the
-    /// <c>IEffectContributor</c> port this system's own contributor registers on. Never touches
-    /// the event bus (INV-5) — callers publish the result.
+    /// one component, one threshold curve across score and ability tracks. <b>Stat-free:</b> it never
+    /// reads <c>IStatSystem</c>/<c>IEffectSystem</c> (that would close a DI cycle back through the
+    /// <c>IEffectContributor</c> port this system's own contributor registers on) and never measures
+    /// power itself — the anti-grind ratio is an <b>input</b>, gathered on effective power by the
+    /// caller (<c>AdvancementHandler</c> live, <c>ProgressionScenarioExecutor</c> in the sandbox)
+    /// through <c>IRelativePowerSystem</c>. This system owns only what the ratio <i>does</i> to an
+    /// award (floor ⇒ ineligible, cap). Never touches the event bus (INV-5) — callers publish the result.
     /// </summary>
     public interface IProgressionSystem
     {
@@ -71,9 +80,11 @@ namespace Hedron.Core.Modules.Progression.Systems
         /// <para>
         /// <b>Draw contract (INV-26).</b> A rule whose effective chance is <c>&gt;= 1.0</c>
         /// short-circuits with <b>no</b> <c>IRandom</c> call, and an ineligible candidate consumes
-        /// <b>zero</b> draws. The combat-kill row is exactly the first case and the trivial-victim
-        /// path exactly the second, so kills draw what they have always drawn and the shared
-        /// seeded stream in the balance sandbox does not shift.
+        /// <b>zero</b> draws. The combat-kill row is exactly the first case; a below-floor (or
+        /// unreadable, <c>0.0</c>) <see cref="UseAwardContext.OpponentPowerRatio"/> on any
+        /// anti-grind row is exactly the second, so a trivial opponent never shifts the shared
+        /// seeded stream in the balance sandbox. A use with no opponent (<see langword="null"/>
+        /// ratio) draws exactly what it drew before anti-grind covered the use rows.
         /// </para>
         ///
         /// <para>Publishes nothing (INV-5) — the caller publishes per row.</para>
@@ -107,9 +118,12 @@ namespace Hedron.Core.Modules.Progression.Systems
         /// <see cref="XpSource.CombatKill"/> row, resolving the victim's <c>MobDataComponent.XpScale</c>
         /// <b>internally</b> so a live kill and a sandbox kill cannot drift (the sandbox calls this
         /// directly and would otherwise never see a scale applied by the handler).
-        /// Publishes nothing (INV-5).
+        /// <paramref name="opponentPowerRatio"/> is victim ÷ killer on <b>effective</b> power, gathered
+        /// by the caller through <c>IRelativePowerSystem.Relate(killer, victim).Ratio</c> while the
+        /// victim is still live; an unreadable reading passes <c>0.0</c>, which is ineligible with
+        /// zero draws. Publishes nothing (INV-5).
         /// </summary>
-        CombatAwardResult AwardCombatExperience(uint killerEntityId, uint victimEntityId);
+        CombatAwardResult AwardCombatExperience(uint killerEntityId, uint victimEntityId, double opponentPowerRatio);
 
         /// <summary>Cumulative XP earned so far for <paramref name="track"/>. 0 if never awarded.</summary>
         int GetXp(uint entityId, ProgressionTrack track);

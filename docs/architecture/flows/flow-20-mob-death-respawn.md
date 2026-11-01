@@ -34,7 +34,8 @@ sequenceDiagram
     CLH->>Bus: PublishAsync(CurrencyAwardedEvent) per currency
     Bus->>CANH: HandleAsync (p=80) → "You receive 1 gold, 0 silver, 5 copper."
     Bus->>EAH: HandleAsync (p=20) — if KillerEntityId==0: discard
-    EAH->>EAH: IProgressionSystem.AwardCombatExperience(killer, victim)
+    EAH->>EAH: ratio = IRelativePowerSystem.Relate(killer, victim).Ratio (victim's effective power, pre-destroy)
+    EAH->>EAH: IProgressionSystem.AwardCombatExperience(killer, victim, ratio)
     EAH->>Bus: PublishAsync(ExperienceAwardedEvent) per track, TrackImprovedEvent per crossing
     Bus->>SS: HandleAsync (p=20) → vacate this mob's rule slot, RespawnAt = now + rule delay
     MDH->>ES: DestroyEntity(mobEntityId)
@@ -68,7 +69,7 @@ sequenceDiagram
 2. Publishes `MobDiedEvent { MobEntityId, BlueprintId, KillerEntityId }` while the entity is still live.
 3. Three independent `MobDiedEvent` subscribers read the live mob — no inter-handler ordering constraint between them:
    - `CurrencyLootHandler` (priority 20): if `KillerEntityId == 0`, discards (no deposit, no event). Otherwise calls `ICurrencyLootSystem.RollLoot(mobEntityId)`, then for each non-zero `(currency, amount)` calls `IWalletSystem.Deposit(KillerEntityId, currency, amount)` and publishes `CurrencyAwardedEvent(KillerEntityId, currency, amount)`. `CurrencyAwardNarrationHandler` (priority 80) writes a "You receive …" line (formatted up the denomination ladder, e.g. "You receive 1 gold, 0 silver, 5 copper.") to the recipient.
-   - `AdvancementHandler` (priority 20): calls `IProgressionSystem.AwardCombatExperience(killerEntityId, victimEntityId)` unconditionally, then publishes `ExperienceAwardedEvent` per positive-amount track and `TrackImprovedEvent` per threshold crossed. An unattributable killer (`KillerEntityId == 0`) awards nothing, but that discard is `AdvancementEligibility` data on the rule rather than a branch in the handler (INV-8). See [flow-31](flow-31-progression-award.md) for the progression internals (the rule table, the RNG draw contract, anti-grind scale, threshold math, the contribute-on-read fold).
+   - `AdvancementHandler` (priority 20): reads the victim's **effective** power pre-destroy through `IRelativePowerSystem.Relate(killer, victim)` (gear, progression, effects and tier on both sides — the anti-grind ratio), calls `IProgressionSystem.AwardCombatExperience(killerEntityId, victimEntityId, ratio)` unconditionally, then publishes `ExperienceAwardedEvent` per positive-amount track and `TrackImprovedEvent` per threshold crossed. An unattributable killer (`KillerEntityId == 0`) awards nothing, but that discard is `AdvancementEligibility` data on the rule rather than a branch in the handler (INV-8). See [flow-31](flow-31-progression-award.md) for the progression internals (the rule table, the RNG draw contract, anti-grind scale, threshold math, the contribute-on-read fold).
    - `SpawnSystem` (priority 20): vacates only this mob's rule slot `(room, rule id, ordinal)` and sets `RespawnAt = now + rule delay`; other slots of the same rule keep their own timers. A detached or untracked mob schedules nothing.
 4. Calls `EntityService.DestroyEntity(mobEntityId)`. On a later heartbeat tick, `SpawnSystem` spawns one fresh entity per due slot from the rule's template and places it in the room (skipped if the room was torn down mid-reload).
 

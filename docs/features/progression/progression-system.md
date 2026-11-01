@@ -1,6 +1,6 @@
 # Progression system
 
-> Use-driven per-track experience accrual, chance-gated awards over an advancement-rule table, threshold improvement, and the contribute-on-read power fold. **Authoring checkpoint:** slice prog-6. Living document.
+> Use-driven per-track experience accrual, chance-gated awards over an advancement-rule table, threshold improvement, and the contribute-on-read power fold. **Authoring checkpoint:** slice prog-6; challenge gating on effective power relative-power-consider. Living document.
 
 ## What it is / does
 
@@ -22,13 +22,13 @@ Invalid states are unrepresentable: the constructor is private, `Of`/`Ability` a
 
 Every XP source flows through `AwardUseExperience(entityId, source, context)`. It looks up the source's `AdvancementRule` via `IAdvancementRuleRegistry` and reads everything from that row: candidate tracks, eligibility, base range, chance, decay, and the per-source scale. This is the INV-19 promotion — the bespoke-handler-per-source pattern hit its third repetition, so the trigger wiring became a table rather than a third handler.
 
-**Eligibility is data on the rule, not a branch in the handler.** `AdvancementEligibility` declares what the rule requires — `RequiresAttributableActor`, `RequiresPlayerEarner`, `RequiresPositiveMagnitude`, `AppliesAntiGrindPowerRatio` — and is evaluated here, at the system tier, against the incoming `UseAwardContext`. The handler's entire job is the mechanical mapping *event fields → context* (INV-8).
+**Eligibility is data on the rule, not a branch in the handler.** `AdvancementEligibility` declares what the rule requires — `RequiresAttributableActor`, `RequiresPlayerEarner`, `RequiresPositiveMagnitude`, `AppliesAntiGrindPowerRatio` — and is evaluated here, at the system tier, against the incoming `UseAwardContext`. The handler's job is the mechanical mapping *event fields → context* plus one relative-power read per opponent-bearing trigger, to fill `UseAwardContext.OpponentPowerRatio`; opponent selection maps event facts, never a game-rule branch (INV-8).
 
 `RequiresPlayerEarner` gates on `CharacterComponent`. It is set on the two use-based rows — without it every mob taking damage in every combat round would accrue XP — and deliberately **left off** the kill row, whose earner in the balance sandbox is mob-shaped (`SimCombatantFactory` builds combatants from `MobDataComponent`).
 
 **Candidate tracks** are the ability's own track (when the rule takes one and the trigger named an ability) plus the attribute track — the subject's configured `XpAttributeTrack`, falling back to the rule's `StaticTracks` when the subject declares none. An ability with no `XpAttributeTrack` therefore grants rank only and adds no attribute power.
 
-`AwardCombatExperience` stays on the interface as a thin wrapper over the `CombatKill` row, preserving the balance sandbox's seam. **It resolves the victim's `MobDataComponent.XpScale` internally**, so a live kill and a simulated kill cannot drift — the sandbox calls the wrapper directly and would otherwise never see a scale the handler applied.
+`AwardCombatExperience(killer, victim, opponentPowerRatio)` stays on the interface as a thin wrapper over the `CombatKill` row, preserving the balance sandbox's seam; the caller supplies the victim ÷ killer ratio. **It resolves the victim's `MobDataComponent.XpScale` internally**, so a live kill and a simulated kill cannot drift — the sandbox calls the wrapper directly and would otherwise never see a scale the handler applied.
 
 ### Chance, decay, and the four tuning tiers
 
@@ -40,19 +40,31 @@ amount = round( Next(BaseAwardMin, BaseAwardMax+1)
                 × GlobalXpScalar     // R6 — the macro knob
                 × rule.SourceScale   // R7 — per-source
                 × contentScale       // R7 — per-ability / per-mob
-                × antiGrindScale )   // kills only
+                × antiGrindScale )   // flagged rows, only when a ratio is supplied
 ```
 
-Rank decay makes use-based gain **sub-linear in action count** without curving the power step. Note that this means a track fed by a chance-gated source slows **twice over** — the threshold grows *and* the chance decays. That composition is deliberate rather than emergent, and a Tier-1 test pins it.
+Rank decay makes use-based gain **sub-linear in action count** without curving the power step. The **cumulative** threshold grows, but each step costs the same flat `ThresholdIncrement`, so the per-step XP cost curve is flat; what slows a chance-gated track per action is the **chance decay**, plus **anti-grind** as the earner outgrows its opponents on opponent-bearing triggers. That composition is deliberate rather than emergent, and a Tier-1 test pins it.
 
 ### The RNG draw contract (INV-26)
 
 This is the load-bearing constraint of the slice, and it is asserted **directly** by a draw-sequence test over a counting fake `IRandom` — not indirectly via "the goldens did not move", which asserts invisible state.
 
 1. **A chance of `>= 1.0` short-circuits with no `IRandom` call** (and `<= 0.0` likewise auto-fails with no call).
-2. **An ineligible candidate consumes zero draws** — an anti-grind scale below the floor is an *eligibility failure*, not a zero multiplier.
+2. **An ineligible candidate consumes zero draws** — an anti-grind scale below the floor is an *eligibility failure*, not a zero multiplier. This holds on all three rows: a below-floor, unreadable (`0.0`) or non-finite ratio on a kill, an ability use or a damage-taken award draws nothing at all.
+3. **No opponent means no ratio, and the draw sequence is unchanged.** A `null` `OpponentPowerRatio` (a self, ally or untargeted ability use) draws exactly what the pre-anti-grind use row drew. A peer ratio of `1.0` is a ×1 scale, so it draws and awards exactly what `null` does.
 
-Both matter because the balance sandbox shares **one** seeded `IRandom` across every system in a run: a single extra `NextDouble()` would shift the whole stream and move every pinned golden. The `CombatKill` row is exactly case 1 (`BaseChance 1.0`, zero decay), and the trivial-victim path is exactly case 2 — so the kill award draws precisely what it drew before this slice.
+The pinned sequences (`ProgressionSystemTests`, over `CountingRandom`):
+
+| Case | Draws |
+|---|---|
+| Kill, any eligible ratio | one `Next(8, 13)` per combat track (`Body`, `HpMax`); no `NextDouble()` |
+| Kill, trivial / unreadable / non-finite ratio | none |
+| Ability use, `OpponentPowerRatio = null` | one `NextDouble()` (chance roll), then on a pass one `Next(3, 7)` |
+| Ability use, ratio below the floor or `0.0` | none |
+| Damage taken, ratio `1.0` (equal to `null`) | per combat track: one `NextDouble()`, then on a pass one `Next(2, 5)` |
+| Damage taken, ratio below the floor | none |
+
+These matter because the balance sandbox shares **one** seeded `IRandom` across every system in a run: a single extra `NextDouble()` would shift the whole stream and move every pinned golden. The `CombatKill` row is exactly case 1 (`BaseChance 1.0`, zero decay), and the trivial-victim path is exactly case 2 — so the kill award draws precisely what it drew before this slice.
 
 ### Threshold math is linear-cumulative
 
@@ -64,9 +76,17 @@ The cumulative XP required to have earned the *k*-th improvement is `ThresholdBa
 
 Making rank itself scale potency or cost is a deliberate later balance slice that must fold into [`power-model.md`](../../design/power-model.md) and re-pin goldens — explicitly out of scope here.
 
-### Anti-grind proxy reads raw attributes, not `IStatSystem`
+### Anti-grind ratio is supplied by the caller
 
-The killer/victim "effective power" the anti-grind scale compares comes from raw `AttributesComponent.{Mind,Body,Spirit,Attunement}` fields, read directly via `EntityService`, packed into a `PowerSnapshot` and run through `IPowerBudgetSystem.Estimate` (the core-tier oracle shipped slice `prog-3` — see [power-budget-system.md](power-budget-system.md)) — **not** `IStatSystem.Get`. Going through `IStatSystem` here creates a genuine DI cycle: `IStatSystem` → `IEffectSystem` → the DI-collected `IEnumerable<IEffectContributor>` → `ProgressionEffectContributor` → `IProgressionSystem` → `ProgressionSystem` → `IStatSystem`. Any contributor whose backing domain system itself reads a computed (effect-folded) score closes this shape — it is not specific to progression's math. The general rule: a contributor's backing system reads **raw component data** for the inputs it needs; `IStatSystem`/`IEffectSystem` are the *output* seam a contributor feeds, never an input a contributor's own system may read. Injecting `IPowerBudgetSystem` (a **core** system) does not reopen this cycle — the guard is that the snapshot values stay raw, not that the oracle is un-injected. An architecture-guard test pins the absence of both dependencies.
+Anti-grind is **challenge gating**: an award against an opponent the earner has clearly outgrown pays less, and below the floor nothing. The ratio it compares is opponent ÷ earner on **effective** power — gear, progression, active effects and tier on both sides — measured by the shared relative-power read ([relative-power-system.md](relative-power-system.md)), the same read `consider` and `power` use.
+
+`ProgressionSystem` itself **never measures power.** The award methods take the ratio as an input — `AwardCombatExperience`'s third parameter, and `UseAwardContext.OpponentPowerRatio` for the use rows — and the orchestration boundary gathers it: `AdvancementHandler` live (kill → victim; offensive ability use → target; damage taken → attacker) and `ProgressionScenarioExecutor` in the balance sandbox, once per kill. A live-vs-sandbox parity test pins the two callers equal.
+
+- **Absent, unreadable, present.** `null` means the trigger named no opponent, so no ratio applies. `0.0` means an opponent was named but could not be read — ineligible, never a fallback to ratio-free XP. Any other value gives `scale = !IsFinite(ratio) || ratio < AntiGrindFloorRatio ? 0 : min(ratio, AntiGrindCap)`; `AntiGrindCap` (1.5) is "full", so an over-strong opponent is never a windfall.
+- **All three rows carry `AppliesAntiGrindPowerRatio`.** The `CombatKill` row always has an opponent; the `AbilityUse` and `DamageTaken` rows apply it only when the context supplies one.
+- **One constant, one meaning.** `AntiGrindFloorRatio` is also the relative-power read's *trivial* boundary: a mob that reads *trivial* to `consider` is exactly one whose kill awards nothing. In Tier 0 no mob reaches it at the 0.25 floor, so outgrown kills scale down without zeroing (see [balance.md](../../design/balance.md) Known gaps).
+
+**Why the caller gathers.** Reading `IStatSystem` here would close a genuine DI cycle: `IStatSystem` → `IEffectSystem` → the DI-collected `IEnumerable<IEffectContributor>` → `ProgressionEffectContributor` → `IProgressionSystem` → `ProgressionSystem` → `IStatSystem`. Any contributor whose backing domain system itself reads a computed (effect-folded) score closes this shape — it is not specific to progression's math. The general rule: a contributor's backing system reads **raw component data** for the inputs it needs, or takes computed values **as inputs from its caller**; `IStatSystem`/`IEffectSystem` are the *output* seam a contributor feeds, never an input a contributor's own system may read. The relative-power read can depend on `IStatSystem` because nothing on that chain depends on it. An architecture-guard test pins that `ProgressionSystem` depends on none of `IStatSystem`, `IEffectSystem`, `IRelativePowerSystem` or `IPowerBudgetSystem` (the former raw-attribute estimate and its oracle dependency are gone).
 
 ### Contribution rides the existing `IEffectContributor` port
 
@@ -74,7 +94,7 @@ The killer/victim "effective power" the anti-grind scale compares comes from raw
 
 ## Interface
 
-- [`IProgressionSystem.cs`](../../../Core/Modules/Progression/Systems/IProgressionSystem.cs) — `AwardUseExperience` (the one entry point), `AwardExperience`, `TryImprove`, `AwardCombatExperience`, and read accessors (`GetXp`, `GetImprovementCount`, `GetXpToNextThreshold`, `GetTrackedScores`, `GetTrackedTracks`). Each read has a `ScoreId` overload delegating to the `ProgressionTrack` form. Returns result records (`AwardOutcome`, `UseAwardResult`, `CombatAwardResult`); publishes nothing.
+- [`IProgressionSystem.cs`](../../../Core/Modules/Progression/Systems/IProgressionSystem.cs) — `AwardUseExperience` (the one entry point; its `UseAwardContext` carries the optional `OpponentPowerRatio`), `AwardExperience`, `TryImprove`, `AwardCombatExperience` (takes the caller-gathered ratio), and read accessors (`GetXp`, `GetImprovementCount`, `GetXpToNextThreshold`, `GetTrackedScores`, `GetTrackedTracks`). Each read has a `ScoreId` overload delegating to the `ProgressionTrack` form. Returns result records (`AwardOutcome`, `UseAwardResult`, `CombatAwardResult`); publishes nothing.
 - [`ProgressionTrack.cs`](../../../Core/Modules/Progression/ProgressionTrack.cs) · [`ProgressionTrackJsonConverter.cs`](../../../Core/Modules/Progression/ProgressionTrackJsonConverter.cs) — the track vocabulary and its key serialization.
 - [`AdvancementRule.cs`](../../../Core/Modules/Progression/AdvancementRule.cs) · [`AdvancementEligibility.cs`](../../../Core/Modules/Progression/AdvancementEligibility.cs) · [`IAdvancementRuleRegistry.cs`](../../../Core/Modules/Progression/Systems/IAdvancementRuleRegistry.cs) — the rule shape and its lookup.
 - [`ProgressionEffectContributor.cs`](../../../Core/Modules/Progression/ProgressionEffectContributor.cs) — the `IEffectContributor` registrant.
@@ -83,10 +103,10 @@ The killer/victim "effective power" the anti-grind scale compares comes from raw
 ## Considerations
 
 - **Persistence:** `ProgressionComponent` is `[Persistent]`, entity-keyed (`Dictionary<ProgressionTrack,int> Xp`/`Improvements`). Only ever attached lazily to a persistent (player) entity on first award — never to world content (INV-23). The key widening needs **no migration**: score keys serialize identically to the pre-slice enum-name form, and a persistence test pins a pre-slice payload re-serializing byte-identically.
-- **Determinism (INV-26):** all chance flows through the injected `IRandom`, and the draw *sequence* is directly asserted. The anti-grind scale, the chance arithmetic, and the threshold math are pure functions of state.
+- **Determinism (INV-26):** all chance flows through the injected `IRandom`, and the draw *sequence* is directly asserted. The anti-grind scale, the chance arithmetic, and the threshold math are pure functions of state and the supplied ratio.
 - **Concurrency (INV-31):** the rule registry is immutable after construction; no background initiator and no shared mutable singleton state are added.
-- **Registration:** `ProgressionModule.AddProgressionModule` registers `IAdvancementRuleRegistry`, `IProgressionSystem`, the `IEffectContributor`, `AdvancementHandler`, `ProgressionNarrationHandler`, and the `progress` command. Called from `Server/CompositionRoot.Register` (not `Program.cs`) — the same reason `EconomyModule` is: the Blazor content-authoring host's `StatSystem` needs the contributor too, or it silently under-counts progression.
-- **Known balance gap:** the two use-based rows feed *attribute* tracks, which do grant power, and the `progressionRate` simulation scenario **cannot see them** — it exercises `AwardCombatExperience` exclusively. Defaults are deliberately conservative (low `BaseChance`, meaningful decay) so the unvalidated rate is a slow drift rather than a step change. Extending the scenario is filed in [`../../roadmap/backlog.md`](../../roadmap/backlog.md); see [`../../design/balance.md`](../../design/balance.md).
+- **Registration:** `ProgressionModule.AddProgressionModule` registers `IAdvancementRuleRegistry`, `IProgressionSystem`, `IRelativePowerSystem`, the `IEffectContributor`, `AdvancementHandler`, `ProgressionNarrationHandler`, and the `progress` and `consider` commands. Called from `Server/CompositionRoot.Register` (not `Program.cs`) — the same reason `EconomyModule` is: the Blazor content-authoring host's `StatSystem` needs the contributor too, or it silently under-counts progression.
+- **Known balance gap:** the two use-based rows feed *attribute* tracks, which do grant power, and the `progressionRate` simulation scenario **cannot see them** — it exercises `AwardCombatExperience` exclusively, so it validates neither their rate nor their anti-grind. Defaults are deliberately conservative (low `BaseChance`, meaningful decay) so the unvalidated rate is a slow drift rather than a step change. Extending the scenario is filed in [`../../roadmap/backlog.md`](../../roadmap/backlog.md); see [`../../design/balance.md`](../../design/balance.md).
 
 ## Extensibility
 

@@ -3,7 +3,7 @@
 > The core-tier, generic power-budget oracle: weighted-sum power estimation, a two-axis Tier×Band
 > classification, the inverse target-range query, the designer-editable standards registry that
 > backs its tunables, and the consumers that read it (admin inspectors, the Blazor editor readout,
-> the bulk drift audit, the anti-grind proxy).
+> the bulk drift audit, the relative-power read behind `consider` and anti-grind).
 > **Authoring checkpoint:** slice prog-3 (one-axis), revised prog-3b (Tier×Band), tunables promoted
 > to injected data + the balance-standards registry sim-1, the template conformance fitter sim-5.
 > Living document.
@@ -26,12 +26,14 @@ compiled defaults as fallback — not hand-rolled per caller.
 **The snapshot input is what keeps the oracle core-generic and singular.** `IPowerBudgetSystem`
 takes a `PowerSnapshot`, not an entity id, so callers gather scores *first* and hand in plain data:
 
-- the `power <self>`/`<mob>` inspector reads `IStatSystem.Get` per score (domain-tier
-  orchestration, in the command — folds gear/abilities/progression/tier);
+- the shared relative-power read (`IRelativePowerSystem`, Progression module) reads
+  `IStatSystem.Get` per score for a **live** entity (domain-tier orchestration — folds
+  gear/abilities/progression/tier) for `power <self>`/`<mob>`, `consider`, and anti-grind;
 - the `power <item>` inspector, `ItemEditor`, and `IBalanceAuditSystem` all read through the
   shared `IItemPowerProjectionSystem` seam (template or live `ItemDataComponent`, both keyed on
   `StatBonuses`); `MobEditor` and the audit read mob templates through `IMobPowerProjectionSystem`;
-- the `ProgressionSystem` anti-grind proxy passes **raw** attributes.
+- anti-grind no longer builds its own snapshot: `ProgressionSystem` takes a caller-supplied
+  effective-power ratio from the relative-power read (see below).
 
 Because the snapshot is generic data, INV-2 is satisfied structurally (the oracle imports no
 domain module) and INV-19 is satisfied by construction (one function, many call sites, no drift).
@@ -110,7 +112,10 @@ history for the promotion itself.
 1. **`power [target]` / `powerband [tier]`** (`Core/Modules/BalanceInspection/Commands/`,
    admin/designer-gated like `defs`) — an in-game spot-check. `power` resolves a runtime-in-world
    target (self, item in inventory/room, or mob in room) to a snapshot and prints the computed
-   power + `(Tier, Band)`, echoing the authored `(Tier, Band)` for a tagged target. `powerband`
+   power + `(Tier, Band)`, echoing the authored `(Tier, Band)` for a tagged target. Live targets
+   (self, mob) are measured through `IRelativePowerSystem.GetEffectivePower`; a mob target adds a
+   `vs you : ratio <r> → <label>` relation line (the label `consider` would show the admin) — the
+   designer's in-game check of the label cut-points. `powerband`
    lists every `(Tier, Band)` cell's target range (~21 rows), or just one tier's three.
 2. **The Blazor `ItemEditor`/`MobEditor` readout** — the **primary designer observability
    surface**. Both editors build a snapshot through the shared projection seam, show computed
@@ -127,19 +132,21 @@ history for the promotion itself.
    audit**: out-of-designation placements ([area designation](../world/area-model.md#area-designation)).
    That check compares authored tags with the area's designation and never calls the oracle, so the
    two checks are independent: a mis-tagged and misplaced mob appears in both.
-4. **`ProgressionSystem.GetEffectivePower`** (the anti-grind proxy) — builds a raw-attribute
-   snapshot (`Mind`/`Body`/`Spirit`/`Attunement`, never `IStatSystem.Get`) and calls `Estimate`
-   with no tier. See [`progression-system.md`](progression-system.md#anti-grind-proxy-reads-raw-attributes)
-   for the DI-cycle guard this preserves. Unaffected by the prog-3b classify/inverse revision —
-   only `Estimate`'s *raw output* shifted with the recalibrated `Weights`, and the anti-grind
-   *ratio* is invariant to that rescaling.
+4. **`IRelativePowerSystem`** (`Core/Modules/Progression/Systems/`, domain tier) — the shared
+   live-entity read: snapshots every score through `IStatSystem.Get`, calls `Estimate` with
+   `tier = MobDataComponent.Tier` (mobs) or 0 (players, whose tier is contributor-folded), and
+   divides target ÷ subject into a ratio and a five-way label. It serves `power`'s live readout,
+   the player-facing `consider` danger read, and the anti-grind gather in `AdvancementHandler` and
+   the sandbox's `ProgressionScenarioExecutor` — so all three measure an entity the same way. It
+   replaced `ProgressionSystem`'s former raw-attribute estimate, which `ProgressionSystem` no longer
+   has (nor its oracle dependency). See [`relative-power-system.md`](relative-power-system.md).
 5. **`ITemplateConformanceSystem`** (sim-5, `Core/Modules/BalanceInspection/Systems/`) — the fitter
    the Blazor Integrity page drives to correct what `IBalanceAuditSystem` flags. See "Template
    conformance (sim-5)" below.
 
-A future player-facing `consider` danger-gauge (self-vs-target `Estimate`/`Classify` → a coarse
-diegetic label, no raw numbers) remains a **deferred, decoupled** consumer — the public interface
-already suffices with no interface change.
+The player-facing `consider` danger-gauge is **live** through consumer 4: it compares the two
+`Estimate` results as a ratio and maps it to a coarse diegetic label (no raw numbers), with no
+change to this oracle's interface. The ratio → label rule lives on the relative-power read, not here.
 
 ### Template conformance (sim-5) — scaling toward a target, not synthesis
 
@@ -255,8 +262,7 @@ directly.
   effect on the **next host start**, not immediately — both hosts' `RegistryValidationBootstrap`
   eagerly resolves `IBalanceStandardsRegistry` at boot (fail-fast on structural violations); the
   Standards page states the restart requirement. Live-reload is a backlog entry, not built here.
-- **Acknowledged debt:** the player-facing `consider` danger-gauge is deferred (backlog); a
-  headless/admin bulk-audit command is deferred (the Blazor Integrity report is the primary
+- **Acknowledged debt:** a headless/admin bulk-audit command is deferred (the Blazor Integrity report is the primary
   surface; `Audit()` being one shared method makes a later command a thin caller). The standards
   store's YAML I/O now runs on the shared definition store (`Core/Systems/Definitions/`,
   help-topics WP1); its mapping, validation and warnings stay in the store.
@@ -273,15 +279,16 @@ directly.
   extensibility principle this oracle follows (amended sim-1 to permit the single injected
   `PowerBudgetTunables` record), distinct from `gameplay-model.md` §6's effect-`Power`.
 - Flow: [flow-31 — Progression journey](../../architecture/flows/flow-31-progression-award.md) —
-  the anti-grind consumer's trigger path. [flow-01 — Server startup](../../architecture/flows/flow-01-server-startup.md) —
+  the anti-grind gather's trigger path (through the relative-power read). [flow-01 — Server startup](../../architecture/flows/flow-01-server-startup.md) —
   the standards-load boot step (sim-1). [flow-29 — Content-tooling journey](../../architecture/flows/flow-29-bulk-content-generation.md) —
   the Standards page's offline-edit leg (sim-1). No dedicated flow file for `power`/`powerband`/the
   audit themselves — they plug into the existing
   [flow-03 command journey](../../architecture/flows/flow-03-player-command-lifecycle.md).
 - Reference rows: [`systems.md`](../../reference/systems.md), [`commands.md`](../../reference/commands.md),
   [`components.md`](../../reference/components.md) (`ItemDataComponent`/`MobDataComponent` `Tier`/`Band`).
-- [`progression-system.md`](progression-system.md) — the anti-grind proxy this oracle now backs,
-  and the DI-cycle guard precedent.
+- [`relative-power-system.md`](relative-power-system.md) — the live-entity read that consumes this
+  oracle for `power`, `consider` and anti-grind. [`progression-system.md`](progression-system.md) —
+  what the anti-grind ratio does to an award, and the DI-cycle guard precedent.
 - [`ascension-system.md`](ascension-system.md) — the tier baseline and mob `Tier`/`Band` tags this
   oracle's tiers are derived from and item tags mirror.
 - [`../../architecture/05-configuration.md`](../../architecture/05-configuration.md) — OD-2,

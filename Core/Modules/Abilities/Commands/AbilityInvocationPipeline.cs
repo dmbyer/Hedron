@@ -120,7 +120,8 @@ namespace Hedron.Core.Modules.Abilities.Commands
             }
 
             // 4. Publish AbilityActivatedEvent + per-effect EffectAppliedEvents.
-            await _eventBus.PublishAsync(new AbilityActivatedEvent(actorId, abilityId, resolvedTarget))
+            await _eventBus.PublishAsync(new AbilityActivatedEvent(
+                    actorId, abilityId, resolvedTarget, IsOffensive: isOffensive && resolvedTarget.HasValue))
                 .ConfigureAwait(false);
 
             foreach (var effect in result.AppliedEffects)

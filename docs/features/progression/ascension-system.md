@@ -20,7 +20,7 @@ Domain-tier. `AscensionSystem` owns the tier state machine: `GetTier` (safe-defa
 
 ### DI-cycle guard: a second confirming precedent
 
-`AscensionSystem`'s backing input is **raw `AscensionComponent.Tier`**, read via `EntityService` — never `IStatSystem`/`IEffectSystem`. This mirrors the guard `ProgressionSystem` observes (see [`progression-system.md`](progression-system.md#anti-grind-proxy-reads-raw-attributes)): a contributor's backing system may consume raw component data, but never a computed value from the seam it feeds, or it recreates the `IStatSystem` → `IEffectSystem` → contributors → backing system → `IStatSystem` cycle. Trivially satisfied here (the baseline is a pure function of tier) but stated so nobody wires `IAscensionSystem` → `IStatSystem`.
+`AscensionSystem`'s backing input is **raw `AscensionComponent.Tier`**, read via `EntityService` — never `IStatSystem`/`IEffectSystem`. This mirrors the guard `ProgressionSystem` observes (it takes its anti-grind ratio from the caller rather than reading stats) (see [`progression-system.md`](progression-system.md#anti-grind-ratio-is-supplied-by-the-caller)): a contributor's backing system may consume raw component data, but never a computed value from the seam it feeds, or it recreates the `IStatSystem` → `IEffectSystem` → contributors → backing system → `IStatSystem` cycle. Trivially satisfied here (the baseline is a pure function of tier) but stated so nobody wires `IAscensionSystem` → `IStatSystem`.
 
 ### Mob Tier×Band tags — lightweight content tags, not a power oracle
 

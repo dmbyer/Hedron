@@ -7,8 +7,7 @@ using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Combat.Systems;
 using Hedron.Core.Modules.Items.Systems;
-using Hedron.Core.Modules.Stats;
-using Hedron.Core.Modules.Stats.Systems;
+using Hedron.Core.Modules.Progression.Systems;
 using Hedron.Core.Output;
 using Hedron.Core.Systems;
 
@@ -20,13 +19,18 @@ namespace Hedron.Core.Modules.BalanceInspection.Commands
     /// and prints the computed power scalar and its classified <see cref="PowerBand"/> (Tier×Band).
     /// Blueprint-id/template resolution is deferred to the Blazor editor readout (resolved Q2 — see
     /// docs/features/progression/power-budget-system.md).
+    ///
+    /// <para>
+    /// Live targets (self, mob) are measured through <see cref="IRelativePowerSystem.GetEffectivePower"/>
+    /// — the same read <c>consider</c> and anti-grind use — and a mob target adds a relation line
+    /// (ratio and label vs. the invoker) from <see cref="IRelativePowerSystem.Relate(uint, uint)"/>.
+    /// Items stay on <see cref="IItemPowerProjectionSystem"/>.
+    /// </para>
     /// </summary>
     public sealed class PowerCommand : ICommand
     {
-        private static readonly ScoreId[] AllScores = (ScoreId[])Enum.GetValues(typeof(ScoreId));
-
         private readonly IPowerBudgetSystem _powerBudget;
-        private readonly IStatSystem _statSystem;
+        private readonly IRelativePowerSystem _relativePower;
         private readonly IItemSystem _itemSystem;
         private readonly IItemPowerProjectionSystem _itemProjection;
         private readonly ICombatSystem _combatSystem;
@@ -53,14 +57,14 @@ namespace Hedron.Core.Modules.BalanceInspection.Commands
 
         public PowerCommand(
             IPowerBudgetSystem powerBudget,
-            IStatSystem statSystem,
+            IRelativePowerSystem relativePower,
             IItemSystem itemSystem,
             IItemPowerProjectionSystem itemProjection,
             ICombatSystem combatSystem,
             EntityService entityService)
         {
             _powerBudget = powerBudget;
-            _statSystem = statSystem;
+            _relativePower = relativePower;
             _itemSystem = itemSystem;
             _itemProjection = itemProjection;
             _combatSystem = combatSystem;
@@ -75,7 +79,7 @@ namespace Hedron.Core.Modules.BalanceInspection.Commands
             if (target.Length == 0 || string.Equals(target, "self", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(target, "me", StringComparison.OrdinalIgnoreCase))
             {
-                await WriteReadout(context, "You", LiveEntitySnapshot(context.InvokerEntityId), tier: 0,
+                await WriteReadout(context, "You", _relativePower.GetEffectivePower(context.InvokerEntityId),
                     authoredTier: null, authoredBand: null).ConfigureAwait(false);
                 return;
             }
@@ -86,7 +90,7 @@ namespace Hedron.Core.Modules.BalanceInspection.Commands
                 (location != null && _itemSystem.TryFindItemInRoom(location.RoomEntityId, target, out invItemId)))
             {
                 var item = _entityService.Get<ItemDataComponent>(invItemId);
-                await WriteReadout(context, item.Name, _itemProjection.Project(item), item.Tier,
+                await WriteReadout(context, item.Name, _powerBudget.Estimate(_itemProjection.Project(item), item.Tier),
                     item.Tier, item.Band).ConfigureAwait(false);
                 return;
             }
@@ -94,8 +98,9 @@ namespace Hedron.Core.Modules.BalanceInspection.Commands
             if (location != null && _combatSystem.TryFindTargetInRoom(location.RoomEntityId, target, out var mobId))
             {
                 var mob = _entityService.Get<MobDataComponent>(mobId);
-                await WriteReadout(context, mob.Name, LiveEntitySnapshot(mobId), mob.Tier,
-                    mob.Tier, mob.Band).ConfigureAwait(false);
+                var relation = _relativePower.Relate(context.InvokerEntityId, mobId);
+                await WriteReadout(context, mob.Name, _relativePower.GetEffectivePower(mobId),
+                    mob.Tier, mob.Band, relation).ConfigureAwait(false);
                 return;
             }
 
@@ -104,20 +109,17 @@ namespace Hedron.Core.Modules.BalanceInspection.Commands
         }
 
         private async Task WriteReadout(
-            CommandContext context, string label, PowerSnapshot snapshot, int tier, int? authoredTier, int? authoredBand)
+            CommandContext context, string label, int power, int? authoredTier, int? authoredBand,
+            RelativePowerReading? relation = null)
         {
-            var power = _powerBudget.Estimate(snapshot, tier);
             var computed = _powerBudget.Classify(power);
-            await context.Output.WriteAsync(new PowerReadoutMessage(label, power, computed, authoredTier, authoredBand))
+            // Label → lower-case name is presentation; the ratio → label rule is the read's.
+            // An unreadable relation carries its 0.0 ratio and a null label ("unreadable").
+            await context.Output.WriteAsync(new PowerReadoutMessage(
+                    label, power, computed, authoredTier, authoredBand,
+                    RelationRatio: relation?.Ratio,
+                    RelationLabel: relation?.Label?.ToString().ToLowerInvariant()))
                 .ConfigureAwait(false);
-        }
-
-        private PowerSnapshot LiveEntitySnapshot(uint entityId)
-        {
-            var scores = new Dictionary<ScoreId, int>();
-            foreach (var score in AllScores)
-                scores[score] = _statSystem.Get(entityId, score);
-            return new PowerSnapshot(scores);
         }
     }
 }

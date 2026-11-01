@@ -34,6 +34,12 @@ namespace Hedron.Core.Modules.Simulation.Systems
         public IProgressionSystem Progression { get; }
         public IAscensionSystem Ascension { get; }
 
+        /// <summary>
+        /// The same relative-power read the live host composes — the sandbox's progression path
+        /// gathers the anti-grind ratio through it, exactly as <c>AdvancementHandler</c> does live (SR11).
+        /// </summary>
+        public IRelativePowerSystem RelativePower { get; }
+
         /// <summary>The single shared room entity every sandbox combatant is placed in.</summary>
         public uint ArenaRoomEntityId { get; }
 
@@ -50,6 +56,7 @@ namespace Hedron.Core.Modules.Simulation.Systems
             IRegenerationSystem regeneration,
             IProgressionSystem progression,
             IAscensionSystem ascension,
+            IRelativePowerSystem relativePower,
             uint arenaRoomEntityId)
         {
             EntityService = entityService;
@@ -64,6 +71,7 @@ namespace Hedron.Core.Modules.Simulation.Systems
             Regeneration = regeneration;
             Progression = progression;
             Ascension = ascension;
+            RelativePower = relativePower;
             ArenaRoomEntityId = arenaRoomEntityId;
         }
     }

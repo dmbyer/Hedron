@@ -27,7 +27,7 @@ sequenceDiagram
     AS->>ATTR: SetCurrentX per ResourceCost (spend)
     AS->>ES: Apply(target, effectDef, actor) per effect id
     AS-->>Cmd: AbilityActivationResult{Activated, AppliedEffects, Spent, CooldownSeconds}
-    Cmd->>Bus: PublishAsync(AbilityActivatedEvent)
+    Cmd->>Bus: PublishAsync(AbilityActivatedEvent{IsOffensive = IsOffensive(abilityId) && target?})
     Cmd->>Bus: PublishAsync(EffectAppliedEvent) per applied effect
 ```
 
@@ -38,7 +38,7 @@ sequenceDiagram
 3. `AbilitySystem` validates in order: ability exists → actor knows it → `Active` activation → not Incapacitated → cooldown ready → all costs affordable (atomic, no partial spend).
 4. On success: spends each cost via `IAttributeSystem.SetCurrentX`; sets `CooldownRemaining[abilityId]`; calls `IEffectSystem.Apply` per effect id.
 5. Returns `AbilityActivationResult`. On failure, returns the failing outcome + `FailReason`.
-6. Command publishes `AbilityActivatedEvent` and one `EffectAppliedEvent` per applied effect. No domain logic in the command (INV-5, INV-8, INV-9).
+6. Command publishes `AbilityActivatedEvent` and one `EffectAppliedEvent` per applied effect. No domain logic in the command (INV-5, INV-8, INV-9). The admin `useability` sets `IsOffensive = IAbilitySystem.IsOffensive(abilityId) && target.HasValue` — the flag describes the use, not the code path.
 
 ---
 
@@ -63,7 +63,7 @@ sequenceDiagram
     note over P: in-combat → CombatStateComponent.OpponentEntityId
     P->>AS: Activate(actorId, "kick", goblinId, resolveOffensiveExternally:true)
     AS-->>P: Activated, OffensivePower=15
-    P->>Bus: AbilityActivatedEvent(actor, "kick", goblin)
+    P->>Bus: AbilityActivatedEvent(actor, "kick", goblin, IsOffensive=true)
     P->>CS: ResolveAbilityStrike(actor, goblin, 15)
     CS-->>P: CombatRoundResult{damage=12, ...}
     P->>Bus: AbilityStrikeResolvedEvent(actor, goblin, room, result, "kick", "goblin")
@@ -76,9 +76,9 @@ sequenceDiagram
 3. Dispatcher routes to `SkillInvocationCommand`, which delegates to `AbilityInvocationPipeline`.
 4. Pipeline: actor is `InCombat`, no explicit token → `CombatStateComponent.OpponentEntityId`. Already fighting — no combat-entry step.
 5. Calls `Activate(actorId, "kick", goblinId, resolveOffensiveExternally: true)` — spends Stamina, sets cooldown, skips raw damage effect, returns `OffensivePower`.
-6. Publishes `AbilityActivatedEvent`. `AbilityInvocationHandler` (p=80) writes room narrative.
+6. Publishes `AbilityActivatedEvent` with `IsOffensive = true` (the pipeline's already-computed offensive flag). `AbilityInvocationHandler` (p=80) writes room narrative.
 7. Calls `ICombatSystem.ResolveAbilityStrike(actorId, goblinId, OffensivePower)` — defense-mitigated HP deduction.
-8. Publishes `AbilityStrikeResolvedEvent`. `AbilityStrikeHandler` publishes `CombatRoundEvent` (damage narrative) and, if `Outcome` is terminal, `CombatEndedEvent` (reuses slice-10 death path).
+8. Publishes `AbilityStrikeResolvedEvent`. `AbilityStrikeHandler` renders the single fused strike narrative (it does **not** publish `CombatRoundEvent`, so one strike is one `DamageTaken` award, via `AbilityStrikeResolvedEvent`) and, if `Outcome` is terminal, publishes `CombatEndedEvent` (reuses slice-10 death path).
 
 **Why bare skill verbs are not `ICommand`.** Phase 3 is dispatcher-internal routing — the verb is a skill id, not a global command. Abilities are per-actor; making them discoverable via `help`/`commands` would imply they are global verbs. `skills` is the discovery surface.
 
@@ -86,12 +86,16 @@ sequenceDiagram
 
 `AbilityInvocationHandler` is no longer the only subscriber. `AdvancementHandler` (priority 20, `HandlerPriority.Domain`) also receives `AbilityActivatedEvent` and rolls the `XpSource.AbilityUse` advancement rule for the actor — awarding, on a successful chance roll, XP to **the ability's own display-only rank track** and to the ability's configured `XpAttributeTrack` (when it declares one). The two subscribers are independent: one narrates, one progresses, neither orders against the other.
 
+**Payload.** `AbilityActivatedEvent(ActorEntityId, AbilityId, TargetEntityId?, IsOffensive)`. `TargetEntityId` alone cannot tell an opponent from a non-opponent — a `Targeting.Self` ability (e.g. `empower`) resolves to the **actor's own id** — so the publisher adds the thin `IsOffensive` fact (`false` by default). `AdvancementHandler` treats the target as an **opponent only when `IsOffensive`**, and gathers its relative-power ratio through `IRelativePowerSystem` for the `AbilityUse` row's anti-grind; a self, ally or untargeted use names no opponent and keeps its plain chance-decay behaviour.
+
+**Ordering.** The pipeline publishes `AbilityActivatedEvent` **before** `ResolveAbilityStrike`, and the bus awaits each subscriber in turn, so the target is still live and readable when the ratio is gathered — even for a killing-blow `kick`, whose target is destroyed only further down the strike chain (`AbilityStrikeResolvedEvent` → `CombatEndedEvent` → `CombatMobDeathHandler`). An opponent that is nevertheless unreadable is ineligible, never ratio-free XP.
+
 Two properties of the trigger matter here:
 
 - **A failed or blocked invocation cannot award.** The event is published only after costs and targeting resolve, so an insufficient-resource or on-cooldown attempt never reaches the advancement branch — the precondition is structural, not a check in the handler.
 - **A passive ability never awards**, because a passive never publishes `AbilityActivatedEvent` at all.
 
-`AbilityStrikeResolvedEvent` and `CombatRoundEvent` (steps 7–8) feed a *different* row — `XpSource.DamageTaken`, earned by the **defender**, not the attacker. See [flow-31](flow-31-progression-award.md) for the rule table, the chance/decay math, and the RNG draw contract.
+`AbilityStrikeResolvedEvent` and `CombatRoundEvent` (steps 7–8) feed a *different* row — `XpSource.DamageTaken`, earned by the **defender**, not the attacker, with the attacker as its anti-grind opponent. See [flow-31](flow-31-progression-award.md) for the rule table, the chance/decay math, and the RNG draw contract.
 
 ---
 
@@ -121,7 +125,7 @@ sequenceDiagram
     P->>Bus: CombatStartedEvent(actor, goblin, room)
     P->>AS: Activate(actorId, abilityId, goblinId, resolveOffensiveExternally:true)
     AS-->>P: Activated, OffensivePower=N
-    P->>Bus: AbilityActivatedEvent(actor, abilityId, goblin)
+    P->>Bus: AbilityActivatedEvent(actor, abilityId, goblin, IsOffensive=true)
     P->>CS: ResolveAbilityStrike(actor, goblin, N)
     CS-->>P: CombatRoundResult
     P->>Bus: AbilityStrikeResolvedEvent(actor, goblin, room, result, abilityId, "goblin")
@@ -138,9 +142,9 @@ sequenceDiagram
    - `ICombatSystem.StartCombat(actorId, goblinId)` — attaches `CombatStateComponent`.
    - Publish `CombatStartedEvent` → `CombatHandler` renders "You attack goblin!".
 4. `Activate(actorId, abilityId, goblinId, resolveOffensiveExternally: true)` — validates, spends costs, skips raw damage effect, returns `OffensivePower`.
-5. Publish `AbilityActivatedEvent`.
+5. Publish `AbilityActivatedEvent` (`IsOffensive = true`).
 6. `ResolveAbilityStrike(actorId, goblinId, OffensivePower)` — defense-mitigated damage applied.
-7. Publish `AbilityStrikeResolvedEvent`. `AbilityStrikeHandler` publishes `CombatRoundEvent` + conditional `CombatEndedEvent` (reuses slice-10 death path). Subsequent heartbeat ticks drive standard melee via `CombatTickHandler`.
+7. Publish `AbilityStrikeResolvedEvent`. `AbilityStrikeHandler` renders the fused strike narrative (no `CombatRoundEvent`) + conditional `CombatEndedEvent` (reuses slice-10 death path). Subsequent heartbeat ticks drive standard melee via `CombatTickHandler`.
 
 **Invariants.** Combat entry happens before `Activate` — if the actor's `TryEnterState` fails, the pipeline aborts without spending costs or setting a cooldown.
 

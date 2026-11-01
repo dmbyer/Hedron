@@ -4,7 +4,8 @@ namespace Hedron.Core.Systems
     /// Core-tier (INV-2), generic power-budget oracle. Takes a <see cref="PowerSnapshot"/> —
     /// never an entity id — so the same one function serves every consumer (INV-19): the
     /// in-game <c>power</c>/<c>powerband</c> inspectors, the Blazor editor readout, and the
-    /// <c>ProgressionSystem</c> anti-grind proxy. Pure, deterministic math (INV-26: no
+    /// relative-power read (<c>IRelativePowerSystem</c>) that <c>power</c>, <c>consider</c> and
+    /// anti-grind share. Pure, deterministic math (INV-26: no
     /// <see cref="IRandom"/>/<see cref="IClock"/> seam needed — no chance, no wall-clock).
     /// </summary>
     public interface IPowerBudgetSystem

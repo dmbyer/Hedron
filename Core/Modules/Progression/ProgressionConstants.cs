@@ -20,8 +20,12 @@ namespace Hedron.Core.Modules.Progression
         public const int ThresholdBase = 100;
 
         /// <summary>
-        /// Growth added to the cumulative threshold per improvement already earned — the growing
-        /// gap that slows the rate of gain while the power step itself stays linear.
+        /// XP cost of each improvement after the first: the cumulative threshold for improvement
+        /// <c>n + 1</c> is <c>ThresholdBase + n × ThresholdIncrement</c>. The <b>cumulative</b> total
+        /// grows, but each step costs this same flat increment — the per-step XP cost curve is flat
+        /// (power stays linear too). What slows gain per action is the use rows' chance decay
+        /// (<see cref="AdvancementRule.ChanceDecayPerImprovement"/>) and, on opponent-bearing rows,
+        /// anti-grind as the earner outgrows the opponent — not a growing gap here.
         /// </summary>
         public const int ThresholdIncrement = 50;
 
@@ -33,14 +37,31 @@ namespace Hedron.Core.Modules.Progression
         public const double GlobalXpScalar = 1.0;
 
         /// <summary>
-        /// Anti-grind ratio floor: a victim-vs-killer power ratio below this makes the candidate
-        /// <b>ineligible</b> (zero award, and zero <c>IRandom</c> draws — see
-        /// <see cref="AdvancementEligibility.AppliesAntiGrindPowerRatio"/>).
+        /// Anti-grind ratio floor: an opponent-vs-earner <b>effective</b>-power ratio below this makes
+        /// the candidate <b>ineligible</b> (zero award, and zero <c>IRandom</c> draws — see
+        /// <see cref="AdvancementEligibility.AppliesAntiGrindPowerRatio"/>). Also the relative-power
+        /// read's Trivial/Easy boundary — one constant, one meaning.
         /// </summary>
         public const double AntiGrindFloorRatio = 0.25;
 
         /// <summary>Anti-grind ratio cap: the scale never exceeds this (no over-strong-victim windfall).</summary>
         public const double AntiGrindCap = 1.5;
+
+        // ── Relative-power label cut-points (inclusive lower bounds) ─────────────
+        // The trivial/easy boundary is AntiGrindFloorRatio itself — one constant, one meaning: a
+        // target that reads Trivial is exactly one whose kill would be anti-grind ineligible. Never
+        // add a second "easy floor" constant set to the same value. Calibrated against the oracle's
+        // Tier-0 band midpoints so a fresh character reads (0,1) as Even and (0,3) as Dangerous
+        // (SR7) — see docs/design/balance.md.
+
+        /// <summary>Ratio (target ÷ subject) at or above which <see cref="Systems.IRelativePowerSystem"/> reads <c>Even</c>.</summary>
+        public const double RelativeEvenFloorRatio = 0.85;
+
+        /// <summary>Ratio (target ÷ subject) at or above which <see cref="Systems.IRelativePowerSystem"/> reads <c>Dangerous</c>.</summary>
+        public const double RelativeDangerousFloorRatio = 1.12;
+
+        /// <summary>Ratio (target ÷ subject) at or above which <see cref="Systems.IRelativePowerSystem"/> reads <c>Deadly</c>.</summary>
+        public const double RelativeDeadlyFloorRatio = 1.30;
 
         /// <summary>
         /// The score tracks a combat kill awards — physical-only (owner-accepted default). Kept as
@@ -56,10 +77,16 @@ namespace Hedron.Core.Modules.Progression
         /// rather than each source growing its own handler.
         ///
         /// <para>
-        /// The <see cref="XpSource.CombatKill"/> row reproduces the pre-slice kill award exactly:
-        /// the same tracks in the same order, the same 8–12 base range, the same anti-grind
-        /// scaling — and, because its <c>BaseChance</c> is <c>1.0</c> with zero decay, the same
-        /// <c>IRandom</c> draw sequence (the chance roll short-circuits without a draw, INV-26).
+        /// The <see cref="XpSource.CombatKill"/> row: the combat tracks in order, an 8–12 base range,
+        /// anti-grind on the victim's effective power — and, because its <c>BaseChance</c> is
+        /// <c>1.0</c> with zero decay, no chance draw (the roll short-circuits, INV-26).
+        /// </para>
+        ///
+        /// <para>
+        /// All three rows are opponent-bearing and flag <see cref="AdvancementEligibility.AppliesAntiGrindPowerRatio"/>:
+        /// the ratio applies only when the trigger names an opponent (the use rows' context carries
+        /// <see langword="null"/> otherwise — a self/ally/untargeted ability use keeps its plain
+        /// chance-decay behaviour).
         /// </para>
         ///
         /// <para>
@@ -95,14 +122,16 @@ namespace Hedron.Core.Modules.Progression
                 // Candidates: the ability's own (display-only) track, plus the ability's
                 // configured attribute track when it declares one — otherwise nothing, since
                 // StaticTracks is empty. An ability with no XpAttributeTrack therefore grants
-                // rank only and adds no attribute power.
+                // rank only and adds no attribute power. Anti-grind applies only to an offensive
+                // use against a target (the handler supplies the ratio then, null otherwise).
                 new AdvancementRule(
                     Source: XpSource.AbilityUse,
                     StaticTracks: Array.Empty<ProgressionTrack>(),
                     IncludesSubjectTrack: true,
                     Eligibility: new AdvancementEligibility(
                         RequiresAttributableActor: true,
-                        RequiresPlayerEarner: true),
+                        RequiresPlayerEarner: true,
+                        AppliesAntiGrindPowerRatio: true),
                     BaseAwardMin: 3,
                     BaseAwardMax: 6,
                     BaseChance: 0.25,
@@ -110,6 +139,7 @@ namespace Hedron.Core.Modules.Progression
                     SourceScale: 1.0),
 
                 // ── Damage taken ──────────────────────────────────────────────────────
+                // The attacker is the opponent; anti-grind applies whenever one is named.
                 new AdvancementRule(
                     Source: XpSource.DamageTaken,
                     StaticTracks: combatTracks,
@@ -117,7 +147,8 @@ namespace Hedron.Core.Modules.Progression
                     Eligibility: new AdvancementEligibility(
                         RequiresAttributableActor: true,
                         RequiresPlayerEarner: true,
-                        RequiresPositiveMagnitude: true),
+                        RequiresPositiveMagnitude: true,
+                        AppliesAntiGrindPowerRatio: true),
                     BaseAwardMin: 2,
                     BaseAwardMax: 4,
                     BaseChance: 0.15,

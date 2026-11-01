@@ -127,8 +127,11 @@ graph and no incapacitate/bleed/respawn lifecycle to simulate.
 
 `ProgressionScenarioExecutor.ExecuteRun` drives one subject-vs-victim run to completion with **no
 synthetic ticks and no combat resolution at all** — each iteration of its loop is one kill-event, and
-one kill-event is one direct call to `world.Progression.AwardCombatExperience(subjectId, victimId)`.
-This *is* the live award path minus the bus (`MobDiedEvent` → `AdvancementHandler` →
+one kill-event gathers `ratio = world.RelativePower.Relate(subjectId, victimId).Ratio` (once per kill,
+so the subject's grown effective power is seen) and then calls
+`world.Progression.AwardCombatExperience(subjectId, victimId, ratio)` — see
+[`relative-power-system.md`](../progression/relative-power-system.md).
+This *is* the live award path minus the bus (`MobDiedEvent` → `AdvancementHandler` → `Relate` →
 `AwardCombatExperience` → `TryImprove`), mirrored the same way `CombatScenarioExecutor` mirrors
 `AbilityInvocationPipeline` — so anti-grind scale, threshold math, and award randomization are never
 re-implemented in the Simulation module (INV-19). The victim is never destroyed; one award models one

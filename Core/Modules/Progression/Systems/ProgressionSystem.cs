@@ -16,18 +16,15 @@ namespace Hedron.Core.Modules.Progression.Systems
 
         private readonly EntityService _entityService;
         private readonly IRandom _random;
-        private readonly IPowerBudgetSystem _powerBudget;
         private readonly IAdvancementRuleRegistry _rules;
 
         public ProgressionSystem(
             EntityService entityService,
             IRandom random,
-            IPowerBudgetSystem powerBudget,
             IAdvancementRuleRegistry rules)
         {
             _entityService = entityService;
             _random = random;
-            _powerBudget = powerBudget;
             _rules = rules;
         }
 
@@ -55,12 +52,13 @@ namespace Hedron.Core.Modules.Progression.Systems
             // Candidate-level eligibility: an anti-grind ratio under the floor leaves the tracks in
             // play (the caller still sees a row per track, as it always has) but makes every
             // candidate ineligible — and an ineligible candidate consumes ZERO IRandom draws.
+            // The ratio is caller-supplied (effective power, gathered through IRelativePowerSystem);
+            // a null ratio means the trigger named no opponent, so a flagged rule applies nothing.
             var antiGrindScale = 1.0;
             var eligible = true;
-            if (eligibility.AppliesAntiGrindPowerRatio)
+            if (eligibility.AppliesAntiGrindPowerRatio && context.OpponentPowerRatio is { } ratio)
             {
-                antiGrindScale = ComputeAntiGrindScale(
-                    GetEffectivePower(context.OpponentEntityId), GetEffectivePower(entityId));
+                antiGrindScale = ComputeAntiGrindScale(ratio);
                 eligible = antiGrindScale > 0.0;
             }
 
@@ -80,7 +78,7 @@ namespace Hedron.Core.Modules.Progression.Systems
             return new UseAwardResult(rows);
         }
 
-        public CombatAwardResult AwardCombatExperience(uint killerEntityId, uint victimEntityId)
+        public CombatAwardResult AwardCombatExperience(uint killerEntityId, uint victimEntityId, double opponentPowerRatio)
         {
             // The victim's per-mob XpScale is resolved HERE, not in the handler, so a live kill and
             // a sandbox kill (which calls this method directly) can never diverge.
@@ -90,7 +88,7 @@ namespace Hedron.Core.Modules.Progression.Systems
 
             var result = AwardUseExperience(killerEntityId, XpSource.CombatKill, new UseAwardContext(
                 ContentScale: contentScale,
-                OpponentEntityId: victimEntityId));
+                OpponentPowerRatio: opponentPowerRatio));
 
             return new CombatAwardResult(result.Tracks);
         }
@@ -247,39 +245,16 @@ namespace Hedron.Core.Modules.Progression.Systems
             return candidates;
         }
 
-        // Anti-grind scale — GetEffectivePower below builds the raw-attribute snapshot
-        // IPowerBudgetSystem.Estimate scores. Below the floor ratio the candidate is ineligible
-        // (0.0, no award and no draws); above 1.0 the scale is capped, never granting a windfall.
-        private static double ComputeAntiGrindScale(int victimPower, int killerPower)
+        // Anti-grind scale on a caller-supplied effective-power ratio (opponent ÷ earner). Below the
+        // floor — including an unreadable opponent's 0.0 and any non-finite value — the candidate is
+        // ineligible (0.0: no award and no draws); above 1.0 the scale rises to the cap, never
+        // granting more than AntiGrindCap.
+        private static double ComputeAntiGrindScale(double ratio)
         {
-            if (killerPower <= 0)
-                return 0.0;
-
-            var ratio = (double)victimPower / killerPower;
-            if (ratio < ProgressionConstants.AntiGrindFloorRatio)
+            if (!double.IsFinite(ratio) || ratio < ProgressionConstants.AntiGrindFloorRatio)
                 return 0.0;
 
             return Math.Min(ratio, ProgressionConstants.AntiGrindCap);
-        }
-
-        // Raw base attributes, not IStatSystem.Get — reading the effect-folded value here would
-        // create a DI cycle (StatSystem -> EffectSystem -> contributors -> ProgressionEffectContributor
-        // -> IProgressionSystem -> ProgressionSystem -> IStatSystem). IPowerBudgetSystem is a core
-        // system with no such cycle — the guard is that the *snapshot values* stay raw, not that
-        // the oracle is un-injected.
-        private int GetEffectivePower(uint entityId)
-        {
-            if (!_entityService.TryGet<AttributesComponent>(entityId, out var attrs))
-                return 0;
-
-            var snapshot = new PowerSnapshot(new Dictionary<ScoreId, int>
-            {
-                [ScoreId.Mind] = attrs.Mind,
-                [ScoreId.Body] = attrs.Body,
-                [ScoreId.Spirit] = attrs.Spirit,
-                [ScoreId.Attunement] = attrs.Attunement,
-            });
-            return _powerBudget.Estimate(snapshot);
         }
 
         private void EnsureComponent(uint entityId, out ProgressionComponent comp)

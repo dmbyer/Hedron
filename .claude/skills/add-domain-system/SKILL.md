@@ -131,7 +131,7 @@ observed on the next read.
 
 1. Create the module folder if new: `Core/Modules/<Feature>/Systems/<X>System.cs` + interface `I<X>System.cs`.
 2. Register in the feature's `AddXModule(IServiceCollection)` extension (e.g. `Core/Modules/<Feature>/<Feature>Module.cs`). The extension is called from `Server/CompositionRoot.Register` — the **shared, pure-DI engine composition both hosts boot** (the telnet `Server` and the Blazor authoring `Hedron.Web`). Register the system once here and both hosts get it. (Only *hosted services* are composed per-host — `AddGameplayHostedServices` vs `AddContentBootstrapHostedServices` — never in `Register`. A domain system is not a hosted service.)
-3. Keep the constructor's dependencies tight — only core systems and `EntityService`.
+3. Keep the constructor's dependencies tight — core systems, `EntityService`, and same-or-lower domain reads (INV-1).
 4. Add the system's signature to [docs/reference/systems.md](../../../docs/reference/systems.md).
 5. If a use case now relies on this system, update its "Systems / handlers" list.
 6. If the system introduces new components, call **add-component** first. If it introduces new events, handlers publish them — not the system.

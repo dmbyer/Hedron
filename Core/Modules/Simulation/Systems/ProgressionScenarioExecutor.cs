@@ -22,8 +22,10 @@ namespace Hedron.Core.Modules.Simulation.Systems
     /// <see cref="Progression.Systems.IProgressionSystem.AwardCombatExperience"/> seam — no combat
     /// rounds, no bus (INV-5). The victim is never destroyed; one award models one kill of a fresh
     /// identical spawn, exactly what live template respawn produces (see the plan's Design notes on
-    /// the central executor decision). Stateless; safe to instantiate once per run or reuse across
-    /// runs on the same thread.
+    /// the central executor decision). The anti-grind ratio is regathered through
+    /// <see cref="SandboxWorld.RelativePower"/> <b>once per kill</b> — the subject's effective power
+    /// grows as it improves — exactly as <c>AdvancementHandler</c> gathers it live (SR11). Stateless;
+    /// safe to instantiate once per run or reuse across runs on the same thread.
     /// </summary>
     public sealed class ProgressionScenarioExecutor
     {
@@ -38,7 +40,8 @@ namespace Hedron.Core.Modules.Simulation.Systems
             {
                 kills++;
 
-                var award = world.Progression.AwardCombatExperience(subjectId, victimId);
+                var ratio = world.RelativePower.Relate(subjectId, victimId).Ratio;
+                var award = world.Progression.AwardCombatExperience(subjectId, victimId, ratio);
 
                 // AwardOutcome.Track widened to ProgressionTrack when ability tracks landed; the
                 // scenario contract is unchanged, so adapt at the ScoreId boundary here rather

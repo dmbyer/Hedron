@@ -33,14 +33,14 @@ The two-layer state model used throughout: `EntityStateComponent.InCombat` (the 
 
 ## Surfaces
 
-- **Commands** — `kill <target>` / `k`, `flee`. See [`../../reference/commands.md`](../../reference/commands.md).
+- **Commands** — `kill <target>` / `k`, `flee`. `consider <target>` / `con` (Progression-owned) judges a fight before it starts — see [`../progression/relative-power-system.md`](../progression/relative-power-system.md). See [`../../reference/commands.md`](../../reference/commands.md).
 - **Events** — `CombatStartedEvent`, `CombatRoundEvent`, `CombatEndedEvent` (`MobDied`/`PlayerIncapacitated`/`PlayerFled`); `PlayerIncapacitatedEvent`, `PlayerBleedingEvent`, `PlayerDiedEvent`, `PlayerRespawnedEvent`; `MobDiedEvent` (extended with `KillerEntityId`). See [`../../reference/handlers.md`](../../reference/handlers.md).
 - **Components** — `CombatStateComponent` (transient, not `[Persistent]`), `EntityStateComponent` (transient), `RespawnComponent` (`[Persistent]`). See [`../../reference/components.md`](../../reference/components.md).
 - **Admin command** — `setrespawn <player> <roomBlueprintId>`. See [`../../reference/commands.md`](../../reference/commands.md).
 
 ## Flows
 
-- [Combat journey (initiation · round pulse · flee)](../../architecture/flows/flow-17-kill-mob-combat-initiation.md) — `kill` through `flee`, including the heartbeat-driven round loop and mob death.
+- [Combat journey (judge the fight · initiation · round pulse · flee)](../../architecture/flows/flow-17-kill-mob-combat-initiation.md) — optional `consider`, then `kill` through `flee`, including the heartbeat-driven round loop and mob death.
 - [Death & respawn journey (mob death · incapacitation · bleed-out · player death/respawn)](../../architecture/flows/flow-20-mob-death-respawn.md) — what happens after HP hits zero on either side.
 
 ## Related
