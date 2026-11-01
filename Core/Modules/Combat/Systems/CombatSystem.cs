@@ -84,7 +84,7 @@ namespace Hedron.Core.Modules.Combat.Systems
 
         public CombatRoundResult ExecuteRound(uint attackerEntityId, uint defenderEntityId)
         {
-            var roll = _random.Next(1, 21) + _statSystem.GetEffectiveBody(attackerEntityId) / 2;
+            var roll = _random.Next(1, 21) + _statSystem.Get(attackerEntityId, ScoreId.Body) / 2;
             var defenseThreshold = 10 + _statSystem.Get(defenderEntityId, ScoreId.Defense);
             var hit = roll >= defenseThreshold;
 

@@ -217,6 +217,8 @@ namespace Hedron.Core.Output
             sb.AppendLine($"  Body      : {m.Body}");
             sb.AppendLine($"  Spirit    : {m.Spirit}");
             sb.AppendLine($"  Attunement: {m.Attunement}");
+            sb.AppendLine($"  Attack    : {m.AttackPower}");
+            sb.AppendLine($"  Defense   : {m.Defense}");
             var respawnLabel = string.IsNullOrEmpty(m.RespawnRoomBlueprintId)
                 ? "(starting room)"
                 : m.RespawnRoomBlueprintId;

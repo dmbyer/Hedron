@@ -48,7 +48,7 @@ namespace Hedron.Tests.Modules.Mobs
             {
                 Ecs = new EntityService();
                 Registry = new TemplateRegistry(Ecs);
-                Builder = new MobBuilderSystem(Ecs, Registry, NullLogger<MobBuilderSystem>.Instance);
+                Builder = new MobBuilderSystem(Ecs, Registry, TestAttributes.Create(Ecs), NullLogger<MobBuilderSystem>.Instance);
                 Writer = new NoOpContentWriter();
                 Bus = new RecordingEventBus(dispatch: false);
                 Command = new SetMobCommand(Builder, Writer, Registry, Bus);

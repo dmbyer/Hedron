@@ -126,10 +126,10 @@ namespace Hedron.Tests.Stats
             Assert.Equal(0, stats.GetEffectiveAttackPower(attacker));
         }
 
-        // NOTE: weapon DamageBonus was migrated to the WhileEquipped effect contributor
-        // (EquipmentEffectContributor). GetEffectiveAttackPower is now base-only (Body/2); the
-        // gear-inclusive value rides Get(ScoreId.AttackPower). End-to-end equipment→stat coverage
-        // lives in EquipmentEffectContributorTests (the contributor unit + the Get fold).
+        // NOTE: weapon DamageBonus rides the WhileEquipped effect contributor
+        // (EquipmentEffectContributor). Since combat-effective-scores GetEffectiveAttackPower is a
+        // thin wrapper over Get(ScoreId.AttackPower), so it is gear-inclusive. End-to-end
+        // equipment→stat coverage lives in EquipmentEffectContributorTests.
 
         // ── GetEffectiveDefense — Body/4 ─────────────────────────────────────────
 
@@ -248,6 +248,120 @@ namespace Hedron.Tests.Stats
 
             var after = stats.Get(player, ScoreId.Body);
             Assert.Equal(15, after);
+        }
+
+        // ── combat-effective-scores: derived scores from effective Body ─────────
+
+        /// <summary>
+        /// Builds a <see cref="StatSystem"/> whose <see cref="AttributeSystem"/> shares the same
+        /// <see cref="FakeEffectSystem"/>, so <c>&lt;Pool&gt;Max</c> modifiers reach the pool-cap seam too.
+        /// </summary>
+        private static (StatSystem stats, AttributeSystem attributes, EntityService ecs, FakeEffectSystem fakeEffects)
+            BuildSharedFakeEffects()
+        {
+            var ecs = new EntityService();
+            var fakeEffects = new FakeEffectSystem();
+            var attributes = new AttributeSystem(ecs, fakeEffects, Options.Create(new DeathOptions { HpFloor = -10 }));
+            return (new StatSystem(attributes, fakeEffects), attributes, ecs, fakeEffects);
+        }
+
+        [Fact]
+        public void Get_AttackPower_derives_from_effective_Body()
+        {
+            var (stats, _, ecs, fake) = BuildWithFakeEffects();
+            var e = new EntityBuilder(ecs).AsPlayer().WithAttributes(body: 10).Build();
+            Assert.Equal(5, stats.Get(e, ScoreId.AttackPower)); // no Body modifier: equals the old base
+
+            fake.SetModifier(e, ScoreId.Body, 6);
+            Assert.Equal(8, stats.Get(e, ScoreId.AttackPower)); // (10 + 6) / 2
+
+            fake.SetModifier(e, ScoreId.Body, 7);
+            fake.SetModifier(e, ScoreId.AttackPower, 3);
+            Assert.Equal(11, stats.Get(e, ScoreId.AttackPower)); // 17 / 2 = 8 (integer division) + 3
+        }
+
+        [Fact]
+        public void Get_Defense_derives_from_effective_Body()
+        {
+            var (stats, _, ecs, fake) = BuildWithFakeEffects();
+            var e = new EntityBuilder(ecs).AsPlayer().WithAttributes(body: 10).Build();
+            Assert.Equal(2, stats.Get(e, ScoreId.Defense));
+
+            fake.SetModifier(e, ScoreId.Body, 10);
+            fake.SetModifier(e, ScoreId.Defense, 2);
+            Assert.Equal(7, stats.Get(e, ScoreId.Defense)); // (10 + 10) / 4 + 2
+        }
+
+        [Fact]
+        public void Derived_scores_floor_at_zero()
+        {
+            var (stats, _, ecs, fake) = BuildWithFakeEffects();
+            var e = new EntityBuilder(ecs).AsPlayer().WithAttributes(body: 10).Build();
+
+            fake.SetModifier(e, ScoreId.Body, -40);
+            Assert.Equal(0, stats.Get(e, ScoreId.AttackPower));
+            Assert.Equal(0, stats.Get(e, ScoreId.Defense));
+
+            fake.SetModifier(e, ScoreId.Body, 0);
+            fake.SetModifier(e, ScoreId.AttackPower, -50);
+            fake.SetModifier(e, ScoreId.Defense, -50);
+            Assert.Equal(0, stats.Get(e, ScoreId.AttackPower));
+            Assert.Equal(0, stats.Get(e, ScoreId.Defense));
+        }
+
+        [Theory]
+        [InlineData(ScoreId.Mind)]
+        [InlineData(ScoreId.Body)]
+        [InlineData(ScoreId.Spirit)]
+        [InlineData(ScoreId.Attunement)]
+        [InlineData(ScoreId.AttackPower)]
+        [InlineData(ScoreId.Defense)]
+        [InlineData(ScoreId.HpCurrent)]
+        [InlineData(ScoreId.HpMax)]
+        public void Typed_getters_equal_Get(ScoreId score)
+        {
+            var (stats, _, ecs, fake) = BuildSharedFakeEffects();
+            var e = new EntityBuilder(ecs).AsPlayer().WithAttributes(body: 12).WithPools(hp: 100).Build();
+            foreach (var s in new[] { ScoreId.Mind, ScoreId.Body, ScoreId.Spirit, ScoreId.Attunement, ScoreId.AttackPower, ScoreId.Defense, ScoreId.HpMax })
+                fake.SetModifier(e, s, 3);
+
+            int typed = score switch
+            {
+                ScoreId.Mind => stats.GetEffectiveMind(e),
+                ScoreId.Body => stats.GetEffectiveBody(e),
+                ScoreId.Spirit => stats.GetEffectiveSpirit(e),
+                ScoreId.Attunement => stats.GetEffectiveAttunement(e),
+                ScoreId.AttackPower => stats.GetEffectiveAttackPower(e),
+                ScoreId.Defense => stats.GetEffectiveDefense(e),
+                ScoreId.HpCurrent => stats.GetCurrentHp(e),
+                _ => stats.GetMaxHp(e),
+            };
+            Assert.Equal(stats.Get(e, score), typed);
+        }
+
+        [Theory]
+        [InlineData(ResourceType.Hp, ScoreId.HpMax, ScoreId.HpCurrent)]
+        [InlineData(ResourceType.Mana, ScoreId.ManaMax, ScoreId.ManaCurrent)]
+        [InlineData(ResourceType.Stamina, ScoreId.StaminaMax, ScoreId.StaminaCurrent)]
+        [InlineData(ResourceType.Astra, ScoreId.AstraMax, ScoreId.AstraCurrent)]
+        public void Pool_reads_delegate_to_attribute_cap(ResourceType pool, ScoreId max, ScoreId current)
+        {
+            var (stats, attributes, ecs, fake) = BuildSharedFakeEffects();
+            var e = new EntityBuilder(ecs).AsPlayer().WithAttributes().WithPools(hp: 100, mana: 50, stamina: 50, astra: 10).Build();
+
+            fake.SetModifier(e, max, 20);
+            attributes.SetCurrent(e, pool, 1000); // fills to the raised cap
+            Assert.Equal(attributes.GetEffectiveMax(e, pool), stats.Get(e, max));
+            Assert.Equal(attributes.GetEffectiveMax(e, pool), stats.Get(e, current));
+
+            // The modifier lapses: stored stays above the cap until reconciled; the read is clamped.
+            fake.SetModifier(e, max, 0);
+            Assert.Equal(attributes.GetCurrent(e, pool), stats.Get(e, current));
+            Assert.Equal(attributes.GetEffectiveMax(e, pool), stats.Get(e, current));
+
+            // Floor-at-1 shared by display and writes.
+            fake.SetModifier(e, max, -10_000);
+            Assert.Equal(1, stats.Get(e, max));
         }
 
         // ── StatSystem does not hold IEventBus (INV-5) ──────────────────────────

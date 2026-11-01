@@ -479,5 +479,25 @@ namespace Hedron.Tests.Regeneration
                     "systems must never hold or publish to the event bus");
             }
         }
+
+        // ── combat-effective-scores T9 — regen fills into the effective max (R5 pin) ──
+
+        [Fact]
+        public void Regenerates_into_effective_max()
+        {
+            var ecs = new EntityService();
+            var effects = new EffectSystem(ecs, Array.Empty<IEffectContributor>());
+            var attributes = new AttributeSystem(ecs, effects, Options.Create(new DeathOptions { HpFloor = -10 }));
+            var stateService = new EntityStateService(ecs);
+            var regen = new RegenerationSystem(ecs, stateService, attributes);
+            var player = new EntityBuilder(ecs).AsPlayer().WithAttributes().WithPools(hp: 100).Build();
+            Hedron.Tests.Harness.TestEffects.ApplyStatModifier(effects, player, Hedron.Core.Modules.Stats.ScoreId.HpMax, 30);
+            stateService.TryEnterState(player, EntityStateFlags.Resting, out _);
+
+            for (var tick = 1; tick <= 40; tick++)
+                regen.ApplyTickRegen(tick);
+
+            Assert.Equal(130, attributes.GetCurrentHp(player));
+        }
     }
 }

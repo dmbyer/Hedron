@@ -54,7 +54,7 @@ namespace Hedron.Tests.Attributes
             var (sys, ecs) = Build();
             var id = new EntityBuilder(ecs).WithPools(hp: 120).Build();
 
-            Assert.Equal(120, sys.GetMaxHp(id));
+            Assert.Equal(120, sys.GetBaseMaxHp(id));
         }
 
         [Fact]
@@ -72,7 +72,7 @@ namespace Hedron.Tests.Attributes
             var (sys, ecs) = Build();
             var id = new EntityBuilder(ecs).WithPools(mana: 60).Build();
 
-            Assert.Equal(60, sys.GetMaxMana(id));
+            Assert.Equal(60, sys.GetBaseMaxMana(id));
         }
 
         // ── SetCurrentHp — clamp invariants ──────────────────────────────────
@@ -165,7 +165,7 @@ namespace Hedron.Tests.Attributes
 
             sys.SetMaxHp(id, 150);
 
-            Assert.Equal(150, sys.GetMaxHp(id));
+            Assert.Equal(150, sys.GetBaseMaxHp(id));
         }
 
         [Fact]
@@ -190,7 +190,7 @@ namespace Hedron.Tests.Attributes
             sys.SetMaxHp(id, 50);
 
             Assert.Equal(50, sys.GetCurrentHp(id));
-            Assert.Equal(50, sys.GetMaxHp(id));
+            Assert.Equal(50, sys.GetBaseMaxHp(id));
         }
 
         [Fact]
@@ -262,7 +262,7 @@ namespace Hedron.Tests.Attributes
             sys.SetMaxMana(id, 20);
 
             Assert.Equal(20, sys.GetCurrentMana(id));
-            Assert.Equal(20, sys.GetMaxMana(id));
+            Assert.Equal(20, sys.GetBaseMaxMana(id));
         }
 
         [Fact]
@@ -323,7 +323,7 @@ namespace Hedron.Tests.Attributes
             sys.SetMaxStamina(id, 20);
 
             Assert.Equal(20, sys.GetCurrentStamina(id));
-            Assert.Equal(20, sys.GetMaxStamina(id));
+            Assert.Equal(20, sys.GetBaseMaxStamina(id));
         }
 
         // ── SetCurrentAstra — clamp to [0, max] ──────────────────────────────
@@ -372,7 +372,7 @@ namespace Hedron.Tests.Attributes
             sys.SetMaxAstra(id, 5);
 
             Assert.Equal(5, sys.GetCurrentAstra(id));
-            Assert.Equal(5, sys.GetMaxAstra(id));
+            Assert.Equal(5, sys.GetBaseMaxAstra(id));
         }
 
         // ── Attributes (Level, Mind, Body, Spirit, Attunement) ───────────────
@@ -494,7 +494,7 @@ namespace Hedron.Tests.Attributes
             var (sys, ecs) = Build();
             var id = ecs.CreateEntity().Id;
 
-            Assert.Equal(100, sys.GetMaxHp(id));
+            Assert.Equal(100, sys.GetBaseMaxHp(id));
         }
 
         [Fact]
@@ -512,7 +512,7 @@ namespace Hedron.Tests.Attributes
             var (sys, ecs) = Build();
             var id = ecs.CreateEntity().Id;
 
-            Assert.Equal(50, sys.GetMaxMana(id));
+            Assert.Equal(50, sys.GetBaseMaxMana(id));
         }
 
         [Fact]
@@ -530,7 +530,7 @@ namespace Hedron.Tests.Attributes
             var (sys, ecs) = Build();
             var id = ecs.CreateEntity().Id;
 
-            Assert.Equal(50, sys.GetMaxStamina(id));
+            Assert.Equal(50, sys.GetBaseMaxStamina(id));
         }
 
         [Fact]
@@ -548,7 +548,7 @@ namespace Hedron.Tests.Attributes
             var (sys, ecs) = Build();
             var id = ecs.CreateEntity().Id;
 
-            Assert.Equal(10, sys.GetMaxAstra(id));
+            Assert.Equal(10, sys.GetBaseMaxAstra(id));
         }
 
         [Fact]
@@ -589,7 +589,7 @@ namespace Hedron.Tests.Attributes
 
             sys.SetMaxHp(id, 200);
 
-            Assert.Equal(100, sys.GetMaxHp(id));  // still returns default
+            Assert.Equal(100, sys.GetBaseMaxHp(id));  // still returns default
         }
 
         [Fact]

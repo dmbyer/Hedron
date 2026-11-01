@@ -117,7 +117,7 @@ namespace Hedron.Tests.Spawn
             Placement = new AreaPlacementSystem(Registry);
             RoomBuilder = new RoomBuilderSystem(Ecs, Registry, new AreaSystem(Ecs, Registry), Spawn, Placement, NullLogger<RoomBuilderSystem>.Instance);
             AreaBuilder = new AreaBuilderSystem(Ecs, Registry, NullLogger<AreaBuilderSystem>.Instance);
-            MobBuilder = new MobBuilderSystem(Ecs, Registry, NullLogger<MobBuilderSystem>.Instance);
+            MobBuilder = new MobBuilderSystem(Ecs, Registry, TestAttributes.Create(Ecs), NullLogger<MobBuilderSystem>.Instance);
             ItemBuilder = new ItemBuilderSystem(Ecs, Registry, NullLogger<ItemBuilderSystem>.Instance);
         }
 

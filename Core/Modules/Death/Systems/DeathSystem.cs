@@ -119,16 +119,13 @@ namespace Hedron.Core.Modules.Death.Systems
             // 3. Strip impermanent effects.
             _effectSystem.RemoveImpermanent(entityId);
 
-            // 4. Restore all four pools to floor(Max * RespawnPoolPercent).
-            var hpRestore = (int)Math.Floor(_attributeSystem.GetMaxHp(entityId) * _options.RespawnPoolPercent);
-            var manaRestore = (int)Math.Floor(_attributeSystem.GetMaxMana(entityId) * _options.RespawnPoolPercent);
-            var staminaRestore = (int)Math.Floor(_attributeSystem.GetMaxStamina(entityId) * _options.RespawnPoolPercent);
-            var astraRestore = (int)Math.Floor(_attributeSystem.GetMaxAstra(entityId) * _options.RespawnPoolPercent);
-
-            _attributeSystem.SetCurrentHp(entityId, hpRestore);
-            _attributeSystem.SetCurrentMana(entityId, manaRestore);
-            _attributeSystem.SetCurrentStamina(entityId, staminaRestore);
-            _attributeSystem.SetCurrentAstra(entityId, astraRestore);
+            // 4. Restore all four pools to floor(effective cap * RespawnPoolPercent). Runs after
+            //    RemoveImpermanent, so the cap counts permanent/contributor modifiers (progression,
+            //    passives, tier, gear) and excludes the stripped timed buffs.
+            _attributeSystem.RestoreToFraction(entityId, ResourceType.Hp, _options.RespawnPoolPercent);
+            _attributeSystem.RestoreToFraction(entityId, ResourceType.Mana, _options.RespawnPoolPercent);
+            _attributeSystem.RestoreToFraction(entityId, ResourceType.Stamina, _options.RespawnPoolPercent);
+            _attributeSystem.RestoreToFraction(entityId, ResourceType.Astra, _options.RespawnPoolPercent);
         }
 
         /// <inheritdoc/>

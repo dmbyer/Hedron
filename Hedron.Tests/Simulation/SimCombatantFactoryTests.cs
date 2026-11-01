@@ -82,7 +82,7 @@ namespace Hedron.Tests.Simulation
         // ── Reference build ──────────────────────────────────────────────────
 
         [Fact]
-        public void Resolve_ReferenceBuild_MaterializedScores_MatchSnapshotPlusTierBaseline()
+        public void Resolve_ReferenceBuild_MaterializedScores_MatchSnapshotPlusTierBaseline_DerivedScoresIncludeTierBody()
         {
             var (factory, _, registry, world) = NewFixture();
             var spec = new CombatantSpec(CombatantSourceKind.ReferenceBuild, "melee-only", Tier: 2, Band: 2);
@@ -93,14 +93,44 @@ namespace Hedron.Tests.Simulation
             var snapshot = registry.ReferenceSnapshot(2, 2);
             var tunables = PowerBudgetTunables.Default;
 
+            var tierStep = tunables.TierBaselineStep * 2;
+            var body = snapshot.Scores[ScoreId.Body];
             foreach (var (score, baseValue) in snapshot.Scores)
             {
-                var tierBonus = tunables.TrackedScores.Contains(score) ? tunables.TierBaselineStep * 2 : 0;
+                // Tracked scores (Body, HpMax) gain the tier baseline directly. Since
+                // combat-effective-scores the derived scores derive from *effective* Body, so the
+                // tier's Body also raises AttackPower (/2) and Defense (/4) — the residual stays
+                // anchored to raw Body (see SimCombatantFactory.ApplyComputedResidual).
+                var tierBonus = score switch
+                {
+                    _ when tunables.TrackedScores.Contains(score) => tierStep,
+                    ScoreId.AttackPower => (body + tierStep) / 2 - body / 2,
+                    ScoreId.Defense => (body + tierStep) / 4 - body / 4,
+                    _ => 0,
+                };
                 Assert.Equal(baseValue + tierBonus, world.Stats.Get(entityId, score));
             }
 
+            // Spawned full at the effective cap (tier baseline on HpMax included).
+            Assert.Equal(world.Stats.Get(entityId, ScoreId.HpMax), world.Stats.Get(entityId, ScoreId.HpCurrent));
+
             Assert.True(world.Abilities.IsKnown(entityId, "kick"));
             Assert.Equal(new PowerBand(2, 2), resolved.Cell);
+        }
+
+        [Fact]
+        public void Materialize_fills_pools_to_effective_cap()
+        {
+            var (factory, _, _, world) = NewFixture();
+            var resolved = new ResolvedCombatant(
+                "inline", new Dictionary<ScoreId, int> { [ScoreId.HpMax] = 100, [ScoreId.Body] = 10 },
+                new List<string>(), Tier: 1, "melee-only", null);
+
+            var id = factory.Materialize(world, resolved);
+
+            var cap = world.Stats.Get(id, ScoreId.HpMax);
+            Assert.Equal(100 + PowerBudgetTunables.Default.TierBaselineStep, cap);
+            Assert.Equal(cap, world.Attributes.GetCurrent(id, ResourceType.Hp));
         }
 
         [Fact]

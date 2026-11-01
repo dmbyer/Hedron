@@ -19,7 +19,7 @@ namespace Hedron.Core.Modules.Death
 
         /// <summary>
         /// Fraction of each pool's maximum restored on respawn. Default: 0.25 (25%).
-        /// Applied as <c>floor(Max * RespawnPoolPercent)</c> for every pool.
+        /// Applied as <c>floor(effective max * RespawnPoolPercent)</c> for every pool (the effective cap after impermanent effects are stripped).
         /// </summary>
         public double RespawnPoolPercent { get; set; } = 0.25;
     }
