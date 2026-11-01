@@ -15,7 +15,7 @@ namespace Hedron.Core.Modules.Simulation.Systems
 
     /// <summary>
     /// Drives one 1v1 combat run to completion: a synthetic heartbeat that performs the same
-    /// per-tick sequence the live handlers run (effects → cooldowns → actions → regen) by calling
+    /// per-tick sequence the live handlers run (effects → cooldowns → actions → regen → reconcile) by calling
     /// system methods directly — no bus, no handlers (INV-5). Stateless; safe to instantiate once
     /// per run or reuse across runs on the same thread.
     /// </summary>
@@ -91,6 +91,11 @@ namespace Hedron.Core.Modules.Simulation.Systems
                 // 4. Regeneration (suppressed while InCombat — near-free call, included for fidelity
                 // with the live heartbeat order per the plan's resolved OQ2).
                 world.Regeneration.ApplyTickRegen(tick);
+
+                // 5. Pool reconcile (mirrors the live PoolReconcileTickHandler): write any pool
+                // current above its effective cap back down — e.g. after a +Max buff expired in step 1.
+                // Draws no IRandom values, so run determinism is unchanged.
+                world.Attributes.ReconcileAllPools();
             }
 
             return new RunRecord(runIndex, winnerSide, ticksElapsed, damageA, damageB);

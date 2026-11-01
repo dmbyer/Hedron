@@ -38,7 +38,7 @@ On a 0-or-below crossing for a player not already incapacitated: `OnHpChanged` c
 2. Resolves `RespawnComponent.RoomBlueprintId` to a live room entity id (same blueprint→entity map as `CharacterHydrationHandler`). Falls back to the resolved starting room with a warning if unresolvable — one read of the `WorldConfiguration.StartingRoom` snapshot supplies both the entity id and the blueprint id.
 3. Updates `LocationComponent` to the resolved room.
 4. Calls `IEffectSystem.RemoveImpermanent(entityId)` — strips all non-`UntilRemoved` effects. Permanent (`UntilRemoved`) effects persist through death.
-5. Restores all four pools to `floor(Max × Death:RespawnPoolPercent)` (default 25%) via `IAttributeSystem`.
+5. Restores all four pools to `floor(effective max × Death:RespawnPoolPercent)` (default 25%) via `IAttributeSystem.RestoreAllToFraction`. Because this runs after step 4, the effective cap counts permanent and contributor modifiers (progression, passives, tier, worn gear) and excludes the timed buffs just stripped.
 
 `PlayerDeathHandler` then publishes `PlayerRespawnedEvent`. `DeathNarrationHandler` (priority 80) handles narration: death broadcast to the death room, respawn confirmation to the player, arrival broadcast to the respawn room.
 

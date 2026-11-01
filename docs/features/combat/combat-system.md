@@ -22,7 +22,7 @@
 
 ### Hit and damage formula
 
-Hit check: `Random.Next(1,21) + Body/2 >= 10 + defense`. If hit: raw damage = `Random.Next(1, attackPower+2)`. Both `attackPower` and `defense` are read from `IStatSystem`. `IRandom` is the injected seam (INV-26) — no `Random.Shared` calls in the system.
+Hit check: `Random.Next(1,21) + Get(Body)/2 >= 10 + Get(Defense)`. If hit: raw damage = `Random.Next(1, Get(AttackPower)+2)`. Every input is an **effective** score read through `IStatSystem.Get`: `Body` folds progression, passives, buffs and tier; `AttackPower`/`Defense` derive from that effective `Body` plus their own modifiers (worn gear included), floored at 0 ([stat-system.md](../character-stats/stat-system.md#formulas)). HP writes go through `IAttributeSystem.SetCurrentHp`, clamped to the defender's effective `HpMax`; the HP ≤ 0 outcome check is independent of max. `IRandom` is the injected seam (INV-26) — no `Random.Shared` calls in the system.
 
 ### Aspect resolution
 

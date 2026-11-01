@@ -9,6 +9,7 @@ using Hedron.Core.Modules.Shopping.Components;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using Hedron.Tests.Harness;
 
 namespace Hedron.Tests.Authoring
 {
@@ -33,7 +34,7 @@ namespace Hedron.Tests.Authoring
         {
             var ecs = _ecs = new EntityService();
             var registry = _registry = new TemplateRegistry(ecs);
-            var system = _sys = new MobBuilderSystem(ecs, registry, NullLogger<MobBuilderSystem>.Instance);
+            var system = _sys = new MobBuilderSystem(ecs, registry, TestAttributes.Create(ecs), NullLogger<MobBuilderSystem>.Instance);
             return (system, ecs, registry);
         }
 
@@ -764,6 +765,29 @@ namespace Hedron.Tests.Authoring
                     $"INV-5: MobBuilderSystem field '{field.Name}' is IEventBus — " +
                     "domain systems must never hold or publish to the event bus.");
             }
+        }
+
+        // ── combat-effective-scores T10 — live pool edits clamp to the effective cap ──
+
+        [Fact]
+        public void SetMobStat_pool_clamps_live_instance_to_effective_cap()
+        {
+            var ecs = _ecs = new EntityService();
+            var registry = _registry = new TemplateRegistry(ecs);
+            var effects = new Hedron.Core.Modules.Effects.Systems.EffectSystem(
+                ecs, System.Array.Empty<Hedron.Core.Modules.Effects.Systems.IEffectContributor>());
+            var attributes = new Hedron.Core.Modules.Attributes.Systems.AttributeSystem(
+                ecs, effects, Microsoft.Extensions.Options.Options.Create(new Hedron.Core.Modules.Death.DeathOptions()));
+            _sys = new MobBuilderSystem(ecs, registry, attributes, NullLogger<MobBuilderSystem>.Instance);
+            var mob = CreateLive("Rat", MakeRoom(ecs));
+            Hedron.Tests.Harness.TestEffects.ApplyStatModifier(effects, mob.MobEntityId, Hedron.Core.Modules.Stats.ScoreId.HpMax, 20);
+            attributes.SetCurrentHp(mob.MobEntityId, 1000); // fills to the effective cap
+
+            _sys.SetAttribute(mob.BlueprintId, "hp", 30);
+
+            var pools = ecs.Get<PoolsComponent>(mob.MobEntityId);
+            Assert.Equal(30, pools.MaxHp);      // base written
+            Assert.Equal(50, pools.CurrentHp);  // clamped to 30 + 20, not the raw 30
         }
     }
 }

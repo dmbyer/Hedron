@@ -47,7 +47,7 @@ The engine's built mechanics get exercised by authored content, and the function
 - **Content-driven gap slices** through the per-slice loop, and the client-tier gate fed by real authoring evidence (R30–R31).
 
 **Out of scope (confirmed exclusions):**
-- **Tier 1+ content, a player-facing ascension trigger, and the ascension-baseline calibration fix.** These move to the Phase 6 progression-expansion pillar. Tier 1 is reachable today only through admin `ascend`, and the tier baseline has no real combat effect ([backlog](../roadmap/backlog.md)).
+- **Tier 1+ content, a player-facing ascension trigger, and ascension tier tuning.** These move to the Phase 6 progression-expansion pillar. Tier 1 is reachable today only through admin `ascend`. The tier baseline now reaches combat (slice 5b), but its step is untuned ([backlog](../roadmap/backlog.md)).
 - **The operator's private world** as part of the definition of done.
 - **Mob AI:** aggro, wandering, threat. Danger is opt-in.
 - **Mob item drops, corpses, and general loot tables.** These remain the Phase 6 `ILootSystem` work; currency loot only.
@@ -308,7 +308,7 @@ Each gap slice runs the full per-slice loop (`/new-plan` → spec gate → build
 | 3 | ✅ [`area-designation`](../roadmap/completed/area-designation.md) (shipped) | Optional area (Tier, band-range) designation + YAML/editor/`areaset` authoring; out-of-designation check (warn-only) on room spawn rules in boot report, `area`, Integrity, area editor and rule saves | R4, R23 | 1 (parallel with 2) |
 | 4 | ✅ [`help-topics`](../roadmap/completed/help-topics.md) (shipped) | Shared YAML store extraction (`Core/Systems/Definitions/`) + standards/scenarios/world-manifest migration; warn-only `IContentReloadParticipant` port; topic registry with engine + world layers; `IHelpLookupSystem` topic step; topic editor; engine topic set | R18–R19 | — (parallel) |
 | 5 | ✅ [`relative-power-consider`](../roadmap/completed/relative-power-consider.md) (shipped) | Relative-power read; anti-grind on effective power, extended to the ability-use and damage-taken rows when there's an opponent (balance re-pin); `consider`; `power` migration; progression doc-accuracy fixes | R20–R22 | — (parallel) |
-| 5b | `combat-effective-scores` (gap slice, R30) | Combat's attack power, defense and HP/death check read effective scores (`IStatSystem.Get`), so contributor-folded progression (and tier) changes fight outcomes; deliberate balance change with re-pins. Found at slice 5's `/advise` ([`completed/relative-power-consider.md`](../roadmap/completed/relative-power-consider.md#decisions)) | R21, R26 (A3/A7) | — (parallel with 5; before 6) |
+| 5b | ✅ [`combat-effective-scores`](../roadmap/completed/combat-effective-scores.md) (shipped; gap slice, R30) | Melee attack power, defense and the hit roll derive from effective `Body`; a `ResourceType`-keyed effective pool cap on `IAttributeSystem` (clamped reads, a heartbeat clamp-down, spawn/creation fill and respawn restore at the cap); `score` shows Attack/Defense; tier now reaches combat (tuning stays Phase 6); deliberate re-pin | R21, R26 (A3/A7) | — (parallel with 5; before 6) |
 | 6–8 | Content drops B1 → B2 → B3 | Hub onboarding rooms + hub shop rows for the band, hunting area, mobs, found items, help topic text | R5–R8, R10–R14, R16–R17, R24–R25 | 1–3 (4 and 5 by the drop that needs them) |
 | 9 | Acceptance golden | A1–A8 on dev-world, graded against the standards family | R26–R29 | playtest substrate + 6–8 |
 

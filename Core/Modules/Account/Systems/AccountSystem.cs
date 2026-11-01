@@ -6,6 +6,7 @@ using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Abilities.Systems;
 using Hedron.Core.Modules.Account.Components;
+using Hedron.Core.Modules.Attributes.Systems;
 using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -29,6 +30,7 @@ namespace Hedron.Core.Modules.Account.Systems
         private readonly WorldConfiguration _worldConfig;
         private readonly CharacterDefaultsOptions _characterDefaults;
         private readonly IAbilitySystem _abilitySystem;
+        private readonly IAttributeSystem _attributeSystem;
         private readonly IClock _clock;
         private readonly ILogger<AccountSystem> _logger;
 
@@ -41,6 +43,7 @@ namespace Hedron.Core.Modules.Account.Systems
             WorldConfiguration worldConfig,
             IOptions<CharacterDefaultsOptions> characterDefaults,
             IAbilitySystem abilitySystem,
+            IAttributeSystem attributeSystem,
             IClock clock,
             ILogger<AccountSystem> logger)
         {
@@ -49,6 +52,7 @@ namespace Hedron.Core.Modules.Account.Systems
             _worldConfig = worldConfig;
             _characterDefaults = characterDefaults.Value;
             _abilitySystem = abilitySystem;
+            _attributeSystem = attributeSystem;
             _clock = clock;
             _logger = logger;
         }
@@ -142,6 +146,10 @@ namespace Hedron.Core.Modules.Account.Systems
                 if (!_abilitySystem.Learn(entity.Id, abilityId))
                     _logger.LogWarning("Unknown starting ability id '{AbilityId}' — skipped.", abilityId);
             }
+
+            // Start full at the *effective* cap, after the starting abilities are learned so a
+            // passive max bonus (e.g. toughness) is counted. The initiator then does the construction save.
+            _attributeSystem.RestoreAllToFraction(entity.Id, 1.0);
 
             GetCharacterNameIndex().Add(characterName.ToLowerInvariant());
             return Task.FromResult(entity.Id);

@@ -72,7 +72,7 @@ sequenceDiagram
 **Steps.**
 
 1. `ItemInEquipmentResolver` builds candidates from `EquipmentComponent.Slots.Values`; parser prefix-matches.
-2. `RemoveCommand.ExecuteAsync` calls `IEquipmentSystem.TryFindEquippedItem`. Not found → "You aren't wearing that."
+2. `RemoveCommand.ExecuteAsync` calls `IEquipmentSystem.TryFindEquippedItem`. Not found → "You aren't wearing that." (Pool effect of a remove: if the item carried a `<Pool>Max` bonus, the effective cap drops at once — reads clamp immediately and the next heartbeat's `PoolReconcileTickHandler` writes the clamp back. Re-wearing raises the cap but never refills current.)
 3. `IEquipmentSystem.GetWornSlots(itemEntityId)` captures the slot list for the event payload.
 4. `IEquipmentSystem.RemoveItem(playerEntityId, itemEntityId)`: clears all `EquipmentComponent.Slots` entries mapping to this item; appends item id to `InventoryComponent.ItemEntityIds`.
 5. Publishes `ItemUnequippedEvent(playerEntityId, itemEntityId, slots)`.

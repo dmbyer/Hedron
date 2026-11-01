@@ -99,6 +99,7 @@ namespace Hedron.Tests.Account
                 worldConfig,
                 Options.Create(defaults ?? new CharacterDefaultsOptions()),
                 new NullAbilitySystem(),
+                TestAttributes.Create(ecs),
                 clock,
                 NullLogger<AccountSystem>.Instance);
 
@@ -588,6 +589,54 @@ namespace Hedron.Tests.Account
                     $"INV-5: AccountSystem field '{field.Name}' is IEventBus — " +
                     "systems must never hold or publish to the event bus");
             }
+        }
+
+        // ── combat-effective-scores T14 — creation fills pools to the effective cap ──
+
+        /// <summary>An ability system whose <c>Learn</c> grants a permanent +HpMax modifier (a passive stand-in).</summary>
+        private sealed class HpMaxPassiveAbilitySystem : IAbilitySystem
+        {
+            private readonly Hedron.Core.Modules.Effects.Systems.IEffectSystem _effects;
+            public HpMaxPassiveAbilitySystem(Hedron.Core.Modules.Effects.Systems.IEffectSystem effects) => _effects = effects;
+            public bool Learn(uint entityId, string abilityId)
+            {
+                TestEffects.ApplyStatModifier(_effects, entityId, Hedron.Core.Modules.Stats.ScoreId.HpMax, 25, effectId: $"passive.{abilityId}");
+                return true;
+            }
+            public bool Teach(uint t, uint s, string a) => false;
+            public bool IsKnown(uint e, string a) => false;
+            public bool IsOffensive(string a) => false;
+            public IReadOnlyList<string> GetKnown(uint e) => Array.Empty<string>();
+            public float GetCooldownRemaining(uint e, string a) => 0f;
+            public IReadOnlyList<(string AbilityId, float CooldownRemaining)> GetCooldowns(uint e) => Array.Empty<(string, float)>();
+            public void AdvanceCooldowns(TimeSpan elapsed) { }
+            public AbilityActivationResult Activate(uint a, string id, uint? t = null, bool ext = false)
+                => new(AbilityActivationOutcome.UnknownAbility, id,
+                       Array.Empty<Hedron.Core.Modules.Effects.Effect>(),
+                       Array.Empty<Hedron.Core.Modules.Abilities.ResourceCost>(), 0f);
+        }
+
+        [Fact]
+        public async Task CreateCharacter_fills_pools_to_effective_cap()
+        {
+            var ecs = new EntityService();
+            var effects = new Hedron.Core.Modules.Effects.Systems.EffectSystem(
+                ecs, Array.Empty<Hedron.Core.Modules.Effects.Systems.IEffectContributor>());
+            var attributes = new Hedron.Core.Modules.Attributes.Systems.AttributeSystem(
+                ecs, effects, Options.Create(new Hedron.Core.Modules.Death.DeathOptions()));
+            var system = new AccountSystem(
+                ecs, new PlaintextHasher(),
+                new WorldConfiguration { StartingRoom = ResolvedStartingRoom.Unresolved },
+                Options.Create(new CharacterDefaultsOptions { StartingAbilities = ["toughness"] }),
+                new HpMaxPassiveAbilitySystem(effects), attributes,
+                new FakeClock(BaseTime), NullLogger<AccountSystem>.Instance);
+            var account = await system.CreateAccountAsync("hero", "pw");
+
+            var character = await system.CreateCharacterAsync(account, "Hero");
+
+            Assert.Equal(125, attributes.GetEffectiveMax(character, ResourceType.Hp));
+            Assert.Equal(125, attributes.GetCurrentHp(character));
+            Assert.Equal(125, ecs.Get<PoolsComponent>(character).CurrentHp);
         }
     }
 }

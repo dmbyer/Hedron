@@ -22,7 +22,7 @@ This is a deliberately small, hardcoded-rate slice. The rates are Category-3 bal
 
 The idle cadence is global — `tickId % IdleIntervalTicks == 0` — so all idle entities regenerate on the same tick. No per-entity timer or accumulator component is needed.
 
-Every applied delta rides the `[0, max]` clamp in `IAttributeSystem` (INV-8): a pool at max is a no-op.
+Every applied delta rides the effective-cap clamp in `IAttributeSystem` ([attribute-system.md](attribute-system.md#the-pool-cap-seam-keyed-by-resourcetype)): a pool at its effective max is a no-op, and a `+HpMax` bonus (progression, a passive, gear) is regenerated into.
 
 ### Resting state
 

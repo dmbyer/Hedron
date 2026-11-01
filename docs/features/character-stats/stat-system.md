@@ -21,14 +21,15 @@
 
 `ResourceType` (`Core/ECS/Components/ResourceType.cs`) — enum `{ Hp, Mana, Stamina, Astra }`. Identifies a pool kind without embedding governance or derivation rules. The expandable seam: a future pool is a new entry, not new code.
 
-### Formulas (slice 9-d baseline)
+### Formulas
 
 | Score | Formula | Note |
 |---|---|---|
-| `AttackPower` | `Body / 2` base; worn-gear `AttackPower` bonuses fold in via `Get` | base-only getter; weapon bonus rides the contributor (below) |
-| `Defense` | `Body / 4` base; worn-gear `Defense` bonuses fold in via `Get` | interim base; dedicated evasion/armor score lands with combat-depth/aspect slices |
+| `AttackPower` | `max(0, Get(Body) / 2 + modifiers(AttackPower))` | base from **effective** Body; weapon bonus rides the contributor (below) |
+| `Defense` | `max(0, Get(Body) / 4 + modifiers(Defense))` | interim base; dedicated evasion/armor score lands with combat-depth/aspect slices |
+| `<Pool>Max` / `<Pool>Current` | delegated to `IAttributeSystem.GetEffectiveMax` / `GetCurrent` | one cap shared by display and writes — see [attribute-system.md](attribute-system.md#the-pool-cap-seam-keyed-by-resourcetype) |
 
-Typed getters (`GetEffectiveBody`, etc.) are thin wrappers over `Get(entityId, ScoreId)`. `GetEffectiveAttackPower` (`Body / 2`) and `GetEffectiveDefense` (`Body / 4`) are **base-only** — they do *not* read equipment. Worn-gear bonuses are authored as `ItemDataComponent.StatBonuses` and folded into `Get(AttackPower)` / `Get(Defense)` by [`EquipmentEffectContributor`](../items/equipment-system.md) through the [effect contributor seam](../effects/effect-system.md#the-contributor-seam) (INV-24) — so callers that need the gear-inclusive value read `Get`, never the bare getter. (The combat round was repointed to `Get` for exactly this reason.)
+**"Effective" means effective, at this one seam** (combat-effective-scores). Every typed getter (`GetEffectiveBody`, `GetEffectiveAttackPower`, `GetEffectiveDefense`, `GetCurrentHp`, `GetMaxHp`, …) is a thin wrapper over `Get(entityId, ScoreId)`. The derived scores take their base from *effective* `Body`, so progression improvements, passives, buffs and the Ascension tier baseline reach combat exactly as worn gear does (authored as `ItemDataComponent.StatBonuses`, folded by [`EquipmentEffectContributor`](../items/equipment-system.md) through the [effect contributor seam](../effects/effect-system.md#the-contributor-seam), INV-24). The floor at 0 keeps a heavy `Body` debuff from producing a negative attack power, which would break the damage roll's range. (Before this slice the typed getters read the raw `AttributesComponent` under an "Effective" name and the derived base came from raw `Body` — which is why progression and tier had no combat effect.)
 
 ### The effect modifier fold (S2 hook)
 
@@ -63,7 +64,7 @@ Starting defaults for new characters bind from `CharacterDefaults:` in `appsetti
 
 The seam self-documents in code — describe behaviour here, not signatures:
 
-- [`IStatSystem.cs`](../../../Core/Modules/Stats/Systems/IStatSystem.cs) — typed effective getters for the four attributes + `GetEffectiveAttackPower` / `GetEffectiveDefense` / `GetCurrentHp` / `GetMaxHp` + the generalized `Get(uint entityId, ScoreId score)` seam. Pure: returns results, never touches the bus or persistence.
+- [`IStatSystem.cs`](../../../Core/Modules/Stats/Systems/IStatSystem.cs) — typed effective getters (all thin wrappers over `Get`) for the four attributes + `GetEffectiveAttackPower` / `GetEffectiveDefense` / `GetCurrentHp` / `GetMaxHp` + the generalized `Get(uint entityId, ScoreId score)` seam. Pure: returns results, never touches the bus or persistence, and declares no setters (architecture guard).
 - [`IStatRegistry.cs`](../../../Core/Modules/Stats/IStatRegistry.cs) — enumerates each `ScoreId` with its `ScoreRole` and governing attribute.
 - [`IAttributeSystem.cs`](../../../Core/Modules/Attributes/Systems/IAttributeSystem.cs) — the raw component read/write layer; see [attribute-system.md](attribute-system.md).
 
@@ -73,12 +74,12 @@ The seam self-documents in code — describe behaviour here, not signatures:
 - **`Defense` governance is interim.** `Body / 4` is provisional; a dedicated evasion/armor score and its governing attribute land with the combat-depth/aspect slices — flagged so it isn't mistaken for final.
 - **`Level` is vestigial.** Retained in `AttributesComponent` to avoid pulling Ascension (S8) forward; no new feature depends on it.
 - **No events in `StatSystem` (INV-5).** Pure computation layer.
-- **Acyclic by construction.** `EffectSystem` computes power from base stats (not effective stats), which keeps `Effect → Stat` a DAG — no circular read path through `Get`.
+- **Acyclic by construction.** `EffectSystem` computes power from base stats (not effective stats), which keeps `Effect → Stat` a DAG — no circular read path through `Get`. Deriving `AttackPower`/`Defense` from `Get(Body)` adds no edge: no contributor's backing system reads `IStatSystem`. Ability/effect *potency* staying on base stats is a deliberate deferral ([backlog](../../roadmap/backlog.md)).
 
 ## Extensibility
 
 - **New modifier sources** extend `StatSystem.Get` via `IEffectContributor` (the INV-24 seam) — see the [effect-system contributor seam](../effects/effect-system.md#the-contributor-seam). Worn equipment is one such source (`EquipmentEffectContributor`, wearable-equipment-expansion).
-- **Worn-gear attack/defense contributions** land through that same contributor seam — authored as `ItemDataComponent.StatBonuses` and folded by `Get(AttackPower|Defense)`, **not** read inline by the typed getters (which stay base-only).
+- **Worn-gear attack/defense contributions** land through that same contributor seam — authored as `ItemDataComponent.StatBonuses` and folded by `Get(AttackPower|Defense)` (and so by the typed getters, which wrap it).
 - **Pools-as-derived-scores** (from governing attributes) extend `Get` for max-pool `ScoreId`s — the `IStatRegistry` governance metadata is already in place.
 - **Progression / Ascension (S6/S8)** advances scores via `IAttributeSystem` setters; `StatSystem` reads the updated base transparently.
 

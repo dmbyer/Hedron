@@ -531,5 +531,49 @@ namespace Hedron.Tests.Persistence
             Assert.False(ecs.HasComponent<AscensionComponent>(id),
                 "World-content entities never carry AscensionComponent — it is a player-only runtime shape (INV-23).");
         }
+
+        // ── combat-effective-scores T22 — current above the raw max survives (R10) ──
+
+        private static (Hedron.Core.Modules.Attributes.Systems.AttributeSystem Attributes, Hedron.Core.Modules.Progression.Systems.ProgressionSystem Progression)
+            WireStats(EntityService ecs)
+        {
+            var progression = new Hedron.Core.Modules.Progression.Systems.ProgressionSystem(
+                ecs, new FakeRandom(1), new Hedron.Core.Modules.Progression.Systems.AdvancementRuleRegistry());
+            var effects = new Hedron.Core.Modules.Effects.Systems.EffectSystem(ecs, new Hedron.Core.Modules.Effects.Systems.IEffectContributor[]
+            {
+                new Hedron.Core.Modules.Progression.ProgressionEffectContributor(progression),
+            });
+            var attributes = new Hedron.Core.Modules.Attributes.Systems.AttributeSystem(
+                ecs, effects, Microsoft.Extensions.Options.Options.Create(new Hedron.Core.Modules.Death.DeathOptions()));
+            return (attributes, progression);
+        }
+
+        [Theory]
+        [InlineData(true, 125)]   // the persistent HpMax source survives: the bonus HP is kept
+        [InlineData(false, 100)]  // the source is gone on load: the read clamps, the first reconcile writes it
+        public async Task Pool_current_above_raw_max_survives_round_trip(bool keepImprovement, int expectedAfterReconcile)
+        {
+            using var harness = new PersistenceTestHarness();
+            var ecs = harness.EntityService;
+            var id = new EntityBuilder(ecs).AsPlayer().WithAttributes().WithPools(hp: 100).Build();
+            // +15 improvements x PowerPerImprovement 2 = +30 HpMax, carried by the persistent ProgressionComponent.
+            ecs.AddComponent(id, new ProgressionComponent { Improvements = { [ProgressionTrack.Of(ScoreId.HpMax)] = 15 } });
+            var (attributes, _) = WireStats(ecs);
+            attributes.SetCurrentHp(id, 125);
+            Assert.Equal(125, ecs.Get<PoolsComponent>(id).CurrentHp);
+            ecs.AddComponent(id, new PersistentEntity());
+            await harness.SaveAsync(id);
+
+            var fresh = await harness.ReloadIntoFreshWorld();
+            if (!keepImprovement)
+                fresh.Get<ProgressionComponent>(id).Improvements.Clear();
+            var (freshAttributes, _) = WireStats(fresh);
+
+            Assert.Equal(125, fresh.Get<PoolsComponent>(id).CurrentHp);   // no load-time clamp
+            Assert.Equal(100, fresh.Get<PoolsComponent>(id).MaxHp);       // stored max stays the base
+            Assert.Equal(expectedAfterReconcile, freshAttributes.GetCurrentHp(id));
+            freshAttributes.ReconcileAllPools();
+            Assert.Equal(expectedAfterReconcile, fresh.Get<PoolsComponent>(id).CurrentHp);
+        }
     }
 }

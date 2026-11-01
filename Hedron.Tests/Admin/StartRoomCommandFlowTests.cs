@@ -105,7 +105,7 @@ namespace Hedron.Tests.Admin
                 Command = new StartRoomCommand(Ecs, Store, Loader, Config, Bus);
                 Accounts = new AccountSystem(
                     Ecs, new PlaintextHasher(), Config, Options.Create(new CharacterDefaultsOptions()),
-                    new NullAbilitySystem(), new FakeClock(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)),
+                    new NullAbilitySystem(), TestAttributes.Create(Ecs), new FakeClock(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)),
                     NullLogger<AccountSystem>.Instance);
             }
 

@@ -164,13 +164,19 @@ namespace Hedron.Core.Modules.Simulation.Systems
 
             // Computed scores (AttackPower = Body/2, Defense = Body/4) aren't stored on a component —
             // any snapshot value beyond that base derivation folds as a permanent StatModifier effect,
-            // exactly how worn-gear bonuses reach IStatSystem.Get. A resolved combatant with no such
+            // exactly how worn-gear bonuses reach IStatSystem.Get. The residual is taken against the
+            // *raw* Body on purpose: StatSystem derives from effective Body, so a tier baseline on Body
+            // adds on top of the residual — computing it against effective Body would cancel the tier. A resolved combatant with no such
             // score (e.g. a mob template) contributes a residual of 0 — a no-op.
             ApplyComputedResidual(world, entityId, ScoreId.AttackPower, resolved.Scores, body / 2);
             ApplyComputedResidual(world, entityId, ScoreId.Defense, resolved.Scores, body / 4);
 
             foreach (var abilityId in resolved.AbilityKit)
                 world.Abilities.Learn(entityId, abilityId);
+
+            // Start full at the *effective* cap, last — after tier, residuals and the ability kit, so
+            // a tier baseline or passive on HpMax counts (the live spawn/creation fills do the same).
+            world.Attributes.RestoreAllToFraction(entityId, 1.0);
 
             return entityId;
         }

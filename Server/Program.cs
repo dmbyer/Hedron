@@ -19,6 +19,7 @@ using Hedron.Core.Modules.Spawn.Systems;
 using Hedron.Core.Modules.Spawn.Handlers;
 using Hedron.Core.Modules.Abilities.Events;
 using Hedron.Core.Modules.Abilities.Handlers;
+using Hedron.Core.Modules.Attributes.Handlers;
 using Hedron.Core.Modules.Regeneration.Handlers;
 using Hedron.Core.Modules.Effects.Events;
 using Hedron.Core.Modules.Effects.Handlers;
@@ -95,6 +96,9 @@ public static class Program
 
         var regenTick = host.Services.GetRequiredService<RegenerationTickHandler>();
         bus.Subscribe<HeartbeatTickEvent>(regenTick);
+
+        var poolReconcileTick = host.Services.GetRequiredService<PoolReconcileTickHandler>();
+        bus.Subscribe<HeartbeatTickEvent>(poolReconcileTick);
 
         var outputFlushTick = host.Services.GetRequiredService<OutputFlushTickHandler>();
         bus.Subscribe<HeartbeatTickEvent>(outputFlushTick);

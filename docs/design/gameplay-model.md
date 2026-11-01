@@ -97,7 +97,7 @@ at different `ScoreId`s. `IStatSystem.Get(entity, scoreId)` resolves the effecti
 base (primary/pool) or run the derive function (derived) → sum every `StatModifier` whose target
 is that `ScoreId` → apply aspect adjustments.
 
-This is **partly built already**: `IStatSystem.GetEffectiveAttackPower = strength/2 + weaponBonus`
+This is **partly built already** *(as built: `Get(AttackPower)` = effective `Body` / 2 + modifiers, since combat-effective-scores)*: `IStatSystem.GetEffectiveAttackPower = strength/2 + weaponBonus`
 ([stat-system.md](../features/character-stats/character-stats.md)) is one derived score; `AttributesComponent` holds
 primaries; `PoolsComponent` holds pools. The model generalizes "one hardcoded derived stat" into
 "any `ScoreId` with a registered derive function." Strength is a *primary*, Damage and Speed are

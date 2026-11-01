@@ -82,13 +82,16 @@ recognizes a `MobDied` outcome), `AttributesComponent`/`PoolsComponent` from the
 `AscensionComponent { Tier }` when the resolved tier is positive (folded automatically by the shared
 `AscensionEffectContributor` — no bespoke tier-injection path), and `Learn` per ability-kit id.
 
-`AttackPower`/`Defense` are **computed** scores (`StatSystem.GetEffectiveAttackPower`/`GetEffectiveDefense`
-derive them from raw `Body`, not stored directly), so a reference build's gear-equivalent bonus on
-either folds through a synthetic **permanent** `StatModifier` effect via `IEffectSystem.Apply`
+`AttackPower`/`Defense` are **computed** scores (`StatSystem` derives them from effective `Body`, not
+stored directly), so a reference build's gear-equivalent bonus on either folds through a synthetic
+**permanent** `StatModifier` effect via `IEffectSystem.Apply`
 (`Duration: -1f` → `EffectLifetime.UntilRemoved`, `PowerScalingFormula: "fixed"`) — exactly the seam
 worn gear rides (`EquipmentEffectContributor`). `IStatSystem.Get` is the only path any value reaches
 a sandbox combatant; nothing is written straight onto a component the stat pipeline wouldn't also
-see for a live entity.
+see for a live entity. The residual is taken against **raw** `Body` on purpose: the tier baseline's
+`Body` then adds on top (computing it against effective `Body` would cancel the tier). Materialization
+ends by filling every pool to its effective cap (`IAttributeSystem.RestoreAllToFraction(…, 1.0)`), after
+tier, residuals and the ability kit are attached, so a tier or passive `HpMax` bonus starts full.
 
 ### Policies — pure, stateless, shared across concurrent worlds
 
@@ -145,9 +148,10 @@ capped at `TargetImprovements`. The run ends the moment the target is reached, o
 snapshot, read back through `IProgressionSystem.GetXp`/`GetImprovementCount` — never a bypass write).
 
 Three executors were considered for this slice; running full combat per kill was rejected on cost
-*and* on a discovered fidelity fact: the Ascension tier baseline currently has zero measurable effect
-on combat outcomes (the calibration gap below), so paying for simulated combat wouldn't buy the
-feedback loop it looks like it would. Re-deriving the award formula analytically was rejected outright
+*and* on a then-current fidelity fact: the tier baseline and accrued improvements had no effect on
+combat outcomes, so paying for simulated combat wouldn't have bought the feedback loop it looks like
+it would. (combat-effective-scores closed that mechanism gap; whether to move this executor onto real
+per-kill combat is now an open decision, not a blocked one.) Re-deriving the award formula analytically was rejected outright
 as a second copy of anti-grind/threshold math. See
 [`../../roadmap/completed/progression-rate-scenarios.md`](../../roadmap/completed/progression-rate-scenarios.md)
 for the full comparison.
@@ -276,17 +280,15 @@ identically whether the CLI or the editor wrote it — `List` never throws on an
   are lists/arrays; the compiler-generated `Equals` compares them by reference, not value. Tests that
   need "are these two reports the same" compare the scalar/`DistributionStats` fields and the
   verdicts' content directly — see `SimulationRunnerTests.AssertReportsEquivalent`.
-- **Known calibration gap (tracked, not fixed here):** the Ascension tier baseline currently has no
-  measurable effect on real combat outcomes — `AscensionEffectContributor` folds it onto `Body`/
-  `HpMax` via `IStatSystem.Get`, but `StatSystem.GetEffectiveAttackPower`/`GetEffectiveDefense` read
-  raw `Body`, and the combat HP/death check reads raw `PoolsComponent` values, never `Get(...)`. The
-  promoted one-band-higher CI invariant pins today's actual number (53% at the fixed seed) rather
-  than asserting the standards' 65% floor, which the mechanic can't currently clear. This is also why
-  sim-4's progression-rate executor sweeps `AwardCombatExperience` analytically rather than through
-  real simulated combat per kill — the feedback loop that would buy (accrued improvements changing
-  fight outcomes) is severed by this same gap, so paying for the honest fidelity wouldn't currently
-  measure anything. See
-  [`../../roadmap/backlog.md`](../../roadmap/backlog.md#-ascension-tier-baseline-has-no-real-combat-effect-calibration-gap-found-by-sim-2).
+- **Tier reaches combat; tuning is open:** until combat-effective-scores the tier baseline had no
+  combat effect (the real gaps were the derived scores' raw-`Body` base and combatants spawning at the
+  raw max — not the death check). Now `AscensionEffectContributor`'s `Body`/`HpMax` fold raises
+  attack, defense and starting HP, and the promoted one-band-higher CI invariant passes the standards'
+  65% floor (pinned 199/1 at seed 2026, N 200; it was 106/94). The *magnitude* of the tier step is
+  Phase 6 tier tuning, along with the oracle's projection asymmetry (it projects the baseline onto
+  `Body`/`HpMax` but not the derived scores). The sandbox executor reconciles pools after regen each
+  tick, mirroring the live `PoolReconcileTickHandler`. See
+  [`../../roadmap/backlog.md`](../../roadmap/backlog.md#-ascension-tier-tuning-and-the-tier-projection-gap).
 - **Scenario YAML storage:** `SimScenarioStore` reads, lists and writes through the shared
   `YamlDefinitionDirectory` (`Core/Systems/Definitions/`, help-topics WP1), keeping its own mapping
   and validation. **Acknowledged debt (carried from the seed):** the sandbox

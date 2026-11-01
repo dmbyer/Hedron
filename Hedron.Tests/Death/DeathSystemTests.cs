@@ -66,13 +66,13 @@ namespace Hedron.Tests.Death
             public int GetAttunement(uint id) => 10;
 
             // ── pool getters ────────────────────────────────────────────────────────
-            public int GetMaxHp(uint id)           => EnsurePool(id).MaxHp;
+            public int GetBaseMaxHp(uint id)           => EnsurePool(id).MaxHp;
             public int GetCurrentHp(uint id)       => EnsurePool(id).CurrentHp;
-            public int GetMaxMana(uint id)         => EnsurePool(id).MaxMana;
+            public int GetBaseMaxMana(uint id)         => EnsurePool(id).MaxMana;
             public int GetCurrentMana(uint id)     => EnsurePool(id).CurrentMana;
-            public int GetMaxStamina(uint id)      => EnsurePool(id).MaxStamina;
+            public int GetBaseMaxStamina(uint id)      => EnsurePool(id).MaxStamina;
             public int GetCurrentStamina(uint id)  => EnsurePool(id).CurrentStamina;
-            public int GetMaxAstra(uint id)        => EnsurePool(id).MaxAstra;
+            public int GetBaseMaxAstra(uint id)        => EnsurePool(id).MaxAstra;
             public int GetCurrentAstra(uint id)    => EnsurePool(id).CurrentAstra;
 
             // ── attribute setters (no-op for death tests) ──────────────────────────
@@ -109,6 +109,51 @@ namespace Hedron.Tests.Death
                 var p = EnsurePool(id);
                 p.CurrentAstra = Math.Clamp(v, 0, p.MaxAstra);
             }
+
+            // ── keyed pool seam (no modifiers in this stub: the cap is the stored max) ──
+            public int GetEffectiveMax(uint id, ResourceType pool) => pool switch
+            {
+                ResourceType.Hp => GetBaseMaxHp(id),
+                ResourceType.Mana => GetBaseMaxMana(id),
+                ResourceType.Stamina => GetBaseMaxStamina(id),
+                _ => GetBaseMaxAstra(id),
+            };
+            public int GetCurrent(uint id, ResourceType pool) => pool switch
+            {
+                ResourceType.Hp => GetCurrentHp(id),
+                ResourceType.Mana => GetCurrentMana(id),
+                ResourceType.Stamina => GetCurrentStamina(id),
+                _ => GetCurrentAstra(id),
+            };
+            public void SetCurrent(uint id, ResourceType pool, int v)
+            {
+                switch (pool)
+                {
+                    case ResourceType.Hp: SetCurrentHp(id, v); break;
+                    case ResourceType.Mana: SetCurrentMana(id, v); break;
+                    case ResourceType.Stamina: SetCurrentStamina(id, v); break;
+                    default: SetCurrentAstra(id, v); break;
+                }
+            }
+            public void SetMax(uint id, ResourceType pool, int v)
+            {
+                switch (pool)
+                {
+                    case ResourceType.Hp: SetMaxHp(id, v); break;
+                    case ResourceType.Mana: SetMaxMana(id, v); break;
+                    case ResourceType.Stamina: SetMaxStamina(id, v); break;
+                    default: SetMaxAstra(id, v); break;
+                }
+            }
+            public void RestoreToFraction(uint id, ResourceType pool, double fraction)
+                => SetCurrent(id, pool, (int)Math.Floor(GetEffectiveMax(id, pool) * fraction));
+            public void RestoreAllToFraction(uint id, double fraction)
+            {
+                foreach (var pool in new[] { ResourceType.Hp, ResourceType.Mana, ResourceType.Stamina, ResourceType.Astra })
+                    RestoreToFraction(id, pool, fraction);
+            }
+            public bool ReconcilePools(uint id) => false;
+            public int ReconcileAllPools() => 0;
 
             private sealed class PoolState
             {
@@ -848,5 +893,50 @@ namespace Hedron.Tests.Death
             Elapsed: 0f,
             Stacking: StackPolicy.Stack,
             Phase: EffectPhase.Normal);
+
+        // ── combat-effective-scores T13 — respawn restores a fraction of the effective cap ──
+
+        /// <summary>
+        /// Real <see cref="AttributeSystem"/> + <see cref="EffectSystem"/> (not the stubs), so the
+        /// respawn restore is measured against the effective cap after RemoveImpermanent.
+        /// </summary>
+        private static (DeathSystem system, EntityService ecs, EffectSystem effects, AttributeSystem attributes) BuildReal()
+        {
+            var ecs = new EntityService();
+            var effects = new EffectSystem(ecs, Array.Empty<IEffectContributor>());
+            var options = Options.Create(new DeathOptions { HpFloor = -10, RespawnPoolPercent = 0.25, BleedPerTick = 1 });
+            var attributes = new AttributeSystem(ecs, effects, options);
+            var system = new DeathSystem(
+                ecs, new EntityStateService(ecs), attributes, effects, new StubTemplateRegistry(),
+                new WorldConfiguration { StartingRoom = new ResolvedStartingRoom(1u, "start_room", StartingRoomSource.Configuration, null) },
+                options, Microsoft.Extensions.Logging.Abstractions.NullLogger<DeathSystem>.Instance);
+            return (system, ecs, effects, attributes);
+        }
+
+        [Fact]
+        public void Respawn_restores_percent_of_effective_max()
+        {
+            var (system, ecs, effects, attributes) = BuildReal();
+            var player = new EntityBuilder(ecs).AsPlayer().WithAttributes().WithPools(hp: 100).Build();
+            TestEffects.ApplyStatModifier(effects, player, ScoreId.HpMax, 40); // permanent
+            attributes.SetCurrentHp(player, -10);
+
+            system.Respawn(player);
+
+            Assert.Equal(35, attributes.GetCurrentHp(player)); // floor(140 * 0.25)
+        }
+
+        [Fact]
+        public void Respawn_cap_excludes_stripped_timed_buff()
+        {
+            var (system, ecs, effects, attributes) = BuildReal();
+            var player = new EntityBuilder(ecs).AsPlayer().WithAttributes().WithPools(hp: 100).Build();
+            TestEffects.ApplyStatModifier(effects, player, ScoreId.HpMax, 40, durationSeconds: 60f); // timed: stripped
+            attributes.SetCurrentHp(player, -10);
+
+            system.Respawn(player);
+
+            Assert.Equal(25, attributes.GetCurrentHp(player)); // floor(100 * 0.25)
+        }
     }
 }

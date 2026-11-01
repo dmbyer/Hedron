@@ -92,5 +92,34 @@ namespace Hedron.Tests.Simulation
 
             Assert.Equal(42, record.RunIndex);
         }
+
+        // ── combat-effective-scores T21 — sandbox reconcile parity ──────────────
+
+        [Fact]
+        public void Reconcile_runs_each_tick_and_preserves_determinism()
+        {
+            RunRecord Run(out int storedHp, out int cap)
+            {
+                var world = NewWorld(new FakeRandom(2026));
+                var a = NewMobCombatant(world, body: 10, hp: 1_000_000);
+                var b = NewMobCombatant(world, body: 10, hp: 1_000_000);
+                // A 2-second +500 HpMax buff, filled to the raised cap; it expires mid-run.
+                Hedron.Tests.Harness.TestEffects.ApplyStatModifier(world.Effects, a, Hedron.Core.Modules.Stats.ScoreId.HpMax, 500, durationSeconds: 2f);
+                world.Attributes.RestoreToFraction(a, ResourceType.Hp, 1.0);
+
+                var record = new CombatScenarioExecutor().ExecuteRun(
+                    world, a, b, new MeleeOnlyPolicy(), new MeleeOnlyPolicy(), maxTicksPerRun: 5, runIndex: 0);
+                storedHp = world.EntityService.Get<PoolsComponent>(a).CurrentHp;
+                cap = world.Attributes.GetEffectiveMax(a, ResourceType.Hp);
+                return record;
+            }
+
+            var first = Run(out var storedHp, out var cap);
+            var second = Run(out _, out _);
+
+            Assert.Equal(1_000_000, cap);       // the buff lapsed
+            Assert.True(storedHp <= cap);       // and the executor wrote the clamp back
+            Assert.Equal(first, second);        // reconcile draws nothing: same seed, same record
+        }
     }
 }

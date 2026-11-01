@@ -22,9 +22,11 @@ namespace Hedron.Tests.Simulation
 
             var report = runner.Run(scenario);
 
-            // Golden pin at (seed 2026, N 200): 106/94, no draws.
-            Assert.Equal(106, report.SideAWins);
-            Assert.Equal(94, report.SideBWins);
+            // Golden pin at (seed 2026, N 200): 110/90, no draws. Re-pinned by combat-effective-scores
+            // (was 106/94): both tier-2 sides now gain the tier Body in AttackPower/Defense and spawn
+            // full at the effective HpMax — symmetric, so the split stays within tolerance.
+            Assert.Equal(110, report.SideAWins);
+            Assert.Equal(90, report.SideBWins);
             Assert.Equal(0, report.Draws);
 
             var verdict = Assert.Single(report.Verdicts);
@@ -33,21 +35,16 @@ namespace Hedron.Tests.Simulation
         }
 
         /// <summary>
-        /// Known calibration gap (discovered 2026-07-15, first real-sim exercise of the tier
-        /// baseline): <c>AscensionEffectContributor</c> folds the tier baseline onto
-        /// <c>ScoreId.Body</c>/<c>HpMax</c> via <c>IStatSystem.Get</c>, but
-        /// <c>StatSystem.GetEffectiveAttackPower</c>/<c>GetEffectiveDefense</c> read the raw
-        /// <c>AttributesComponent.Body</c> (not <c>Get(Body)</c>), and combat's HP/death check reads
-        /// raw <c>PoolsComponent</c> values (not <c>Get(HpMax)</c>) — so a reference build's tier
-        /// baseline currently has <b>zero</b> effect on real combat outcomes; a one-tier-higher
-        /// build wins at the same rate as an equal-cell fight (pinned below at 53%, not the
-        /// standards' 65% floor). This is pre-existing shipped behavior, not a sim-2 regression —
-        /// pinning it (rather than asserting the aspirational floor) keeps this invariant honest
-        /// until a balance-tuning slice recalibrates either the contributor's tracked scores or the
-        /// floor itself. Tracked in <c>docs/roadmap/backlog.md</c>.
+        /// The tier baseline reaches combat (combat-effective-scores): <c>AscensionEffectContributor</c>
+        /// folds it onto <c>ScoreId.Body</c>/<c>HpMax</c>, and since that slice <c>StatSystem</c> derives
+        /// AttackPower/Defense from effective Body and combatants spawn full at the effective HpMax. Before
+        /// it the tier had zero combat effect (pinned 106/94, failing the floor); the one-tier-higher build
+        /// now wins almost every fight. The <i>magnitude</i> of the tier step is Phase 6 tier tuning
+        /// (<c>AscensionConstants</c>, the standards' floor) — this test pins today's measured outcome and
+        /// verdict, it does not assert a design target. Tracked in <c>docs/roadmap/backlog.md</c>.
         /// </summary>
         [Fact]
-        public void OneBandHigher_ReferenceBuild_WinRate_PinnedPendingBalanceTuning()
+        public void OneBandHigher_ReferenceBuild_WinRate_Pinned()
         {
             var runner = SimulationTestFixtures.NewRunner(new FakeClock());
             // (3,1) and (2,3) are the one global-band-index-apart pair that also crosses a tier
@@ -57,15 +54,14 @@ namespace Hedron.Tests.Simulation
 
             var report = runner.Run(scenario);
 
-            // Golden pin at (seed 2026, N 200): identical to the equal-cell split above — the
-            // tier gap currently changes nothing about the fight (see remarks above).
-            Assert.Equal(106, report.SideAWins);
-            Assert.Equal(94, report.SideBWins);
+            // Golden pin at (seed 2026, N 200): 199/1 (was 106/94 before combat-effective-scores).
+            Assert.Equal(199, report.SideAWins);
+            Assert.Equal(1, report.SideBWins);
             Assert.Equal(0, report.Draws);
 
             var verdict = Assert.Single(report.Verdicts);
             Assert.Equal("higherBandWinRateFloor", verdict.Name);
-            Assert.False(verdict.Passed, "expected to currently miss the 65% floor — see the calibration-gap remarks above");
+            Assert.True(verdict.Passed, verdict.Reason);
         }
 
         /// <summary>
@@ -83,8 +79,8 @@ namespace Hedron.Tests.Simulation
 
             var report = runner.Run(scenario, cancellationToken: CancellationToken.None, onRunCompleted: () => Interlocked.Increment(ref completed));
 
-            Assert.Equal(106, report.SideAWins);
-            Assert.Equal(94, report.SideBWins);
+            Assert.Equal(110, report.SideAWins);
+            Assert.Equal(90, report.SideBWins);
             Assert.Equal(0, report.Draws);
             Assert.Equal(200, completed);
         }

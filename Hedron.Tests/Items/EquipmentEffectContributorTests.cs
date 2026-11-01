@@ -122,8 +122,9 @@ namespace Hedron.Tests.Items
 
             // Base Body/2 = 5; contributor adds 6.
             Assert.Equal(11, stats.Get(wearer, ScoreId.AttackPower));
-            // The bare getter is base-only and must NOT see the gear bonus.
-            Assert.Equal(5, stats.GetEffectiveAttackPower(wearer));
+            // combat-effective-scores: the typed getter is now a thin wrapper over Get (deliberate
+            // semantic change — it used to be base-only), so it sees the gear bonus too.
+            Assert.Equal(11, stats.GetEffectiveAttackPower(wearer));
         }
 
         // ── T-U4 — Get(Defense) folds armor ─────────────────────────────────────
@@ -139,7 +140,8 @@ namespace Hedron.Tests.Items
 
             // Base Body/4 = 5; contributor adds 4.
             Assert.Equal(9, stats.Get(wearer, ScoreId.Defense));
-            Assert.Equal(5, stats.GetEffectiveDefense(wearer));
+            // combat-effective-scores: the typed getter wraps Get, so it includes the armor bonus.
+            Assert.Equal(9, stats.GetEffectiveDefense(wearer));
         }
 
         // ── T-U5 — GetActive emits one WhileEquipped StatModifier per row ───────

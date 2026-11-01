@@ -202,6 +202,8 @@ public class NotificationHandler : IEventHandler<PlayerDeathEvent>  { public int
 
 Priority is not a replacement for phased events — if ordering implies phases, split the event instead.
 
+**Use the named tiers** in `Core/Events/HandlerPriority.cs` — `State` (10), `Domain` (20), `Notification` (80), `OutputFlush` (85), `Persistence` (90), `Ai` (95) — never an arbitrary literal. **A between-tier value (`HandlerPriority.X + n`) is legitimate only for a mechanical follow-up of tier X with no observer of its own:** it must see every tier-X writer's result within the same event, and a phased event would add a type nothing else subscribes to. Precedent: `PoolReconcileTickHandler` at `Domain + 10` writes pool clamp-downs back after every p=20 heartbeat pool writer. If anything else must react to the follow-up, or both handlers carry game rules, split into a phased event instead.
+
 ### What to avoid
 
 **Single orchestration handler that calls every service in sequence.** Collapses the graph back into a procedural god-handler, reintroduces coupling the bus is meant to break, and contradicts [04-pitfalls.md#god-handlers](04-pitfalls.md#god-handlers). Don't use this pattern.

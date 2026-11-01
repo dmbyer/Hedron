@@ -12,7 +12,7 @@ The substrate is deliberately simple: all values are stored directly (no derivat
 
 The feature composes three cooperating layers:
 
-- **`IAttributeSystem`** owns the raw components — reads and writes `AttributesComponent` and `PoolsComponent` with `[0, max]` clamp invariants. It is the write seam that all other layers use when pool values must change. The full model is the [attribute-system design doc](attribute-system.md).
+- **`IAttributeSystem`** owns the raw components — reads and writes `AttributesComponent` and `PoolsComponent` with clamp invariants against each pool's effective cap (base max + `<Pool>Max` modifiers). It is the write seam that all other layers use when pool values must change. The full model is the [attribute-system design doc](attribute-system.md).
 
 - **`IStatSystem`** is the aggregation seam — reads base attributes and equipment bonuses, folds in active effect modifiers (`StatModifier` kind via `IEffectSystem.GetModifiers`), and exposes ready-to-use effective values via a `ScoreId`-keyed `Get(entityId, ScoreId)` call. Combat, the `score` command, ability cost checks, and the prompt all read through this seam. The full model is the [stat-system design doc](stat-system.md).
 
@@ -50,10 +50,10 @@ Pool maxima are base values set directly by character creation, mob templates, a
 
 | Score | Formula | Note |
 |---|---|---|
-| `AttackPower` | `Body / 2` base + worn-gear `AttackPower` bonuses | weapon bonuses fold in via the equipment effect contributor |
-| `Defense` | `Body / 4` base + worn-gear `Defense` bonuses | armor folds in via the contributor; dedicated evasion/armor score lands later |
+| `AttackPower` | effective `Body` / 2 + every `AttackPower` modifier, floored at 0 | weapon bonuses fold in via the equipment effect contributor |
+| `Defense` | effective `Body` / 4 + every `Defense` modifier, floored at 0 | armor folds in via the contributor; dedicated evasion/armor score lands later |
 
-The base values come from `IStatSystem.GetEffectiveAttackPower` / `GetEffectiveDefense`; the gear-inclusive values (used by combat and the `score` output) come from `IStatSystem.Get(AttackPower|Defense)`, which folds the worn-gear bonuses authored as `ItemDataComponent.StatBonuses`.
+Both derive from **effective** `Body`, so progression improvements, passives, buffs and the tier baseline raise them the same way worn gear does. Combat, the `score` command's `Attack`/`Defense` lines, and the relative-power read all use `IStatSystem.Get(AttackPower|Defense)` (the typed `GetEffectiveAttackPower`/`GetEffectiveDefense` are thin wrappers over it).
 
 ## Regeneration
 
@@ -76,7 +76,7 @@ Out-of-combat regeneration applies to all four pools each heartbeat tick. The ra
 ## Related
 
 - [`../../design/gameplay-model.md`](../../design/gameplay-model.md) — S1 design (§3 Substrate, R3 resources, R4 attributes); the upstream design this realizes.
-- [`../../architecture/checklist.md`](../../architecture/checklist.md) — INV-8 (clamp ownership), INV-5 (systems pure).
+- [`../../architecture/checklist.md`](../../architecture/checklist.md) — INV-5 (systems pure), INV-24 (contributions pulled on read; the effective cap is never stored).
 - [`../../roadmap/completed/slice-8a-attributes-and-vitals.md`](../../roadmap/completed/slice-8a-attributes-and-vitals.md) · [`../../roadmap/completed/slice-9c-stat-system.md`](../../roadmap/completed/slice-9c-stat-system.md) · [`../../roadmap/completed/slice-9d-stat-resource-substrate.md`](../../roadmap/completed/slice-9d-stat-resource-substrate.md) · [`../../roadmap/completed/slice-11c-resource-regeneration.md`](../../roadmap/completed/slice-11c-resource-regeneration.md) — as-built history and decisions.
 - **Effects** — [`../effects/effects.md`](../effects/effects.md) — `StatModifier` effects are folded into `IStatSystem.Get`; `Periodic` HP effects (regen/poison spells) write through `IAttributeSystem` independently of baseline regen.
-- **Combat** — `IStatSystem.GetEffectiveAttackPower` / `GetEffectiveDefense` are the combat round's stat inputs; `IAttributeSystem.SetCurrentHp` is the HP write seam.
+- **Combat** — `IStatSystem.Get(Body)` (hit roll), `Get(AttackPower)` and `Get(Defense)` are the combat round's stat inputs; `IAttributeSystem.SetCurrentHp` is the HP write seam (clamped to the effective cap).

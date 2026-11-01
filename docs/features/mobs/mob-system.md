@@ -19,7 +19,7 @@
 Every setter is **blueprint-keyed** (INV-21): it updates the in-memory `MobTemplate` **and every live world instance** of that blueprint (a `MobDataComponent` entity with a matching `BlueprintComponent`, never a `PersistentEntity`), and returns the number of instances updated (`0` is valid; `-1` means no such mob template). Callers (commands) write YAML after each mutation — the system does not call `IMobContentWriter` (INV-5).
 
 - `SetMobName` / `SetMobDescription` / `SetMobKeywords` / `SetMobType` — identity fields on `MobDataComponent`.
-- `SetAttribute(blueprintId, property, value)` (slice 8-a) — `AttributesComponent` / `PoolsComponent` (`level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra`); enforces the `CurrentX ≤ MaxX` clamp on each instance (INV-8).
+- `SetAttribute(blueprintId, property, value)` (slice 8-a) — `AttributesComponent` / `PoolsComponent` (`level`, `hp`, `mind`, `body`, `spirit`, `attunement`, `maxmana`, `maxstamina`, `maxastra`); pool maxima go through `IAttributeSystem.SetMax`, which writes the base and clamps each instance's current to its effective cap.
 - `SetMobProtection(blueprintId, ProtectionFlags)` (slice 12b) — `ProtectionComponent` added/updated when flags ≠ `None`, removed when `None`, plus `MobTemplate.Protection`. The gates that read it live in the combat and effects domains. See [mobs.md → Protection](mobs.md#protection-invulnerability--immunity).
 - `SetMobTier` / `SetMobBand` / `SetMobXpScale` — the Tier×Band tags and kill-XP scale on `MobDataComponent`.
 - `SetMobShop(blueprintId, isShop, …)` — adds/updates or removes `ShopComponent` (ensuring an `InventoryComponent`); till seeding stays with `ShopkeeperSpawnHandler`.

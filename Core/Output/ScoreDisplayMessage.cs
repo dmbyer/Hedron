@@ -28,7 +28,9 @@ namespace Hedron.Core.Output
         int MaxAstra,
         string? RespawnRoomBlueprintId = null,
         bool IsIncapacitated = false,
-        IReadOnlyDictionary<CurrencyId, long>? WalletBalances = null) : IOutputMessage
+        IReadOnlyDictionary<CurrencyId, long>? WalletBalances = null,
+        int AttackPower = 0,
+        int Defense = 0) : IOutputMessage
     {
         public OutputCategory Category => OutputCategory.Info;
     }

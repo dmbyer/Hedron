@@ -85,7 +85,9 @@ namespace Hedron.Core.Modules.Attributes.Commands
                 _statSystem.Get(entityId, ScoreId.AstraMax),
                 respawnRoomBlueprintId,
                 isIncapacitated,
-                walletBalances)).ConfigureAwait(false);
+                walletBalances,
+                AttackPower: _statSystem.Get(entityId, ScoreId.AttackPower),
+                Defense: _statSystem.Get(entityId, ScoreId.Defense))).ConfigureAwait(false);
         }
     }
 }

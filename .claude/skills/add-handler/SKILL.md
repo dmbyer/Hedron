@@ -34,17 +34,17 @@ Key properties:
 
 ## Picking a priority
 
-Priorities are coarse buckets (10/20/50/80/90/95). See [docs/architecture/03-events.md](../../../docs/architecture/03-events.md#handler-priority).
+Use the named tiers in `Core/Events/HandlerPriority.cs`: `State` (10), `Domain` (20), `Notification` (80), `OutputFlush` (85), `Persistence` (90), `Ai` (95). The rule (including when a between-tier value is legitimate) lives in [docs/architecture/03-events.md](../../../docs/architecture/03-events.md#intra-event-tie-breaking--handler-priority).
 
 - **Lower priority = runs earlier.**
 - State-mutating handlers (combat state changes, inventory moves) should run before notification handlers.
 
-If you find yourself reaching for a fine-grained priority (like 37), it's a sign you should split into a phased event instead.
+In short: a between-tier `HandlerPriority.X + n` only for a no-observer mechanical follow-up of tier X (precedent `PoolReconcileTickHandler`, `Domain + 10`); otherwise split into a phased event, and never use an arbitrary literal (like 37).
 
 ## Steps
 
 1. File location: `Core/Modules/<Feature>/Handlers/<X>Handler.cs`.
-2. Register the handler **type** in DI via the feature's `AddXModule(IServiceCollection)` extension (e.g. `Core/Modules/<Feature>/<Feature>Module.cs`). Then **subscribe** it to its event in the central event-handler wiring in `Server/Program.cs` — `bus.Subscribe<Event>(host.Services.GetRequiredService<XHandler>(), priority)` — alongside the other handler subscriptions, **not** in the module extension. (The bus is wired once per host in `Program.cs`; `CompositionRoot.Register` owns the pure DI registrations both hosts share, while bus subscription is a `Server`-host concern.)
+2. Register the handler **type** in DI via the feature's `AddXModule(IServiceCollection)` extension (e.g. `Core/Modules/<Feature>/<Feature>Module.cs`). Then **subscribe** it to its event in the central event-handler wiring in `Server/Program.cs` — `bus.Subscribe<Event>(host.Services.GetRequiredService<XHandler>())` (the bus reads the handler's own `Priority`) — alongside the other handler subscriptions, **not** in the module extension. (The bus is wired once per host in `Program.cs`; `CompositionRoot.Register` owns the pure DI registrations both hosts share, while bus subscription is a `Server`-host concern.)
 3. Inject only the systems you actually need.
 4. Update [docs/reference/handlers.md](../../../docs/reference/handlers.md) with a one-line row for the new handler.
 5. If this handler is the orchestrator for a use case, update the implementation-plan file's "Systems / handlers" section.

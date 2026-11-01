@@ -20,10 +20,11 @@ namespace Hedron.Core.Modules.Attributes.Systems
         // moving HpFloor to AttributeOptions or by eliminating the clamp from AttributeSystem
         // entirely (letting callers own the floor).
         //
-        // IEffectSystem is injected so that SetCurrentX pool setters clamp to the *effective* max
-        // (base pool max + active stat modifiers) rather than just the stored base max. This ensures
-        // that passive modifiers like toughness (+HpMax) are respected when healing or spending pools.
-        // AttributeSystem (domain) → IEffectSystem (core-tier) is a legal downward dependency.
+        // IEffectSystem is injected because this system owns each pool's *effective* cap (base pool
+        // max + active <Pool>Max modifiers, effects and contributors alike). Reads of current are
+        // clamped to it and writes clamp to it, so passive/progression/tier/gear max bonuses are
+        // respected everywhere. AttributeSystem (domain) -> IEffectSystem (core-tier) is a legal
+        // downward dependency; it must never depend on IStatSystem, which delegates its pool reads here.
         public AttributeSystem(EntityService entityService, IEffectSystem effectSystem, IOptions<DeathOptions> deathOptions)
         {
             _entityService = entityService;
@@ -46,29 +47,139 @@ namespace Hedron.Core.Modules.Attributes.Systems
         public int GetAttunement(uint entityId)
             => _entityService.TryGet<AttributesComponent>(entityId, out var a) ? a.Attunement : 10;
 
-        public int GetMaxHp(uint entityId)
-            => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.MaxHp : 100;
+        public int GetBaseMaxHp(uint entityId) => GetBaseMax(entityId, ResourceType.Hp);
+        public int GetCurrentHp(uint entityId) => GetCurrent(entityId, ResourceType.Hp);
+        public int GetBaseMaxMana(uint entityId) => GetBaseMax(entityId, ResourceType.Mana);
+        public int GetCurrentMana(uint entityId) => GetCurrent(entityId, ResourceType.Mana);
+        public int GetBaseMaxStamina(uint entityId) => GetBaseMax(entityId, ResourceType.Stamina);
+        public int GetCurrentStamina(uint entityId) => GetCurrent(entityId, ResourceType.Stamina);
+        public int GetBaseMaxAstra(uint entityId) => GetBaseMax(entityId, ResourceType.Astra);
+        public int GetCurrentAstra(uint entityId) => GetCurrent(entityId, ResourceType.Astra);
 
-        public int GetCurrentHp(uint entityId)
-            => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.CurrentHp : 100;
+        public int GetEffectiveMax(uint entityId, ResourceType pool)
+        {
+            var baseMax = GetBaseMax(entityId, pool);
+            var effective = baseMax + _effectSystem.GetModifiers(entityId, MaxScore(pool));
+            return Math.Max(baseMax > 0 ? 1 : 0, effective);
+        }
 
-        public int GetMaxMana(uint entityId)
-            => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.MaxMana : 50;
+        public int GetCurrent(uint entityId, ResourceType pool)
+            => Math.Min(GetStoredCurrent(entityId, pool), GetEffectiveMax(entityId, pool));
 
-        public int GetCurrentMana(uint entityId)
-            => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.CurrentMana : 50;
+        public void SetCurrent(uint entityId, ResourceType pool, int value)
+        {
+            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
+                return;
+            var floor = pool == ResourceType.Hp ? _hpFloor : 0;
+            var cap = GetEffectiveMax(entityId, pool);
+            WriteCurrent(p, pool, Math.Clamp(value, Math.Min(floor, cap), cap));
+        }
 
-        public int GetMaxStamina(uint entityId)
-            => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.MaxStamina : 50;
+        public void SetMax(uint entityId, ResourceType pool, int value)
+        {
+            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
+                return;
+            WriteMax(p, pool, value);
+            var cap = GetEffectiveMax(entityId, pool);
+            if (ReadCurrent(p, pool) > cap)
+                WriteCurrent(p, pool, cap);
+        }
 
-        public int GetCurrentStamina(uint entityId)
-            => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.CurrentStamina : 50;
+        public void RestoreToFraction(uint entityId, ResourceType pool, double fraction)
+            => SetCurrent(entityId, pool, (int)Math.Floor(GetEffectiveMax(entityId, pool) * fraction));
 
-        public int GetMaxAstra(uint entityId)
-            => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.MaxAstra : 10;
+        public void RestoreAllToFraction(uint entityId, double fraction)
+        {
+            foreach (var pool in AllPools)
+                RestoreToFraction(entityId, pool, fraction);
+        }
 
-        public int GetCurrentAstra(uint entityId)
-            => _entityService.TryGet<PoolsComponent>(entityId, out var p) ? p.CurrentAstra : 10;
+        public bool ReconcilePools(uint entityId)
+            => _entityService.TryGet<PoolsComponent>(entityId, out var p) && Reconcile(entityId, p) > 0;
+
+        public int ReconcileAllPools()
+        {
+            var corrected = 0;
+            foreach (var (entityId, p) in _entityService.GetAllComponents<PoolsComponent>())
+                corrected += Reconcile(entityId, p);
+            return corrected;
+        }
+
+        private int Reconcile(uint entityId, PoolsComponent p)
+        {
+            var corrected = 0;
+            foreach (var pool in AllPools)
+            {
+                var cap = GetEffectiveMax(entityId, pool);
+                if (ReadCurrent(p, pool) <= cap)
+                    continue;
+                WriteCurrent(p, pool, cap);
+                corrected++;
+            }
+            return corrected;
+        }
+
+        private static readonly ResourceType[] AllPools =
+            { ResourceType.Hp, ResourceType.Mana, ResourceType.Stamina, ResourceType.Astra };
+
+        private static ScoreId MaxScore(ResourceType pool) => pool switch
+        {
+            ResourceType.Hp      => ScoreId.HpMax,
+            ResourceType.Mana    => ScoreId.ManaMax,
+            ResourceType.Stamina => ScoreId.StaminaMax,
+            ResourceType.Astra   => ScoreId.AstraMax,
+            _ => throw new ArgumentOutOfRangeException(nameof(pool), pool, null),
+        };
+
+        // Defaults mirror PoolsComponent's initializers for entities with no component. Shared across
+        // the live world and parallel sim workers: read-only — never pass it to WriteCurrent/WriteMax.
+        private static readonly PoolsComponent Defaults = new();
+
+        private int GetBaseMax(uint entityId, ResourceType pool)
+            => ReadMax(_entityService.TryGet<PoolsComponent>(entityId, out var p) ? p : Defaults, pool);
+
+        private int GetStoredCurrent(uint entityId, ResourceType pool)
+            => ReadCurrent(_entityService.TryGet<PoolsComponent>(entityId, out var p) ? p : Defaults, pool);
+
+        private static int ReadMax(PoolsComponent p, ResourceType pool) => pool switch
+        {
+            ResourceType.Hp      => p.MaxHp,
+            ResourceType.Mana    => p.MaxMana,
+            ResourceType.Stamina => p.MaxStamina,
+            ResourceType.Astra   => p.MaxAstra,
+            _ => throw new ArgumentOutOfRangeException(nameof(pool), pool, null),
+        };
+
+        private static int ReadCurrent(PoolsComponent p, ResourceType pool) => pool switch
+        {
+            ResourceType.Hp      => p.CurrentHp,
+            ResourceType.Mana    => p.CurrentMana,
+            ResourceType.Stamina => p.CurrentStamina,
+            ResourceType.Astra   => p.CurrentAstra,
+            _ => throw new ArgumentOutOfRangeException(nameof(pool), pool, null),
+        };
+
+        private static void WriteMax(PoolsComponent p, ResourceType pool, int value)
+        {
+            switch (pool)
+            {
+                case ResourceType.Hp:      p.MaxHp = value; break;
+                case ResourceType.Mana:    p.MaxMana = value; break;
+                case ResourceType.Stamina: p.MaxStamina = value; break;
+                case ResourceType.Astra:   p.MaxAstra = value; break;
+            }
+        }
+
+        private static void WriteCurrent(PoolsComponent p, ResourceType pool, int value)
+        {
+            switch (pool)
+            {
+                case ResourceType.Hp:      p.CurrentHp = value; break;
+                case ResourceType.Mana:    p.CurrentMana = value; break;
+                case ResourceType.Stamina: p.CurrentStamina = value; break;
+                case ResourceType.Astra:   p.CurrentAstra = value; break;
+            }
+        }
 
         public void SetLevel(uint entityId, int value)
         {
@@ -100,72 +211,13 @@ namespace Hedron.Core.Modules.Attributes.Systems
                 a.Attunement = value;
         }
 
-        public void SetMaxHp(uint entityId, int value)
-        {
-            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
-                return;
-            p.MaxHp = value;
-            if (p.CurrentHp > p.MaxHp)
-                p.CurrentHp = p.MaxHp;
-        }
-
-        public void SetCurrentHp(uint entityId, int value)
-        {
-            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
-                return;
-            var effectiveMax = GetMaxHp(entityId) + _effectSystem.GetModifiers(entityId, ScoreId.HpMax);
-            p.CurrentHp = Math.Clamp(value, _hpFloor, effectiveMax);
-        }
-
-        public void SetMaxMana(uint entityId, int value)
-        {
-            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
-                return;
-            p.MaxMana = value;
-            if (p.CurrentMana > p.MaxMana)
-                p.CurrentMana = p.MaxMana;
-        }
-
-        public void SetCurrentMana(uint entityId, int value)
-        {
-            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
-                return;
-            var effectiveMax = GetMaxMana(entityId) + _effectSystem.GetModifiers(entityId, ScoreId.ManaMax);
-            p.CurrentMana = Math.Clamp(value, 0, effectiveMax);
-        }
-
-        public void SetMaxStamina(uint entityId, int value)
-        {
-            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
-                return;
-            p.MaxStamina = value;
-            if (p.CurrentStamina > p.MaxStamina)
-                p.CurrentStamina = p.MaxStamina;
-        }
-
-        public void SetCurrentStamina(uint entityId, int value)
-        {
-            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
-                return;
-            var effectiveMax = GetMaxStamina(entityId) + _effectSystem.GetModifiers(entityId, ScoreId.StaminaMax);
-            p.CurrentStamina = Math.Clamp(value, 0, effectiveMax);
-        }
-
-        public void SetMaxAstra(uint entityId, int value)
-        {
-            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
-                return;
-            p.MaxAstra = value;
-            if (p.CurrentAstra > p.MaxAstra)
-                p.CurrentAstra = p.MaxAstra;
-        }
-
-        public void SetCurrentAstra(uint entityId, int value)
-        {
-            if (!_entityService.TryGet<PoolsComponent>(entityId, out var p))
-                return;
-            var effectiveMax = GetMaxAstra(entityId) + _effectSystem.GetModifiers(entityId, ScoreId.AstraMax);
-            p.CurrentAstra = Math.Clamp(value, 0, effectiveMax);
-        }
+        public void SetMaxHp(uint entityId, int value) => SetMax(entityId, ResourceType.Hp, value);
+        public void SetCurrentHp(uint entityId, int value) => SetCurrent(entityId, ResourceType.Hp, value);
+        public void SetMaxMana(uint entityId, int value) => SetMax(entityId, ResourceType.Mana, value);
+        public void SetCurrentMana(uint entityId, int value) => SetCurrent(entityId, ResourceType.Mana, value);
+        public void SetMaxStamina(uint entityId, int value) => SetMax(entityId, ResourceType.Stamina, value);
+        public void SetCurrentStamina(uint entityId, int value) => SetCurrent(entityId, ResourceType.Stamina, value);
+        public void SetMaxAstra(uint entityId, int value) => SetMax(entityId, ResourceType.Astra, value);
+        public void SetCurrentAstra(uint entityId, int value) => SetCurrent(entityId, ResourceType.Astra, value);
     }
 }

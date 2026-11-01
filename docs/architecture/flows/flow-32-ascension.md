@@ -52,7 +52,7 @@ sequenceDiagram
 5. `AscendCommand` publishes `AscendedEvent(targetEntityId, NewTier, PreviousTier)` and `PlayerAscendedByAdminEvent(invokerEntityId, targetEntityId, NewTier)`, then writes a confirmation line to the invoker.
 6. `AscensionNarrationHandler` (priority 80) consumes `AscendedEvent` → writes "You ascend to Tier N." to the ascended player and broadcasts "X ascends to Tier N!" to the room.
 7. `AdminAuditHandler` (priority 80) consumes `PlayerAscendedByAdminEvent` → one structured audit log line.
-8. Later, on any read: `IStatSystem.Get(entity, score)` → `IEffectSystem.GetModifiers` sums the DI-collected `IEffectContributor`s, now including `AscensionEffectContributor`, which returns `TierBaselineStep × GetTier(entity)` for the score — fresh, uncached (INV-24).
+8. Later, on any read: `IStatSystem.Get(entity, score)` → `IEffectSystem.GetModifiers` sums the DI-collected `IEffectContributor`s, now including `AscensionEffectContributor`, which returns `TierBaselineStep × GetTier(entity)` for the score — fresh, uncached (INV-24). Since combat-effective-scores the fold reaches combat: effective `Body` raises the hit roll, `AttackPower` and `Defense`, and the effective `HpMax` cap governs fills, regen and respawn.
 
 ## Where to look
 

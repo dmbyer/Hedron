@@ -360,11 +360,42 @@ namespace Hedron.Tests.Progression
         /// as <c>SimCombatantFactory</c> materializes it), gathers the same ratio and produces the
         /// same award rows kill-for-kill at the same seed — including after the killer's own
         /// improvements move the ratio.
+        /// <para>
+        /// Tier 0 only since combat-effective-scores: at Tier 0 neither side carries a tier fold, so the
+        /// two compositions agree exactly. Above Tier 0 they deliberately diverge — see
+        /// <see cref="Above_tier_0_a_sandbox_combatant_reads_stronger_than_a_live_mob_of_the_same_tier"/>.
+        /// </para>
         /// </summary>
-        [Theory]
-        [InlineData(0)]
-        [InlineData(1)]
-        public void A_live_kill_and_a_sandbox_kill_of_the_same_pair_gather_the_same_ratio_and_rows(int victimTier)
+        [Fact]
+        public void A_live_kill_and_a_sandbox_kill_of_the_same_pair_gather_the_same_ratio_and_rows()
+        {
+            var (liveRatios, simRatios, liveRowsAll, simRowsAll, improved) = RunLiveAndSandboxKills(victimTier: 0);
+
+            Assert.Equal(liveRatios, simRatios);
+            Assert.Equal(liveRowsAll, simRowsAll);
+            Assert.True(improved, "the run must reach an improvement so the parity covers a moved ratio");
+        }
+
+        /// <summary>
+        /// Known tier gap (combat-effective-scores; tracked with Phase 6 tier tuning in
+        /// <c>docs/roadmap/backlog.md</c>). A live mob's tier lives on <c>MobDataComponent.Tier</c> and only
+        /// feeds the oracle, which projects the tier baseline onto Body/HpMax. A sandbox combatant's tier
+        /// rides <c>AscensionComponent</c>, folds onto Body/HpMax for real, and — since combat reads
+        /// effective Body — also raises AttackPower/Defense, which the oracle's projection does not. So a
+        /// sandbox tier-1 victim reads (and fights) stronger than a live tier-1 mob with the same stats.
+        /// Pinned so the gap is visible; closing it is Phase 6 (mob tier folding + the oracle projection).
+        /// </summary>
+        [Fact]
+        public void Above_tier_0_a_sandbox_combatant_reads_stronger_than_a_live_mob_of_the_same_tier()
+        {
+            var (liveRatios, simRatios, _, _, _) = RunLiveAndSandboxKills(victimTier: 1);
+
+            Assert.Equal(1.310880829015544, liveRatios[0], precision: 12);
+            Assert.Equal(1.4766839378238341, simRatios[0], precision: 12);
+        }
+
+        private static (List<double> LiveRatios, List<double> SimRatios, List<string> LiveRows, List<string> SimRows, bool Improved)
+            RunLiveAndSandboxKills(int victimTier)
         {
             const int seed = 2026;
             const int kills = 15; // crosses the first threshold on both tracks, so the ratio moves
@@ -410,19 +441,26 @@ namespace Hedron.Tests.Progression
             var simKiller = Materialize(0);
             var simVictim = Materialize(victimTier);
 
+            var liveRatios = new List<double>();
+            var simRatios = new List<double>();
+            var liveRowsAll = new List<string>();
+            var simRowsAll = new List<string>();
             for (var kill = 1; kill <= kills; kill++)
             {
                 var liveRatio = liveRelative.Relate(liveKiller, liveVictim).Ratio;
                 var simRatio = sandbox.RelativePower.Relate(simKiller, simVictim).Ratio;
-                Assert.Equal(liveRatio, simRatio);
+                liveRatios.Add(liveRatio);
+                simRatios.Add(simRatio);
 
+                // Each arm awards from its own ratio, so the rows track what each composition would pay.
                 var liveRows = liveProgression.AwardCombatExperience(liveKiller, liveVictim, liveRatio).Tracks;
                 var simRows = sandbox.Progression.AwardCombatExperience(simKiller, simVictim, simRatio).Tracks;
-                Assert.Equal(liveRows, simRows);
+                liveRowsAll.Add(string.Join(";", liveRows));
+                simRowsAll.Add(string.Join(";", simRows));
             }
 
-            Assert.True(liveProgression.GetImprovementCount(liveKiller, ScoreId.Body) >= 1,
-                "the run must reach an improvement so the parity covers a moved ratio");
+            return (liveRatios, simRatios, liveRowsAll, simRowsAll,
+                liveProgression.GetImprovementCount(liveKiller, ScoreId.Body) >= 1);
         }
 
         // ── Use-based sources (progression-use-based-xp) ──────────────────────────

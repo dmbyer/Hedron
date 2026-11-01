@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Hedron.Core.ECS;
 using Hedron.Core.ECS.Components;
+using Hedron.Core.Modules.Attributes.Systems;
 using Hedron.Core.Modules.Economy;
 using Hedron.Core.Modules.Mobs.Templates;
 using Hedron.Core.Modules.Shopping.Components;
@@ -14,15 +15,18 @@ namespace Hedron.Core.Modules.Mobs.Systems
     {
         private readonly EntityService _entityService;
         private readonly ITemplateRegistry _templateRegistry;
+        private readonly IAttributeSystem _attributeSystem;
         private readonly ILogger<MobBuilderSystem> _logger;
 
         public MobBuilderSystem(
             EntityService entityService,
             ITemplateRegistry templateRegistry,
+            IAttributeSystem attributeSystem,
             ILogger<MobBuilderSystem> logger)
         {
             _entityService = entityService;
             _templateRegistry = templateRegistry;
+            _attributeSystem = attributeSystem;
             _logger = logger;
         }
 
@@ -192,39 +196,23 @@ namespace Hedron.Core.Modules.Mobs.Systems
                     break;
                 case "hp":
                     onTemplate = t => t.MaxHp = value;
-                    onInstance = id =>
-                    {
-                        if (!_entityService.TryGet<PoolsComponent>(id, out var p)) return;
-                        p.MaxHp = value;
-                        if (p.CurrentHp > p.MaxHp) p.CurrentHp = p.MaxHp;
-                    };
+                    // Base max on the live instance; current clamps to the effective cap.
+                    onInstance = id => _attributeSystem.SetMax(id, ResourceType.Hp, value);
                     break;
                 case "maxmana":
                     onTemplate = t => t.MaxMana = value;
-                    onInstance = id =>
-                    {
-                        if (!_entityService.TryGet<PoolsComponent>(id, out var p)) return;
-                        p.MaxMana = value;
-                        if (p.CurrentMana > p.MaxMana) p.CurrentMana = p.MaxMana;
-                    };
+                    // Base max on the live instance; current clamps to the effective cap.
+                    onInstance = id => _attributeSystem.SetMax(id, ResourceType.Mana, value);
                     break;
                 case "maxstamina":
                     onTemplate = t => t.MaxStamina = value;
-                    onInstance = id =>
-                    {
-                        if (!_entityService.TryGet<PoolsComponent>(id, out var p)) return;
-                        p.MaxStamina = value;
-                        if (p.CurrentStamina > p.MaxStamina) p.CurrentStamina = p.MaxStamina;
-                    };
+                    // Base max on the live instance; current clamps to the effective cap.
+                    onInstance = id => _attributeSystem.SetMax(id, ResourceType.Stamina, value);
                     break;
                 case "maxastra":
                     onTemplate = t => t.MaxAstra = value;
-                    onInstance = id =>
-                    {
-                        if (!_entityService.TryGet<PoolsComponent>(id, out var p)) return;
-                        p.MaxAstra = value;
-                        if (p.CurrentAstra > p.MaxAstra) p.CurrentAstra = p.MaxAstra;
-                    };
+                    // Base max on the live instance; current clamps to the effective cap.
+                    onInstance = id => _attributeSystem.SetMax(id, ResourceType.Astra, value);
                     break;
                 default:
                     return 0;

@@ -272,27 +272,59 @@ Not a runtime "module" — balance math stays co-located with its owning system 
 
 The balance-simulator program's **sim-2 simulation engine** (`Core/Modules/Simulation/`, shipped) drives each actor's per-round choice through a **combatant-policy seam** (`ISimCombatantPolicy`). Sim-2 ships **simple built-in policies only** — `melee-only`, `round-robin`, `cooldown-first` — sufficient for balance sweeps against the current shallow combat model. When mob AI lands (threat tables, behavior trees — see [`../design/feature-horizon.md`](../design/feature-horizon.md) §6), a thin adapter binds the real `IAISystem` behind the same `ISimCombatantPolicy` seam so simulated combatants behave like live ones. Additive by construction (the seam exists from sim-2); premature before any `IAISystem` exists. Lands alongside or after the mob-AI slice.
 
-### 🔵 Ascension tier baseline has no real combat effect (calibration gap found by sim-2)
+### 🔵 Ascension tier tuning and the tier projection gap
 
-Discovered 2026-07-15, the first time the tier baseline was ever exercised through a real
-simulated fight (`SimulationInvariantTests.OneBandHigher_ReferenceBuild_WinRate_PinnedPendingBalanceTuning`,
-`Hedron.Tests/Simulation/`): `AscensionEffectContributor` folds the tier baseline onto
-`ScoreId.Body`/`HpMax` via `IStatSystem.Get` (`AscensionConstants.TrackedScores`), but
-`StatSystem.GetEffectiveAttackPower`/`GetEffectiveDefense` read the **raw** `AttributesComponent.Body`
-(not `Get(Body)`), and `CombatSystem`'s HP/death check reads the **raw** `PoolsComponent` values (not
-`Get(HpMax)`). So a reference build's tier baseline currently has **zero** measurable effect on real
-combat outcomes — a one-tier-higher reference build wins at the same rate as an equal-cell fight
-(pinned at 53% against a design-target 65% floor at the fixed CI seed). This is pre-existing shipped
-behavior (Ascension, prog-2/prog-3b), not a sim-2 regression; sim-2 pinned today's number rather than
-silently recalibrating `AscensionConstants`/`PowerBudgetTunables` or patching `StatSystem`, since
-either fix is a live-gameplay balance decision outside a plumbing slice's scope. A future
-balance-tuning slice must decide: (a) extend `AscensionConstants.TrackedScores`/the contributor so
-the baseline also folds into `AttackPower`/`Defense` (and reads `Get(HpMax)` for the death/pool
-check), or (b) recalibrate `HigherBandWinRateFloor` down to a value the current mechanic can actually
-clear, or (c) some combination. See [`completed/simulation-engine-core.md`](completed/simulation-engine-core.md)
-for the discovery record.
+**History.** Discovered 2026-07-15 by sim-2: the tier baseline had **zero** effect on real combat
+(a one-tier-higher reference build won 53% at the fixed CI seed against a 65% design floor). The
+*mechanism* was fixed in Phase 5 slice 5b ([`completed/combat-effective-scores.md`](completed/combat-effective-scores.md)):
+the real gaps were `StatSystem` deriving `AttackPower`/`Defense` from raw `Body`, and combatants spawning
+and respawning at the raw `HpMax` — not the death check. Combat now reads effective `Body` and the effective
+`HpMax` cap, so `AscensionEffectContributor`'s `Body`/`HpMax` fold changes fights. Discovery record:
+[`completed/simulation-engine-core.md`](completed/simulation-engine-core.md).
 
-**Update (Phase 5 slice 5 `/advise`, 2026-10-31).** The same mechanism also mutes **progression**: improvements folded onto `Body`/`HpMax` by `ProgressionEffectContributor` never reach a fight either. That undermines Tier-0 play, and it makes the effective-power `consider`/anti-grind read overstate a progressed character. The *mechanism* fix (combat reads `Get(...)` for attack power, defense and the HP/death check) is therefore pulled forward into a Phase 5 gap slice, `combat-effective-scores` ([program slice 5b](../implementation-plans/phase-5-content-baseline-program.md#slice-decomposition)). This entry narrows to the remaining **tier tuning** decision (options (a)–(c) above, minus the read repointing), which stays with Phase 6.
+**What remains (Phase 6, with Tier 1 content and the player-facing ascension trigger):**
+- **Tier step magnitude.** One tier up now wins almost every reference-build fight
+  (`SimulationInvariantTests.OneBandHigher_ReferenceBuild_WinRate_Pinned`: 199/1 at seed 2026, N 200;
+  2000-run sweep 98.9%, T1B1 vs T0B3 100%), and equal tier-2 fights end in ~15 ticks instead of ~44.
+  Tune `AscensionConstants.TierBaselineStep`/`TrackedScores` (and its mirror in the standards
+  tunables) and/or `HigherBandWinRateFloor` against Tier-1 content, under the `balance-tuning` skill.
+- **The oracle's tier projection asymmetry.** `PowerBudgetMath` projects the tier baseline onto the
+  tracked scores (`Body`/`HpMax`) only, but effective `Body` now also raises `AttackPower`/`Defense`.
+  Consequences: the oracle under-reads a tiered entity's real combat power, and a **sandbox** tier-1
+  combatant (tier folded via `AscensionComponent`) reads stronger than a **live** tier-1 mob (tier only
+  on `MobDataComponent.Tier`, oracle-projected). The live/sandbox ratio-parity test is pinned at Tier 0
+  and records the Tier-1 divergence (`ProgressionAwardFlowTests.Above_tier_0_a_sandbox_combatant_reads_stronger_than_a_live_mob_of_the_same_tier`).
+  Fix by projecting derived scores in the oracle, by folding live mob tier into combat stats, or both.
+- **Forward note — mob spawn fill.** A live mob's pools are filled at the template max in
+  `MobTemplate.Apply`, which equals the effective cap only because no modifier source exists at spawn.
+  The first slice that gives a spawning mob one (mob tier folding, mob gear, mob passives) must route
+  that fill through `IAttributeSystem.RestoreAllToFraction(…, 1.0)`.
+
+### 🔵 Collapse pool switches onto the keyed `IAttributeSystem` verbs (on-touch, from combat-effective-scores)
+
+combat-effective-scores added `ResourceType`-keyed pool verbs to `IAttributeSystem` (`GetEffectiveMax`,
+`GetCurrent`, `SetCurrent`, `SetMax`, `RestoreToFraction`, `ReconcilePools`) and kept the typed
+per-pool members as wrappers. Several callers still switch on `ResourceType`/pool `ScoreId` to pick a
+typed member: `AbilitySystem` (×2), `EffectTickHandler`, `AffectCommand`, `SetPlayerCommand`,
+`CooldownFirstPolicy`, `CombatScenarioExecutor.ApplyPeriodicMagnitude`. They are correct today (the
+wrappers route through the keyed verbs). **On-touch ratchet:** a slice that edits one of them
+collapses its switch onto the keyed verb. No dedicated slice.
+
+### 🔵 Ability/effect power on effective stats (deferred from combat-effective-scores, Phase 5 slice 5b)
+
+Phase 5 slice 5b ([`combat-effective-scores`](completed/combat-effective-scores.md)) makes melee and the pool caps read **effective** scores, so progression, passives, buffs and tier change fight outcomes. **Ability and effect potency are excluded:**
+- an offensive ability's `OffensivePower` (`kick`);
+- a buff's applied magnitude (`empower`).
+
+`EffectSystem` computes effect power from **base** stats on purpose, to keep `Effect → Stat` a DAG ([stat-system.md](../features/character-stats/stat-system.md), "Acyclic by construction"). So a character's `Body` improvements raise melee damage but not `kick` damage.
+
+**The deferred decision:** should ability and effect potency scale with effective attributes, and if so, how without the cycle? The likely shape is the anti-grind precedent ([progression-system.md](../features/progression/progression-system.md#anti-grind-ratio-is-supplied-by-the-caller)): the **caller gathers** the effective attribute through `IStatSystem` at the orchestration boundary (`AbilityInvocationPipeline`) and passes it into activation as an input, so `EffectSystem` stays stat-free.
+
+Deferred because:
+- it's a balance change to every offensive ability and buff, with its own sweep;
+- the shipped starter set (`kick`, `empower`, `toughness`) works acceptably on base stats for Tier-0 content.
+
+Revisit when the ability authoring pipeline lands or when balance closure (Phase 5 R24–R25) shows ability damage falling behind melee for progressed characters.
 
 ### 🔵 Live balance-standards reload (deferred from balance-standards-registry, sim-1)
 

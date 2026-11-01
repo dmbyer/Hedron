@@ -8,6 +8,7 @@ using Hedron.Core.Modules.Combat;
 using Hedron.Core.Modules.Combat.Systems;
 using Hedron.Core.Modules.Death;
 using Hedron.Core.Modules.Effects.Systems;
+using Hedron.Core.Modules.Stats;
 using Hedron.Core.Modules.Stats.Systems;
 using Hedron.Tests.Harness;
 using Microsoft.Extensions.Options;
@@ -501,6 +502,53 @@ namespace Hedron.Tests.Combat
                     $"INV-5: CombatSystem field '{field.Name}' is IEventBus — " +
                     "systems must never hold or publish to the event bus");
             }
+        }
+
+        // ── combat-effective-scores: the hit roll uses effective Body ───────────
+
+        /// <summary>
+        /// Attacker and defender Body 10: raw roll term 10/2 = 5, threshold 10 + 10/4 = 12.
+        /// A d20 of 6 misses on raw Body (11) but hits with a +4 Body modifier (6 + 14/2 = 13);
+        /// a d20 of 7 hits on raw Body (12) but misses with a -4 Body debuff (7 + 6/2 = 10).
+        /// </summary>
+        [Theory]
+        [InlineData(6, 0, false)]
+        [InlineData(6, 4, true)]
+        [InlineData(7, 0, true)]
+        [InlineData(7, -4, false)]
+        public void Hit_roll_uses_effective_Body(int d20, int bodyModifier, bool expectHit)
+        {
+            var ecs = new EntityService();
+            var effects = new EffectSystem(ecs, System.Array.Empty<IEffectContributor>());
+            var attributes = new AttributeSystem(ecs, effects, Options.Create(new DeathOptions { HpFloor = -10 }));
+            var combat = new CombatSystem(ecs, new StatSystem(attributes, effects), attributes, new AspectSystem(ecs), new FakeRandom(d20, 1));
+
+            var attacker = new EntityBuilder(ecs).AsPlayer().WithAttributes(body: 10).WithPools(hp: 100).Build();
+            var defender = new EntityBuilder(ecs).AsMob("rat").WithAttributes(body: 10).WithPools(hp: 100).Build();
+            if (bodyModifier != 0)
+                TestEffects.ApplyStatModifier(effects, attacker, ScoreId.Body, bodyModifier);
+
+            var result = combat.ExecuteRound(attacker, defender);
+
+            Assert.Equal(expectHit, result.AttackerHit);
+        }
+
+        [Fact]
+        public void ExecuteRound_does_not_throw_at_zero_attack_power()
+        {
+            var ecs = new EntityService();
+            var effects = new EffectSystem(ecs, System.Array.Empty<IEffectContributor>());
+            var attributes = new AttributeSystem(ecs, effects, Options.Create(new DeathOptions { HpFloor = -10 }));
+            var combat = new CombatSystem(ecs, new StatSystem(attributes, effects), attributes, new AspectSystem(ecs), new FakeRandom(20, 1));
+
+            var attacker = new EntityBuilder(ecs).AsPlayer().WithAttributes(body: 10).WithPools(hp: 100).Build();
+            var defender = new EntityBuilder(ecs).AsMob("rat").WithAttributes(body: 0).WithPools(hp: 100).Build();
+            TestEffects.ApplyStatModifier(effects, attacker, ScoreId.AttackPower, -50); // AttackPower floors at 0
+
+            var result = combat.ExecuteRound(attacker, defender);
+
+            Assert.True(result.AttackerHit);
+            Assert.Equal(1, result.DamageDealt); // Next(1, 0 + 2) → 1
         }
     }
 }

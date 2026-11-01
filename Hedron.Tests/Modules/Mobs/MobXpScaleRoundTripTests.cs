@@ -10,6 +10,7 @@ using Hedron.Core.Systems;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
+using Hedron.Tests.Harness;
 
 namespace Hedron.Tests.Modules.Mobs
 {
@@ -120,7 +121,7 @@ namespace Hedron.Tests.Modules.Mobs
 
             var registry = new TemplateRegistry(ecs);
             registry.Register(template.BlueprintId, template);
-            var builder = new MobBuilderSystem(ecs, registry, NullLogger<MobBuilderSystem>.Instance);
+            var builder = new MobBuilderSystem(ecs, registry, TestAttributes.Create(ecs), NullLogger<MobBuilderSystem>.Instance);
 
             builder.SetMobXpScale(template.BlueprintId, 3.0);
 

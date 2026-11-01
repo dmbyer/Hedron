@@ -1,3 +1,4 @@
+using Hedron.Core.ECS.Components;
 using Hedron.Core.Modules.Attributes.Systems;
 using Hedron.Core.Modules.Effects.Systems;
 
@@ -14,38 +15,38 @@ namespace Hedron.Core.Modules.Stats.Systems
             _effectSystem = effectSystem;
         }
 
-        public int GetEffectiveMind(uint entityId) => _attributes.GetMind(entityId);
-        public int GetEffectiveBody(uint entityId) => _attributes.GetBody(entityId);
-        public int GetEffectiveSpirit(uint entityId) => _attributes.GetSpirit(entityId);
-        public int GetEffectiveAttunement(uint entityId) => _attributes.GetAttunement(entityId);
-
-        // Base attack power only. Weapon (and all worn-gear) bonuses now ride the effect
-        // contributor folded by Get(ScoreId.AttackPower) — see EquipmentEffectContributor.
-        // Callers that need the gear-inclusive value MUST read Get(AttackPower), not this getter.
-        public int GetEffectiveAttackPower(uint entityId) => _attributes.GetBody(entityId) / 2;
-
-        public int GetEffectiveDefense(uint entityId) => _attributes.GetBody(entityId) / 4;
-
-        public int GetCurrentHp(uint entityId) => _attributes.GetCurrentHp(entityId);
+        public int GetEffectiveMind(uint entityId) => Get(entityId, ScoreId.Mind);
+        public int GetEffectiveBody(uint entityId) => Get(entityId, ScoreId.Body);
+        public int GetEffectiveSpirit(uint entityId) => Get(entityId, ScoreId.Spirit);
+        public int GetEffectiveAttunement(uint entityId) => Get(entityId, ScoreId.Attunement);
+        public int GetEffectiveAttackPower(uint entityId) => Get(entityId, ScoreId.AttackPower);
+        public int GetEffectiveDefense(uint entityId) => Get(entityId, ScoreId.Defense);
+        public int GetCurrentHp(uint entityId) => Get(entityId, ScoreId.HpCurrent);
         public int GetMaxHp(uint entityId) => Get(entityId, ScoreId.HpMax);
 
         public int Get(uint entityId, ScoreId score) => score switch
         {
-            ScoreId.Mind            => GetEffectiveMind(entityId) + _effectSystem.GetModifiers(entityId, score),
-            ScoreId.Body            => GetEffectiveBody(entityId) + _effectSystem.GetModifiers(entityId, score),
-            ScoreId.Spirit          => GetEffectiveSpirit(entityId) + _effectSystem.GetModifiers(entityId, score),
-            ScoreId.Attunement      => GetEffectiveAttunement(entityId) + _effectSystem.GetModifiers(entityId, score),
-            ScoreId.HpMax           => _attributes.GetMaxHp(entityId) + _effectSystem.GetModifiers(entityId, ScoreId.HpMax),
-            ScoreId.HpCurrent       => _attributes.GetCurrentHp(entityId),
-            ScoreId.ManaMax         => _attributes.GetMaxMana(entityId) + _effectSystem.GetModifiers(entityId, ScoreId.ManaMax),
-            ScoreId.ManaCurrent     => _attributes.GetCurrentMana(entityId),
-            ScoreId.StaminaMax      => _attributes.GetMaxStamina(entityId) + _effectSystem.GetModifiers(entityId, ScoreId.StaminaMax),
-            ScoreId.StaminaCurrent  => _attributes.GetCurrentStamina(entityId),
-            ScoreId.AstraMax        => _attributes.GetMaxAstra(entityId) + _effectSystem.GetModifiers(entityId, ScoreId.AstraMax),
-            ScoreId.AstraCurrent    => _attributes.GetCurrentAstra(entityId),
-            ScoreId.AttackPower     => GetEffectiveAttackPower(entityId) + _effectSystem.GetModifiers(entityId, score),
-            ScoreId.Defense         => GetEffectiveDefense(entityId) + _effectSystem.GetModifiers(entityId, score),
+            ScoreId.Mind            => _attributes.GetMind(entityId) + _effectSystem.GetModifiers(entityId, score),
+            ScoreId.Body            => _attributes.GetBody(entityId) + _effectSystem.GetModifiers(entityId, score),
+            ScoreId.Spirit          => _attributes.GetSpirit(entityId) + _effectSystem.GetModifiers(entityId, score),
+            ScoreId.Attunement      => _attributes.GetAttunement(entityId) + _effectSystem.GetModifiers(entityId, score),
+            ScoreId.HpMax           => _attributes.GetEffectiveMax(entityId, ResourceType.Hp),
+            ScoreId.HpCurrent       => _attributes.GetCurrent(entityId, ResourceType.Hp),
+            ScoreId.ManaMax         => _attributes.GetEffectiveMax(entityId, ResourceType.Mana),
+            ScoreId.ManaCurrent     => _attributes.GetCurrent(entityId, ResourceType.Mana),
+            ScoreId.StaminaMax      => _attributes.GetEffectiveMax(entityId, ResourceType.Stamina),
+            ScoreId.StaminaCurrent  => _attributes.GetCurrent(entityId, ResourceType.Stamina),
+            ScoreId.AstraMax        => _attributes.GetEffectiveMax(entityId, ResourceType.Astra),
+            ScoreId.AstraCurrent    => _attributes.GetCurrent(entityId, ResourceType.Astra),
+            ScoreId.AttackPower     => DerivedFromBody(entityId, score, divisor: 2),
+            ScoreId.Defense         => DerivedFromBody(entityId, score, divisor: 4),
             _                       => 0,
         };
+
+        // The derived scores' base comes from *effective* Body, so progression, passives, buffs and
+        // tier reach combat the same way worn gear already did. Floored at 0: a negative attack power
+        // would break the damage roll's range. No cycle — no contributor's backing system reads IStatSystem.
+        private int DerivedFromBody(uint entityId, ScoreId score, int divisor)
+            => System.Math.Max(0, Get(entityId, ScoreId.Body) / divisor + _effectSystem.GetModifiers(entityId, score));
     }
 }
