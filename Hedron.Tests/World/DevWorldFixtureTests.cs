@@ -20,66 +20,17 @@ namespace Hedron.Tests.World
     /// <summary>
     /// Fixture guard for the committed <c>content/dev-world/</c> (the primary playable baseline):
     /// it boots on its own manifest, the hub area is non-PvP, every room is placed on the grid,
-    /// and the room graph is strongly connected from the start (R6). Runs against a temp copy so
-    /// the loader can never write into the committed tree. Keeps paying as content drops grow it.
+    /// and the room graph is strongly connected from the start (R6). Runs against a temp copy (the shared
+    /// <see cref="DevWorldContentFixture"/>, booted once per class) so the loader can never
+    /// write into the committed tree. Keeps paying as content drops grow it.
     /// </summary>
-    public sealed class DevWorldFixtureTests : IDisposable
+    public sealed class DevWorldFixtureTests : IClassFixture<DevWorldContentFixture>
     {
-        private readonly string _tempDir;
+        private readonly DevWorldContentFixture _world;
 
-        public DevWorldFixtureTests()
+        public DevWorldFixtureTests(DevWorldContentFixture world)
         {
-            _tempDir = Path.Combine(Path.GetTempPath(), $"hedron-devworld-{Guid.NewGuid():N}");
-            CopyDirectory(Path.Combine(FindRepoRoot(), "content", "dev-world"), _tempDir);
-        }
-
-        public void Dispose()
-        {
-            if (Directory.Exists(_tempDir)) Directory.Delete(_tempDir, recursive: true);
-        }
-
-        private static string FindRepoRoot()
-        {
-            var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Hedron.sln")))
-                dir = dir.Parent;
-            return dir?.FullName ?? throw new InvalidOperationException("Hedron.sln not found above the test output.");
-        }
-
-        private static void CopyDirectory(string source, string destination)
-        {
-            Directory.CreateDirectory(destination);
-            foreach (var file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
-            {
-                var target = Path.Combine(destination, Path.GetRelativePath(source, file));
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                File.Copy(file, target);
-            }
-        }
-
-        private async Task<(TemplateRegistry Registry, WorldConfiguration Config)> BootAsync()
-        {
-            var ecs = new EntityService();
-            var registry = new TemplateRegistry(ecs);
-            var config = new WorldConfiguration();
-            // Deliberately a config id that exists nowhere: the start must come from the manifest.
-            var options = Options.Create(new WorldOptions
-            {
-                ContentDirectory = _tempDir,
-                StartingRoomBlueprintId = "room.not-in-dev-world",
-            });
-            var serializer = new YamlContentSerializer(new ITemplateDeserializer[]
-            {
-                new AreaTemplateDeserializer(NullLogger<AreaTemplateDeserializer>.Instance),
-                new RoomTemplateDeserializer(NullLogger<RoomTemplateDeserializer>.Instance),
-                new ItemTemplateDeserializer(NullLogger<ItemTemplateDeserializer>.Instance),
-                new MobTemplateDeserializer(NullLogger<MobTemplateDeserializer>.Instance),
-            });
-            var loader = new WorldContentLoader(
-                ecs, registry, serializer, new RoomContentWriter(options),
-                new WorldManifestStore(options), config, options, NullLogger<WorldContentLoader>.Instance);
-            await loader.LoadAndSpawnAsync();
-            return (registry, config);
+            _world = world;
         }
 
         private static List<RoomTemplate> Rooms(TemplateRegistry registry) =>
@@ -89,9 +40,9 @@ namespace Hedron.Tests.World
                 .ToList();
 
         [Fact]
-        public async Task DevWorld_starts_from_its_manifest_in_the_hub_square()
+        public void DevWorld_starts_from_its_manifest_in_the_hub_square()
         {
-            var (_, config) = await BootAsync();
+            var config = _world.Config;
 
             Assert.Equal(StartingRoomSource.Manifest, config.StartingRoom.Source);
             Assert.Equal("room.hub.square", config.StartingRoom.BlueprintId);
@@ -99,18 +50,18 @@ namespace Hedron.Tests.World
         }
 
         [Fact]
-        public async Task Hub_area_exists_and_is_not_pvp()
+        public void Hub_area_exists_and_is_not_pvp()
         {
-            var (registry, _) = await BootAsync();
+            var registry = _world.Registry;
 
             Assert.True(registry.TryGet("area.hub", out var template));
             Assert.False(Assert.IsType<AreaTemplate>(template).Pvp);
         }
 
         [Fact]
-        public async Task Every_room_has_grid_coordinates_and_there_is_no_void_room()
+        public void Every_room_has_grid_coordinates_and_there_is_no_void_room()
         {
-            var (registry, _) = await BootAsync();
+            var registry = _world.Registry;
             var rooms = Rooms(registry);
 
             Assert.NotEmpty(rooms);
@@ -120,9 +71,9 @@ namespace Hedron.Tests.World
         }
 
         [Fact]
-        public async Task Every_room_is_reachable_from_the_start_and_can_return()
+        public void Every_room_is_reachable_from_the_start_and_can_return()
         {
-            var (registry, config) = await BootAsync();
+            var (registry, config) = (_world.Registry, _world.Config);
             var rooms = Rooms(registry);
             var start = config.StartingRoom.BlueprintId!;
 
@@ -141,9 +92,9 @@ namespace Hedron.Tests.World
         }
 
         [Fact]
-        public async Task Hub_stays_undesignated_and_the_world_has_no_out_of_designation_placements()
+        public void Hub_stays_undesignated_and_the_world_has_no_out_of_designation_placements()
         {
-            var (registry, _) = await BootAsync();
+            var registry = _world.Registry;
 
             Assert.True(registry.TryGet("area.hub", out var hub));
             Assert.Null(Assert.IsType<AreaTemplate>(hub).Designation);

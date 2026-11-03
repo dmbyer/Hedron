@@ -151,6 +151,7 @@ A single `Hedron.Tests` project (xUnit) referencing `Core`, `Server` (for the DI
 | output capture | A fake `IOutputWriter`/transport that records messages by type and audience. |
 | in-memory SQLite helper | Spins up a `:memory:` database for round-trips. |
 | synthetic tick factory | Builds `HeartbeatTickEvent`s with controlled `TickId`/`Elapsed`. |
+| `DevWorldContentFixture` | xUnit class fixture over committed `content/dev-world/`: copies it once per class to a temp dir, boots it through the real `WorldContentLoader`, exposes the registry, `WorldConfiguration`, a `RegistryPlacementSource`, the profile-pinned balance standards and the band-drift audit. A **content-fixture guard** (not Tier 3): read-only over the registry. Consumers: `DevWorldFixtureTests`, `DevWorldConformanceTests`. |
 
 > The harness and the test project are stood up as a dedicated follow-up; this section is its spec. Until then, the strategy and invariants are in force for *new* work and the backfill is queued in [`../roadmap/backlog.md`](../roadmap/backlog.md).
 

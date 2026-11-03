@@ -100,7 +100,7 @@ The concrete keys and defaults live in the `appsettings.json` files and are not 
 | Situation | Set |
 |---|---|
 | Local development | nothing — data lives in the checkout's gitignored `data/` |
-| The dev-world baseline | `DOTNET_ENVIRONMENT=DevWorld` (committed profile: [`content/dev-world/`](content/dev-world/) + `data/dev-world.db`) |
+| The dev-world baseline | `DOTNET_ENVIRONMENT=DevWorld` (committed profile: [`content/dev-world/`](content/dev-world/) + `data/dev-world.db`, with its sim scenarios and balance standards pinned inside `content/dev-world/`) |
 | Your own world elsewhere on this machine | `HEDRON_Paths__DataDirectory=C:\hedron-world` (holds `content\`, `hedron.db`, …) |
 | A deployment / container | `HEDRON_Paths__DataDirectory=/var/hedron`, mounted as one volume |
 

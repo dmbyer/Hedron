@@ -34,6 +34,7 @@ Most slice coverage is Tier 1 + one Tier 3 flow. Reach for Tier 2 only where a h
 - `FakeClock : IClock` — settable `UtcNow` + `Advance(TimeSpan)` for deterministic time assertions.
 - output capture — a fake `IOutputWriter`/transport recording messages by type + audience (`RecordingOutput`).
 - `RecordingBroadcastSystem : IBroadcastSystem` — captures `SendToEntityAsync` / `SendToRoomAsync` / `SendToAllAsync` traffic without a session or output stack, so a notification handler can be asserted on *whether* a line was written and *to whom* without pinning its prose.
+- `DevWorldContentFixture` (`Hedron.Tests/World/`) — `IClassFixture` for any test over committed dev-world content: one temp copy + real-loader boot per class; registry, placement source, pinned standards, drift audit.
 - in-memory SQLite helper (`PersistenceTestHarness`) + synthetic `HeartbeatTickEvent` factory (`Ticks.At(id)`).
 - **counting filesystem reader** (`CountingFileReader`, local to `ContentDefinitionCatalogCacheTests`) — a pass-through `IContentFileReader` that counts directory sweeps and file reads, plus an `AfterGetFiles` hook for interleaving a write into the middle of a sweep. It is how the authoring catalog's cache behavior is asserted (*"a second `List` performs no filesystem read"*) without mutating a temp directory behind the catalog's back — the latter would assert *stale* behavior and freeze a design decision into a test. Still test-local; promote it into the shared harness at a second consumer.
 

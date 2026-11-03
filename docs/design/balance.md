@@ -42,7 +42,9 @@ system), **settings** = `appsettings.json` options.
 
 ### Balance-standards document — Category 2 (the primary tuning surface)
 
-`data/balance/standards.yaml` (path via `Balance:StandardsPath`), loaded/validated/saved by
+`data/balance/standards.yaml` (path via `Balance:StandardsPath`; the `DevWorld` profile pins it to the
+absent `content/dev-world/balance/standards.yaml`, so dev-world is graded against the compiled
+defaults everywhere — saving one there commits dev-world standards), loaded/validated/saved by
 `IBalanceStandardsStore`, served by `IBalanceStandardsRegistry`, authored on the Blazor
 **Standards page** (`/standards`). **Restart-to-apply** (composed into the oracle's constructor
 once at boot — see [live-reload deferral](../roadmap/backlog.md)). Compiled fallback:
