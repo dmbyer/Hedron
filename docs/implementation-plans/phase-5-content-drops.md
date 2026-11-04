@@ -1,6 +1,6 @@
 # Phase 5 content drops B1 → B2 → B3 (slices 6–8)
 
-- **Status:** planned (requirements + architecture brief + **B1 plan** — spec gate run 2026-11-01, all findings resolved in this doc — B1 ready for `implement-plan`; B2/B3 run off the checklist)
+- **Status:** `partial` — **B1 parked on a blocking gap** (2026-11-04). Work package 1 (guard, profile pins, docs) is done and green. Maintainer checkpoint 1 ran; see [Blocking finding](#blocking-finding-power-contribution-budget). Work packages 2–3 resume only after gap slice 5c ([`power-contribution-budget`](power-contribution-budget.md)) merges, in a **local desktop session with the browser pane** (D19: the editor is driven in the browser directly, never by scripts). B2/B3 run off the checklist.
 - **Actors:**
   - Administrator: the agent authoring through the real tooling, and the maintainer approving numbers and reviewing each drop.
   - Player: a fresh character walking the loop.
@@ -215,6 +215,44 @@ None. No events, handlers or contributors are added, and no heartbeat work chang
 **Advisor calls** *(cheap to veto at planning)*:
 - **A gap that blocks a drop parks the drop's branch.** The R30 slice lands on master first, and the drop rebases onto it. A gap with a real-surface workaround is logged and the drop continues.
 - **The guard derives its band list from designated hunting areas.** It doesn't hard-code B1–B3. B1 passes alone, and B2/B3 pass without editing the guard.
+
+## Blocking finding: power contribution budget
+
+*(Recorded 2026-11-04 at maintainer checkpoint 1. In-flight; moves to the B1 `completed/` record on ship.)*
+
+**The gap.** Item power is classified by putting the item's own stat bonuses on the whole-character scale, so every realistic Tier-0 item reads `(0,1)`:
+- B2 item tags drift by 1 band (inside tolerance, but the readout flags a mismatch);
+- B3 item tags drift by 2, which fails `BandDriftAuditIsClean`.
+
+The editor readout can't size gear at all. The maintainer widened the fix to one mechanism that balances character stats, skills/spells and gear together. It's gap slice **5c**, [`power-contribution-budget`](power-contribution-budget.md) (program R30), and it **blocks the drops**: B1 stays parked until it merges (advisor call: "a gap that blocks a drop parks the drop's branch").
+
+**Authoring environment (D19).** The drop must drive the Blazor editor **in the browser pane directly**. Playwright or other scripted driving doesn't count as the real tooling. A cloud session has no browser pane, so WP2–WP3 resume in a local desktop session. The telnet script (builder verbs, D27 walk) stays a scratchpad tool.
+
+**Checkpoint-1 decisions (maintainer, 2026-11-04):**
+1. **Graded B1 mobs are approved.** Easy mobs below the reference build are wanted: rat and snake read *easy*, wild dog and boar read *even*.
+   - The sim's equal-cell expectation (50% ± 10% win rate vs. the unarmed reference) is **considered too tight**. Better targets will be set through design ([backlog](../roadmap/backlog.md)).
+   - Until then, the easy mobs' advisory combat FAILs are expected and recorded as descriptive (D25).
+2. **The provisional numbers below stand as the proposal.** Mob stats and coin are approved in shape. **Gear stats and values are re-derived after 5c**, against the new per-item gear range. Spawn counts and delays stay provisional until checkpoint 2.
+
+**Provisional B1 derivation sheet** (from headless sim probes of candidate stat blocks; fresh character = 386 power; `(0,1)` = up to 425, and lower also reads Band 1):
+
+| Mob | Body / HP / Mind, Spirit, Attunement | Power (ratio → label) | Fresh unarmed win rate | Ticks per fight | Coin per kill | Slots, respawn |
+|---|---|---|---|---|---|---|
+| rat | 6 / 50 / 2 | 198 (0.51 → easy) | 100% | 22 | 3–6 | 3, 90 s |
+| snake | 8 / 70 / 4 | 280 (0.73 → easy) | 99.8% | 34 | 5–8 | 2, 120 s |
+| wild dog | 10 / 90 / 6 | 354 (0.92 → even) | 67.5% | 41 | 7–11 | 2, 180 s |
+| boar | 10 / 100 / 10 | 386 (1.00 → even) | 50% | 44 | 9–13 | 2, 240 s |
+
+- **XP scale** 1.0 for every mob.
+- **Shop pair:** short sword (+2 attack power, Value 35, buys for 70) and leather vest (+1 defense, chest slot, Value 25, buys for 50). The pair is the **120-coin** coin-to-upgrade target: about 15 kills at a mean of about 7.75 coin per kill, plus about 10 coin from selling junk.
+- **Found items:**
+  - junk: old bone (Value 2), chipped flint (3), scrap of hide (4), on 300 s respawns;
+  - gear: wooden club (+1 attack power, Value 10, 600 s), the D15 free weapon; padded gloves (+1 defense, Value 15, 900 s, deepest room).
+- **Gear effect** (vs. boar, sim): +1 attack power lifts the win rate from 50% to 73%, +2 gets 90%, and +2 attack with +1 defense gets 93%.
+- **Layout:**
+  - **Hub (9 rooms)** as an onboarding loop: Square (0,0) → North (0,1) → Training Yard (0,2) → Outfitting Lane (1,2) → General Store (2,2) → Market Lane (2,1) → Hub Gate (2,0) → East Road (1,0) → Square. Hub South (0,−1) covers death.
+  - **Band 1 Field (10 rooms):** a 3×3 grid at x 3–5 east of the Gate, plus a Far Edge (6,0) toward B2.
+  - **Shopkeeper:** a Vendor-type mob, `untargetable, effectimmune`, with a coin shop stocking two of each shop item.
 
 ## B1 drop plan (slice 6)
 
@@ -527,6 +565,7 @@ Each package is sized for one sub-agent. Work packages 2 and 3 are **authoring w
 
 ## Open questions
 
+- **Blocking: gap slice 5c** ([`power-contribution-budget`](power-contribution-budget.md)). Item gear can't be banded honestly until it ships; B1 WP2–WP3 wait on it (see [Blocking finding](#blocking-finding-power-contribution-budget)).
 - **Human-pass drop (user, later).** Which drop gets the maintainer's own authoring-friction note before the client-tier gate (requirements resolved decision 7)?
 - ~~**Reference build vs. fresh character (planner, B1).**~~ **Resolved (planner):** one subject, the `(0,1)` reference build, which under dev-world's standards *is* the ungeared fresh character. `melee-only` both sides. No `Inline` armed variant. See **B1 — Design notes (planner)**.
 - ~~**Guard extend vs. sibling (planner, B1).**~~ **Resolved (planner):** a sibling `DevWorldConformanceTests`, plus an extracted `DevWorldContentFixture` shared with `DevWorldFixtureTests`. See **B1 — Design notes (planner)**.
